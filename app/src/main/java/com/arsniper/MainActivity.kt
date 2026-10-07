@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.arsniper.ui.start.StartScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -24,11 +23,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                StartScreen(
-                    onStart = {
-                        // שלב 2: מעבר למסך הצילום
-                    }
-                )
+                AppNavigation()
             }
         }
     }
