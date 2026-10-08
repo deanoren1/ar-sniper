@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,28 +18,39 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.arsniper.audio.SoundPlayer
 import com.arsniper.data.PhotoRepository
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
-import com.arsniper.game.model.Enemy
+import com.arsniper.game.engine.ScoreManager
 import com.arsniper.game.model.Vec2
 import kotlinx.coroutines.delay
+
+private const val MAX_ENEMIES = 3
 
 @Composable
 fun GameScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
     val engine = remember { GameEngine() }
+    val scoreManager = remember { ScoreManager() }
+    val soundPlayer = remember { SoundPlayer(context) }
+
+    DisposableEffect(Unit) {
+        onDispose { soundPlayer.release() }
+    }
 
     // מיקום הכוונת (מנורמל, 0..1) וכיוון ה-joystick הנוכחי
     var crosshair by remember { mutableStateOf(Vec2(0.5f, 0.5f)) }
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
     var aspect by remember { mutableStateOf(2f) }
 
-    // אויב אחד בשלב הזה
+    // כמה אויבים במקביל, וניקוד
     var enemies by remember {
-        mutableStateOf(listOf(Enemy(id = 1, position = Vec2(0.65f, 0.45f))))
+        mutableStateOf(engine.replenish(emptyList(), MAX_ENEMIES, 2.2f))
     }
+    var score by remember { mutableStateOf(0) }
+    var hitCount by remember { mutableStateOf(0) }
     var showHit by remember { mutableStateOf(false) }
 
     // לולאת משחק: מעדכנת את הכוונת בכל פריים
@@ -55,11 +67,13 @@ fun GameScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    // הודעת HIT נעלמת אחרי כשנייה
-    LaunchedEffect(showHit) {
-        if (showHit) {
+    // אחרי פגיעה: HIT נשאר שנייה, ואז מושלמים אויבים חדשים
+    LaunchedEffect(hitCount) {
+        if (hitCount > 0) {
+            showHit = true
             delay(1000)
             showHit = false
+            enemies = engine.replenish(enemies, MAX_ENEMIES, aspect)
         }
     }
 
@@ -78,6 +92,13 @@ fun GameScreen(modifier: Modifier = Modifier) {
 
         CrosshairOverlay(position = Offset(crosshair.x, crosshair.y))
 
+        ScoreDisplay(
+            score = score,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        )
+
         HitIndicator(
             visible = showHit,
             modifier = Modifier
@@ -94,15 +115,18 @@ fun GameScreen(modifier: Modifier = Modifier) {
 
         FireButton(
             onClick = {
-                when (val result = engine.fire(crosshair, enemies, aspect)) {
+                soundPlayer.playShot()
+                val result = engine.fire(crosshair, enemies, aspect)
+                score = scoreManager.apply(score, result)
+                when (result) {
                     is FireResult.Hit -> {
                         enemies = enemies.map {
                             if (it.id == result.enemy.id) it.copy(isAlive = false) else it
                         }
-                        showHit = true
+                        hitCount += 1
                     }
                     is FireResult.Miss -> {
-                        // פספוס: לא קורה כלום
+                        // פספוס: רק צליל, בלי שינוי נוסף
                     }
                 }
             },
