@@ -1,6 +1,13 @@
 package com.arsniper.game.engine
 
+import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.Vec2
+
+/** תוצאת ירייה */
+sealed interface FireResult {
+    data class Hit(val enemy: Enemy) : FireResult
+    data object Miss : FireResult
+}
 
 /**
  * מנוע המשחק: Kotlin טהור, בלי תלות ב-Android.
@@ -28,5 +35,17 @@ class GameEngine(
             (current.x + dx).coerceIn(0f, 1f),
             (current.y + dy).coerceIn(0f, 1f)
         )
+    }
+
+    /** ירייה: מחזירה את האויב שנפגע, או Miss אם פספסנו */
+    fun fire(
+        crosshair: Vec2,
+        enemies: List<Enemy>,
+        aspect: Float
+    ): FireResult {
+        val target = enemies.firstOrNull {
+            it.isAlive && HitDetector.isHit(crosshair, it, aspect)
+        }
+        return if (target != null) FireResult.Hit(target) else FireResult.Miss
     }
 }
