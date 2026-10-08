@@ -25,7 +25,7 @@ class SoundPlayer(context: Context) {
         soundPool.setOnLoadCompleteListener { _, _, status ->
             loaded = (status == 0)
         }
-        shotId = soundPool.load(context, R.raw.shot, 1)
+        shotId = soundPool.load(context, R.raw.gunshot, 1)
     }
 
     fun playShot() {
