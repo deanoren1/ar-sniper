@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -30,7 +30,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     // מיקום הכוונת (מנורמל, 0..1) וכיוון ה-joystick הנוכחי
     var crosshair by remember { mutableStateOf(Vec2(0.5f, 0.5f)) }
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
-    var aspect by remember { mutableFloatStateOf(2f) }
+    var aspect by remember { mutableStateOf(2f) }
 
     // לולאת משחק: מעדכנת את הכוונת בכל פריים
     LaunchedEffect(Unit) {
