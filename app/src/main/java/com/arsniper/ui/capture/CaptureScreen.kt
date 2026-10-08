@@ -154,7 +154,7 @@ private fun CameraContent(
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
-                    CameraSelector.DEFAULT_FRONT_CAMERA,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
                     imageCapture
                 )
@@ -179,7 +179,7 @@ private fun CameraContent(
 
         if (cameraError) {
             Text(
-                text = "Could not open the front camera",
+                text = "Could not open the rear camera",
                 color = Color.White,
                 fontSize = 20.sp,
                 modifier = Modifier.align(Alignment.Center)
@@ -225,10 +225,9 @@ private fun takePhoto(
                     val rotation = image.imageInfo.rotationDegrees
                     val raw = image.toBitmap()
 
-                    // סיבוב לפי הכיוון + היפוך אופקי, כדי להתאים למה שנראה בתצוגה המקדימה
+                    // סיבוב לפי הכיוון (במצלמה האחורית אין צורך בהיפוך אופקי)
                     val matrix = Matrix().apply {
                         postRotate(rotation.toFloat())
-                        postScale(-1f, 1f)
                     }
                     val bitmap = Bitmap.createBitmap(
                         raw, 0, 0, raw.width, raw.height, matrix, true
