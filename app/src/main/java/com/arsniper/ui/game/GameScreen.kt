@@ -18,8 +18,11 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.arsniper.data.PhotoRepository
+import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
+import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.Vec2
+import kotlinx.coroutines.delay
 
 @Composable
 fun GameScreen(modifier: Modifier = Modifier) {
@@ -31,6 +34,12 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var crosshair by remember { mutableStateOf(Vec2(0.5f, 0.5f)) }
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
     var aspect by remember { mutableStateOf(2f) }
+
+    // אויב אחד בשלב הזה
+    var enemies by remember {
+        mutableStateOf(listOf(Enemy(id = 1, position = Vec2(0.65f, 0.45f))))
+    }
+    var showHit by remember { mutableStateOf(false) }
 
     // לולאת משחק: מעדכנת את הכוונת בכל פריים
     LaunchedEffect(Unit) {
@@ -46,6 +55,14 @@ fun GameScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // הודעת HIT נעלמת אחרי כשנייה
+    LaunchedEffect(showHit) {
+        if (showHit) {
+            delay(1000)
+            showHit = false
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -57,7 +74,16 @@ fun GameScreen(modifier: Modifier = Modifier) {
     ) {
         BackgroundLayer(photo = photo)
 
+        EnemyLayer(enemies = enemies)
+
         CrosshairOverlay(position = Offset(crosshair.x, crosshair.y))
+
+        HitIndicator(
+            visible = showHit,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 24.dp)
+        )
 
         Joystick(
             onMove = { joystick = it },
@@ -68,7 +94,17 @@ fun GameScreen(modifier: Modifier = Modifier) {
 
         FireButton(
             onClick = {
-                // שלב 6: בדיקת פגיעה
+                when (val result = engine.fire(crosshair, enemies, aspect)) {
+                    is FireResult.Hit -> {
+                        enemies = enemies.map {
+                            if (it.id == result.enemy.id) it.copy(isAlive = false) else it
+                        }
+                        showHit = true
+                    }
+                    is FireResult.Miss -> {
+                        // פספוס: לא קורה כלום
+                    }
+                }
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
