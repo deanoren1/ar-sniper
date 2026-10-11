@@ -13,10 +13,10 @@ sealed interface FireResult {
 
 /**
  * מנוע המשחק: Kotlin טהור, בלי תלות ב-Android.
- * הכוונת והאויבים בקואורדינטות מנורמלות (0..1) ביחס למסך.
+ * הכוונת והאויבים בקואורדינטות עולם מנורמלות (0..1) ביחס לתמונה.
  */
 class GameEngine(
-    /** מהירות מלאה: חלק מרוחב המסך בשנייה */
+    /** מהירות מלאה: חלק מרוחב העולם בשנייה (ב-zoom=1) */
     private val crosshairSpeed: Float = 0.4f,
     private val random: Random = Random.Default
 ) {
@@ -26,16 +26,19 @@ class GameEngine(
     /**
      * input: כיוון ה-joystick (-1..1 בכל ציר)
      * aspect: רוחב המסך חלקי גובהו, כדי שהמהירות תהיה זהה פיזית בשני הצירים
+     * zoom: ככל שמתקרבים, הכוונת איטית יותר (כיוון מדויק)
      */
     fun moveCrosshair(
         current: Vec2,
         input: Vec2,
         dtSeconds: Float,
-        aspect: Float
+        aspect: Float,
+        zoom: Float = 1f
     ): Vec2 {
         val dt = dtSeconds.coerceAtMost(0.05f)
-        val dx = input.x * crosshairSpeed * dt
-        val dy = input.y * crosshairSpeed * dt * aspect
+        val speed = crosshairSpeed / zoom.coerceAtLeast(1f)
+        val dx = input.x * speed * dt
+        val dy = input.y * speed * dt * aspect
         return Vec2(
             (current.x + dx).coerceIn(0f, 1f),
             (current.y + dy).coerceIn(0f, 1f)
