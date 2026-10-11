@@ -1,5 +1,6 @@
 package com.arsniper.ui.game
 
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,7 +15,10 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -23,10 +27,12 @@ import com.arsniper.data.PhotoRepository
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
 import com.arsniper.game.engine.ScoreManager
+import com.arsniper.game.model.GameCamera
 import com.arsniper.game.model.Vec2
 import kotlinx.coroutines.delay
 
 private const val MAX_ENEMIES = 3
+private const val ZOOM_STEP = 0.5f
 
 @Composable
 fun GameScreen(modifier: Modifier = Modifier) {
@@ -40,10 +46,11 @@ fun GameScreen(modifier: Modifier = Modifier) {
         onDispose { soundPlayer.release() }
     }
 
-    // מיקום הכוונת (מנורמל, 0..1) וכיוון ה-joystick הנוכחי
+    // הכוונת נשמרת בקואורדינטות עולם (0..1 ביחס לתמונה)
     var crosshair by remember { mutableStateOf(Vec2(0.5f, 0.5f)) }
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
     var aspect by remember { mutableStateOf(2f) }
+    var zoom by remember { mutableStateOf(1f) }
 
     // כמה אויבים במקביל, וניקוד
     var enemies by remember {
@@ -60,7 +67,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             withFrameNanos { now ->
                 if (lastFrameNanos != 0L) {
                     val dt = (now - lastFrameNanos) / 1_000_000_000f
-                    crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect)
+                    crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom)
                 }
                 lastFrameNanos = now
             }
@@ -77,6 +84,10 @@ fun GameScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // המצלמה עוקבת אחרי הכוונת, ובלי לצאת מגבולות התמונה
+    val camera = GameCamera.following(crosshair, zoom)
+    val crosshairOnScreen = camera.worldToScreen(crosshair)
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -85,17 +96,49 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     aspect = size.width.toFloat() / size.height.toFloat()
                 }
             }
+            .pointerInput(Unit) {
+                detectTransformGestures { _, _, zoomChange, _ ->
+                    zoom = (zoom * zoomChange)
+                        .coerceIn(GameCamera.MIN_ZOOM, GameCamera.MAX_ZOOM)
+                }
+            }
     ) {
-        BackgroundLayer(photo = photo)
+        // העולם: רקע ואויבים, מוגדלים ומוזזים יחד לפי המצלמה
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = camera.zoom
+                    scaleY = camera.zoom
+                    translationX = (0.5f - camera.center.x * camera.zoom) * size.width
+                    translationY = (0.5f - camera.center.y * camera.zoom) * size.height
+                }
+        ) {
+            BackgroundLayer(photo = photo)
+            EnemyLayer(enemies = enemies)
+        }
 
-        EnemyLayer(enemies = enemies)
-
-        CrosshairOverlay(position = Offset(crosshair.x, crosshair.y))
+        // הכוונת מצוירת במיקום המסך שלה
+        CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
 
         ScoreDisplay(
             score = score,
             modifier = Modifier
                 .align(Alignment.TopStart)
+                .padding(16.dp)
+        )
+
+        ZoomControls(
+            zoom = zoom,
+            onZoomIn = {
+                zoom = (zoom + ZOOM_STEP).coerceAtMost(GameCamera.MAX_ZOOM)
+            },
+            onZoomOut = {
+                zoom = (zoom - ZOOM_STEP).coerceAtLeast(GameCamera.MIN_ZOOM)
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
                 .padding(16.dp)
         )
 
