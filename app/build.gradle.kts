@@ -32,6 +32,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // קבצי מודל לא נדחסים, כדי שהספרייה תוכל לטעון אותם ישירות
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 dependencies {
@@ -45,4 +50,6 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.3.4")
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
+
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
 }
