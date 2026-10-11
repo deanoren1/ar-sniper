@@ -136,7 +136,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(top = 24.dp)
         )
 
-        // זום: מעל ה-joystick בצד שמאל, ממורכז אליו
+        // זום: שורה אופקית מעל ה-joystick, ממורכזת אליו (joystick: מרכז ב-134dp משמאל)
         ZoomControls(
             zoom = zoom,
             onZoomIn = {
@@ -147,7 +147,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             },
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 108.dp, bottom = 184.dp)
+                .padding(start = 56.dp, bottom = 184.dp)
         )
 
         Joystick(
