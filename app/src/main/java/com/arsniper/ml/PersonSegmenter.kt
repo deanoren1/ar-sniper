@@ -11,7 +11,7 @@ import com.google.mediapipe.tasks.vision.imagesegmenter.ImageSegmenter
 /**
  * מזהה אנשים בתמונה בעזרת MediaPipe (DeepLab-v3).
  * המודל עובד ברזולוציה נמוכה (257x257), ולכן מריצים אותו גם על כל התמונה
- * וגם על חלקים חופפים שלה, כדי לתפוס גם אנשים קטנים ורחוקים.
+ * וגם על חלקים חופפים בשני גדלים, כדי לתפוס גם אנשים קטנים ורחוקים.
  */
 class PersonSegmenter(context: Context) {
 
@@ -37,22 +37,24 @@ class PersonSegmenter(context: Context) {
         // מעבר על כל התמונה
         mergeTile(source, 0, 0, width, height, data)
 
-        // מעבר על חלקים ריבועיים חופפים (חפיפה של חצי)
-        val side = (minOf(width, height) * 0.6f).toInt().coerceAtLeast(64)
-        val stride = (side / 2).coerceAtLeast(1)
+        // מעברים על חלקים ריבועיים חופפים, בכמה גדלים
+        for (fraction in TILE_FRACTIONS) {
+            val side = (minOf(width, height) * fraction).toInt().coerceAtLeast(64)
+            val stride = (side * STRIDE_FRACTION).toInt().coerceAtLeast(1)
 
-        var y = 0
-        while (true) {
-            val tileTop = minOf(y, height - side)
-            var x = 0
+            var y = 0
             while (true) {
-                val tileLeft = minOf(x, width - side)
-                mergeTile(source, tileLeft, tileTop, side, side, data)
-                if (x + side >= width) break
-                x += stride
+                val tileTop = minOf(y, height - side)
+                var x = 0
+                while (true) {
+                    val tileLeft = minOf(x, width - side)
+                    mergeTile(source, tileLeft, tileTop, side, side, data)
+                    if (x + side >= width) break
+                    x += stride
+                }
+                if (y + side >= height) break
+                y += stride
             }
-            if (y + side >= height) break
-            y += stride
         }
 
         return PersonMask(width, height, data)
@@ -97,5 +99,11 @@ class PersonSegmenter(context: Context) {
 
         /** מספר הקטגוריה "אדם" במודל DeepLab-v3 (תיוג PASCAL VOC) */
         private const val PERSON_CLASS = 15
+
+        /** גודל החלקים, כחלק מהצלע הקצרה של התמונה */
+        private val TILE_FRACTIONS = floatArrayOf(0.6f, 0.3f)
+
+        /** מרחק בין חלקים סמוכים, כחלק מגודל החלק (נמוך = יותר חפיפה) */
+        private const val STRIDE_FRACTION = 0.7f
     }
 }
