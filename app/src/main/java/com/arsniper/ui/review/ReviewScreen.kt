@@ -32,14 +32,15 @@ import androidx.compose.ui.unit.sp
 import com.arsniper.data.PhotoRepository
 import com.arsniper.ml.PersonMask
 import com.arsniper.ml.PersonSegmenter
-import kotlin.math.roundToInt
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private class ReviewResult(
     val photo: ImageBitmap,
     val overlay: ImageBitmap,
-    val coveragePercent: Int
+    val coveragePercent: Float,
+    val seconds: Float
 )
 
 /**
@@ -90,8 +91,8 @@ fun ReviewScreen(
         val statusText = when {
             errorText != null -> "Analysis failed: $errorText"
             current == null -> "Analyzing photo..."
-            current.coveragePercent == 0 -> "No people detected"
-            else -> "People detected: ${current.coveragePercent}% of the photo (red)"
+            current.coveragePercent == 0f -> "No people detected (${formatSeconds(current.seconds)}s)"
+            else -> "People detected: ${formatPercent(current.coveragePercent)}% of the photo (red), ${formatSeconds(current.seconds)}s"
         }
 
         Text(
@@ -122,15 +123,22 @@ fun ReviewScreen(
     }
 }
 
+private fun formatPercent(value: Float): String = String.format(Locale.US, "%.1f", value)
+
+private fun formatSeconds(value: Float): String = String.format(Locale.US, "%.1f", value)
+
 private fun analyze(context: Context): ReviewResult {
+    val startNanos = System.nanoTime()
     val bitmap = PhotoRepository.load(context) ?: error("No photo found")
     val segmenter = PersonSegmenter(context)
     try {
         val mask = segmenter.detectPeople(bitmap)
+        val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
         return ReviewResult(
             photo = bitmap.asImageBitmap(),
             overlay = buildOverlay(mask).asImageBitmap(),
-            coveragePercent = (mask.coverage() * 100).roundToInt()
+            coveragePercent = mask.coverage() * 100f,
+            seconds = seconds
         )
     } finally {
         segmenter.close()
