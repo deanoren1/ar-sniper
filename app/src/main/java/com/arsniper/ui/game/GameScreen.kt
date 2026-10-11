@@ -129,6 +129,14 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(16.dp)
         )
 
+        HitIndicator(
+            visible = showHit,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 24.dp)
+        )
+
+        // זום: מעל ה-joystick בצד שמאל, ממורכז אליו
         ZoomControls(
             zoom = zoom,
             onZoomIn = {
@@ -138,15 +146,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 zoom = (zoom - ZOOM_STEP).coerceAtLeast(GameCamera.MIN_ZOOM)
             },
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        )
-
-        HitIndicator(
-            visible = showHit,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 24.dp)
+                .align(Alignment.BottomStart)
+                .padding(start = 108.dp, bottom = 184.dp)
         )
 
         Joystick(
