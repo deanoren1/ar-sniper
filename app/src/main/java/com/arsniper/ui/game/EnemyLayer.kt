@@ -58,12 +58,14 @@ fun EnemyLayer(
     }
 }
 
+/** מסכת הציור של המחבוא: לבן עם אלפא רכה (אחרי ליטוש הקצוות) */
 private fun buildMask(spot: HidingSpot): ImageBitmap {
-    val pixels = IntArray(spot.maskWidth * spot.maskHeight)
+    val alpha = spot.drawAlpha()
+    val pixels = IntArray(alpha.size)
     for (i in pixels.indices) {
-        pixels[i] = if (spot.mask[i]) -1 else 0 // לבן אטום או שקוף
+        pixels[i] = ((alpha[i].toInt() and 0xFF) shl 24) or 0x00FFFFFF
     }
-    return Bitmap.createBitmap(pixels, spot.maskWidth, spot.maskHeight, Bitmap.Config.ARGB_8888)
+    return Bitmap.createBitmap(pixels, spot.drawWidth, spot.drawHeight, Bitmap.Config.ARGB_8888)
         .asImageBitmap()
 }
 
@@ -76,10 +78,10 @@ private fun DrawScope.drawMonsterWithMask(
     insideOnly: Boolean
 ) {
     val mapper = scene.mapper
-    val left = mapper.worldX(spot.minX) * size.width
-    val top = mapper.worldY(spot.minY) * size.height
-    val right = mapper.worldX(spot.maxX) * size.width
-    val bottom = mapper.worldY(spot.maxY) * size.height
+    val left = mapper.worldX(spot.drawMinX) * size.width
+    val top = mapper.worldY(spot.drawMinY) * size.height
+    val right = mapper.worldX(spot.drawMaxX) * size.width
+    val bottom = mapper.worldY(spot.drawMaxY) * size.height
 
     drawIntoCanvas { canvas ->
         canvas.saveLayer(Rect(0f, 0f, size.width, size.height), Paint())
