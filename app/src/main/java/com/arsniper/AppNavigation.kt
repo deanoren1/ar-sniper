@@ -9,9 +9,10 @@ import androidx.compose.runtime.setValue
 import com.arsniper.ui.capture.CaptureScreen
 import com.arsniper.ui.game.GameScreen
 import com.arsniper.ui.review.ReviewScreen
+import com.arsniper.ui.scene.SceneScreen
 import com.arsniper.ui.start.StartScreen
 
-enum class Screen { Start, Capture, Review, Game }
+enum class Screen { Start, Capture, Review, Scene, Game }
 
 @Composable
 fun AppNavigation() {
@@ -26,9 +27,10 @@ fun AppNavigation() {
         Screen.Start -> StartScreen(onStart = { screen = Screen.Capture })
         Screen.Capture -> CaptureScreen(onPhotoCaptured = { screen = Screen.Review })
         Screen.Review -> ReviewScreen(
-            onContinue = { screen = Screen.Game },
+            onContinue = { screen = Screen.Scene },
             onRetake = { screen = Screen.Capture }
         )
+        Screen.Scene -> SceneScreen(onContinue = { screen = Screen.Game })
         Screen.Game -> GameScreen()
     }
 }
