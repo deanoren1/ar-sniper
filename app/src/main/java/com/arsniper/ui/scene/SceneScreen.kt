@@ -45,19 +45,24 @@ import kotlinx.coroutines.withContext
 
 private enum class ViewMode { Segmentation, Depth, Photo }
 
-private const val OVERLAY_WIDTH = 640
-
 /** צבע קבוע לכל קטגוריה (חצי-שקוף) */
 private val CLASS_COLORS = IntArray(150) { index ->
     AndroidColor.HSVToColor(150, floatArrayOf((index * 47 % 360).toFloat(), 0.75f, 0.95f))
 }
+
+/** עצמים שמעניינים אותנו להסתתרות: מציגים אותם במקרא גם אם הם תופסים אחוז זעיר */
+private val HIDING_CLASSES = listOf(
+    "windowpane", "door", "ashcan", "barrel", "box", "pole", "column",
+    "fence", "car", "truck", "van", "bus", "streetlight", "bench"
+)
 
 private class SceneView(
     val photo: ImageBitmap,
     val segmentation: ImageBitmap,
     val depth: ImageBitmap,
     val legend: List<String>,
-    val seconds: Float
+    val seconds: Float,
+    val tileCount: Int
 )
 
 /**
@@ -90,9 +95,13 @@ fun SceneScreen(
                 }
             }
 
-            statusText = "Analyzing scene (first run takes longer)..."
+            statusText = "Preparing scene analysis (first run takes longer)..."
             val outcome = withContext(Dispatchers.Default) {
-                runCatching { analyzeScene(context, modelFile) }
+                runCatching {
+                    analyzeScene(context, modelFile) { done, total ->
+                        statusText = "Analyzing scene: part $done of $total"
+                    }
+                }
             }
             outcome
                 .onSuccess { sceneView = it }
@@ -145,7 +154,7 @@ fun SceneScreen(
                         .padding(8.dp)
                 ) {
                     for (line in current.legend) {
-                        Text(text = line, color = Color.White, fontSize = 13.sp)
+                        Text(text = line, color = Color.White, fontSize = 12.sp)
                     }
                 }
             }
@@ -154,7 +163,8 @@ fun SceneScreen(
         val statusLine = when {
             errorText != null -> "Scene analysis failed: $errorText"
             current != null ->
-                "Scene analyzed in ${String.format(Locale.US, "%.1f", current.seconds)}s (GPU)"
+                "Scene analyzed in ${String.format(Locale.US, "%.1f", current.seconds)}s " +
+                    "(${current.tileCount} parts, GPU)"
             else -> statusText
         }
 
@@ -205,53 +215,65 @@ private fun ModeButton(
     ) { Text(label) }
 }
 
-private fun analyzeScene(context: Context, modelFile: File): SceneView {
+private fun analyzeScene(
+    context: Context,
+    modelFile: File,
+    onProgress: (done: Int, total: Int) -> Unit
+): SceneView {
     val startNanos = System.nanoTime()
     val photo = PhotoRepository.load(context) ?: error("No photo found")
 
     val segmenter = SceneSegmenter(modelFile)
-    val analysis: SceneAnalysis
-    try {
-        analysis = segmenter.analyze(photo)
+    val analysis = try {
+        segmenter.analyze(photo, onProgress)
     } finally {
         segmenter.close()
     }
     val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
 
-    val outWidth = OVERLAY_WIDTH
-    val outHeight = (OVERLAY_WIDTH.toFloat() * photo.height / photo.width)
-        .roundToInt()
-        .coerceAtLeast(1)
-
-    val legend = analysis.topClasses(8).map { (index, fraction) ->
-        "${Ade20kClasses.name(index)}  ${(fraction * 100).roundToInt()}%"
-    }
-
     return SceneView(
         photo = photo.asImageBitmap(),
-        segmentation = buildSegmentationOverlay(analysis, outWidth, outHeight).asImageBitmap(),
-        depth = buildDepthImage(analysis, outWidth, outHeight).asImageBitmap(),
-        legend = legend,
-        seconds = seconds
+        segmentation = buildSegmentationOverlay(analysis).asImageBitmap(),
+        depth = buildDepthImage(analysis).asImageBitmap(),
+        legend = buildLegend(analysis),
+        seconds = seconds,
+        tileCount = analysis.tileCount
     )
 }
 
-/** תמונה שקופה בגודל ובפרופורציות התמונה, עם צבע לכל סוג עצם */
-private fun buildSegmentationOverlay(analysis: SceneAnalysis, width: Int, height: Int): Bitmap {
-    val pixels = IntArray(width * height)
-    for (y in 0 until height) {
-        val ly = y * analysis.labelHeight / height
-        for (x in 0 until width) {
-            val lx = x * analysis.labelWidth / width
-            val label = analysis.labelIndex(ly * analysis.labelWidth + lx)
-            pixels[y * width + x] = CLASS_COLORS[label.coerceIn(0, CLASS_COLORS.size - 1)]
+/** מקרא: הקטגוריות הנפוצות, ומתחתן עצמים שמעניינים אותנו להסתתרות (גם אם זעירים) */
+private fun buildLegend(analysis: SceneAnalysis): List<String> {
+    val lines = ArrayList<String>()
+    for ((index, fraction) in analysis.topClasses(6)) {
+        lines.add("${Ade20kClasses.name(index)}  ${(fraction * 100).roundToInt()}%")
+    }
+    lines.add("-- hiding candidates --")
+    var foundAny = false
+    for (name in HIDING_CLASSES) {
+        val index = Ade20kClasses.NAMES.indexOf(name)
+        if (index < 0) continue
+        val fraction = analysis.fraction(index)
+        if (fraction > 0f) {
+            foundAny = true
+            lines.add("$name  ${String.format(Locale.US, "%.1f", fraction * 100f)}%")
         }
     }
-    return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+    if (!foundAny) lines.add("(none found)")
+    return lines
+}
+
+/** תמונה שקופה בפרופורציות התמונה, עם צבע לכל סוג עצם */
+private fun buildSegmentationOverlay(analysis: SceneAnalysis): Bitmap {
+    val pixels = IntArray(analysis.width * analysis.height)
+    for (i in pixels.indices) {
+        val label = analysis.labelIndex(i)
+        pixels[i] = CLASS_COLORS[label.coerceIn(0, CLASS_COLORS.size - 1)]
+    }
+    return Bitmap.createBitmap(pixels, analysis.width, analysis.height, Bitmap.Config.ARGB_8888)
 }
 
 /** מפת עומק באפור: בהיר = קרוב, כהה = רחוק */
-private fun buildDepthImage(analysis: SceneAnalysis, width: Int, height: Int): Bitmap {
+private fun buildDepthImage(analysis: SceneAnalysis): Bitmap {
     var minDepth = Float.MAX_VALUE
     var maxDepth = -Float.MAX_VALUE
     for (value in analysis.depth) {
@@ -261,16 +283,11 @@ private fun buildDepthImage(analysis: SceneAnalysis, width: Int, height: Int): B
     }
     val range = (maxDepth - minDepth).coerceAtLeast(1e-6f)
 
-    val pixels = IntArray(width * height)
-    for (y in 0 until height) {
-        val dy = y * analysis.depthHeight / height
-        for (x in 0 until width) {
-            val dx = x * analysis.depthWidth / width
-            val value = analysis.depth[dy * analysis.depthWidth + dx]
-            val t = ((value - minDepth) / range).coerceIn(0f, 1f)
-            val gray = ((1f - t) * 255f).roundToInt()
-            pixels[y * width + x] = AndroidColor.argb(255, gray, gray, gray)
-        }
+    val pixels = IntArray(analysis.width * analysis.height)
+    for (i in pixels.indices) {
+        val t = ((analysis.depth[i] - minDepth) / range).coerceIn(0f, 1f)
+        val gray = ((1f - t) * 255f).roundToInt()
+        pixels[i] = AndroidColor.argb(255, gray, gray, gray)
     }
-    return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+    return Bitmap.createBitmap(pixels, analysis.width, analysis.height, Bitmap.Config.ARGB_8888)
 }
