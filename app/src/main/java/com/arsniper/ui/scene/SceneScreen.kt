@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.data.PhotoRepository
+import com.arsniper.game.spots.GuideImage
 import com.arsniper.game.spots.HidingSpot
 import com.arsniper.game.spots.SpotKind
 import com.arsniper.ml.Ade20kClasses
@@ -47,6 +48,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private enum class ViewMode { Segmentation, Depth, Spots, Photo }
+
+/** כמה פעמים גבוהה מרשת הניתוח הרזולוציה של ליטוש הקצוות */
+private const val REFINE_SCALE = 3
 
 /** צבע קבוע לכל קטגוריה (חצי-שקוף) */
 private val CLASS_COLORS = IntArray(150) { index ->
@@ -247,11 +251,11 @@ private fun analyzeScene(
     } finally {
         segmenter.close()
     }
-    val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
 
-    // שומרים את הניתוח (ומוצאים מחבואים) בשביל מסך המשחק
-    SceneSession.set(analysis)
+    // שומרים את הניתוח (ומוצאים מחבואים ומלטשים את הקצוות שלהם) בשביל מסך המשחק
+    SceneSession.set(analysis, buildGuide(photo, analysis.width, analysis.height))
     val spots = SceneSession.spots
+    val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
 
     return SceneView(
         photo = photo.asImageBitmap(),
@@ -319,22 +323,61 @@ private fun buildDepthImage(analysis: SceneAnalysis): Bitmap {
 private val COVER_COLOR = AndroidColor.argb(170, 255, 140, 0)
 private val WINDOW_COLOR = AndroidColor.argb(170, 0, 200, 255)
 
-/** מסכת המחבואים שזוהו: כתום = מאחורי עצם, תכלת = חלון או דלת */
+/** תמונת אפור ברזולוציה גבוהה (פי REFINE_SCALE מהרשת), שעוזרת להצמיד קצוות לתמונה */
+private fun buildGuide(photo: Bitmap, gridWidth: Int, gridHeight: Int): GuideImage {
+    val width = gridWidth * REFINE_SCALE
+    val height = gridHeight * REFINE_SCALE
+    val scaled = Bitmap.createScaledBitmap(photo, width, height, true)
+    val pixels = IntArray(width * height)
+    scaled.getPixels(pixels, 0, width, 0, 0, width, height)
+    if (scaled !== photo) scaled.recycle()
+
+    val gray = ByteArray(width * height)
+    for (i in pixels.indices) {
+        val color = pixels[i]
+        val r = (color shr 16) and 0xFF
+        val g = (color shr 8) and 0xFF
+        val b = color and 0xFF
+        gray[i] = ((r * 299 + g * 587 + b * 114) / 1000).toByte()
+    }
+    return GuideImage(width, height, gray, REFINE_SCALE)
+}
+
+/**
+ * מסכת המחבואים שזוהו, ברזולוציה של הליטוש (כך רואים את הקצוות המלוטשים):
+ * כתום = מאחורי עצם, תכלת = חלון או דלת. שקיפות הקצה משקפת את האלפא הרכה.
+ */
 private fun buildSpotsOverlay(analysis: SceneAnalysis, spots: List<HidingSpot>): Bitmap {
-    val pixels = IntArray(analysis.width * analysis.height)
+    val width = analysis.width * REFINE_SCALE
+    val height = analysis.height * REFINE_SCALE
+    val pixels = IntArray(width * height)
     for (spot in spots) {
-        val color = if (spot.kind == SpotKind.WINDOW) WINDOW_COLOR else COVER_COLOR
-        for (localY in 0 until spot.maskHeight) {
-            for (localX in 0 until spot.maskWidth) {
-                if (spot.mask[localY * spot.maskWidth + localX]) {
-                    val x = spot.cellX + localX
-                    val y = spot.cellY + localY
-                    pixels[y * analysis.width + x] = color
+        val base = if (spot.kind == SpotKind.WINDOW) WINDOW_COLOR else COVER_COLOR
+        val maxAlpha = AndroidColor.alpha(base)
+        val red = AndroidColor.red(base)
+        val green = AndroidColor.green(base)
+        val blue = AndroidColor.blue(base)
+        val alpha = spot.drawAlpha()
+        // כמה פיקסלים של העל-מסכה מכסה כל פיקסל ציור
+        val ratio = REFINE_SCALE / spot.drawScale
+        for (ly in 0 until spot.drawHeight) {
+            for (lx in 0 until spot.drawWidth) {
+                val value = alpha[ly * spot.drawWidth + lx].toInt() and 0xFF
+                if (value == 0) continue
+                val color = AndroidColor.argb(maxAlpha * value / 255, red, green, blue)
+                val x0 = (spot.drawX + lx) * ratio
+                val y0 = (spot.drawY + ly) * ratio
+                for (dy in 0 until ratio) {
+                    for (dx in 0 until ratio) {
+                        val x = x0 + dx
+                        val y = y0 + dy
+                        if (x < width && y < height) pixels[y * width + x] = color
+                    }
                 }
             }
         }
     }
-    return Bitmap.createBitmap(pixels, analysis.width, analysis.height, Bitmap.Config.ARGB_8888)
+    return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
 }
 
 private fun buildSpotsLegend(spots: List<HidingSpot>): List<String> {
