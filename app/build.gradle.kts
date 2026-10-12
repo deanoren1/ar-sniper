@@ -33,9 +33,16 @@ android {
         compose = true
     }
 
-    // קבצי מודל לא נדחסים, כדי שהספרייה תוכל לטעון אותם ישירות
+    // קבצי מודל לא נדחסים, כדי שהספריות יוכלו לטעון אותם ישירות
     androidResources {
         noCompress += "tflite"
+    }
+
+    // כמה ספריות ML כוללות ספריית C++ משותפת; ממשיכים עם הראשונה שנמצאה
+    packaging {
+        jniLibs {
+            pickFirsts += "**/libc++_shared.so"
+        }
     }
 }
 
@@ -52,4 +59,5 @@ dependencies {
     implementation("androidx.camera:camera-view:1.3.4")
 
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    implementation("com.google.ai.edge.litert:litert:2.1.0")
 }
