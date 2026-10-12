@@ -18,6 +18,9 @@ object HidingSpotFinder {
     )
     private val WINDOW_NAMES = listOf("windowpane", "door")
 
+    /** עצמים דקים: לא מנקים בהם בליטות, כדי שלא יימחקו */
+    private val THIN_NAMES = listOf("pole", "streetlight", "fence", "column")
+
     /** רכיב קטן מזה (כחלק משטח התמונה) מתעלמים ממנו */
     private const val MIN_AREA_FRACTION = 0.0006f
 
@@ -39,6 +42,12 @@ object HidingSpotFinder {
         for (name in WINDOW_NAMES) {
             val index = Ade20kClasses.NAMES.indexOf(name)
             if (index >= 0) kindByLabel[index] = SpotKind.WINDOW
+        }
+
+        val thinByLabel = BooleanArray(256)
+        for (name in THIN_NAMES) {
+            val index = Ade20kClasses.NAMES.indexOf(name)
+            if (index >= 0) thinByLabel[index] = true
         }
 
         val minCells = max(20, (total * MIN_AREA_FRACTION).toInt())
@@ -112,10 +121,39 @@ object HidingSpotFinder {
             if (maskWidth.toFloat() / width > MAX_SIZE_FRACTION) continue
             if (maskHeight.toFloat() / height > MAX_SIZE_FRACTION) continue
 
-            val mask = BooleanArray(maskWidth * maskHeight)
+            val rawMask = BooleanArray(maskWidth * maskHeight)
             for (i in 0 until count) {
                 val position = queue[i]
-                mask[(position / width - minY) * maskWidth + (position % width - minX)] = true
+                rawMask[(position / width - minY) * maskWidth + (position % width - minX)] = true
+            }
+
+            // ניקוי: סוגר חורים, ממלא חורים קטנים, מסיר בליטות דקות
+            val cleaned = MaskTools.clean(rawMask, maskWidth, maskHeight, thinByLabel[label])
+            val cellX = if (cleaned != null) minX + cleaned.offsetX else minX
+            val cellY = if (cleaned != null) minY + cleaned.offsetY else minY
+            val useCleaned = cleaned != null &&
+                cellX >= 0 && cellY >= 0 &&
+                cellX + cleaned.width <= width && cellY + cleaned.height <= height &&
+                cleaned.count >= minCells
+            if (cleaned == null || cleaned.count < minCells) continue
+
+            val finalMask = if (useCleaned) cleaned.mask else rawMask
+            val finalWidth = if (useCleaned) cleaned.width else maskWidth
+            val finalHeight = if (useCleaned) cleaned.height else maskHeight
+            val finalX = if (useCleaned) cellX else minX
+            val finalY = if (useCleaned) cellY else minY
+
+            // עומק חציוני לפי התאים בפועל
+            var finalCount = 0
+            for (i in finalMask.indices) if (finalMask[i]) finalCount++
+            val cells = IntArray(finalCount)
+            var written = 0
+            for (ly in 0 until finalHeight) {
+                for (lx in 0 until finalWidth) {
+                    if (finalMask[ly * finalWidth + lx]) {
+                        cells[written++] = (finalY + ly) * width + (finalX + lx)
+                    }
+                }
             }
 
             found.add(
@@ -125,13 +163,13 @@ object HidingSpotFinder {
                     classIndex = label,
                     gridWidth = width,
                     gridHeight = height,
-                    cellX = minX,
-                    cellY = minY,
-                    maskWidth = maskWidth,
-                    maskHeight = maskHeight,
-                    mask = mask,
-                    cellCount = count,
-                    depth = medianDepth(analysis, queue, count)
+                    cellX = finalX,
+                    cellY = finalY,
+                    maskWidth = finalWidth,
+                    maskHeight = finalHeight,
+                    mask = finalMask,
+                    cellCount = finalCount,
+                    depth = medianDepth(analysis, cells, finalCount)
                 )
             )
         }
