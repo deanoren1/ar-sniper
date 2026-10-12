@@ -32,10 +32,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.data.PhotoRepository
+import com.arsniper.game.spots.HidingSpot
+import com.arsniper.game.spots.SpotKind
 import com.arsniper.ml.Ade20kClasses
 import com.arsniper.ml.ModelStore
 import com.arsniper.ml.SceneAnalysis
 import com.arsniper.ml.SceneSegmenter
+import com.arsniper.ml.SceneSession
 import java.io.File
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -43,7 +46,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class ViewMode { Segmentation, Depth, Photo }
+private enum class ViewMode { Segmentation, Depth, Spots, Photo }
 
 /** צבע קבוע לכל קטגוריה (חצי-שקוף) */
 private val CLASS_COLORS = IntArray(150) { index ->
@@ -61,6 +64,8 @@ private class SceneView(
     val segmentation: ImageBitmap,
     val depth: ImageBitmap,
     val legend: List<String>,
+    val spotsOverlay: ImageBitmap,
+    val spotsLegend: List<String>,
     val seconds: Float,
     val tileCount: Int
 )
@@ -83,6 +88,7 @@ fun SceneScreen(
     var viewMode by remember { mutableStateOf(ViewMode.Segmentation) }
 
     LaunchedEffect(Unit) {
+        SceneSession.clear()
         try {
             statusText = "Checking scene model..."
             val modelFile = ModelStore.ensureTipsModel(context) { downloaded, total ->
@@ -142,10 +148,21 @@ fun SceneScreen(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
+                ViewMode.Spots -> Image(
+                    bitmap = current.spotsOverlay,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
                 ViewMode.Photo -> Unit
             }
 
-            if (viewMode == ViewMode.Segmentation) {
+            val legendLines = when (viewMode) {
+                ViewMode.Segmentation -> current.legend
+                ViewMode.Spots -> current.spotsLegend
+                else -> emptyList()
+            }
+            if (legendLines.isNotEmpty()) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -153,7 +170,7 @@ fun SceneScreen(
                         .background(Color.Black.copy(alpha = 0.6f))
                         .padding(8.dp)
                 ) {
-                    for (line in current.legend) {
+                    for (line in legendLines) {
                         Text(text = line, color = Color.White, fontSize = 12.sp)
                     }
                 }
@@ -192,6 +209,7 @@ fun SceneScreen(
         ) {
             ModeButton("SEG", ViewMode.Segmentation, viewMode, current != null) { viewMode = it }
             ModeButton("DEPTH", ViewMode.Depth, viewMode, current != null) { viewMode = it }
+            ModeButton("SPOTS", ViewMode.Spots, viewMode, current != null) { viewMode = it }
             ModeButton("PHOTO", ViewMode.Photo, viewMode, current != null) { viewMode = it }
             Button(onClick = onContinue) { Text("CONTINUE") }
         }
@@ -231,11 +249,17 @@ private fun analyzeScene(
     }
     val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
 
+    // שומרים את הניתוח (ומוצאים מחבואים) בשביל מסך המשחק
+    SceneSession.set(analysis)
+    val spots = SceneSession.spots
+
     return SceneView(
         photo = photo.asImageBitmap(),
         segmentation = buildSegmentationOverlay(analysis).asImageBitmap(),
         depth = buildDepthImage(analysis).asImageBitmap(),
         legend = buildLegend(analysis),
+        spotsOverlay = buildSpotsOverlay(analysis, spots).asImageBitmap(),
+        spotsLegend = buildSpotsLegend(spots),
         seconds = seconds,
         tileCount = analysis.tileCount
     )
@@ -290,4 +314,38 @@ private fun buildDepthImage(analysis: SceneAnalysis): Bitmap {
         pixels[i] = AndroidColor.argb(255, gray, gray, gray)
     }
     return Bitmap.createBitmap(pixels, analysis.width, analysis.height, Bitmap.Config.ARGB_8888)
+}
+
+private val COVER_COLOR = AndroidColor.argb(170, 255, 140, 0)
+private val WINDOW_COLOR = AndroidColor.argb(170, 0, 200, 255)
+
+/** מסכת המחבואים שזוהו: כתום = מאחורי עצם, תכלת = חלון או דלת */
+private fun buildSpotsOverlay(analysis: SceneAnalysis, spots: List<HidingSpot>): Bitmap {
+    val pixels = IntArray(analysis.width * analysis.height)
+    for (spot in spots) {
+        val color = if (spot.kind == SpotKind.WINDOW) WINDOW_COLOR else COVER_COLOR
+        for (localY in 0 until spot.maskHeight) {
+            for (localX in 0 until spot.maskWidth) {
+                if (spot.mask[localY * spot.maskWidth + localX]) {
+                    val x = spot.cellX + localX
+                    val y = spot.cellY + localY
+                    pixels[y * analysis.width + x] = color
+                }
+            }
+        }
+    }
+    return Bitmap.createBitmap(pixels, analysis.width, analysis.height, Bitmap.Config.ARGB_8888)
+}
+
+private fun buildSpotsLegend(spots: List<HidingSpot>): List<String> {
+    val covers = spots.count { it.kind == SpotKind.COVER }
+    val windows = spots.count { it.kind == SpotKind.WINDOW }
+    val lines = ArrayList<String>()
+    lines.add("hiding spots: $covers cover (orange)")
+    lines.add("windows/doors: $windows (blue)")
+    for (spot in spots.take(8)) {
+        val depthText = if (spot.depth.isNaN()) "?" else String.format(Locale.US, "%.0f m", spot.depth)
+        lines.add("${Ade20kClasses.name(spot.classIndex)}  $depthText")
+    }
+    return lines
 }
