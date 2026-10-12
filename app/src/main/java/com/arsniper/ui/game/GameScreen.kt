@@ -26,12 +26,17 @@ import com.arsniper.audio.SoundPlayer
 import com.arsniper.data.PhotoRepository
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
+import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.ScoreManager
+import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.GameCamera
 import com.arsniper.game.model.Vec2
+import com.arsniper.game.model.WorldMapper
+import com.arsniper.ml.SceneSession
 import kotlinx.coroutines.delay
 
-private const val MAX_ENEMIES = 3
+/** מספר האויבים שפעילים במקביל */
+private const val TARGET_ENEMIES = 4
 private const val ZOOM_STEP = 0.5f
 
 @Composable
@@ -50,15 +55,34 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var crosshair by remember { mutableStateOf(Vec2(0.5f, 0.5f)) }
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
     var aspect by remember { mutableStateOf(2f) }
+    var sizeKnown by remember { mutableStateOf(false) }
     var zoom by remember { mutableStateOf(1f) }
 
-    // כמה אויבים במקביל, וניקוד
-    var enemies by remember {
-        mutableStateOf(engine.replenish(emptyList(), MAX_ENEMIES, 2.2f))
-    }
+    // אויבים, וניקוד
+    var enemies by remember { mutableStateOf(emptyList<Enemy>()) }
+    var scene by remember { mutableStateOf<SceneContext?>(null) }
     var score by remember { mutableStateOf(0) }
     var hitCount by remember { mutableStateOf(0) }
     var showHit by remember { mutableStateOf(false) }
+
+    // אחרי שגודל המסך ידוע: בונים את הסצנה (מחבואים לפי ניתוח התמונה) ויוצרים אויבים
+    LaunchedEffect(sizeKnown) {
+        if (sizeKnown) {
+            val analysis = SceneSession.analysis
+            val sceneContext = if (analysis != null) {
+                SceneContext(
+                    analysis = analysis,
+                    spots = SceneSession.spots,
+                    mapper = WorldMapper(analysis.width.toFloat() / analysis.height, aspect)
+                )
+            } else {
+                null
+            }
+            scene = sceneContext
+            engine.configure(sceneContext)
+            enemies = engine.replenish(emptyList(), TARGET_ENEMIES, aspect)
+        }
+    }
 
     // לולאת משחק: מעדכנת את הכוונת בכל פריים
     LaunchedEffect(Unit) {
@@ -68,6 +92,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 if (lastFrameNanos != 0L) {
                     val dt = (now - lastFrameNanos) / 1_000_000_000f
                     crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom)
+                    enemies = engine.update(enemies, dt)
                 }
                 lastFrameNanos = now
             }
@@ -80,7 +105,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             showHit = true
             delay(1000)
             showHit = false
-            enemies = engine.replenish(enemies, MAX_ENEMIES, aspect)
+            enemies = engine.replenish(enemies, TARGET_ENEMIES, aspect)
         }
     }
 
@@ -94,6 +119,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             .onSizeChanged { size ->
                 if (size.height > 0) {
                     aspect = size.width.toFloat() / size.height.toFloat()
+                    sizeKnown = true
                 }
             }
             .pointerInput(Unit) {
@@ -116,7 +142,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 }
         ) {
             BackgroundLayer(photo = photo)
-            EnemyLayer(enemies = enemies)
+            EnemyLayer(enemies = enemies, scene = scene)
         }
 
         // הכוונת מצוירת במיקום המסך שלה
