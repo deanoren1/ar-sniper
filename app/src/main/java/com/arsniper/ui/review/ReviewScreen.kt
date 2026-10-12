@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,10 +40,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.data.PhotoRepository
 import com.arsniper.ml.PersonMask
+import com.arsniper.ml.PersonRemover
 import com.arsniper.ml.PersonSegmenter
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class BrushMode { Add, Erase }
@@ -54,6 +57,7 @@ private val BRUSH_LABELS = arrayOf("S", "M", "L")
 private val OVERLAY_RED = AndroidColor.argb(150, 255, 0, 0)
 
 private class ReviewResult(
+    val bitmap: Bitmap,
     val photo: ImageBitmap,
     val mask: PersonMask,
     val overlay: Bitmap,
@@ -62,7 +66,8 @@ private class ReviewResult(
 
 /**
  * מסך בדיקה ועריכה אחרי הצילום: מציג את התמונה, מסמן באדום אנשים שזוהו,
- * ומאפשר להוסיף סימון (ADD) או למחוק סימון שגוי (ERASE).
+ * מאפשר להוסיף סימון (ADD) או למחוק סימון שגוי (ERASE),
+ * ומסיר את האנשים המסומנים (REMOVE).
  */
 @Composable
 fun ReviewScreen(
@@ -72,6 +77,7 @@ fun ReviewScreen(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
+    val scope = rememberCoroutineScope()
 
     var result by remember { mutableStateOf<ReviewResult?>(null) }
     var errorText by remember { mutableStateOf<String?>(null) }
@@ -80,6 +86,12 @@ fun ReviewScreen(
     var brushIndex by remember { mutableStateOf(1) }
     var boxWidth by remember { mutableStateOf(0) }
     var boxHeight by remember { mutableStateOf(0) }
+
+    // מצב ההסרה
+    var cleaned by remember { mutableStateOf<Bitmap?>(null) }
+    var removing by remember { mutableStateOf(false) }
+    var progressText by remember { mutableStateOf("") }
+    var removeInfo by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         val outcome = withContext(Dispatchers.Default) {
@@ -93,6 +105,7 @@ fun ReviewScreen(
     // ציור במיקום מגע: ממיר מקואורדינטות מסך לקואורדינטות תמונה (ContentScale.Crop)
     fun paintAt(position: Offset) {
         val current = result ?: return
+        if (removing || cleaned != null) return
         if (boxWidth == 0 || boxHeight == 0) return
 
         val imageWidth = current.mask.width
@@ -119,11 +132,50 @@ fun ReviewScreen(
         }
     }
 
+    // הסרת האנשים המסומנים, ברקע
+    fun startRemoval() {
+        val current = result ?: return
+        if (removing) return
+        removing = true
+        removeInfo = null
+        progressText = "Loading model..."
+
+        scope.launch {
+            val startNanos = System.nanoTime()
+            val outcome = withContext(Dispatchers.Default) {
+                runCatching {
+                    val remover = PersonRemover(context)
+                    try {
+                        val bitmap = remover.remove(current.bitmap, current.mask) { done, total ->
+                            progressText = "Removing people $done/$total"
+                        }
+                        Pair(bitmap, remover.usesGpu)
+                    } finally {
+                        remover.close()
+                    }
+                }
+            }
+            removing = false
+            outcome
+                .onSuccess { (bitmap, gpu) ->
+                    val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
+                    cleaned = bitmap
+                    removeInfo = "People removed in ${formatNumber(seconds)}s " +
+                        "(${if (gpu) "GPU" else "CPU"})"
+                }
+                .onFailure {
+                    removeInfo = "Removal failed: ${it.message ?: it}"
+                }
+        }
+    }
+
     val current = result
+    val cleanedBitmap = cleaned
     // עטיפה חדשה בכל שינוי, כדי ש-Compose יצייר מחדש את התמונה שהשתנתה
     val overlayImage = remember(current, overlayVersion) {
         current?.overlay?.asImageBitmap()
     }
+    val cleanedImage = remember(cleanedBitmap) { cleanedBitmap?.asImageBitmap() }
 
     Box(
         modifier = modifier
@@ -148,31 +200,39 @@ fun ReviewScreen(
     ) {
         if (current != null && overlayImage != null) {
             Image(
-                bitmap = current.photo,
+                bitmap = cleanedImage ?: current.photo,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-            Image(
-                bitmap = overlayImage,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (cleanedImage == null) {
+                Image(
+                    bitmap = overlayImage,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         val statusText = when {
             errorText != null -> "Analysis failed: $errorText"
             current == null -> "Analyzing photo..."
+            removing -> progressText
+            cleanedBitmap != null ->
+                "${removeInfo ?: "People removed"}\n" +
+                    "UNDO: restore the original · CONTINUE: play with this photo"
             else -> {
                 val percent = current.mask.coverage() * 100f
-                val detected = if (percent == 0f) {
+                val marked = if (percent == 0f) {
                     "No people marked"
                 } else {
                     "People marked: ${formatNumber(percent)}% of the photo"
                 }
-                "$detected (${formatNumber(current.seconds)}s)\n" +
-                    "ADD: paint people the model missed · ERASE: remove wrong marks"
+                val extra = removeInfo?.let { "\n$it" } ?: ""
+                "$marked (${formatNumber(current.seconds)}s)\n" +
+                    "ADD: paint missed people · ERASE: remove wrong marks · REMOVE: erase people" +
+                    extra
             }
         }
 
@@ -188,19 +248,21 @@ fun ReviewScreen(
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         )
 
-        if (current == null && errorText == null) {
+        if ((current == null && errorText == null) || removing) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
 
-        val editingEnabled = current != null
+        val editingEnabled = current != null && !removing && cleanedBitmap == null
+        val removeEnabled = current != null && !removing &&
+            (cleanedBitmap != null || current.mask.coverage() > 0f)
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp)
         ) {
-            Button(onClick = onRetake) { Text("RETAKE") }
+            Button(onClick = onRetake, enabled = !removing) { Text("RETAKE") }
 
             Button(
                 onClick = { mode = BrushMode.Add },
@@ -232,7 +294,28 @@ fun ReviewScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF616161))
             ) { Text("BRUSH ${BRUSH_LABELS[brushIndex]}") }
 
-            Button(onClick = onContinue) { Text("CONTINUE") }
+            Button(
+                onClick = {
+                    if (cleanedBitmap != null) {
+                        cleaned = null
+                        removeInfo = null
+                    } else {
+                        startRemoval()
+                    }
+                },
+                enabled = removeEnabled,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+            ) { Text(if (cleanedBitmap != null) "UNDO" else "REMOVE") }
+
+            Button(
+                onClick = {
+                    if (cleanedBitmap != null) {
+                        PhotoRepository.save(context, cleanedBitmap)
+                    }
+                    onContinue()
+                },
+                enabled = !removing
+            ) { Text("CONTINUE") }
         }
     }
 }
@@ -249,6 +332,7 @@ private fun analyze(context: Context): ReviewResult {
         refreshOverlay(overlay, mask, Rect(0, 0, mask.width, mask.height))
         val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
         return ReviewResult(
+            bitmap = bitmap,
             photo = bitmap.asImageBitmap(),
             mask = mask,
             overlay = overlay,
