@@ -291,6 +291,10 @@ class GameEngine(
             }
             newFeetY = mapper.worldY(newFeetPhoto)
             newRadius = radiusForFeet(newFeetY)
+            // דמות שהולכת לעבר המצלמה לא נהיית ענקית: מגיעה לגודל מקסימלי ומסתובבת בחזרה
+            if (enemy.dirY > 0f && newRadius * FIGURE_HEIGHT_RADII > MAX_WALK_HEIGHT) {
+                return enemy.copy(dirY = -1f)
+            }
         }
 
         val inEdgeBand = newX < EDGE_BAND || newX > 1f - EDGE_BAND
@@ -947,6 +951,9 @@ class GameEngine(
         /** כמה (בתמונה) מעל הנקודה הרחוקה ביותר עוד נחשב קצה רחוק של הרצפה */
         private const val FAR_BAND = 0.08f
         private const val FAR_PATH_STEPS = 4
+
+        /** גובה מקסימלי (חלק מגובה המסך) של דמות הולכת, כשהיא מתקרבת למצלמה */
+        private const val MAX_WALK_HEIGHT = 0.40f
 
         /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
         private const val GROUND_PROBE = 0.012f
