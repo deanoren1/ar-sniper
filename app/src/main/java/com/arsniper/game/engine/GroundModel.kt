@@ -1,12 +1,12 @@
 package com.arsniper.game.engine
 
-import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * מודל הקרקע של הסצנה, לפי הפרספקטיבה: על רצפה ישרה, גובה אדם בתמונה גדל ישר עם המרחק של הרגליים
  * מקו האופק: גובה = (1.7 / גובה המצלמה) * (y_רגליים - y_אופק), כשהכל ביחידות של גובה התמונה.
- * את קו האופק מוצאים מהעומק של פיקסלי הרצפה (1/עומק גדל לינארית עם y), ואם אין התאמה טובה: ברירת מחדל.
+ * את קו האופק מוצאים מהעומק של השורות הרחוקות של הרצפה, ואם אין מספיק רצפה: ברירת מחדל.
  * כך אדם רחוק (רגליים גבוהות במסך) קטן באמת, ואדם קרוב גדול, בלי להסתמך על עומק רועש בנקודה אחת.
  */
 class GroundModel(
@@ -29,7 +29,7 @@ class GroundModel(
         private const val DEFAULT_CAMERA_HEIGHT = 1.5f
 
         /** אורך מוקד משוער של מצלמת טלפון ביחידות של גובה תמונה */
-        private const val FOCAL = 1.0f
+        private const val FOCAL = 1.1f
 
         private const val ROWS = 48
         private const val COLUMNS = 64
@@ -57,37 +57,17 @@ class GroundModel(
             }
             if (ys.size < 6) return default()
 
-            // Theil-Sen: חציון השיפועים בין כל זוגות השורות
-            val slopes = ArrayList<Float>()
-            for (i in ys.indices) {
-                for (j in i + 1 until ys.size) {
-                    val dy = ys[j] - ys[i]
-                    if (dy >= 0.05f) slopes.add((inv[j] - inv[i]) / dy)
-                }
-            }
-            if (slopes.isEmpty()) return default()
-            slopes.sort()
-            val a = slopes[slopes.size / 2]
-            if (a < 0.01f) return default()
-            val offsets = ArrayList<Float>()
-            for (i in ys.indices) offsets.add(inv[i] - a * ys[i])
-            offsets.sort()
-            val b = offsets[offsets.size / 2]
-            val horizon = -b / a
-            if (horizon < -0.4f || horizon > 0.75f) return default()
-
-            // התאמה טובה: רוב השורות קרובות לקו
-            val maxInv = inv.max()
-            var good = 0
-            for (i in ys.indices) {
-                if (abs(inv[i] - (a * ys[i] + b)) <= 0.15f * maxInv) good++
-            }
-            if (good * 10 < ys.size * 6) return default()
-
-            // גובה מצלמה: מהשיפוע (1/עומק = (y - אופק) / (F * H)), מעורבב עם ברירת המחדל כדי לרסן שגיאות
-            val estimated = 1f / (a * FOCAL)
-            val camera = ((estimated + DEFAULT_CAMERA_HEIGHT) / 2f).coerceIn(1.1f, 1.9f)
-            return GroundModel(horizon, camera, true)
+            // קו האופק לפי השורות הרחוקות ביותר של הרצפה: שם (y - אופק) קטן מאוד, ולכן הערכה
+            // כמעט לא רגישה לשגיאות בקנה המידה של העומק. y - אופק = F * H / עומק.
+            val farCount = max(3, ys.size / 3)
+            val estimates = ArrayList<Float>()
+            for (i in 0 until farCount) estimates.add(ys[i] - FOCAL * DEFAULT_CAMERA_HEIGHT * inv[i])
+            estimates.sort()
+            var horizon = estimates[estimates.size / 2]
+            // הרצפה נמצאת מתחת לאופק, אף פעם לא מעליו
+            horizon = min(horizon, ys[0] - 0.01f)
+            horizon = max(horizon, -0.4f)
+            return GroundModel(horizon, DEFAULT_CAMERA_HEIGHT, true)
         }
     }
 }
