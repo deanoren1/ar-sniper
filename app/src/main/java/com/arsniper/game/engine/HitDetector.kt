@@ -2,6 +2,7 @@ package com.arsniper.game.engine
 
 import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
+import com.arsniper.game.model.EnemyState
 import com.arsniper.game.model.Vec2
 
 object HitDetector {
@@ -21,6 +22,8 @@ object HitDetector {
         scene: SceneContext? = null
     ): Boolean {
         if (!enemy.isAlive) return false
+        // דמות שעדיין מוסתרת לגמרי מאחורי עצם ומחכה לצאת
+        if (enemy.kind == EnemyKind.Open && enemy.spot != null && enemy.state == EnemyState.Idle) return false
         if (enemy.exposure < MIN_EXPOSURE) return false
 
         val dx = (crosshair.x - enemy.position.x) * aspect
@@ -30,7 +33,7 @@ object HitDetector {
         val spot = enemy.spot
         if (spot != null && scene != null) {
             return when (enemy.kind) {
-                EnemyKind.Peek -> !scene.spotContains(spot, crosshair.x, crosshair.y)
+                EnemyKind.Peek, EnemyKind.Open -> !scene.spotContains(spot, crosshair.x, crosshair.y)
                 EnemyKind.Window -> {
                     val rect = WindowRects.of(spot)
                     rect != null && rect.contains(
