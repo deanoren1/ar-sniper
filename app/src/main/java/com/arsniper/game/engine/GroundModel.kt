@@ -70,4 +70,3 @@ class GroundModel(
             return GroundModel(horizon, DEFAULT_CAMERA_HEIGHT, true)
         }
     }
-}
