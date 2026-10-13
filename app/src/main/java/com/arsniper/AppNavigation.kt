@@ -24,7 +24,10 @@ fun AppNavigation() {
     }
 
     when (screen) {
-        Screen.Start -> StartScreen(onStart = { screen = Screen.Capture })
+        Screen.Start -> StartScreen(
+            onStart = { screen = Screen.Capture },
+            onPhotoPicked = { screen = Screen.Review }
+        )
         Screen.Capture -> CaptureScreen(onPhotoCaptured = { screen = Screen.Review })
         Screen.Review -> ReviewScreen(
             onContinue = { screen = Screen.Scene },
