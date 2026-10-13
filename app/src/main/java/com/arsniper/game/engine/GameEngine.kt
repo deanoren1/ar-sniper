@@ -4,6 +4,7 @@ import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
 import com.arsniper.game.model.EnemyState
 import com.arsniper.game.model.Vec2
+import com.arsniper.ml.Ade20kClasses
 import com.arsniper.game.spots.HidingSpot
 import com.arsniper.game.spots.SpotKind
 import kotlin.math.ceil
@@ -36,6 +37,30 @@ class GameEngine(
     /** מגדיר את הסצנה (או null אם אין ניתוח: אז האויבים עומדים במקומות אקראיים) */
     fun configure(scene: SceneContext?) {
         this.scene = scene
+        this.scale = if (scene != null) calibrateScale(scene) else DEFAULT_SCALE
+    }
+
+    /** כמה גדול אדם בתמונה הזו: מכויל לפי עצמים שמוכר גובהם האמיתי (רכב, שולחן, דלת...) */
+    private var scale: Float = DEFAULT_SCALE
+
+    /**
+     * מכייל את קנה המידה של הסצנה: לכל עצם מוכר, גובה בתמונה * עומק / גובה אמיתי נותן את
+     * המקדם k, ואז גובה אדם בתמונה = k * 1.7 / עומק. לוקחים חציון כדי שטעויות בודדות לא ישפיעו.
+     * אם אין מספיק עצמים מוכרים, משתמשים בערך ברירת מחדל.
+     */
+    private fun calibrateScale(ctx: SceneContext): Float {
+        val samples = ArrayList<Float>()
+        for (spot in ctx.spots) {
+            val name = Ade20kClasses.NAMES.getOrNull(spot.classIndex) ?: continue
+            val real = REAL_HEIGHTS[name] ?: continue
+            if (spot.depth.isNaN() || spot.depth < 0.8f) continue
+            // עצם שנחתך בקצה התמונה נראה נמוך מדי
+            if (spot.minX < 0.01f || spot.maxX > 0.99f || spot.minY < 0.01f || spot.maxY > 0.99f) continue
+            samples.add((spot.maxY - spot.minY) * spot.depth / real)
+        }
+        if (samples.size < 2) return DEFAULT_SCALE
+        samples.sort()
+        return samples[samples.size / 2].coerceIn(MIN_SCALE, MAX_SCALE)
     }
 
     /**
@@ -340,57 +365,56 @@ class GameEngine(
 
         val widthInHeights = (right - left) * aspect
         val heightInHeights = bottom - top
-        val baseRadius = radiusForDepth(spot.depth)
 
         if (spot.kind == SpotKind.WINDOW) {
-            val r = min(baseRadius, widthInHeights / 3f)
-            if (r < MIN_WINDOW_RADIUS) return null
-            // מנסים כמה עמודות בחלון, ובוחרים אחת שבה גוף שלם נכנס בתוך החלון
-            repeat(6) {
-                val nx = spot.minX + (spot.maxX - spot.minX) * (0.2f + 0.6f * random.nextFloat())
-                val sillPhoto = spot.columnBottom(nx) ?: return@repeat
-                val centerX = mapper.worldX(nx)
-                val sill = mapper.worldY(sillPhoto)
-                // אדם עומד מאחורי חלון רק אם אדן החלון בגובה סביר (לא חלון גבוה ליד התקרה)
-                if (sill < WINDOW_MIN_SILL || sill > 0.95f) return@repeat
-                if (centerX < 0.05f || centerX > 0.95f) return@repeat
-                val halfW = FIGURE_HALF_WIDTH * r / aspect
-                val body = coverage(
-                    ctx, spot,
-                    centerX - halfW, centerX + halfW,
-                    sill - 2.2f * r, sill - 0.1f * r
-                )
-                if (body < 0.9f) return@repeat
-                // האדן הוא הרצפה של האויב: הרגליים בדיוק עליו
-                val peek = Vec2(centerX, sill - r)
-                val hide = Vec2(centerX, sill + WINDOW_HIDE_OFFSET * r)
-                return Enemy(
-                    id = nextEnemyId++,
-                    position = hide,
-                    radius = r,
-                    kind = EnemyKind.Window,
-                    state = EnemyState.Hidden,
-                    spot = spot,
-                    hidePos = hide,
-                    peekPos = peek,
-                    exposure = 0f,
-                    timer = randomBetween(0.3f, 2.5f)
-                )
-            }
-            return null
-        } else {
-            // הדמות גבוהה כ-2.2r, ולכן העצם צריך להיות לפחות כזה בגובה וגם רחב מספיק
-            val r = minOf(baseRadius, widthInHeights / 2.6f, heightInHeights / 2.4f)
-            if (r < MIN_COVER_RADIUS) return null
+            // מלבן נקי בתוך החלון (לא המסכה המקוטעת)
+            val rect = WindowRects.of(spot) ?: return null
+            val wLeft = mapper.worldX(rect.minX)
+            val wRight = mapper.worldX(rect.maxX)
+            val wTop = mapper.worldY(rect.minY)
+            val sill = mapper.worldY(rect.maxY)
+            // אדם עומד מאחורי חלון רק אם אדן החלון בגובה סביר (לא חלון גבוה ליד התקרה)
+            if (sill < WINDOW_MIN_SILL || sill > 0.95f) return null
 
+            val r = radiusForDepth(spot.depth)
+            if (r < MIN_WINDOW_RADIUS) return null
+            // האדם צריך להיכנס בחלון: רואים רק את החלק העליון (עד המותניים), כמו מי שמציץ מבפנים
+            val halfW = FIGURE_HALF_WIDTH * r / aspect
+            if (wRight - wLeft < 2.2f * halfW) return null
+            if (sill - wTop < 1.3f * r) return null
+
+            val centerX = wLeft + halfW + (wRight - wLeft - 2f * halfW) * random.nextFloat()
+            if (centerX < 0.05f || centerX > 0.95f) return null
+            // במצב חשוף המותניים באדן: ראש וחזה בלבד נראים, והחצי התחתון חתוך באדן
+            val peek = Vec2(centerX, sill)
+            val hide = Vec2(centerX, sill + WINDOW_HIDE_OFFSET * r)
+            return Enemy(
+                id = nextEnemyId++,
+                position = hide,
+                radius = r,
+                kind = EnemyKind.Window,
+                state = EnemyState.Hidden,
+                spot = spot,
+                hidePos = hide,
+                peekPos = peek,
+                exposure = 0f,
+                timer = randomBetween(0.3f, 2.5f)
+            )
+        } else {
             // האויב עומד על הקרקע ליד העצם: עצמים שלא נוגעים בקרקע (צמרות, תקרה...) לא מתאימים
             val footY = groundLevel(spot) ?: return null
-            val centerY = footY - r
-            if (centerY < 0.05f || centerY > 0.95f) return null
 
             val goLeft = random.nextBoolean()
             val outward = if (goLeft) -1f else 1f
             val edgeX = if (goLeft) left else right
+
+            // גודל האדם לפי העומק בנקודה שבה הוא עומד, בלי הקטנה כדי להתאים לעצם
+            val r = radiusForDepth(ctx.depthAt(edgeX, (footY + 0.01f).coerceAtMost(0.97f)))
+            if (r < MIN_COVER_RADIUS) return null
+            // העצם חייב להיות לפחות כמעט בגובה אדם, ורחב מספיק כדי להסתיר אותו
+            if (heightInHeights < 2.0f * r || widthInHeights < 1.8f * r) return null
+            val centerY = footY - r
+            if (centerY < 0.05f || centerY > 0.95f) return null
 
             val peekX = edgeX + outward * (0.1f * r) / aspect
             val hideX = edgeX - outward * (0.75f * r) / aspect
@@ -483,44 +507,14 @@ class GameEngine(
         }
 
     /**
-     * רדיוס אויב לפי עומק: גודל פרופורציונלי ל-1/עומק, כמו בפרספקטיבה אמיתית,
-     * אבל בסולם נוח למשחק (אדם שלם בגובה ~2.2 רדיוסים), ועם גבולות כדי שיהיה אפשר לכוון.
+     * רדיוס אויב לפי עומק: גובה אדם בתמונה = scale * 1.7 / עומק, כלומר גודל אמיתי ביחס לסצנה
+     * (ה-scale מכויל לפי עצמים מוכרים). קרוב יותר תמיד גדול יותר: ההגבלה שמטה מונוטונית,
+     * כך שאף פעם דמות רחוקה לא תהיה גדולה מקרובה.
      */
     private fun radiusForDepth(depthMeters: Float): Float {
-        if (scene == null) return 0.08f
-        val depth = if (depthMeters.isNaN() || depthMeters < 1.5f) 1.5f else depthMeters
-        return (SIZE_PER_METER / depth).coerceIn(MIN_RADIUS, MAX_RADIUS)
-    }
-
-    private fun randomBetween(from: Float, to: Float): Float =
-        from + random.nextFloat() * (to - from)
-
-    companion object {
-        private const val PEEK_SECONDS = 0.3f
-        private const val RETREAT_SECONDS = 0.25f
-
-        /** מהירות הליכה/ריצה ברדיוסים בשנייה */
-        private const val WALK_SPEED = 1.2f
-        private const val RUN_SPEED = 3.2f
-
-        /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
-        private const val GROUND_PROBE = 0.012f
-
-        private const val MIN_COVER_RADIUS = 0.025f
-        private const val MIN_WINDOW_RADIUS = 0.02f
-
-        /** גודל האויב: רדיוס = SIZE_PER_METER / עומק (במטרים), בין MIN_RADIUS ל-MAX_RADIUS */
-        private const val SIZE_PER_METER = 0.17f
-        private const val MIN_RADIUS = 0.03f
-        private const val MAX_RADIUS = 0.09f
-
-        /** חצי רוחב הדמות ביחידות רדיוס (כולל הידיים) */
-        private const val FIGURE_HALF_WIDTH = 0.6f
-
-        /** אדן חלון נמוך מזה (גבוה על המסך) לא מתאים לאדם עומד */
-        private const val WINDOW_MIN_SILL = 0.45f
-
-        /** צפיפות הדגימה בבדיקות הכיסוי (COVERAGE_STEPS בריבוע נקודות) */
-        private const val COVERAGE_STEPS = 5
-    }
-}
+        val ctx = scene ?: return 0.08f
+        val depth = if (depthMeters.isNaN() || depthMeters < 0.8f) 0.8f else depthMeters
+        val raw = ctx.mapper.heightToWorld(scale * PERSON_HEIGHT_METERS / depth)
+        val limited = when {
+            raw > MAX_FIGURE_HEIGHT -> MAX_FIGURE_HEIGHT + (raw - MAX_FIGURE_HEIGHT) * 0.15f
+            raw
