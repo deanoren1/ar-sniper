@@ -2,6 +2,13 @@ package com.arsniper.ui.game
 
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -39,10 +46,14 @@ import kotlinx.coroutines.delay
 private const val TARGET_ENEMIES = 4
 private const val ZOOM_STEP = 0.5f
 
+/** זום התחלתי: מאפשר להזיז את המצלמה ימינה ושמאלה, כדי לגלות מטרות שהכפתורים מסתירים */
+private const val START_ZOOM = 1.3f
+
 @Composable
 fun GameScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
+    val photoBitmap = remember { PhotoRepository.load(context) }
+    val photo = remember { photoBitmap?.asImageBitmap() }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
     val soundPlayer = remember { SoundPlayer(context) }
@@ -56,7 +67,12 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
     var aspect by remember { mutableStateOf(2f) }
     var sizeKnown by remember { mutableStateOf(false) }
-    var zoom by remember { mutableStateOf(1f) }
+    var zoom by remember { mutableStateOf(START_ZOOM) }
+
+    // פילטר סגנון קריקטורי על התמונה (מחושב פעם אחת, כשמדליקים בפעם הראשונה)
+    var styleOn by remember { mutableStateOf(false) }
+    var styleBusy by remember { mutableStateOf(false) }
+    var styledPhoto by remember { mutableStateOf<ImageBitmap?>(null) }
 
     // אויבים, וניקוד
     var enemies by remember { mutableStateOf(emptyList<Enemy>()) }
@@ -73,7 +89,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 SceneContext(
                     analysis = analysis,
                     spots = SceneSession.spots,
-                    mapper = WorldMapper(analysis.width.toFloat() / analysis.height, aspect)
+                    mapper = WorldMapper(analysis.width.toFloat() / analysis.height, aspect),
+                    luma = SceneSession.luma
                 )
             } else {
                 null
@@ -81,6 +98,29 @@ fun GameScreen(modifier: Modifier = Modifier) {
             scene = sceneContext
             engine.configure(sceneContext)
             enemies = engine.replenish(emptyList(), TARGET_ENEMIES, aspect)
+        }
+    }
+
+    // מחשבים את התמונה הקריקטורית ברקע בפעם הראשונה שמדליקים את הסגנון
+    LaunchedEffect(styleOn) {
+        if (styleOn && styledPhoto == null && photoBitmap != null) {
+            styleBusy = true
+            val result = withContext(Dispatchers.Default) {
+                runCatching { StyleFilter.cartoon(photoBitmap).asImageBitmap() }.getOrNull()
+            }
+            styledPhoto = result
+            if (result == null) styleOn = false
+            styleBusy = false
+        }
+    }
+
+    // משלימים אויבים מדי פעם, למקרה שלא נמצא מקום מתאים בניסיון הקודם
+    LaunchedEffect(sizeKnown) {
+        while (true) {
+            delay(1500)
+            if (sizeKnown) {
+                enemies = engine.replenish(enemies, TARGET_ENEMIES, aspect)
+            }
         }
     }
 
@@ -141,7 +181,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     translationY = (0.5f - camera.center.y * camera.zoom) * size.height
                 }
         ) {
-            BackgroundLayer(photo = photo)
+            BackgroundLayer(photo = if (styleOn) (styledPhoto ?: photo) else photo)
             EnemyLayer(enemies = enemies, scene = scene)
         }
 
@@ -154,6 +194,19 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .align(Alignment.TopStart)
                 .padding(16.dp)
         )
+
+        // מתג סגנון קריקטורי
+        Button(
+            onClick = { if (!styleBusy) styleOn = !styleOn },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (styleOn) Color(0xFF6A1B9A) else Color(0xFF424242)
+            ),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Text(if (styleBusy) "..." else if (styleOn) "STYLE ON" else "STYLE")
+        }
 
         HitIndicator(
             visible = showHit,
