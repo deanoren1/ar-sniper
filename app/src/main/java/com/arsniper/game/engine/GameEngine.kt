@@ -17,6 +17,9 @@ sealed interface FireResult {
     data object Miss : FireResult
 }
 
+/** כמה רדיוסים מתחת לאדן החלון נמצא מרכז האויב כשהוא מוסתר (גם ל-EnemyLayer) */
+const val WINDOW_HIDE_OFFSET = 1.3f
+
 /**
  * מנוע המשחק: Kotlin טהור, בלי תלות ב-Android.
  * הכוונת והאויבים בקואורדינטות עולם מנורמלות (0..1) ביחס למסך.
@@ -180,7 +183,9 @@ class GameEngine(
         val newX = enemy.position.x + stepX
         val feetY = enemy.position.y + enemy.radius
         val canStep = if (ctx != null) {
-            ctx.isWalkable(newX, feetY)
+            // צריך קרקע, ולא להיכנס מאחורי עצם שקרוב אלינו יותר מהאויב
+            ctx.isWalkable(newX, feetY) &&
+                !behindNearerObject(ctx, newX, feetY, enemy.radius, ctx.depthAt(newX, feetY))
         } else {
             newX in 0.05f..0.95f
         }
@@ -270,6 +275,57 @@ class GameEngine(
         return mapper.worldY(bottomSum / grounded)
     }
 
+    /**
+     * מחזיר את החלק (0..1) מנקודות הדגימה במלבן שנמצא בתוך העצם.
+     * המלבן בקואורדינטות עולם: x מ-x0 עד x1 (בכל סדר), y מ-y0 עד y1.
+     */
+    private fun coverage(
+        ctx: SceneContext,
+        spot: HidingSpot,
+        x0: Float,
+        x1: Float,
+        y0: Float,
+        y1: Float
+    ): Float {
+        var inside = 0
+        var total = 0
+        for (i in 0 until COVERAGE_STEPS) {
+            val x = x0 + (x1 - x0) * (i + 0.5f) / COVERAGE_STEPS
+            for (j in 0 until COVERAGE_STEPS) {
+                val y = y0 + (y1 - y0) * (j + 0.5f) / COVERAGE_STEPS
+                total++
+                if (ctx.spotContains(spot, x, y)) inside++
+            }
+        }
+        return inside.toFloat() / total
+    }
+
+    /**
+     * האם הגוף של אדם שרגליו ב-(x, feetY) היה מוסתר בפועל על ידי עצם שקרוב אלינו יותר ממנו.
+     * אם כן, אסור לצייר אותו שם "מלפני" העצם.
+     */
+    private fun behindNearerObject(
+        ctx: SceneContext,
+        x: Float,
+        feetY: Float,
+        r: Float,
+        feetDepth: Float
+    ): Boolean {
+        if (feetDepth.isNaN()) return false
+        val aspect = ctx.mapper.screenAspect
+        val ys = floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r)
+        val dxs = floatArrayOf(-0.4f, 0f, 0.4f)
+        for (spot in ctx.spots) {
+            if (spot.depth.isNaN() || spot.depth >= feetDepth - 0.4f) continue
+            for (y in ys) {
+                for (dx in dxs) {
+                    if (ctx.spotContains(spot, x + dx * r / aspect, y)) return true
+                }
+            }
+        }
+        return false
+    }
+
     /** יוצר אויב שמציץ מהצד של עצם, או יוצא מחלון. null אם המקום לא מתאים. */
     private fun spawnAtSpot(spot: HidingSpot): Enemy? {
         val ctx = scene ?: return null
@@ -286,30 +342,45 @@ class GameEngine(
         val heightInHeights = bottom - top
         val baseRadius = radiusForDepth(spot.depth)
 
-        return if (spot.kind == SpotKind.WINDOW) {
-            val r = min(baseRadius, min(widthInHeights, heightInHeights) * 0.4f)
+        if (spot.kind == SpotKind.WINDOW) {
+            val r = min(baseRadius, widthInHeights / 3f)
             if (r < MIN_WINDOW_RADIUS) return null
-            val centerX = (left + right) / 2f
-            if (centerX < 0.04f || centerX > 0.96f) return null
-            // האויב עולה מלמטה אל תוך החלון, ונחתך לגבולות החלון
-            val peek = Vec2(centerX, bottom - r)
-            // חלון שחלקו העליון חתוך מחוץ למסך לא מתאים
-            if (peek.y - r < 0.02f || peek.y > 0.95f) return null
-            val hide = Vec2(centerX, bottom + r * 1.1f)
-            Enemy(
-                id = nextEnemyId++,
-                position = hide,
-                radius = r,
-                kind = EnemyKind.Window,
-                state = EnemyState.Hidden,
-                spot = spot,
-                hidePos = hide,
-                peekPos = peek,
-                exposure = 0f,
-                timer = randomBetween(0.3f, 2.5f)
-            )
+            // מנסים כמה עמודות בחלון, ובוחרים אחת שבה גוף שלם נכנס בתוך החלון
+            repeat(6) {
+                val nx = spot.minX + (spot.maxX - spot.minX) * (0.2f + 0.6f * random.nextFloat())
+                val sillPhoto = spot.columnBottom(nx) ?: return@repeat
+                val centerX = mapper.worldX(nx)
+                val sill = mapper.worldY(sillPhoto)
+                // אדם עומד מאחורי חלון רק אם אדן החלון בגובה סביר (לא חלון גבוה ליד התקרה)
+                if (sill < WINDOW_MIN_SILL || sill > 0.95f) return@repeat
+                if (centerX < 0.05f || centerX > 0.95f) return@repeat
+                val halfW = FIGURE_HALF_WIDTH * r / aspect
+                val body = coverage(
+                    ctx, spot,
+                    centerX - halfW, centerX + halfW,
+                    sill - 2.2f * r, sill - 0.1f * r
+                )
+                if (body < 0.9f) return@repeat
+                // האדן הוא הרצפה של האויב: הרגליים בדיוק עליו
+                val peek = Vec2(centerX, sill - r)
+                val hide = Vec2(centerX, sill + WINDOW_HIDE_OFFSET * r)
+                return Enemy(
+                    id = nextEnemyId++,
+                    position = hide,
+                    radius = r,
+                    kind = EnemyKind.Window,
+                    state = EnemyState.Hidden,
+                    spot = spot,
+                    hidePos = hide,
+                    peekPos = peek,
+                    exposure = 0f,
+                    timer = randomBetween(0.3f, 2.5f)
+                )
+            }
+            return null
         } else {
-            val r = minOf(baseRadius, widthInHeights / 2.3f, heightInHeights * 0.6f)
+            // הדמות גבוהה כ-2.2r, ולכן העצם צריך להיות לפחות כזה בגובה וגם רחב מספיק
+            val r = minOf(baseRadius, widthInHeights / 2.6f, heightInHeights / 2.4f)
             if (r < MIN_COVER_RADIUS) return null
 
             // האויב עומד על הקרקע ליד העצם: עצמים שלא נוגעים בקרקע (צמרות, תקרה...) לא מתאימים
@@ -322,17 +393,28 @@ class GameEngine(
             val edgeX = if (goLeft) left else right
 
             val peekX = edgeX + outward * (0.1f * r) / aspect
-            val hideX = edgeX - outward * (1.15f * r) / aspect
+            val hideX = edgeX - outward * (0.75f * r) / aspect
             if (peekX < 0.04f || peekX > 0.96f) return null
 
-            // בצד שבו הוא מציץ צריכה להיות קרקע, ובמקום ההסתתרות צריך להיות העצם עצמו
+            // בצד שבו הוא מציץ צריכה להיות קרקע
             val groundBesideX = edgeX + outward * (0.6f * r) / aspect
             if (!ctx.isWalkable(groundBesideX, footY + 0.01f)) return null
-            if (!ctx.spotContains(spot, hideX, centerY)) return null
+
+            // בדיקת קצה נקי: הקצה של העצם חייב להיות קו ברור לאורך כל גובה הדמות.
+            // (1) במקום ההסתתרות הדמות כולה בתוך העצם
+            val yTop = centerY - 1.2f * r
+            val yBottom = centerY + 0.9f * r
+            val hideHalf = (FIGURE_HALF_WIDTH + 0.05f) * r / aspect
+            if (coverage(ctx, spot, hideX - hideHalf, hideX + hideHalf, yTop, yBottom) < 0.85f) return null
+            // (2) בהצצה: החלק שמאחורי הקצה בתוך העצם, והחלק שבחוץ באמת בחוץ
+            val behindEnd = edgeX - outward * (0.45f * r) / aspect
+            if (coverage(ctx, spot, behindEnd, edgeX, yTop, yBottom) < 0.85f) return null
+            val outEnd = edgeX + outward * (0.65f * r) / aspect
+            if (coverage(ctx, spot, edgeX + outward * 0.02f, outEnd, yTop, yBottom) > 0.15f) return null
 
             val peek = Vec2(peekX, centerY)
             val hide = Vec2(hideX, centerY)
-            Enemy(
+            return Enemy(
                 id = nextEnemyId++,
                 position = hide,
                 radius = r,
@@ -356,7 +438,10 @@ class GameEngine(
             if (!ctx.isWalkable(x, feetY)) return@repeat
             // לא על כתם קרקע קטן: גם משני הצדדים צריכה להיות קרקע
             if (!ctx.isWalkable(x - 0.05f, feetY) || !ctx.isWalkable(x + 0.05f, feetY)) return@repeat
-            val r = radiusForDepth(ctx.depthAt(x, feetY))
+            val depth = ctx.depthAt(x, feetY)
+            val r = radiusForDepth(depth)
+            // לא להציב אדם "מלפני" עצם שקרוב אלינו יותר ממנו (שולחן, רכב...)
+            if (behindNearerObject(ctx, x, feetY, r, depth)) return@repeat
             val position = Vec2(x, feetY - r)
             if (tooClose(position, existing, ctx.mapper.screenAspect, 0.2f)) return@repeat
             return Enemy(
@@ -398,15 +483,13 @@ class GameEngine(
         }
 
     /**
-     * רדיוס אויב לפי עומק: גובה אדם ~1.7 מטר, ובמצלמת טלפון רגילה הוא תופס
-     * בערך 1.84/עומק מגובה התמונה. הרדיוס מוגבל כדי שיישאר נוח לכוון.
+     * רדיוס אויב לפי עומק: גודל פרופורציונלי ל-1/עומק, כמו בפרספקטיבה אמיתית,
+     * אבל בסולם נוח למשחק (אדם שלם בגובה ~2.2 רדיוסים), ועם גבולות כדי שיהיה אפשר לכוון.
      */
     private fun radiusForDepth(depthMeters: Float): Float {
-        val ctx = scene ?: return 0.08f
-        val depth = if (depthMeters.isNaN() || depthMeters < 1f) 8f else depthMeters
-        val heightInPhoto = 1.84f / depth
-        val heightInWorld = ctx.mapper.heightToWorld(heightInPhoto)
-        return (heightInWorld * 0.3f).coerceIn(0.03f, 0.11f)
+        if (scene == null) return 0.08f
+        val depth = if (depthMeters.isNaN() || depthMeters < 1.5f) 1.5f else depthMeters
+        return (SIZE_PER_METER / depth).coerceIn(MIN_RADIUS, MAX_RADIUS)
     }
 
     private fun randomBetween(from: Float, to: Float): Float =
@@ -425,5 +508,19 @@ class GameEngine(
 
         private const val MIN_COVER_RADIUS = 0.025f
         private const val MIN_WINDOW_RADIUS = 0.02f
+
+        /** גודל האויב: רדיוס = SIZE_PER_METER / עומק (במטרים), בין MIN_RADIUS ל-MAX_RADIUS */
+        private const val SIZE_PER_METER = 0.17f
+        private const val MIN_RADIUS = 0.03f
+        private const val MAX_RADIUS = 0.09f
+
+        /** חצי רוחב הדמות ביחידות רדיוס (כולל הידיים) */
+        private const val FIGURE_HALF_WIDTH = 0.6f
+
+        /** אדן חלון נמוך מזה (גבוה על המסך) לא מתאים לאדם עומד */
+        private const val WINDOW_MIN_SILL = 0.45f
+
+        /** צפיפות הדגימה בבדיקות הכיסוי (COVERAGE_STEPS בריבוע נקודות) */
+        private const val COVERAGE_STEPS = 5
     }
 }
