@@ -35,6 +35,7 @@ import com.arsniper.data.PhotoRepository
 import com.arsniper.game.spots.GuideImage
 import com.arsniper.game.spots.HidingSpot
 import com.arsniper.game.spots.SpotKind
+import com.arsniper.ml.AnalysisCache
 import com.arsniper.ml.Ade20kClasses
 import com.arsniper.ml.ModelStore
 import com.arsniper.ml.SceneAnalysis
@@ -71,12 +72,14 @@ private class SceneView(
     val spotsOverlay: ImageBitmap,
     val spotsLegend: List<String>,
     val seconds: Float,
-    val tileCount: Int
+    val tileCount: Int,
+    val cached: Boolean
 )
 
 /**
  * מסך בדיקת היתכנות: מוריד (פעם אחת) את מודל הסצנה, מריץ אותו על התמונה,
  * ומציג מה המערכת "רואה": סוגי עצמים ועומק.
+ * תמונה שכבר נותחה נטענת מהניתוח השמור (בלי להריץ את המודל מחדש).
  */
 @Composable
 fun SceneScreen(
@@ -94,21 +97,31 @@ fun SceneScreen(
     LaunchedEffect(Unit) {
         SceneSession.clear()
         try {
-            statusText = "Checking scene model..."
-            val modelFile = ModelStore.ensureTipsModel(context) { downloaded, total ->
-                val megabytes = downloaded / 1_000_000L
-                statusText = if (total > 0L) {
-                    "Downloading scene model (one time, ~318 MB): " +
-                        "$megabytes / ${total / 1_000_000L} MB (${downloaded * 100L / total}%)"
-                } else {
-                    "Downloading scene model (one time): $megabytes MB"
+            // תמונה שכבר נותחה: טוענים את הניתוח השמור (שניות במקום חצי דקה), בלי לגעת במודל
+            val savedAnalysis = withContext(Dispatchers.IO) { loadSavedAnalysis(context) }
+            val modelFile: File? = if (savedAnalysis != null) {
+                null
+            } else {
+                statusText = "Checking scene model..."
+                ModelStore.ensureTipsModel(context) { downloaded, total ->
+                    val megabytes = downloaded / 1_000_000L
+                    statusText = if (total > 0L) {
+                        "Downloading scene model (one time, ~318 MB): " +
+                            "$megabytes / ${total / 1_000_000L} MB (${downloaded * 100L / total}%)"
+                    } else {
+                        "Downloading scene model (one time): $megabytes MB"
+                    }
                 }
             }
 
-            statusText = "Preparing scene analysis (first run takes longer)..."
+            statusText = if (savedAnalysis != null) {
+                "Loading saved scene analysis..."
+            } else {
+                "Preparing scene analysis (first run takes longer)..."
+            }
             val outcome = withContext(Dispatchers.Default) {
                 runCatching {
-                    analyzeScene(context, modelFile) { done, total ->
+                    analyzeScene(context, modelFile, savedAnalysis) { done, total ->
                         statusText = "Analyzing scene: part $done of $total"
                     }
                 }
@@ -183,6 +196,8 @@ fun SceneScreen(
 
         val statusLine = when {
             errorText != null -> "Scene analysis failed: $errorText"
+            current != null && current.cached ->
+                "Scene loaded from saved analysis in ${String.format(Locale.US, "%.1f", current.seconds)}s"
             current != null ->
                 "Scene analyzed in ${String.format(Locale.US, "%.1f", current.seconds)}s " +
                     "(${current.tileCount} parts, GPU)"
@@ -237,19 +252,35 @@ private fun ModeButton(
     ) { Text(label) }
 }
 
+/** מחפש ניתוח שמור לתמונה הנוכחית (לפי תוכן הקובץ), או null אם אין */
+private fun loadSavedAnalysis(context: Context): SceneAnalysis? {
+    val file = PhotoRepository.currentFile(context) ?: return null
+    return AnalysisCache.load(context.filesDir, AnalysisCache.keyFor(file))
+}
+
 private fun analyzeScene(
     context: Context,
-    modelFile: File,
+    modelFile: File?,
+    saved: SceneAnalysis?,
     onProgress: (done: Int, total: Int) -> Unit
 ): SceneView {
     val startNanos = System.nanoTime()
     val photo = PhotoRepository.load(context) ?: error("No photo found")
 
-    val segmenter = SceneSegmenter(modelFile)
-    val analysis = try {
-        segmenter.analyze(photo, onProgress)
-    } finally {
-        segmenter.close()
+    val analysis: SceneAnalysis
+    if (saved != null) {
+        analysis = saved
+    } else {
+        val segmenter = SceneSegmenter(modelFile ?: error("Scene model missing"))
+        analysis = try {
+            segmenter.analyze(photo, onProgress)
+        } finally {
+            segmenter.close()
+        }
+        // שומרים לפעם הבאה (אותה תמונה = ניתוח מיידי)
+        PhotoRepository.currentFile(context)?.let { file ->
+            AnalysisCache.save(context.filesDir, AnalysisCache.keyFor(file), analysis)
+        }
     }
 
     // שומרים את הניתוח (ומוצאים מחבואים ומלטשים את הקצוות שלהם) בשביל מסך המשחק
@@ -265,7 +296,8 @@ private fun analyzeScene(
         spotsOverlay = buildSpotsOverlay(analysis, spots).asImageBitmap(),
         spotsLegend = buildSpotsLegend(spots),
         seconds = seconds,
-        tileCount = analysis.tileCount
+        tileCount = analysis.tileCount,
+        cached = saved != null
     )
 }
 
