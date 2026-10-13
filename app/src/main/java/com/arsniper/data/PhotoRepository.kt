@@ -11,6 +11,9 @@ object PhotoRepository {
 
     private fun photoFile(context: Context) = File(context.filesDir, FILE_NAME)
 
+    /** קובץ התמונה הנוכחית (אם קיים): משמש לזיהוי תמונה שכבר נותחה */
+    fun currentFile(context: Context): File? = photoFile(context).takeIf { it.exists() }
+
     fun save(context: Context, bitmap: Bitmap) {
         photoFile(context).outputStream().use { out ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
