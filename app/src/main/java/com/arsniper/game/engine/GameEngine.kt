@@ -100,7 +100,7 @@ class GameEngine(
             val exposure = min(enemy.exposure + dt / PEEK_SECONDS, 1f)
             val moved = enemy.copy(exposure = exposure, position = placeAt(enemy, exposure))
             if (exposure >= 1f) {
-                moved.copy(state = EnemyState.Exposed, timer = randomBetween(1.4f, 2.6f))
+                moved.copy(state = EnemyState.Exposed, timer = randomBetween(1.0f, 1.8f))
             } else {
                 moved
             }
@@ -213,24 +213,22 @@ class GameEngine(
         @Suppress("UNUSED_PARAMETER") aspect: Float
     ): List<Enemy> {
         val result = current.filter { it.isAlive }.toMutableList()
-        var guard = 0
-        while (result.size < targetCount && guard++ < 30) {
-            result.add(spawnOne(result, targetCount))
+        var failures = 0
+        while (result.size < targetCount && failures < 12) {
+            val enemy = spawnOne(result, targetCount)
+            if (enemy != null) result.add(enemy) else failures++
         }
         return result
     }
 
-    private fun spawnOne(existing: List<Enemy>, targetCount: Int): Enemy {
-        val ctx = scene
-        if (ctx != null) {
-            val coverCount = existing.count { it.kind == EnemyKind.Peek || it.kind == EnemyKind.Window }
-            val coverWanted = ceil(targetCount * 0.6f).toInt()
-            if (ctx.spots.isNotEmpty() && coverCount < coverWanted) {
-                spawnCover(existing)?.let { return it }
-            }
-            spawnOpen(existing)?.let { return it }
+    private fun spawnOne(existing: List<Enemy>, targetCount: Int): Enemy? {
+        val ctx = scene ?: return spawnStatic(existing)
+        val coverCount = existing.count { it.kind == EnemyKind.Peek || it.kind == EnemyKind.Window }
+        val coverWanted = ceil(targetCount * 0.6f).toInt()
+        if (ctx.spots.isNotEmpty() && coverCount < coverWanted) {
+            spawnCover(existing)?.let { return it }
         }
-        return spawnStatic(existing)
+        return spawnOpen(existing) ?: spawnCover(existing)
     }
 
     private fun spawnCover(existing: List<Enemy>): Enemy? {
@@ -247,6 +245,29 @@ class GameEngine(
             }
         }
         return null
+    }
+
+    /**
+     * גובה הקרקע (y בעולם) שעליה העצם עומד, או null אם העצם לא נוגע בקרקע
+     * (למשל צמרת עץ, צמח על שולחן, תקרה). בודקים כמה נקודות מתחת לקצה התחתון של העצם.
+     */
+    private fun groundLevel(spot: HidingSpot): Float? {
+        val ctx = scene ?: return null
+        val mapper = ctx.mapper
+        var samples = 0
+        var grounded = 0
+        var bottomSum = 0f
+        for (i in 0 until 5) {
+            val nx = spot.minX + (spot.maxX - spot.minX) * (0.1f + 0.2f * i)
+            val bottom = spot.columnBottom(nx) ?: continue
+            samples++
+            if (ctx.isWalkable(mapper.worldX(nx), mapper.worldY(bottom + GROUND_PROBE))) {
+                grounded++
+                bottomSum += bottom
+            }
+        }
+        if (grounded == 0 || grounded * 3 < samples) return null
+        return mapper.worldY(bottomSum / grounded)
     }
 
     /** יוצר אויב שמציץ מהצד של עצם, או יוצא מחלון. null אם המקום לא מתאים. */
@@ -291,22 +312,23 @@ class GameEngine(
             val r = minOf(baseRadius, widthInHeights / 2.3f, heightInHeights * 0.6f)
             if (r < MIN_COVER_RADIUS) return null
 
+            // האויב עומד על הקרקע ליד העצם: עצמים שלא נוגעים בקרקע (צמרות, תקרה...) לא מתאימים
+            val footY = groundLevel(spot) ?: return null
+            val centerY = footY - r
+            if (centerY < 0.05f || centerY > 0.95f) return null
+
             val goLeft = random.nextBoolean()
             val outward = if (goLeft) -1f else 1f
             val edgeX = if (goLeft) left else right
-            val sampleNx = if (goLeft) {
-                spot.minX + (spot.maxX - spot.minX) * 0.04f
-            } else {
-                spot.maxX - (spot.maxX - spot.minX) * 0.04f
-            }
-            val columnTop = spot.columnTop(sampleNx)?.let { mapper.worldY(it) } ?: top
-            val columnBottom = spot.columnBottom(sampleNx)?.let { mapper.worldY(it) } ?: bottom
-            val centerY = (columnTop + min(r * 1.1f, (columnBottom - columnTop) * 0.6f))
-                .coerceIn(0.05f, 0.95f)
 
-            val peekX = edgeX + outward * (0.35f * r) / aspect
+            val peekX = edgeX + outward * (0.1f * r) / aspect
             val hideX = edgeX - outward * (1.15f * r) / aspect
             if (peekX < 0.04f || peekX > 0.96f) return null
+
+            // בצד שבו הוא מציץ צריכה להיות קרקע, ובמקום ההסתתרות צריך להיות העצם עצמו
+            val groundBesideX = edgeX + outward * (0.6f * r) / aspect
+            if (!ctx.isWalkable(groundBesideX, footY + 0.01f)) return null
+            if (!ctx.spotContains(spot, hideX, centerY)) return null
 
             val peek = Vec2(peekX, centerY)
             val hide = Vec2(hideX, centerY)
@@ -332,6 +354,8 @@ class GameEngine(
             val x = random.nextFloat() * 0.8f + 0.1f
             val feetY = random.nextFloat() * 0.5f + 0.45f
             if (!ctx.isWalkable(x, feetY)) return@repeat
+            // לא על כתם קרקע קטן: גם משני הצדדים צריכה להיות קרקע
+            if (!ctx.isWalkable(x - 0.05f, feetY) || !ctx.isWalkable(x + 0.05f, feetY)) return@repeat
             val r = radiusForDepth(ctx.depthAt(x, feetY))
             val position = Vec2(x, feetY - r)
             if (tooClose(position, existing, ctx.mapper.screenAspect, 0.2f)) return@repeat
@@ -389,12 +413,15 @@ class GameEngine(
         from + random.nextFloat() * (to - from)
 
     companion object {
-        private const val PEEK_SECONDS = 0.45f
-        private const val RETREAT_SECONDS = 0.35f
+        private const val PEEK_SECONDS = 0.3f
+        private const val RETREAT_SECONDS = 0.25f
 
         /** מהירות הליכה/ריצה ברדיוסים בשנייה */
         private const val WALK_SPEED = 1.2f
         private const val RUN_SPEED = 3.2f
+
+        /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
+        private const val GROUND_PROBE = 0.012f
 
         private const val MIN_COVER_RADIUS = 0.025f
         private const val MIN_WINDOW_RADIUS = 0.02f
