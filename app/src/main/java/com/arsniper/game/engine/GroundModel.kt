@@ -31,6 +31,9 @@ class GroundModel(
         /** אורך מוקד משוער של מצלמת טלפון ביחידות של גובה תמונה */
         private const val FOCAL = 1.1f
 
+        /** כמה (בגובה תמונה) מתחת לאופק יכול להיות קצה הרצפה הרחוק ביותר שנראה, לכל היותר */
+        private const val MAX_FAR_GAP = 0.08f
+
         private const val ROWS = 48
         private const val COLUMNS = 64
 
@@ -64,6 +67,11 @@ class GroundModel(
             for (i in 0 until farCount) estimates.add(ys[i] - FOCAL * DEFAULT_CAMERA_HEIGHT * inv[i])
             estimates.sort()
             var horizon = estimates[estimates.size / 2]
+            // העומק של המודל לא תמיד במטרים אמיתיים, ולפעמים הוא מקרב את הרצפה הרחוקה ומעלה את האופק
+            // יותר מדי (דמויות ענקיות). לכן הקצה הרחוק של הרצפה לא נחשב קרוב יותר מכ-15 מטר:
+            // האופק לא יכול להיות גבוה בלמעלה מ-MAX_FAR_GAP מעל קצה הרצפה הנראה.
+            val farEdge = ys[min(2, ys.size - 1)]
+            horizon = max(horizon, farEdge - MAX_FAR_GAP)
             // הרצפה נמצאת מתחת לאופק, אף פעם לא מעליו
             horizon = min(horizon, ys[0] - 0.01f)
             horizon = max(horizon, -0.4f)
