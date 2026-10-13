@@ -45,13 +45,13 @@ class GameEngine(
     /** מודל הקרקע: גודל אדם לפי מיקום הרגליים בתמונה (פרספקטיבה) */
     private var ground: GroundModel = GroundModel.default()
 
-    /** כמה גדול אדם בתמונה הזו: מכוייל לפי עצמים שמוכר גובהם האמיתי (רכב, שולחן, דלת...) */
+    /** כמה גדול אדם בתמונה הזו: מכויל לפי עצמים שמוכר גובהם האמיתי (רכב, שולחן, דלת...) */
     private var scale: Float = DEFAULT_SCALE
 
     /**
      * מכייל את קנה המידה של הסצנה: לכל עצם מוכר, גובה בתמונה * עומק / גובה אמיתי נותן את
      * המקדם k, ואז גובה אדם בתמונה = k * 1.7 / עומק. לוקחים חציון כדי שטעויות בודדות לא ישפיעו.
-     * אם אין מספיק עצמים מוכרים, משתמשים בערך ברירת מחדל. (משמש לחלונות; על הקרקע: GroundModel)
+     * אם אין מספיק עצמים מוכרים, משתמשים בערך ברירת מחדל.
      */
     private fun calibrateScale(ctx: SceneContext): Float {
         val samples = ArrayList<Float>()
@@ -349,7 +349,7 @@ class GameEngine(
 
     /**
      * משלים את רשימת האויבים עד targetCount אויבים חיים.
-     * אויבים מתים מוסרים, וחדשים נוצרים: בערך 60% מציצים/חלונות (אם יש מחבואים), השאר דמויות הולכות.
+     * אויבים מתים מוסרים, וחדשים נוצרים: בערך 60% מציצים/חלונות (אם יש מחבואים), השאר גלויים.
      */
     fun replenish(
         current: List<Enemy>,
@@ -372,7 +372,7 @@ class GameEngine(
         if (ctx.spots.isNotEmpty() && coverCount < coverWanted) {
             spawnCover(existing)?.let { return it }
         }
-        // דמות הולכת: נכנסת מקצה העולם, יוצאת מאחורי עצם או מגיעה מרחוק. אף פעם לא מופיעה סתם באמצע
+        // דמות הולכת: נכנסת מקצה העולם או יוצאת מאחורי עצם. אף פעם לא מופיעה סתם באמצע
         return spawnEntrant(existing) ?: spawnCover(existing)
     }
 
@@ -416,7 +416,7 @@ class GameEngine(
     }
 
     /**
-     * מחזיר את החלק (0..1) מנקודות הדגימה במלבן שנמצא בתוך העצם.
+     * מחזיר את החלק (0..1) מנקודות הדגימה במלבד שנמצא בתוך העצם.
      * המלבן בקואורדינטות עולם: x מ-x0 עד x1 (בכל סדר), y מ-y0 עד y1.
      */
     private fun coverage(
@@ -442,8 +442,11 @@ class GameEngine(
 
     /**
      * האם הגוף של אדם שרגליו ב-(x, feetY) היה מוסתר בפועל על ידי עצם שקרוב אלינו יותר ממנו.
-     * אם כן, אסור לצייר אותו שם "מלפני" העצם. ignore = עצם שמתעלמים ממנו (זה שהדמות יוצאת ממנו).
+     * עצם מסתיר אדם כשהוא מכסה נקודה בגוף, והבסיס שלו נמוך יותר במסך מרגלי האדם (כלומר הוא קרוב יותר).
+     * אם כן, אסור לצייר את האדם שם "מלפני" העצם (כמו לעמוד על משטח). לא משתמשים בעומק, כי העומק
+     * בנקודת הרגליים הוא העומק של העצם עצמו. ignore = העצם שהדמות יוצאת ממנו.
      */
+    @Suppress("UNUSED_PARAMETER")
     private fun behindNearerObject(
         ctx: SceneContext,
         x: Float,
@@ -452,15 +455,18 @@ class GameEngine(
         feetDepth: Float,
         ignore: HidingSpot? = null
     ): Boolean {
-        if (feetDepth.isNaN()) return false
-        val aspect = ctx.mapper.screenAspect
+        val mapper = ctx.mapper
+        val aspect = mapper.screenAspect
         val ys = floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r)
         val dxs = floatArrayOf(-0.4f, 0f, 0.4f)
         for (spot in ctx.spots) {
-            if (spot === ignore || spot.depth.isNaN() || spot.depth >= feetDepth - 0.4f) continue
+            if (spot === ignore) continue
             for (y in ys) {
                 for (dx in dxs) {
-                    if (ctx.spotContains(spot, x + dx * r / aspect, y)) return true
+                    val px = x + dx * r / aspect
+                    if (!ctx.spotContains(spot, px, y)) continue
+                    val bottom = spot.columnBottom(mapper.photoX(px)) ?: continue
+                    if (mapper.worldY(bottom) > feetY + OCCLUDER_MARGIN) return true
                 }
             }
         }
@@ -524,7 +530,7 @@ class GameEngine(
             val outward = if (goLeft) -1f else 1f
             val edgeX = if (goLeft) left else right
 
-            // גודל האדם לפי הפרספקטיבה של הרצפה, במקום שבו הרגליים שלו
+            // גודל האדם לפי העומק בנקודה שבה הוא עומד
             val r = radiusForFeet(footY)
             if (!sizeOk(r)) return null
 
@@ -643,6 +649,8 @@ class GameEngine(
     }
 
     /** דמות הולכת חדשה: יוצאת מאחורי עצם גבוה, נכנסת מקצה התמונה, או מגיעה מקצה הרצפה הרחוק */
+    private val failCounts = IntArray(4)
+
     private fun spawnEntrant(existing: List<Enemy>): Enemy? {
         val order = when (random.nextInt(3)) {
             0 -> listOf(0, 1, 2)
@@ -656,7 +664,9 @@ class GameEngine(
                 else -> spawnFar(existing)
             }
             if (enemy != null) return enemy
+            failCounts[way]++
         }
+        failCounts[3]++
         return null
     }
 
@@ -877,13 +887,13 @@ class GameEngine(
     }
 
     /**
-     * רדיוס אויב לפי עומק (משמש לחלונות, שאינם על הקרקע): גודל אמיתי ביחס לסצנה
-     * (ה-scale מכוייל לפי עצמים מוכרים), בלי הגבלות שמעוותות את הסדר.
+     * רדיוס אויב לפי עומק: גודל אמיתי ביחס לסצנה (ה-scale מכויל לפי עצמים מוכרים), בלי הגבלות
+     * שמעוותות את הסדר: קרוב תמיד גדול מרחוק. מקומות שבהם האדם היה יוצא ענק או זעיר נפסלים בנפרד.
      */
     private fun radiusForDepth(depthMeters: Float): Float =
         if (scene == null) 0.08f else figureHeightWorld(depthMeters) / FIGURE_HEIGHT_RADII
 
-    /** רדיוס אדם שעומד על הקרקע ורגליו בגובה feetWorldY בעולם: לפי הפרספקטיבה של הרצפה */
+    /** רדיוס אדם שעומד על הקרקע ורגליו בגובה feetY בעולם: לפי הפרספקטיבה של הרצפה */
     private fun radiusForFeet(feetWorldY: Float): Float {
         val ctx = scene ?: return 0.08f
         val photoHeight = ground.personHeight(ctx.mapper.photoY(feetWorldY))
@@ -895,8 +905,9 @@ class GameEngine(
         val open = enemies.count { it.kind == EnemyKind.Open && it.isAlive }
         val cover = enemies.count { (it.kind == EnemyKind.Peek || it.kind == EnemyKind.Window) && it.isAlive }
         val spots = scene?.spots?.size ?: 0
-        return "horizon %.2f  cam %.1fm  fit=%s  spots=%d  open=%d  cover=%d".format(
-            ground.horizon, ground.cameraHeight, ground.fitted, spots, open, cover
+        return "horizon %.2f  fit=%s  spots=%d  open=%d  cover=%d  fails emerge/edge/far/all=%d/%d/%d/%d".format(
+            ground.horizon, ground.fitted, spots, open, cover,
+            failCounts[0], failCounts[1], failCounts[2], failCounts[3]
         )
     }
 
@@ -905,6 +916,9 @@ class GameEngine(
 
     companion object {
         private const val PEEK_SECONDS = 0.3f
+
+        /** עצם מסתיר אדם אם הבסיס שלו נמוך מרגלי האדם ביותר מזה (יחידות עולם) */
+        private const val OCCLUDER_MARGIN = 0.005f
         private const val RETREAT_SECONDS = 0.25f
 
         /** מהירות הליכה/ריצה ברדיוסים בשנייה */
