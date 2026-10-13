@@ -11,7 +11,7 @@ object HitDetector {
 
     /**
      * פגיעה = הכוונת בתוך רדיוס האויב, והאויב חשוף, והנקודה בחלק הגלוי שלו.
-     * מציץ: לא פוגעים בחלק שמוסתר מאחורי העצם. חלון: פוגעים רק בתוך החלון.
+     * מציץ: לא פוגעים בחלק שמוסתר מאחורי העצם. חלון: פוגעים רק בתוך מלבן החלון.
      * aspect (רוחב חלקי גובה) מתקן את ציר ה-x כדי שהמרחק יהיה זהה פיזית בשני הצירים.
      */
     fun isHit(
@@ -29,10 +29,15 @@ object HitDetector {
 
         val spot = enemy.spot
         if (spot != null && scene != null) {
-            val onObject = scene.spotContains(spot, crosshair.x, crosshair.y)
             return when (enemy.kind) {
-                EnemyKind.Peek -> !onObject
-                EnemyKind.Window -> onObject
+                EnemyKind.Peek -> !scene.spotContains(spot, crosshair.x, crosshair.y)
+                EnemyKind.Window -> {
+                    val rect = WindowRects.of(spot)
+                    rect != null && rect.contains(
+                        scene.mapper.photoX(crosshair.x),
+                        scene.mapper.photoY(crosshair.y)
+                    )
+                }
                 else -> true
             }
         }
