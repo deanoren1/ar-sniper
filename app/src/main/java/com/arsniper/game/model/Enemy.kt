@@ -10,7 +10,7 @@ enum class EnemyKind {
     /** מופיע מתוך חלון או דלת */
     Window,
 
-    /** הולך ורץ גלוי על הקרקע */
+    /** הולך ורץ על הקרקע. נכנס מקצה העולם, או יוצא מאחורי עצם (אז spot != null עד שיצא ממנו) */
     Open,
 
     /** עומד במקום (גיבוי כשאין ניתוח סצנה) */
@@ -36,5 +36,7 @@ data class Enemy(
     val peekPos: Vec2 = position,
     val exposure: Float = 1f,
     val timer: Float = 0f,
-    val direction: Float = 1f
+    val direction: Float = 1f,
+    /** שלב מחזור ההליכה (רדיאנים), לאנימציית רגליים וידיים */
+    val phase: Float = 0f
 )
