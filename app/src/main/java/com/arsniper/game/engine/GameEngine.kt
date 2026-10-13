@@ -515,6 +515,61 @@ class GameEngine(
         val ctx = scene ?: return 0.08f
         val depth = if (depthMeters.isNaN() || depthMeters < 0.8f) 0.8f else depthMeters
         val raw = ctx.mapper.heightToWorld(scale * PERSON_HEIGHT_METERS / depth)
-        val limited = when {
-            raw > MAX_FIGURE_HEIGHT -> MAX_FIGURE_HEIGHT + (raw - MAX_FIGURE_HEIGHT) * 0.15f
-            raw
+        // מעל הגבול העליון הגדילה מואטת, מתחת לתחתון הגודל קבוע; בשני המקרים נשמר הסדר (קרוב >= רחוק)
+        val limited = if (raw > MAX_FIGURE_HEIGHT) {
+            MAX_FIGURE_HEIGHT + (raw - MAX_FIGURE_HEIGHT) * 0.15f
+        } else {
+            maxOf(raw, MIN_FIGURE_HEIGHT)
+        }
+        return limited / FIGURE_HEIGHT_RADII
+    }
+
+    private fun randomBetween(from: Float, to: Float): Float =
+        from + random.nextFloat() * (to - from)
+
+    companion object {
+        private const val PEEK_SECONDS = 0.3f
+        private const val RETREAT_SECONDS = 0.25f
+
+        /** מהירות הליכה/ריצה ברדיוסים בשנייה */
+        private const val WALK_SPEED = 1.2f
+        private const val RUN_SPEED = 3.2f
+
+        /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
+        private const val GROUND_PROBE = 0.012f
+
+        private const val MIN_COVER_RADIUS = 0.025f
+        private const val MIN_WINDOW_RADIUS = 0.02f
+
+        /** גובה אדם אמיתי, וגובה הדמות המצוירת ביחידות רדיוס */
+        private const val PERSON_HEIGHT_METERS = 1.7f
+        private const val FIGURE_HEIGHT_RADII = 2.2f
+
+        /** מקדם גודל בתמונה: גובה אדם (חלק מגובה התמונה) = scale * 1.7 / עומק במטרים */
+        private const val DEFAULT_SCALE = 1.2f
+        private const val MIN_SCALE = 0.4f
+        private const val MAX_SCALE = 2.6f
+
+        /** גבולות גובה הדמות (חלק מגובה המסך): מעל הגבול העליון הגדילה מואטת מאוד, מתחת לתחתון הגודל קבוע */
+        private const val MAX_FIGURE_HEIGHT = 0.35f
+        private const val MIN_FIGURE_HEIGHT = 0.08f
+
+        /** גבהים אמיתיים (מטרים) של עצמים נפוצים, לכיול הסצנה */
+        private val REAL_HEIGHTS = mapOf(
+            "car" to 1.5f, "van" to 1.9f, "bus" to 3.0f,
+            "ashcan" to 0.7f, "barrel" to 0.9f, "box" to 0.5f,
+            "door" to 2.05f, "desk" to 0.75f, "table" to 0.75f,
+            "bench" to 0.9f, "wardrobe" to 1.9f, "bookcase" to 1.9f,
+            "cabinet" to 1.0f, "bicycle" to 1.0f, "minibike" to 1.1f
+        )
+
+        /** חצי רוחב הדמות ביחידות רדיוס (כולל הידיים) */
+        private const val FIGURE_HALF_WIDTH = 0.6f
+
+        /** אדן חלון נמוך מזה (גבוה על המסך) לא מתאים לאדם עומד */
+        private const val WINDOW_MIN_SILL = 0.45f
+
+        /** צפיפות הדגימה בבדיקות הכיסוי (COVERAGE_STEPS בריבוע נקודות) */
+        private const val COVERAGE_STEPS = 5
+    }
+}
