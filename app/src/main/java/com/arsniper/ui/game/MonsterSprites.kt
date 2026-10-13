@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -51,6 +53,10 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
         private const val ATLAS_NAME = "monsters_atlas"
         private const val CELL_WIDTH = 280
         private const val CELL_HEIGHT = 190
+
+        /** גודל הגיליון המקורי בפיקסלים */
+        private const val ATLAS_WIDTH = 1960
+        private const val ATLAS_HEIGHT = 950
 
         /** גודל יחסי לכל מפלצת, לפי סדר השורות בגיליון */
         private val SIZE_SCALES = floatArrayOf(1.05f, 1.0f, 0.8f, 0.88f, 1.15f)
@@ -93,12 +99,18 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
             return if (sheets.isEmpty()) null else MonsterSprites(sheets)
         }
 
+        /**
+         * חותך פריים מהגיליון. הטבלאות מתארות גיליון בגודל המקורי (1960 על 950), ואם הקובץ שהועלה מוקטן
+         * (למשל תמונה שנשמרה מתצוגה מקדימה), כל המידות מוקטנות באותו יחס.
+         */
         private fun cut(atlas: Bitmap, row: Int, column: Int): Bitmap? {
-            val x = column * CELL_WIDTH
-            val y = row * CELL_HEIGHT
-            val w = FRAME_WIDTHS[row][column]
-            val h = FRAME_HEIGHTS[row][column]
-            if (x + w > atlas.width || y + h > atlas.height) return null
+            val scaleX = atlas.width / ATLAS_WIDTH.toFloat()
+            val scaleY = atlas.height / ATLAS_HEIGHT.toFloat()
+            val x = (column * CELL_WIDTH * scaleX).roundToInt()
+            val y = (row * CELL_HEIGHT * scaleY).roundToInt()
+            val w = min((FRAME_WIDTHS[row][column] * scaleX).roundToInt(), atlas.width - x)
+            val h = min((FRAME_HEIGHTS[row][column] * scaleY).roundToInt(), atlas.height - y)
+            if (x < 0 || y < 0 || w < 1 || h < 1) return null
             return Bitmap.createBitmap(atlas, x, y, w, h)
         }
 
