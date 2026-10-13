@@ -39,7 +39,11 @@ class GameEngine(
     fun configure(scene: SceneContext?) {
         this.scene = scene
         this.scale = if (scene != null) calibrateScale(scene) else DEFAULT_SCALE
+        this.ground = if (scene != null) GroundModel.fit(scene) else GroundModel.default()
     }
+
+    /** מודל הקרקע: גודל אדם לפי מיקום הרגליים בתמונה (פרספקטיבה) */
+    private var ground: GroundModel = GroundModel.default()
 
     /** כמה גדול אדם בתמונה הזו: מכויל לפי עצמים שמוכר גובהם האמיתי (רכב, שולחן, דלת...) */
     private var scale: Float = DEFAULT_SCALE
@@ -47,7 +51,7 @@ class GameEngine(
     /**
      * מכייל את קנה המידה של הסצנה: לכל עצם מוכר, גובה בתמונה * עומק / גובה אמיתי נותן את
      * המקדם k, ואז גובה אדם בתמונה = k * 1.7 / עומק. לוקחים חציון כדי שטעויות בודדות לא ישפיעו.
-     * אם אין מספיק עצמים מוכרים, משתמשים בערך ברירת מחדל.
+     * אם אין מספיק עצמים מוכרים, משתמשים בערך ברירת מחדל. (משמש לחלונות; על הקרקע: GroundModel)
      */
     private fun calibrateScale(ctx: SceneContext): Float {
         val samples = ArrayList<Float>()
@@ -480,8 +484,8 @@ class GameEngine(
             val outward = if (goLeft) -1f else 1f
             val edgeX = if (goLeft) left else right
 
-            // גודל האדם לפי העומק בנקודה שבה הוא עומד
-            val r = radiusForDepth(ctx.depthAt(edgeX, (footY + 0.01f).coerceAtMost(0.97f)))
+            // גודל האדם לפי הפרספקטיבה של הרצפה, במקום שבו הרגליים שלו
+            val r = radiusForFeet(footY)
             if (!sizeOk(r)) return null
 
             return if (heightInHeights >= TALL_OBJECT_RADII * r) {
@@ -621,8 +625,10 @@ class GameEngine(
             val fromLeft = random.nextBoolean()
             val inward = if (fromLeft) 1f else -1f
             val gateX = if (fromLeft) EDGE_GATE else 1f - EDGE_GATE
-            val feetY = random.nextFloat() * 0.6f + 0.35f
-            val r = radiusForDepth(ctx.depthAt(gateX, feetY))
+            // יותר ניסיונות לרחוק (למעלה במסך) כדי שהחלל הגדול יתמלא בדמויות קטנות
+            val farLimit = (ctx.mapper.worldY(ground.horizon) + 0.05f).coerceIn(0.3f, 0.8f)
+            val feetY = farLimit + (0.95f - farLimit) * Math.pow(random.nextDouble(), 1.5).toFloat()
+            val r = radiusForFeet(feetY)
             val figureHeight = r * FIGURE_HEIGHT_RADII
             if (figureHeight < minHeight || figureHeight > maxHeight) return@repeat
 
@@ -684,7 +690,7 @@ class GameEngine(
         val goLeft = random.nextBoolean()
         val outward = if (goLeft) -1f else 1f
         val edgeX = if (goLeft) left else right
-        val r = radiusForDepth(ctx.depthAt(edgeX, (footY + 0.01f).coerceAtMost(0.97f)))
+        val r = radiusForFeet(footY)
         if (!sizeOk(r)) return null
         // רק עצם גבוה מספיק כדי להסתיר דמות שלמה
         if (bottom - top < TALL_OBJECT_RADII * r) return null
@@ -754,11 +760,18 @@ class GameEngine(
     }
 
     /**
-     * רדיוס אויב לפי עומק: גודל אמיתי ביחס לסצנה (ה-scale מכויל לפי עצמים מוכרים), בלי הגבלות
-     * שמעוותות את הסדר: קרוב תמיד גדול מרחוק. מקומות שבהם האדם היה יוצא ענק או זעיר נפסלים בנפרד.
+     * רדיוס אויב לפי עומק (משמש לחלונות, שאינם על הקרקע): גודל אמיתי ביחס לסצנה
+     * (ה-scale מכויל לפי עצמים מוכרים), בלי הגבלות שמעוותות את הסדר.
      */
     private fun radiusForDepth(depthMeters: Float): Float =
         if (scene == null) 0.08f else figureHeightWorld(depthMeters) / FIGURE_HEIGHT_RADII
+
+    /** רדיוס אדם שעומד על הקרקע ורגליו בגובה feetWorldY בעולם: לפי הפרספקטיבה של הרצפה */
+    private fun radiusForFeet(feetWorldY: Float): Float {
+        val ctx = scene ?: return 0.08f
+        val photoHeight = ground.personHeight(ctx.mapper.photoY(feetWorldY))
+        return ctx.mapper.heightToWorld(photoHeight) / FIGURE_HEIGHT_RADII
+    }
 
     private fun randomBetween(from: Float, to: Float): Float =
         from + random.nextFloat() * (to - from)
@@ -795,13 +808,13 @@ class GameEngine(
         private const val MAX_SCALE = 2.6f
 
         /** טווח גובה דמות גלויה (חלק מגובה המסך): מועדף, ואם אין מקום כזה: הרחב */
-        private const val STRICT_MIN_HEIGHT = 0.10f
-        private const val STRICT_MAX_HEIGHT = 0.30f
-        private const val RELAXED_MIN_HEIGHT = 0.06f
+        private const val STRICT_MIN_HEIGHT = 0.07f
+        private const val STRICT_MAX_HEIGHT = 0.34f
+        private const val RELAXED_MIN_HEIGHT = 0.04f
         private const val RELAXED_MAX_HEIGHT = 0.45f
 
         /** טווח גובה דמות שקשורה למחבוא או לחלון */
-        private const val SPOT_MIN_HEIGHT = 0.06f
+        private const val SPOT_MIN_HEIGHT = 0.04f
         private const val SPOT_MAX_HEIGHT = 0.45f
 
         /** עצם שגובהו לפחות כך (ביחידות רדיוס) נחשב גבוה: מציצים מהצד שלו, אחרת עולים מאחוריו */
