@@ -28,6 +28,9 @@ class SceneAnalysis(
 
     fun labelIndex(position: Int): Int = labels[position].toInt() and 0xFF
 
+    /** הסיווג הגולמי של כל התאים (לשמירה בקובץ) */
+    fun labelBytes(): ByteArray = labels
+
     /** חלק התמונה (0..1) שמסווג כקטגוריה מסוימת */
     fun fraction(classIndex: Int): Float {
         var count = 0
