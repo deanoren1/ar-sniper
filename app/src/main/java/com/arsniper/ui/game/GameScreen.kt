@@ -2,13 +2,6 @@ package com.arsniper.ui.game
 
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -46,14 +39,16 @@ import kotlinx.coroutines.delay
 private const val TARGET_ENEMIES = 4
 private const val ZOOM_STEP = 0.5f
 
-/** זום התחלתי: מאפשר להזיז את המצלמה ימינה ושמאלה, כדי לגלות מטרות שהכפתורים מסתירים */
-private const val START_ZOOM = 1.3f
+/**
+ * זום הבסיס הפנימי: כבר בו המצלמה מוגדלת מעט, כדי שאפשר יהיה להזיז אותה ימינה ושמאלה
+ * ולגלות מטרות שהכפתורים מסתירים. לשחקן הוא מוצג כ-x1.0 והוא גם הרמה הנמוכה ביותר.
+ */
+private const val BASE_ZOOM = 1.2f
 
 @Composable
 fun GameScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val photoBitmap = remember { PhotoRepository.load(context) }
-    val photo = remember { photoBitmap?.asImageBitmap() }
+    val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
     val soundPlayer = remember { SoundPlayer(context) }
@@ -67,12 +62,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
     var aspect by remember { mutableStateOf(2f) }
     var sizeKnown by remember { mutableStateOf(false) }
-    var zoom by remember { mutableStateOf(START_ZOOM) }
-
-    // פילטר סגנון קריקטורי על התמונה (מחושב פעם אחת, כשמדליקים בפעם הראשונה)
-    var styleOn by remember { mutableStateOf(false) }
-    var styleBusy by remember { mutableStateOf(false) }
-    var styledPhoto by remember { mutableStateOf<ImageBitmap?>(null) }
+    var zoom by remember { mutableStateOf(BASE_ZOOM) }
 
     // אויבים, וניקוד
     var enemies by remember { mutableStateOf(emptyList<Enemy>()) }
@@ -101,19 +91,6 @@ fun GameScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    // מחשבים את התמונה הקריקטורית ברקע בפעם הראשונה שמדליקים את הסגנון
-    LaunchedEffect(styleOn) {
-        if (styleOn && styledPhoto == null && photoBitmap != null) {
-            styleBusy = true
-            val result = withContext(Dispatchers.Default) {
-                runCatching { StyleFilter.cartoon(photoBitmap).asImageBitmap() }.getOrNull()
-            }
-            styledPhoto = result
-            if (result == null) styleOn = false
-            styleBusy = false
-        }
-    }
-
     // משלימים אויבים מדי פעם, למקרה שלא נמצא מקום מתאים בניסיון הקודם
     LaunchedEffect(sizeKnown) {
         while (true) {
@@ -131,7 +108,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             withFrameNanos { now ->
                 if (lastFrameNanos != 0L) {
                     val dt = (now - lastFrameNanos) / 1_000_000_000f
-                    crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom)
+                    crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom / BASE_ZOOM)
                     enemies = engine.update(enemies, dt)
                 }
                 lastFrameNanos = now
@@ -165,7 +142,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             .pointerInput(Unit) {
                 detectTransformGestures { _, _, zoomChange, _ ->
                     zoom = (zoom * zoomChange)
-                        .coerceIn(GameCamera.MIN_ZOOM, GameCamera.MAX_ZOOM)
+                        .coerceIn(BASE_ZOOM, GameCamera.MAX_ZOOM)
                 }
             }
     ) {
@@ -181,7 +158,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     translationY = (0.5f - camera.center.y * camera.zoom) * size.height
                 }
         ) {
-            BackgroundLayer(photo = if (styleOn) (styledPhoto ?: photo) else photo)
+            BackgroundLayer(photo = photo)
             EnemyLayer(enemies = enemies, scene = scene)
         }
 
@@ -195,19 +172,6 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(16.dp)
         )
 
-        // מתג סגנון קריקטורי
-        Button(
-            onClick = { if (!styleBusy) styleOn = !styleOn },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (styleOn) Color(0xFF6A1B9A) else Color(0xFF424242)
-            ),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        ) {
-            Text(if (styleBusy) "..." else if (styleOn) "STYLE ON" else "STYLE")
-        }
-
         HitIndicator(
             visible = showHit,
             modifier = Modifier
@@ -217,12 +181,13 @@ fun GameScreen(modifier: Modifier = Modifier) {
 
         // זום: שורה אופקית מעל ה-joystick, ממורכזת אליו (joystick: מרכז ב-134dp משמאל)
         ZoomControls(
-            zoom = zoom,
+            // לשחקן מוצג הזום ביחס לבסיס: הרמה ההתחלתית היא x1.0
+            zoom = zoom / BASE_ZOOM,
             onZoomIn = {
-                zoom = (zoom + ZOOM_STEP).coerceAtMost(GameCamera.MAX_ZOOM)
+                zoom = (zoom + ZOOM_STEP * BASE_ZOOM).coerceAtMost(GameCamera.MAX_ZOOM)
             },
             onZoomOut = {
-                zoom = (zoom - ZOOM_STEP).coerceAtLeast(GameCamera.MIN_ZOOM)
+                zoom = (zoom - ZOOM_STEP * BASE_ZOOM).coerceAtLeast(BASE_ZOOM)
             },
             modifier = Modifier
                 .align(Alignment.BottomStart)
