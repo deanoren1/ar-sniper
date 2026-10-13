@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -48,11 +49,23 @@ fun EnemyLayer(
             val radius = size.height * enemy.radius
             val spot = enemy.spot
 
+            // התאמה לתאורה בתמונה: באזור כהה האויב כהה יותר, באזור בהיר בהיר יותר
+            val shade = if (scene != null) {
+                (0.55f + 0.6f * scene.lumaAt(enemy.position.x, enemy.position.y)).coerceIn(0.55f, 1.1f)
+            } else {
+                1f
+            }
+            // צל על הקרקע מתחת לאויב (לא לאויב שיוצא מחלון)
+            val shadow = enemy.kind != EnemyKind.Window
+
             if (isPeeker && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
-                drawMonsterWithMask(center, radius, spot, mask, scene, enemy.kind == EnemyKind.Window)
+                drawMonsterWithMask(
+                    center, radius, spot, mask, scene,
+                    enemy.kind == EnemyKind.Window, shade, shadow
+                )
             } else {
-                drawMonster(center, radius)
+                drawMonster(center, radius, shade, shadow)
             }
         }
     }
@@ -75,7 +88,9 @@ private fun DrawScope.drawMonsterWithMask(
     spot: HidingSpot,
     mask: ImageBitmap,
     scene: SceneContext,
-    insideOnly: Boolean
+    insideOnly: Boolean,
+    shade: Float,
+    shadow: Boolean
 ) {
     val mapper = scene.mapper
     val left = mapper.worldX(spot.drawMinX) * size.width
@@ -87,10 +102,10 @@ private fun DrawScope.drawMonsterWithMask(
         canvas.saveLayer(Rect(0f, 0f, size.width, size.height), Paint())
         if (insideOnly) {
             clipRect(left, top, right, bottom) {
-                drawMonster(center, radius)
+                drawMonster(center, radius, shade, shadow)
             }
         } else {
-            drawMonster(center, radius)
+            drawMonster(center, radius, shade, shadow)
         }
         drawImage(
             image = mask,
@@ -107,15 +122,32 @@ private fun DrawScope.drawMonsterWithMask(
     }
 }
 
-private fun DrawScope.drawMonster(center: Offset, r: Float) {
+/** צובע בגוון כהה/בהיר יותר, לפי התאורה בתמונה */
+private fun Color.shaded(factor: Float): Color = Color(
+    red = (red * factor).coerceIn(0f, 1f),
+    green = (green * factor).coerceIn(0f, 1f),
+    blue = (blue * factor).coerceIn(0f, 1f),
+    alpha = alpha
+)
+
+private fun DrawScope.drawMonster(center: Offset, r: Float, shade: Float, shadow: Boolean) {
+    // צל על הקרקע: אליפסה כהה מתחת לרגליים
+    if (shadow) {
+        drawOval(
+            color = Color.Black.copy(alpha = 0.35f),
+            topLeft = Offset(center.x - r * 0.85f, center.y + r * 0.8f),
+            size = Size(r * 1.7f, r * 0.4f)
+        )
+    }
+
     // גוף
     drawCircle(
-        color = Color(0xFF2E7D32),
+        color = Color(0xFF2E7D32).shaded(shade),
         radius = r,
         center = center
     )
     drawCircle(
-        color = Color(0xFF1B5E20),
+        color = Color(0xFF1B5E20).shaded(shade),
         radius = r,
         center = center,
         style = Stroke(width = r * 0.08f)
@@ -127,7 +159,7 @@ private fun DrawScope.drawMonster(center: Offset, r: Float) {
     listOf(-1f, 1f).forEach { side ->
         val eyeCenter = Offset(center.x + side * r * 0.35f, eyeY)
         drawCircle(
-            color = Color.White,
+            color = Color.White.shaded(shade),
             radius = eyeRadius,
             center = eyeCenter
         )
@@ -140,7 +172,7 @@ private fun DrawScope.drawMonster(center: Offset, r: Float) {
 
     // פה
     drawLine(
-        color = Color(0xFF1B5E20),
+        color = Color(0xFF1B5E20).shaded(shade),
         start = Offset(center.x - r * 0.35f, center.y + r * 0.4f),
         end = Offset(center.x + r * 0.35f, center.y + r * 0.4f),
         strokeWidth = r * 0.1f
