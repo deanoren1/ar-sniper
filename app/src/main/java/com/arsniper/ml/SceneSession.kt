@@ -16,8 +16,13 @@ object SceneSession {
     var spots: List<HidingSpot> = emptyList()
         private set
 
+    /** בהירות התמונה (0..255) ברזולוציית רשת הניתוח, להתאמת צבע האויבים לתאורה */
+    var luma: ByteArray? = null
+        private set
+
     /**
-     * שומר את הניתוח, מוצא מחבואים, ואם יש תמונת עזר (guide) מלטש את הקצוות שלהם.
+     * שומר את הניתוח, מוצא מחבואים, ואם יש תמונת עזר (guide) מלטש את הקצוות שלהם
+     * ושומר גם מפת בהירות.
      */
     fun set(analysis: SceneAnalysis, guide: GuideImage? = null) {
         this.analysis = analysis
@@ -27,10 +32,26 @@ object SceneSession {
         } else {
             found
         }
+        this.luma = if (guide != null) buildLuma(analysis, guide) else null
     }
 
     fun clear() {
         analysis = null
         spots = emptyList()
+        luma = null
+    }
+
+    /** דוגם את תמונת העזר לרזולוציית הרשת */
+    private fun buildLuma(analysis: SceneAnalysis, guide: GuideImage): ByteArray {
+        val s = guide.scale
+        val out = ByteArray(analysis.width * analysis.height)
+        for (y in 0 until analysis.height) {
+            for (x in 0 until analysis.width) {
+                val fx = (x * s + s / 2).coerceAtMost(guide.width - 1)
+                val fy = (y * s + s / 2).coerceAtMost(guide.height - 1)
+                out[y * analysis.width + x] = guide.gray[fy * guide.width + fx]
+            }
+        }
+        return out
     }
 }
