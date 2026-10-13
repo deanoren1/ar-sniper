@@ -45,7 +45,7 @@ class GameEngine(
     /** מודל הקרקע: גודל אדם לפי מיקום הרגליים בתמונה (פרספקטיבה) */
     private var ground: GroundModel = GroundModel.default()
 
-    /** כמה גדול אדם בתמונה הזו: מכויל לפי עצמים שמוכר גובהם האמיתי (רכב, שולחן, דלת...) */
+    /** כמה גדול אדם בתמונה הזו: מכוייל לפי עצמים שמוכר גובהם האמיתי (רכב, שולחן, דלת...) */
     private var scale: Float = DEFAULT_SCALE
 
     /**
@@ -177,7 +177,11 @@ class GameEngine(
         return when (enemy.state) {
             EnemyState.Idle -> {
                 if (timer <= 0f) {
-                    enemy.copy(state = EnemyState.Walking, timer = randomBetween(1.5f, 4f))
+                    enemy.copy(
+                        state = EnemyState.Walking,
+                        timer = randomBetween(1.5f, 4f),
+                        dirY = pickDepthDirection(enemy)
+                    )
                 } else {
                     enemy.copy(timer = timer)
                 }
@@ -243,35 +247,71 @@ class GameEngine(
     }
 
     /**
-     * הולך לאורך הקרקע. אם הצעד הבא לא על קרקע, מאחורי עצם קרוב יותר, או בתוך דמות אחרת: מסתובב.
+     * בוחר לאן הדמות הולכת בעומק: מתקרבת, מתרחקת או לרוחב. מעדיף להישאר בתוך הרצפה הנראית:
+     * קרוב מאוד לתחתית המסך (או קרוב לאופק) מכוון בחזרה פנימה.
+     */
+    private fun pickDepthDirection(enemy: Enemy): Float {
+        val ctx = scene ?: return 0f
+        val feetPhoto = ctx.mapper.photoY(enemy.position.y + enemy.radius)
+        if (feetPhoto > 0.85f) return -1f
+        if (feetPhoto - ground.horizon < 0.12f) return 1f
+        val roll = random.nextFloat()
+        return if (roll < 0.45f) 1f else if (roll < 0.65f) -1f else 0f
+    }
+
+    /**
+     * הולך על הקרקע, לרוחב ואולי גם לעומק. בהליכה לעומק הרגליים עולות או יורדות במסך, והגודל משתנה
+     * לפי הפרספקטיבה. אם הצעד הבא לא על קרקע, מאחורי עצם קרוב יותר, או בתוך דמות אחרת: מסתובב.
      * ליד קצה העולם אין בדיקות: כך דמות נכנסת מהקצה, ויוצאת ממנו (ואז מחזיר null: הוסרה).
      */
     private fun moveAlongGround(enemy: Enemy, speedInRadii: Float, dt: Float, all: List<Enemy>): Enemy? {
         val ctx = scene
         val aspect = ctx?.mapper?.screenAspect ?: 2f
         val halfWidth = FIGURE_HALF_WIDTH * enemy.radius / aspect
-        val stepX = enemy.direction * enemy.radius * speedInRadii * dt / aspect
+        val lateral = if (enemy.dirY != 0f) DEPTH_WALK_LATERAL else 1f
+        val stepX = enemy.direction * lateral * enemy.radius * speedInRadii * dt / aspect
         val newX = enemy.position.x + stepX
         if ((enemy.direction > 0f && newX > 1f + halfWidth) || (enemy.direction < 0f && newX < -halfWidth)) {
             return null
         }
         val phase = enemy.phase + speedInRadii * dt * PHASE_PER_RADIUS
-        val feetY = enemy.position.y + enemy.radius
+
+        var newFeetY = enemy.position.y + enemy.radius
+        var newRadius = enemy.radius
+        if (ctx != null && enemy.dirY != 0f) {
+            val mapper = ctx.mapper
+            val feetPhoto = mapper.photoY(newFeetY)
+            val above = max(feetPhoto - ground.horizon, 0.02f)
+            val dPhoto = enemy.dirY * DEPTH_SPEED * above * above * (speedInRadii / WALK_SPEED) * dt
+            val newFeetPhoto = feetPhoto + dPhoto
+            // יציאה מהמסך בתחתית, ובקצה הרחוק מסתובבים
+            if (mapper.worldY(newFeetPhoto) > 0.97f) return null
+            if (newFeetPhoto - ground.horizon < MIN_ABOVE_HORIZON) {
+                return enemy.copy(dirY = 1f)
+            }
+            newFeetY = mapper.worldY(newFeetPhoto)
+            newRadius = radiusForFeet(newFeetY)
+        }
+
         val inEdgeBand = newX < EDGE_BAND || newX > 1f - EDGE_BAND
         val canStep: Boolean = if (inEdgeBand) {
             true
         } else if (ctx != null) {
             // צריך קרקע, ולא להיכנס מאחורי עצם שקרוב אלינו יותר, ולא לדחוף דמות אחרת
-            ctx.isWalkable(newX, feetY + GROUND_PROBE) &&
-                !behindNearerObject(ctx, newX, feetY, enemy.radius, ctx.depthAt(newX, feetY)) &&
+            ctx.isWalkable(newX, newFeetY + GROUND_PROBE) &&
+                !behindNearerObject(ctx, newX, newFeetY, newRadius, ctx.depthAt(newX, newFeetY)) &&
                 !blockedByOther(enemy, newX, all, aspect)
         } else {
             newX >= 0.05f && newX <= 0.95f
         }
         return if (canStep) {
-            enemy.copy(position = Vec2(newX, enemy.position.y), phase = phase)
+            enemy.copy(
+                position = Vec2(newX, newFeetY - newRadius),
+                radius = newRadius,
+                phase = phase
+            )
         } else {
-            enemy.copy(direction = -enemy.direction)
+            enemy.copy(direction = -enemy.direction, dirY = -enemy.dirY)
         }
     }
 
@@ -332,7 +372,7 @@ class GameEngine(
         if (ctx.spots.isNotEmpty() && coverCount < coverWanted) {
             spawnCover(existing)?.let { return it }
         }
-        // דמות הולכת: נכנסת מקצה העולם או יוצאת מאחורי עצם. אף פעם לא מופיעה סתם באמצע
+        // דמות הולכת: נכנסת מקצה העולם, יוצאת מאחורי עצם או מגיעה מרחוק. אף פעם לא מופיעה סתם באמצע
         return spawnEntrant(existing) ?: spawnCover(existing)
     }
 
@@ -602,13 +642,90 @@ class GameEngine(
         )
     }
 
-    /** דמות הולכת חדשה: יוצאת מאחורי עצם גבוה, או נכנסת מקצה התמונה */
-    private fun spawnEntrant(existing: List<Enemy>): Enemy? =
-        if (random.nextBoolean()) {
-            spawnEmerge(existing) ?: spawnEdge(existing)
-        } else {
-            spawnEdge(existing) ?: spawnEmerge(existing)
+    /** דמות הולכת חדשה: יוצאת מאחורי עצם גבוה, נכנסת מקצה התמונה, או מגיעה מקצה הרצפה הרחוק */
+    private fun spawnEntrant(existing: List<Enemy>): Enemy? {
+        val order = when (random.nextInt(3)) {
+            0 -> listOf(0, 1, 2)
+            1 -> listOf(1, 2, 0)
+            else -> listOf(2, 0, 1)
         }
+        for (way in order) {
+            val enemy = when (way) {
+                0 -> spawnEmerge(existing)
+                1 -> spawnEdge(existing)
+                else -> spawnFar(existing)
+            }
+            if (enemy != null) return enemy
+        }
+        return null
+    }
+
+    /**
+     * דמות שמגיעה מהקצה הרחוק של הרצפה (למשל סוף המעבר), קטנה ממש, והולכת לעבר המצלמה.
+     * מוצאים בעמודה אקראית את הנקודה הראשונה של רצפה מתחת לקו האופק.
+     */
+    private fun spawnFar(existing: List<Enemy>): Enemy? {
+        val ctx = scene ?: return null
+        val mapper = ctx.mapper
+        val aspect = mapper.screenAspect
+
+        // לכל עמודה: הנקודה הרחוקה ביותר (הגבוהה ביותר בתמונה) של רצפה מתחת לקו האופק
+        val columns = ArrayList<Float>()
+        val firsts = ArrayList<Float>()
+        var px = 0.1f
+        while (px <= 0.9f) {
+            val wx = mapper.worldX(px)
+            if (wx >= 0.1f && wx <= 0.9f) {
+                var py = max(ground.horizon + 0.03f, 0.05f)
+                while (py < 0.9f) {
+                    if (ctx.isWalkable(wx, mapper.worldY(py))) {
+                        columns.add(px)
+                        firsts.add(py + 0.02f)
+                        break
+                    }
+                    py += 0.01f
+                }
+            }
+            px += 0.02f
+        }
+        if (columns.isEmpty()) return null
+        // רק העמודות שבהן הרצפה מגיעה הכי רחוק (סוף המעבר, קצה החדר)
+        val farthest = firsts.min()
+        val candidates = columns.indices.filter { firsts[it] <= farthest + FAR_BAND }
+
+        repeat(20) {
+            val index = candidates[random.nextInt(candidates.size)]
+            val wx = mapper.worldX(columns[index])
+            val feetPhoto = firsts[index]
+            val feetY = mapper.worldY(feetPhoto)
+            val r = radiusForFeet(feetY)
+            val figureHeight = r * FIGURE_HEIGHT_RADII
+            if (figureHeight < FAR_MIN_HEIGHT || figureHeight > FAR_MAX_HEIGHT) return@repeat
+
+            // הדרך קדימה (לעבר המצלמה) צריכה להיות קרקע
+            var clear = true
+            for (k in 1..FAR_PATH_STEPS) {
+                if (!ctx.isWalkable(wx, mapper.worldY(feetPhoto + k * 0.03f))) {
+                    clear = false
+                    break
+                }
+            }
+            if (!clear) return@repeat
+            if (tooClose(Vec2(wx, feetY - r), r, existing, aspect, 0.1f)) return@repeat
+
+            return Enemy(
+                id = nextEnemyId++,
+                position = Vec2(wx, feetY - r),
+                radius = r,
+                kind = EnemyKind.Open,
+                state = EnemyState.Walking,
+                timer = randomBetween(4f, 7f),
+                direction = if (random.nextBoolean()) 1f else -1f,
+                dirY = 1f
+            )
+        }
+        return null
+    }
 
     /**
      * דמות שמתחילה מחוץ לתמונה (בקצה ימין או שמאל) על קרקע שמתחילה שם, וצועדת פנימה.
@@ -761,7 +878,7 @@ class GameEngine(
 
     /**
      * רדיוס אויב לפי עומק (משמש לחלונות, שאינם על הקרקע): גודל אמיתי ביחס לסצנה
-     * (ה-scale מכויל לפי עצמים מוכרים), בלי הגבלות שמעוותות את הסדר.
+     * (ה-scale מכוייל לפי עצמים מוכרים), בלי הגבלות שמעוותות את הסדר.
      */
     private fun radiusForDepth(depthMeters: Float): Float =
         if (scene == null) 0.08f else figureHeightWorld(depthMeters) / FIGURE_HEIGHT_RADII
@@ -771,6 +888,16 @@ class GameEngine(
         val ctx = scene ?: return 0.08f
         val photoHeight = ground.personHeight(ctx.mapper.photoY(feetWorldY))
         return ctx.mapper.heightToWorld(photoHeight) / FIGURE_HEIGHT_RADII
+    }
+
+    /** שורת אבחון קצרה להצגה במשחק: מודל הקרקע ומספר הדמויות לפי סוג */
+    fun debugInfo(enemies: List<Enemy>): String {
+        val open = enemies.count { it.kind == EnemyKind.Open && it.isAlive }
+        val cover = enemies.count { (it.kind == EnemyKind.Peek || it.kind == EnemyKind.Window) && it.isAlive }
+        val spots = scene?.spots?.size ?: 0
+        return "horizon %.2f  cam %.1fm  fit=%s  spots=%d  open=%d  cover=%d".format(
+            ground.horizon, ground.cameraHeight, ground.fitted, spots, open, cover
+        )
     }
 
     private fun randomBetween(from: Float, to: Float): Float =
@@ -793,6 +920,19 @@ class GameEngine(
         private const val EDGE_PATH_STEPS = 6
         private const val EDGE_PATH_STEP = 0.04f
         private const val EMERGE_PATH_STEPS = 5
+
+        /** הליכה לעומק: מהירות (בתמונה, ליחידה של מרחק מהאופק בריבוע), וכמה מהמהירות לרוחב נשארת */
+        private const val DEPTH_SPEED = 0.8f
+        private const val DEPTH_WALK_LATERAL = 0.35f
+        private const val MIN_ABOVE_HORIZON = 0.03f
+
+        /** דמות שמגיעה מרחוק: טווח גובה (חלק מגובה המסך) ומספר צעדי הבדיקה קדימה */
+        private const val FAR_MIN_HEIGHT = 0.02f
+        private const val FAR_MAX_HEIGHT = 0.20f
+
+        /** כמה (בתמונה) מעל הנקודה הרחוקה ביותר עוד נחשב קצה רחוק של הרצפה */
+        private const val FAR_BAND = 0.08f
+        private const val FAR_PATH_STEPS = 4
 
         /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
         private const val GROUND_PROBE = 0.012f
