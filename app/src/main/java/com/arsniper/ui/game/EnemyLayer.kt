@@ -19,19 +19,24 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.WINDOW_HIDE_OFFSET
 import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
+import com.arsniper.game.model.EnemyState
 import com.arsniper.game.spots.HidingSpot
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * ציור האויבים: דמות אדם פשוטה.
  * מציץ: החלק שנמצא "בתוך" העצם נחתך, כך שנראה שהוא מאחורי העצם.
  * חלון: הדמות נחתכת באדן החלון.
+ * דמות שיוצאת מאחורי עצם: נחתכת על ידי העצם עד שהיא כולה בחוץ.
  */
 @Composable
 fun EnemyLayer(
@@ -42,10 +47,15 @@ fun EnemyLayer(
     val maskCache = remember(scene) { HashMap<Int, ImageBitmap>() }
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        for (enemy in enemies) {
+        // מהרחוק לקרוב: הדמות שרגליה נמוכות יותר במסך (קרובה יותר) מצוירת אחרונה, מעל האחרות
+        val ordered = enemies.sortedBy { depthKey(it) }
+        for (enemy in ordered) {
             if (!enemy.isAlive) continue
             val isPeeker = enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window
             if (isPeeker && enemy.exposure < 0.02f) continue
+            // דמות הולכת שמחכה מוסתרת מאחורי עצם: לא מציירים כלל
+            val emerging = enemy.kind == EnemyKind.Open && enemy.spot != null
+            if (emerging && enemy.state == EnemyState.Idle) continue
 
             val center = Offset(size.width * enemy.position.x, size.height * enemy.position.y)
             val radius = size.height * enemy.radius
@@ -59,27 +69,54 @@ fun EnemyLayer(
             }
             // צל על הקרקע מתחת לאויב (לא לאויב שיוצא מחלון)
             val shadow = enemy.kind != EnemyKind.Window
+            val gait = Gait.of(enemy)
 
             if (enemy.kind == EnemyKind.Window) {
                 // יוצא מחלון: הדמות נחתכת באדן החלון, כך שנראה שהיא עומדת מאחוריו
                 val sillY = (enemy.hidePos.y - WINDOW_HIDE_OFFSET * enemy.radius) * size.height
                 clipRect(0f, 0f, size.width, sillY) {
-                    drawPerson(center, radius, shade, false)
+                    drawPerson(center, radius, shade, false, gait)
                 }
-            } else if (isPeeker && spot != null && scene != null) {
+            } else if ((isPeeker || emerging) && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
                 // אדם שעולה מאחורי עצם נמוך (תנועה אנכית): נחתך בקצה התחתון של העצם
-                val rising = enemy.hidePos.y != enemy.peekPos.y
+                val rising = isPeeker && enemy.hidePos.y != enemy.peekPos.y
                 val clipBottom = if (rising) {
                     spot.columnBottom(scene.mapper.photoX(enemy.position.x))
                         ?.let { scene.mapper.worldY(it) * size.height }
                 } else {
                     null
                 }
-                drawPersonBehind(center, radius, spot, mask, scene, shade, shadow && !rising, clipBottom)
+                drawPersonBehind(center, radius, spot, mask, scene, shade, shadow && !rising, clipBottom, gait)
             } else {
-                drawPerson(center, radius, shade, shadow)
+                drawPerson(center, radius, shade, shadow, gait)
             }
+        }
+    }
+}
+
+/**
+ * מפתח עומק לסדר הציור: גובה הרגליים במסך. מציץ/חלון: לפי מקום ההסתתרות (לא לפי מצב ההצצה הנוכחי),
+ * כדי שהסדר לא יקפוץ תוך כדי עלייה.
+ */
+private fun depthKey(enemy: Enemy): Float =
+    if (enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window) {
+        enemy.hidePos.y + enemy.radius
+    } else {
+        enemy.position.y + enemy.radius
+    }
+
+/** תנועת הליכה: phase = שלב המחזור, swing = כמה חזק מנופפים (0 = עומד, 1 = הליכה, 1.6 = ריצה) */
+private class Gait(val phase: Float, val swing: Float) {
+    companion object {
+        val STILL = Gait(0f, 0f)
+
+        fun of(enemy: Enemy): Gait {
+            if (enemy.kind == EnemyKind.Open) {
+                if (enemy.state == EnemyState.Walking) return Gait(enemy.phase, 1f)
+                if (enemy.state == EnemyState.Running) return Gait(enemy.phase, 1.6f)
+            }
+            return STILL
         }
     }
 }
@@ -138,7 +175,8 @@ private fun DrawScope.drawPersonBehind(
     scene: SceneContext,
     shade: Float,
     shadow: Boolean,
-    clipBottom: Float?
+    clipBottom: Float?,
+    gait: Gait
 ) {
     val mapper = scene.mapper
     val left = mapper.worldX(spot.drawMinX) * size.width
@@ -150,10 +188,10 @@ private fun DrawScope.drawPersonBehind(
         canvas.saveLayer(Rect(0f, 0f, size.width, size.height), Paint())
         if (clipBottom != null) {
             clipRect(0f, 0f, size.width, clipBottom) {
-                drawPerson(center, radius, shade, shadow)
+                drawPerson(center, radius, shade, shadow, gait)
             }
         } else {
-            drawPerson(center, radius, shade, shadow)
+            drawPerson(center, radius, shade, shadow, gait)
         }
         drawImage(
             image = mask,
@@ -181,13 +219,13 @@ private fun Color.shaded(factor: Float): Color = Color(
 /**
  * דמות אדם פשוטה. center = מרכז ההיט; הרגליים ב-center.y + r, והראש ב-center.y - 1.2r.
  * הצבעים מוכהים או מובהרים לפי התאורה בתמונה (shade), ויש צל מתחת לרגליים.
+ * הליכה: הרגליים והידיים מתנדנדות בניגוד זו לזו, והגוף עולה ויורד קלות עם כל צעד.
  */
-private fun DrawScope.drawPerson(center: Offset, r: Float, shade: Float, shadow: Boolean) {
+private fun DrawScope.drawPerson(center: Offset, r: Float, shade: Float, shadow: Boolean, gait: Gait) {
     val cx = center.x
-    val cy = center.y
-    val feetY = cy + r
+    val feetY = center.y + r
 
-    // צל על הקרקע, בדיוק מתחת לרגליים
+    // צל על הקרקע, בדיוק מתחת לרגליים (נשאר על הקרקע גם כשהגוף עולה)
     if (shadow) {
         drawOval(
             color = Color.Black.copy(alpha = 0.4f),
@@ -196,27 +234,40 @@ private fun DrawScope.drawPerson(center: Offset, r: Float, shade: Float, shadow:
         )
     }
 
+    val swingSin = sin(gait.phase)
+    // קפיצה קלה בכל צעד (פעמיים במחזור), רק בזמן הליכה
+    val bob = abs(swingSin) * 0.05f * r * gait.swing
+    val cy = center.y - bob
+    val legAngle = 26f * gait.swing * swingSin
+    val armAngle = 22f * gait.swing * swingSin
+
     val cloth = Color(0xFF4A5D68).shaded(shade)
     val clothDark = Color(0xFF263238).shaded(shade)
     val skin = Color(0xFFD2A67F).shaded(shade)
     val line = Color(0xFF10181C)
     val stroke = Stroke(width = r * 0.05f)
 
-    // רגליים
+    // רגליים: מסתובבות סביב הירך, אחת קדימה ואחת אחורה
     for (side in listOf(-1f, 1f)) {
         val topLeft = Offset(if (side < 0) cx - r * 0.36f else cx + r * 0.06f, cy + r * 0.15f)
         val legSize = Size(r * 0.3f, r * 0.85f)
-        drawRoundRect(clothDark, topLeft, legSize, CornerRadius(r * 0.08f))
-        drawRoundRect(line, topLeft, legSize, CornerRadius(r * 0.08f), stroke)
+        val hip = Offset(topLeft.x + legSize.width / 2f, topLeft.y)
+        rotate(degrees = legAngle * side, pivot = hip) {
+            drawRoundRect(clothDark, topLeft, legSize, CornerRadius(r * 0.08f))
+            drawRoundRect(line, topLeft, legSize, CornerRadius(r * 0.08f), stroke)
+        }
     }
 
-    // ידיים
+    // ידיים: מתנדנדות בניגוד לרגל שבאותו צד, סביב הכתף
     for (side in listOf(-1f, 1f)) {
         val topLeft = Offset(if (side < 0) cx - r * 0.6f else cx + r * 0.42f, cy - r * 0.5f)
         val armSize = Size(r * 0.18f, r * 0.68f)
-        drawRoundRect(cloth, topLeft, armSize, CornerRadius(r * 0.09f))
-        drawRoundRect(line, topLeft, armSize, CornerRadius(r * 0.09f), stroke)
-        drawCircle(skin, r * 0.1f, Offset(topLeft.x + r * 0.09f, cy + r * 0.22f))
+        val shoulder = Offset(topLeft.x + armSize.width / 2f, topLeft.y)
+        rotate(degrees = -armAngle * side, pivot = shoulder) {
+            drawRoundRect(cloth, topLeft, armSize, CornerRadius(r * 0.09f))
+            drawRoundRect(line, topLeft, armSize, CornerRadius(r * 0.09f), stroke)
+            drawCircle(skin, r * 0.1f, Offset(topLeft.x + r * 0.09f, cy + r * 0.22f))
+        }
     }
 
     // גוף
