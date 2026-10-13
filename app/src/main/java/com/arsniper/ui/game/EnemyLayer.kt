@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -12,6 +13,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.asImageBitmap
@@ -20,6 +22,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.arsniper.game.engine.SceneContext
@@ -28,15 +32,35 @@ import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
 import com.arsniper.game.model.EnemyState
 import com.arsniper.game.spots.HidingSpot
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+/** משך אנימציית הפגיעה (שניות): המפלצת נופלת עם כוכבים, ואז נעלמת בענן */
+private const val DEATH_SECONDS = 0.7f
+
+/** גובה דמות אדם ביחידות רדיוס (ראש עד רגליים), כמו במנוע */
+private const val FIGURE_HEIGHT_RADII = 2.2f
+
+/** הגדלה כללית של המפלצות ביחס לגודל "אדם" באותו מקום */
+private const val MONSTER_SCALE = 1.1f
+
+/** כמה פריימי הליכה מתחלפים בכל מחזור של phase (2π) */
+private const val FRAMES_PER_CYCLE = 6f
+
+private class Dying(val since: Double, val enemy: Enemy)
+
+private class DrawItem(val enemy: Enemy, val dead: Boolean, val progress: Float)
+
 /**
- * ציור האויבים: דמות אדם פשוטה.
+ * ציור האויבים: מפלצות מצוירות (ספרייטים), ואם הקבצים לא קיימים בפרויקט: דמות אדם פשוטה.
  * מציץ: החלק שנמצא "בתוך" העצם נחתך, כך שנראה שהוא מאחורי העצם.
  * חלון: הדמות נחתכת באדן החלון.
- * דמות שיוצאת מאחורי עצם: נחתכת על ידי העצם עד שהיא כולה בחוץ.
+ * פגיעה: המפלצת מוצגת בתנוחת פגיעה עם כוכבים ונעלמת בענן.
  */
 @Composable
 fun EnemyLayer(
@@ -44,18 +68,62 @@ fun EnemyLayer(
     scene: SceneContext?,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val spritesAvailable = remember { MonsterSprites.isAvailable(context) }
+    val spritesState = produceState<MonsterSprites?>(null, context) {
+        if (spritesAvailable) {
+            value = withContext(Dispatchers.Default) { MonsterSprites.load(context) }
+        }
+    }
+    val sprites = spritesState.value
+
     val maskCache = remember(scene) { HashMap<Int, ImageBitmap>() }
+    // אויבים שנפגעו: זמן הפגיעה והמצב שלהם, כדי שאנימציית הפגיעה תסתיים גם אם הם כבר הוסרו מהרשימה
+    val dying = remember(scene) { HashMap<Int, Dying>() }
+    val finished = remember(scene) { HashSet<Int>() }
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        // הספרייטים עוד נטענים: לא מציירים כלום (כדי לא להבהב דמות אדם לרגע)
+        if (spritesAvailable && sprites == null) return@Canvas
+
+        val nowS = System.nanoTime() / 1e9
+        val anim = (nowS % 1000.0).toFloat()
+
+        for (e in enemies) {
+            if (!e.isAlive && !finished.contains(e.id) && !dying.containsKey(e.id)) {
+                dying[e.id] = Dying(nowS, e)
+            }
+        }
+        val iterator = dying.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (nowS - entry.value.since > DEATH_SECONDS) {
+                finished.add(entry.key)
+                iterator.remove()
+            }
+        }
+
+        val items = ArrayList<DrawItem>()
+        for (e in enemies) {
+            if (e.isAlive) items.add(DrawItem(e, false, 0f))
+        }
+        if (sprites != null) {
+            for ((_, d) in dying) {
+                items.add(DrawItem(d.enemy, true, ((nowS - d.since) / DEATH_SECONDS).toFloat().coerceIn(0f, 1f)))
+            }
+        }
         // מהרחוק לקרוב: הדמות שרגליה נמוכות יותר במסך (קרובה יותר) מצוירת אחרונה, מעל האחרות
-        val ordered = enemies.sortedBy { depthKey(it) }
-        for (enemy in ordered) {
-            if (!enemy.isAlive) continue
+        items.sortBy { depthKey(it.enemy) }
+
+        for (item in items) {
+            val enemy = item.enemy
             val isPeeker = enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window
-            if (isPeeker && enemy.exposure < 0.02f) continue
-            // דמות הולכת שמחכה מוסתרת מאחורי עצם: לא מציירים כלל
+            if (!item.dead) {
+                if (isPeeker && enemy.exposure < 0.02f) continue
+                // דמות הולכת שמחכה מוסתרת מאחורי עצם: לא מציירים כלל
+                if (enemy.kind == EnemyKind.Open && enemy.spot != null && enemy.state == EnemyState.Idle) continue
+            }
             val emerging = enemy.kind == EnemyKind.Open && enemy.spot != null
-            if (emerging && enemy.state == EnemyState.Idle) continue
 
             val center = Offset(size.width * enemy.position.x, size.height * enemy.position.y)
             val radius = size.height * enemy.radius
@@ -67,15 +135,33 @@ fun EnemyLayer(
             } else {
                 1f
             }
-            // צל על הקרקע מתחת לאויב (לא לאויב שיוצא מחלון)
-            val shadow = enemy.kind != EnemyKind.Window
             val gait = Gait.of(enemy)
+
+            // הפונקציה שמציירת את הדמות עצמה (מפלצת או דמות פשוטה), עם או בלי צל על הקרקע
+            fun figure(withShadow: Boolean): DrawScope.() -> Unit = {
+                if (sprites != null) {
+                    drawMonster(
+                        sheet = sprites.forEnemy(enemy.id),
+                        enemy = enemy,
+                        dead = item.dead,
+                        progress = item.progress,
+                        center = center,
+                        r = radius,
+                        shade = shade,
+                        shadow = withShadow,
+                        anim = anim
+                    )
+                } else {
+                    drawPerson(center, radius, shade, withShadow, gait)
+                }
+            }
 
             if (enemy.kind == EnemyKind.Window) {
                 // יוצא מחלון: הדמות נחתכת באדן החלון, כך שנראה שהיא עומדת מאחוריו
                 val sillY = (enemy.hidePos.y - WINDOW_HIDE_OFFSET * enemy.radius) * size.height
+                val draw = figure(false)
                 clipRect(0f, 0f, size.width, sillY) {
-                    drawPerson(center, radius, shade, false, gait)
+                    draw()
                 }
             } else if ((isPeeker || emerging) && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
@@ -87,9 +173,10 @@ fun EnemyLayer(
                 } else {
                     null
                 }
-                drawPersonBehind(center, radius, spot, mask, scene, shade, shadow && !rising, clipBottom, gait)
+                drawFigureBehind(figure(!rising), spot, mask, scene, clipBottom)
             } else {
-                drawPerson(center, radius, shade, shadow, gait)
+                val draw = figure(true)
+                draw()
             }
         }
     }
@@ -117,6 +204,106 @@ private class Gait(val phase: Float, val swing: Float) {
                 if (enemy.state == EnemyState.Running) return Gait(enemy.phase, 1.6f)
             }
             return STILL
+        }
+    }
+}
+
+/**
+ * מציירת מפלצת: עומדת (פריים עמידה עם נשימה קלה), הולכת (4 פריימים, מתהפכת לפי כיוון ההליכה),
+ * או נפגעת (תנוחת פגיעה עם כוכבים, נעלמת בענן). הרגליים ב-center.y + r, כמו הדמות הפשוטה.
+ */
+private fun DrawScope.drawMonster(
+    sheet: MonsterSheet,
+    enemy: Enemy,
+    dead: Boolean,
+    progress: Float,
+    center: Offset,
+    r: Float,
+    shade: Float,
+    shadow: Boolean,
+    anim: Float
+) {
+    val gait = Gait.of(enemy)
+    val walking = !dead && gait.swing > 0f
+    val sprite: MonsterSprite = if (dead) {
+        sheet.hit
+    } else if (walking) {
+        val raw = (gait.phase / (2f * PI.toFloat()) * FRAMES_PER_CYCLE).toInt()
+        val count = sheet.walk.size
+        sheet.walk[((raw % count) + count) % count]
+    } else {
+        sheet.idle
+    }
+
+    val cx = center.x
+    val feetY = center.y + r
+    // גובה הדמות בפיקסלים: הפריים עצמו (בלי מסגרת) מוקטן/מוגדל בהתאם לפריים העמידה של המפלצת
+    val targetHeight = r * FIGURE_HEIGHT_RADII * MONSTER_SCALE * sheet.sizeScale
+    val k = targetHeight / sheet.idle.height
+
+    // נשימה קלה כשעומדת
+    var sx = 1f
+    var sy = 1f
+    if (!dead && !walking) {
+        val breath = sin(anim * 3.2f + enemy.id)
+        sy = 1f + 0.025f * breath
+        sx = 1f - 0.015f * breath
+    }
+    val alpha = if (dead) {
+        if (progress < 0.5f) 1f else (1f - (progress - 0.5f) * 2f).coerceIn(0f, 1f)
+    } else {
+        1f
+    }
+
+    // צל על הקרקע מתחת לרגליים
+    if (shadow) {
+        val shadowWidth = sheet.idle.width * k * 0.75f
+        drawOval(
+            color = Color.Black.copy(alpha = 0.38f * alpha),
+            topLeft = Offset(cx - shadowWidth / 2f, feetY - r * 0.14f),
+            size = Size(shadowWidth, r * 0.3f)
+        )
+    }
+
+    val gray = (0.3f + 0.7f * shade).coerceIn(0.4f, 1f)
+    val tint = ColorFilter.tint(Color(gray, gray, gray, 1f), BlendMode.Modulate)
+    val width = sprite.image.width * k * sx
+    val height = sprite.image.height * k * sy
+    val padPx = sprite.pad * k * sy
+    val left = cx - width / 2f
+    val top = feetY + padPx - height
+    val flip = (walking || dead) && enemy.direction < 0f
+
+    val drawSprite: DrawScope.() -> Unit = {
+        drawImage(
+            image = sprite.image,
+            srcOffset = IntOffset.Zero,
+            srcSize = IntSize(sprite.image.width, sprite.image.height),
+            dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
+            dstSize = IntSize(width.roundToInt().coerceAtLeast(1), height.roundToInt().coerceAtLeast(1)),
+            alpha = alpha,
+            colorFilter = tint
+        )
+    }
+    if (flip) {
+        scale(-1f, 1f, Offset(cx, feetY)) { drawSprite() }
+    } else {
+        drawSprite()
+    }
+
+    // ענן קטן בזמן הפגיעה
+    if (dead && progress < 0.6f) {
+        val puff = progress / 0.6f
+        val puffAlpha = (1f - puff) * 0.7f
+        val bodyCenter = Offset(cx, feetY - targetHeight * 0.45f)
+        for (i in 0 until 6) {
+            val angle = (2.0 * PI * i / 6.0).toFloat() + 0.5f
+            val distance = targetHeight * (0.15f + 0.45f * puff)
+            drawCircle(
+                color = Color.White.copy(alpha = puffAlpha),
+                radius = targetHeight * (0.10f + 0.10f * puff),
+                center = Offset(bodyCenter.x + cos(angle) * distance, bodyCenter.y + sin(angle) * distance)
+            )
         }
     }
 }
@@ -166,17 +353,13 @@ private fun buildMask(spot: HidingSpot): ImageBitmap {
         .asImageBitmap()
 }
 
-/** מצייר אדם מאחורי עצם: הדמות נמחקת בכל מקום שבו העצם (המסכה המלוטשת) נמצא */
-private fun DrawScope.drawPersonBehind(
-    center: Offset,
-    radius: Float,
+/** מצייר דמות מאחורי עצם: הדמות נמחקת בכל מקום שבו העצם (המסכה המלוטשת) נמצא */
+private fun DrawScope.drawFigureBehind(
+    drawFigure: DrawScope.() -> Unit,
     spot: HidingSpot,
     mask: ImageBitmap,
     scene: SceneContext,
-    shade: Float,
-    shadow: Boolean,
-    clipBottom: Float?,
-    gait: Gait
+    clipBottom: Float?
 ) {
     val mapper = scene.mapper
     val left = mapper.worldX(spot.drawMinX) * size.width
@@ -188,10 +371,10 @@ private fun DrawScope.drawPersonBehind(
         canvas.saveLayer(Rect(0f, 0f, size.width, size.height), Paint())
         if (clipBottom != null) {
             clipRect(0f, 0f, size.width, clipBottom) {
-                drawPerson(center, radius, shade, shadow, gait)
+                drawFigure()
             }
         } else {
-            drawPerson(center, radius, shade, shadow, gait)
+            drawFigure()
         }
         drawImage(
             image = mask,
@@ -217,7 +400,7 @@ private fun Color.shaded(factor: Float): Color = Color(
 )
 
 /**
- * דמות אדם פשוטה. center = מרכז ההיט; הרגליים ב-center.y + r, והראש ב-center.y - 1.2r.
+ * דמות אדם פשוטה (גיבוי כשאין ספרייטים). center = מרכז ההיט; הרגליים ב-center.y + r, והראש ב-center.y - 1.2r.
  * הצבעים מוכהים או מובהרים לפי התאורה בתמונה (shade), ויש צל מתחת לרגליים.
  * הליכה: הרגליים והידיים מתנדנדות בניגוד זו לזו, והגוף עולה ויורד קלות עם כל צעד.
  */
