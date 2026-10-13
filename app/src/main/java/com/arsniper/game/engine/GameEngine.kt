@@ -389,9 +389,11 @@ class GameEngine(
             .sortedByDescending { random.nextFloat() * sqrt(it.cellCount.toFloat()) }
         for (spot in candidates.take(12)) {
             val enemy = spawnAtSpot(spot) ?: continue
-            if (!tooClose(enemy.peekPos, enemy.radius, existing, ctx.mapper.screenAspect, 0.15f)) {
+            // מחבואים יכולים להיות קרובים זה לזה (שני משטחים זה ליד זה), לכן מרווח קטן יותר
+            if (!tooClose(enemy.peekPos, enemy.radius, existing, ctx.mapper.screenAspect, 0.12f, 0.8f)) {
                 return enemy.copy(timer = randomBetween(0.3f, 2.5f))
             }
+            coverFail[9]++
         }
         return null
     }
@@ -410,7 +412,9 @@ class GameEngine(
             val nx = spot.minX + (spot.maxX - spot.minX) * (0.1f + 0.2f * i)
             val bottom = spot.columnBottom(nx) ?: continue
             samples++
-            if (ctx.isWalkable(mapper.worldX(nx), mapper.worldY(bottom + GROUND_PROBE))) {
+            // עצם שנחתך בתחתית המסך (למשל משטח קרוב): הקרקע ממשיכה מתחתיו, גם אם היא לא נראית
+            val cutByScreen = mapper.worldY(bottom) >= SCREEN_BOTTOM_CUT
+            if (cutByScreen || ctx.isWalkable(mapper.worldX(nx), mapper.worldY(bottom + GROUND_PROBE))) {
                 grounded++
                 bottomSum += bottom
             }
@@ -487,7 +491,7 @@ class GameEngine(
         val right = mapper.worldX(spot.maxX)
         val top = mapper.worldY(spot.minY)
         val bottom = mapper.worldY(spot.maxY)
-        if (right < 0.05f || left > 0.95f || bottom < 0.05f || top > 0.95f) return null
+        if (right < 0.05f || left > 0.95f || bottom < 0.05f || top > 0.95f) return rej(0)
 
         val widthInHeights = (right - left) * aspect
         val heightInHeights = bottom - top
@@ -528,7 +532,7 @@ class GameEngine(
             )
         } else {
             // האויב עומד על הקרקע ליד העצם: עצמים שלא נוגעים בקרקע (צמרות, תקרה...) לא מתאימים
-            val footY = groundLevel(spot) ?: return null
+            val footY = groundLevel(spot) ?: return rej(1)
 
             val goLeft = random.nextBoolean()
             val outward = if (goLeft) -1f else 1f
@@ -536,7 +540,7 @@ class GameEngine(
 
             // גודל האדם לפי העומק בנקודה שבה הוא עומד
             val r = radiusForFeet(footY)
-            if (!sizeOk(r)) return null
+            if (!sizeOk(r)) return rej(2)
 
             return if (heightInHeights >= TALL_OBJECT_RADII * r) {
                 // עצם גבוה כמו אדם: האדם מציץ מהצד שלו
@@ -617,24 +621,28 @@ class GameEngine(
     ): Enemy? {
         val mapper = ctx.mapper
         val aspect = mapper.screenAspect
-        if (widthInHeights < 1.6f * r) return null
+        if (widthInHeights < 1.3f * r) return rej(3)
 
-        val nx = spot.minX + (spot.maxX - spot.minX) * (0.25f + 0.5f * random.nextFloat())
-        val topPhoto = spot.columnTop(nx) ?: return null
-        val bottomPhoto = spot.columnBottom(nx) ?: return null
+        // מיקום אופקי: הדמות כולה צריכה להיכנס ברוחב העצם (אם העצם צר: במרכז)
+        val half = (FIGURE_HALF_WIDTH + 0.05f) * r / aspect
+        val halfPhoto = mapper.photoX(0.5f + half) - mapper.photoX(0.5f)
+        val lo = spot.minX + halfPhoto
+        val hi = spot.maxX - halfPhoto
+        val nx = if (lo < hi) lo + (hi - lo) * random.nextFloat() else (spot.minX + spot.maxX) / 2f
+        val topPhoto = spot.columnTop(nx) ?: return rej(4)
+        val bottomPhoto = spot.columnBottom(nx) ?: return rej(4)
         val objTop = mapper.worldY(topPhoto)
         val objBottom = mapper.worldY(bottomPhoto)
         val cx = mapper.worldX(nx)
-        if (cx < 0.05f || cx > 0.95f || objTop < 0.12f || objTop > 0.95f) return null
+        if (cx < 0.05f || cx > 0.95f || objTop < 0.12f || objTop > 0.95f) return rej(5)
         // לעצם צריך להיות מספיק גובה כדי להסתיר את החצי התחתון
-        if (objBottom - objTop < 1.1f * r) return null
+        if (objBottom - objTop < 1.1f * r) return rej(6)
 
-        val half = (FIGURE_HALF_WIDTH + 0.05f) * r / aspect
         // מעל הקצה העליון: פנוי (שם רואים את האדם)
-        if (coverage(ctx, spot, cx - half, cx + half, objTop - 1.15f * r, objTop - 0.08f * r) > 0.15f) return null
+        if (coverage(ctx, spot, cx - half, cx + half, objTop - 1.15f * r, objTop - 0.08f * r) > 0.15f) return rej(7)
         // מתחת לקצה: העצם מכסה
         val coverBottom = min(objTop + 1.0f * r, objBottom - 0.05f * r)
-        if (coverage(ctx, spot, cx - half, cx + half, objTop + 0.08f * r, coverBottom) < 0.85f) return null
+        if (coverage(ctx, spot, cx - half, cx + half, objTop + 0.08f * r, coverBottom) < 0.85f) return rej(8)
 
         val peek = Vec2(cx, objTop)
         val hide = Vec2(cx, objTop + WINDOW_HIDE_OFFSET * r)
@@ -654,6 +662,14 @@ class GameEngine(
 
     /** דמות הולכת חדשה: יוצאת מאחורי עצם גבוה, נכנסת מקצה התמונה, או מגיעה מקצה הרצפה הרחוק */
     private val failCounts = IntArray(4)
+
+    /** מונה סיבות דחייה של מחבואים (לאבחון): 0 מחוץ למסך, 1 אין קרקע, 2 גודל, 3-8 עולה מאחורי עצם נמוך, 9 קרוב מדי, 10 מציץ מהצד, 11 חלון */
+    private val coverFail = IntArray(12)
+
+    private fun rej(reason: Int): Enemy? {
+        coverFail[reason]++
+        return null
+    }
 
     private fun spawnEntrant(existing: List<Enemy>): Enemy? {
         val order = when (random.nextInt(3)) {
@@ -872,10 +888,11 @@ class GameEngine(
         radius: Float,
         existing: List<Enemy>,
         aspect: Float,
-        minDistance: Float
+        minDistance: Float,
+        spacing: Float = 1.6f
     ): Boolean =
         existing.any { other ->
-            val limit = max(minDistance, 1.6f * (radius + other.radius))
+            val limit = max(minDistance, spacing * (radius + other.radius))
             val dx = (position.x - other.peekPos.x) * aspect
             val dy = position.y - other.peekPos.y
             val dx2 = (position.x - other.position.x) * aspect
@@ -909,9 +926,10 @@ class GameEngine(
         val open = enemies.count { it.kind == EnemyKind.Open && it.isAlive }
         val cover = enemies.count { (it.kind == EnemyKind.Peek || it.kind == EnemyKind.Window) && it.isAlive }
         val spots = scene?.spots?.size ?: 0
-        return "horizon %.2f  fit=%s  spots=%d  open=%d  cover=%d  fails emerge/edge/far/all=%d/%d/%d/%d".format(
+        return "horizon %.2f  fit=%s  spots=%d  open=%d  cover=%d  fails emerge/edge/far/all=%d/%d/%d/%d  why=%s".format(
             ground.horizon, ground.fitted, spots, open, cover,
-            failCounts[0], failCounts[1], failCounts[2], failCounts[3]
+            failCounts[0], failCounts[1], failCounts[2], failCounts[3],
+            coverFail.joinToString("/")
         )
     }
 
@@ -954,6 +972,9 @@ class GameEngine(
 
         /** גובה מקסימלי (חלק מגובה המסך) של דמות הולכת, כשהיא מתקרבת למצלמה */
         private const val MAX_WALK_HEIGHT = 0.40f
+
+        /** עצם שהקצה התחתון שלו (בעולם) לפחות כאן נחשב חתוך על ידי המסך */
+        private const val SCREEN_BOTTOM_CUT = 0.96f
 
         /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
         private const val GROUND_PROBE = 0.012f
