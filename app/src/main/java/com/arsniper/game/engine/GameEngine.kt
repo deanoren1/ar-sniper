@@ -105,13 +105,14 @@ class GameEngine(
     /** מקדם את כל האויבים החיים בפריים אחד */
     fun update(enemies: List<Enemy>, dtSeconds: Float): List<Enemy> {
         val dt = dtSeconds.coerceAtMost(0.05f)
-        return enemies.map { enemy ->
+        // דמות שיצאה מהעולם (הלכה אל מחוץ לתמונה) מוסרת, ובהמשך תיכנס דמות חדשה
+        return enemies.mapNotNull { enemy ->
             if (!enemy.isAlive) {
                 enemy
             } else {
                 when (enemy.kind) {
                     EnemyKind.Peek, EnemyKind.Window -> stepPeeker(enemy, dt)
-                    EnemyKind.Open -> stepOpen(enemy, dt)
+                    EnemyKind.Open -> stepOpen(enemy, dt, enemies)
                     EnemyKind.Static -> enemy
                 }
             }
@@ -164,7 +165,10 @@ class GameEngine(
         else -> enemy
     }
 
-    private fun stepOpen(enemy: Enemy, dt: Float): Enemy {
+    private fun stepOpen(enemy: Enemy, dt: Float, all: List<Enemy>): Enemy? {
+        val hiding = enemy.spot
+        if (hiding != null) return stepEmerging(enemy, hiding, dt)
+
         val timer = enemy.timer - dt
         return when (enemy.state) {
             EnemyState.Idle -> {
@@ -176,7 +180,7 @@ class GameEngine(
             }
 
             EnemyState.Walking -> {
-                val moved = moveAlongGround(enemy, WALK_SPEED, dt)
+                val moved = moveAlongGround(enemy, WALK_SPEED, dt, all) ?: return null
                 if (timer <= 0f) {
                     if (random.nextFloat() < 0.3f) {
                         moved.copy(state = EnemyState.Running, timer = randomBetween(0.8f, 1.6f))
@@ -189,7 +193,7 @@ class GameEngine(
             }
 
             EnemyState.Running -> {
-                val moved = moveAlongGround(enemy, RUN_SPEED, dt)
+                val moved = moveAlongGround(enemy, RUN_SPEED, dt, all) ?: return null
                 if (timer <= 0f) {
                     moved.copy(state = EnemyState.Walking, timer = randomBetween(1.5f, 3f))
                 } else {
@@ -201,25 +205,90 @@ class GameEngine(
         }
     }
 
-    /** הולך לאורך הקרקע; אם הצעד הבא לא על קרקע, מסתובב */
-    private fun moveAlongGround(enemy: Enemy, speedInRadii: Float, dt: Float): Enemy {
+    /**
+     * דמות שיוצאת מאחורי עצם: קודם מחכה מוסתרת (Idle), ואז הולכת החוצה בכיוון קבוע.
+     * ברגע שהיא כולה מחוץ לעצם היא נעשית דמות רגילה.
+     */
+    private fun stepEmerging(enemy: Enemy, spot: HidingSpot, dt: Float): Enemy {
+        if (enemy.state == EnemyState.Idle) {
+            val timer = enemy.timer - dt
+            return if (timer <= 0f) {
+                enemy.copy(state = EnemyState.Walking, timer = 0f)
+            } else {
+                enemy.copy(timer = timer)
+            }
+        }
         val ctx = scene
         val aspect = ctx?.mapper?.screenAspect ?: 2f
+        val step = enemy.direction * enemy.radius * WALK_SPEED * dt / aspect
+        val newX = enemy.position.x + step
+        val moved = enemy.copy(
+            position = Vec2(newX, enemy.position.y),
+            phase = enemy.phase + WALK_SPEED * dt * PHASE_PER_RADIUS
+        )
+        if (ctx == null) return moved.copy(spot = null)
+        val half = FIGURE_HALF_WIDTH * enemy.radius / aspect
+        val yTop = enemy.position.y - 1.2f * enemy.radius
+        val yBottom = enemy.position.y + enemy.radius
+        val stillBehind = coverage(ctx, spot, newX - half, newX + half, yTop, yBottom) > 0.02f
+        return if (stillBehind) {
+            moved
+        } else {
+            moved.copy(spot = null, state = EnemyState.Walking, timer = randomBetween(1.5f, 4f))
+        }
+    }
+
+    /**
+     * הולך לאורך הקרקע. אם הצעד הבא לא על קרקע, מאחורי עצם קרוב יותר, או בתוך דמות אחרת: מסתובב.
+     * ליד קצה העולם אין בדיקות: כך דמות נכנסת מהקצה, ויוצאת ממנו (ואז מחזיר null: הוסרה).
+     */
+    private fun moveAlongGround(enemy: Enemy, speedInRadii: Float, dt: Float, all: List<Enemy>): Enemy? {
+        val ctx = scene
+        val aspect = ctx?.mapper?.screenAspect ?: 2f
+        val halfWidth = FIGURE_HALF_WIDTH * enemy.radius / aspect
         val stepX = enemy.direction * enemy.radius * speedInRadii * dt / aspect
         val newX = enemy.position.x + stepX
+        if ((enemy.direction > 0f && newX > 1f + halfWidth) || (enemy.direction < 0f && newX < -halfWidth)) {
+            return null
+        }
+        val phase = enemy.phase + speedInRadii * dt * PHASE_PER_RADIUS
         val feetY = enemy.position.y + enemy.radius
-        val canStep = if (ctx != null) {
-            // צריך קרקע, ולא להיכנס מאחורי עצם שקרוב אלינו יותר מהאויב
-            ctx.isWalkable(newX, feetY) &&
-                !behindNearerObject(ctx, newX, feetY, enemy.radius, ctx.depthAt(newX, feetY))
+        val inEdgeBand = newX < EDGE_BAND || newX > 1f - EDGE_BAND
+        val canStep: Boolean = if (inEdgeBand) {
+            true
+        } else if (ctx != null) {
+            // צריך קרקע, ולא להיכנס מאחורי עצם שקרוב אלינו יותר, ולא לדחוף דמות אחרת
+            ctx.isWalkable(newX, feetY + GROUND_PROBE) &&
+                !behindNearerObject(ctx, newX, feetY, enemy.radius, ctx.depthAt(newX, feetY)) &&
+                !blockedByOther(enemy, newX, all, aspect)
         } else {
-            newX in 0.05f..0.95f
+            newX >= 0.05f && newX <= 0.95f
         }
         return if (canStep) {
-            enemy.copy(position = Vec2(newX, enemy.position.y))
+            enemy.copy(position = Vec2(newX, enemy.position.y), phase = phase)
         } else {
             enemy.copy(direction = -enemy.direction)
         }
+    }
+
+    /** האם הצעד מקרב אותנו לדמות אחרת עד כדי חפיפה (רק כשהמרחק קטן מסכום הגדלים וגם קטן יותר מקודם) */
+    private fun blockedByOther(enemy: Enemy, newX: Float, all: List<Enemy>, aspect: Float): Boolean {
+        for (other in all) {
+            if (other.id == enemy.id || !other.isAlive) continue
+            if (other.kind == EnemyKind.Open) {
+                if (other.spot != null && other.state == EnemyState.Idle) continue
+            } else if (other.exposure < 0.3f) {
+                continue
+            }
+            val limit = 1.05f * (enemy.radius + other.radius)
+            val dy = (enemy.position.y + enemy.radius) - (other.position.y + other.radius)
+            val dxOld = (enemy.position.x - other.position.x) * aspect
+            val dxNew = (newX - other.position.x) * aspect
+            val dOld = sqrt(dxOld * dxOld + dy * dy)
+            val dNew = sqrt(dxNew * dxNew + dy * dy)
+            if (dNew < limit && dNew < dOld) return true
+        }
+        return false
     }
 
     private fun placeAt(enemy: Enemy, exposure: Float): Vec2 {
@@ -236,7 +305,7 @@ class GameEngine(
 
     /**
      * משלים את רשימת האויבים עד targetCount אויבים חיים.
-     * אויבים מתים מוסרים, וחדשים נוצרים: בערך 60% מציצים/חלונות (אם יש מחבואים), השאר גלויים.
+     * אויבים מתים מוסרים, וחדשים נוצרים: בערך 60% מציצים/חלונות (אם יש מחבואים), השאר דמויות הולכות.
      */
     fun replenish(
         current: List<Enemy>,
@@ -259,10 +328,8 @@ class GameEngine(
         if (ctx.spots.isNotEmpty() && coverCount < coverWanted) {
             spawnCover(existing)?.let { return it }
         }
-        // קודם אויב גלוי בגודל סביר, ואם אין מקום כזה בסצנה: טווח גדלים רחב יותר
-        return spawnOpen(existing, STRICT_MIN_HEIGHT, STRICT_MAX_HEIGHT)
-            ?: spawnOpen(existing, RELAXED_MIN_HEIGHT, RELAXED_MAX_HEIGHT)
-            ?: spawnCover(existing)
+        // דמות הולכת: נכנסת מקצה העולם או יוצאת מאחורי עצם. אף פעם לא מופיעה סתם באמצע
+        return spawnEntrant(existing) ?: spawnCover(existing)
     }
 
     private fun spawnCover(existing: List<Enemy>): Enemy? {
@@ -331,21 +398,22 @@ class GameEngine(
 
     /**
      * האם הגוף של אדם שרגליו ב-(x, feetY) היה מוסתר בפועל על ידי עצם שקרוב אלינו יותר ממנו.
-     * אם כן, אסור לצייר אותו שם "מלפני" העצם.
+     * אם כן, אסור לצייר אותו שם "מלפני" העצם. ignore = עצם שמתעלמים ממנו (זה שהדמות יוצאת ממנו).
      */
     private fun behindNearerObject(
         ctx: SceneContext,
         x: Float,
         feetY: Float,
         r: Float,
-        feetDepth: Float
+        feetDepth: Float,
+        ignore: HidingSpot? = null
     ): Boolean {
         if (feetDepth.isNaN()) return false
         val aspect = ctx.mapper.screenAspect
         val ys = floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r)
         val dxs = floatArrayOf(-0.4f, 0f, 0.4f)
         for (spot in ctx.spots) {
-            if (spot.depth.isNaN() || spot.depth >= feetDepth - 0.4f) continue
+            if (spot === ignore || spot.depth.isNaN() || spot.depth >= feetDepth - 0.4f) continue
             for (y in ys) {
                 for (dx in dxs) {
                     if (ctx.spotContains(spot, x + dx * r / aspect, y)) return true
@@ -530,35 +598,119 @@ class GameEngine(
         )
     }
 
-    /** אויב גלוי שהולך על הקרקע (כביש, מדרכה, רצפה...) */
-    private fun spawnOpen(existing: List<Enemy>, minHeight: Float, maxHeight: Float): Enemy? {
+    /** דמות הולכת חדשה: יוצאת מאחורי עצם גבוה, או נכנסת מקצה התמונה */
+    private fun spawnEntrant(existing: List<Enemy>): Enemy? =
+        if (random.nextBoolean()) {
+            spawnEmerge(existing) ?: spawnEdge(existing)
+        } else {
+            spawnEdge(existing) ?: spawnEmerge(existing)
+        }
+
+    /**
+     * דמות שמתחילה מחוץ לתמונה (בקצה ימין או שמאל) על קרקע שמתחילה שם, וצועדת פנימה.
+     * בודקים שהדרך הראשונה פנימה פנויה (קרקע, בלי עצמים קרובים יותר), ושהגודל סביר.
+     */
+    private fun spawnEdge(existing: List<Enemy>): Enemy? =
+        spawnEdge(existing, STRICT_MIN_HEIGHT, STRICT_MAX_HEIGHT)
+            ?: spawnEdge(existing, RELAXED_MIN_HEIGHT, RELAXED_MAX_HEIGHT)
+
+    private fun spawnEdge(existing: List<Enemy>, minHeight: Float, maxHeight: Float): Enemy? {
         val ctx = scene ?: return null
-        repeat(40) {
-            val x = random.nextFloat() * 0.8f + 0.1f
+        val aspect = ctx.mapper.screenAspect
+        repeat(30) {
+            val fromLeft = random.nextBoolean()
+            val inward = if (fromLeft) 1f else -1f
+            val gateX = if (fromLeft) EDGE_GATE else 1f - EDGE_GATE
             val feetY = random.nextFloat() * 0.6f + 0.35f
-            if (!ctx.isWalkable(x, feetY)) return@repeat
-            // לא על כתם קרקע קטן: גם משני הצדדים צריכה להיות קרקע
-            if (!ctx.isWalkable(x - 0.05f, feetY) || !ctx.isWalkable(x + 0.05f, feetY)) return@repeat
-            val depth = ctx.depthAt(x, feetY)
-            val r = radiusForDepth(depth)
-            // גודל סביר בלבד: לא ענק (קרוב מדי למצלמה) ולא זעיר
+            val r = radiusForDepth(ctx.depthAt(gateX, feetY))
             val figureHeight = r * FIGURE_HEIGHT_RADII
             if (figureHeight < minHeight || figureHeight > maxHeight) return@repeat
-            // לא להציב אדם "מלפני" עצם שקרוב אלינו יותר ממנו (שולחן, רכב...)
-            if (behindNearerObject(ctx, x, feetY, r, depth)) return@repeat
-            val position = Vec2(x, feetY - r)
-            if (tooClose(position, r, existing, ctx.mapper.screenAspect, 0.2f)) return@repeat
+
+            // הדרך פנימה: קרקע כל הדרך, ובלי להיעלם מאחורי עצם קרוב יותר
+            var clear = true
+            for (k in 0..EDGE_PATH_STEPS) {
+                val x = gateX + inward * k * EDGE_PATH_STEP
+                val depth = ctx.depthAt(x, feetY)
+                if (!ctx.isWalkable(x, feetY + GROUND_PROBE) || behindNearerObject(ctx, x, feetY, r, depth)) {
+                    clear = false
+                    break
+                }
+            }
+            if (!clear) return@repeat
+            if (tooClose(Vec2(gateX, feetY - r), r, existing, aspect, 0.2f)) return@repeat
+
+            // מתחילים כולה מחוץ לעולם, כך שאי אפשר לראות אותה "צצה"
+            val startX = if (fromLeft) -(FIGURE_HALF_WIDTH * r / aspect) - 0.01f
+            else 1f + (FIGURE_HALF_WIDTH * r / aspect) + 0.01f
             return Enemy(
                 id = nextEnemyId++,
-                position = position,
+                position = Vec2(startX, feetY - r),
                 radius = r,
                 kind = EnemyKind.Open,
                 state = EnemyState.Walking,
-                timer = randomBetween(1f, 3f),
-                direction = if (random.nextBoolean()) 1f else -1f
+                timer = randomBetween(3f, 5f),
+                direction = inward
             )
         }
         return null
+    }
+
+    /** דמות שמוסתרת לגמרי מאחורי עצם גבוה, ויוצאת ממנו אל הקרקע ומתחילה ללכת */
+    private fun spawnEmerge(existing: List<Enemy>): Enemy? {
+        val ctx = scene ?: return null
+        val usedIds = existing.mapNotNull { it.spot?.id }.toSet()
+        val candidates = ctx.spots
+            .filter { it.kind != SpotKind.WINDOW && it.id !in usedIds }
+            .sortedByDescending { random.nextFloat() * sqrt(it.cellCount.toFloat()) }
+        for (spot in candidates.take(12)) {
+            val enemy = emergeFrom(spot, ctx) ?: continue
+            if (!tooClose(enemy.position, enemy.radius, existing, ctx.mapper.screenAspect, 0.15f)) {
+                return enemy
+            }
+        }
+        return null
+    }
+
+    private fun emergeFrom(spot: HidingSpot, ctx: SceneContext): Enemy? {
+        val mapper = ctx.mapper
+        val aspect = mapper.screenAspect
+        val left = mapper.worldX(spot.minX)
+        val right = mapper.worldX(spot.maxX)
+        val top = mapper.worldY(spot.minY)
+        val bottom = mapper.worldY(spot.maxY)
+        if (right < 0.05f || left > 0.95f || bottom < 0.05f || top > 0.95f) return null
+
+        val footY = groundLevel(spot) ?: return null
+        val goLeft = random.nextBoolean()
+        val outward = if (goLeft) -1f else 1f
+        val edgeX = if (goLeft) left else right
+        val r = radiusForDepth(ctx.depthAt(edgeX, (footY + 0.01f).coerceAtMost(0.97f)))
+        if (!sizeOk(r)) return null
+        // רק עצם גבוה מספיק כדי להסתיר דמות שלמה
+        if (bottom - top < TALL_OBJECT_RADII * r) return null
+
+        // אותן בדיקות קצה נקי כמו מציץ מהצד
+        val base = spawnSidePeek(spot, ctx, r, footY, edgeX, outward, (right - left) * aspect) ?: return null
+
+        // הדרך החוצה: קרקע, ובלי עצם קרוב יותר שיסתיר אותה
+        for (k in 1..EMERGE_PATH_STEPS) {
+            val x = edgeX + outward * (k * 0.9f * r) / aspect
+            if (x < EDGE_BAND || x > 1f - EDGE_BAND) break
+            val depth = ctx.depthAt(x, footY)
+            if (!ctx.isWalkable(x, footY + GROUND_PROBE)) return null
+            if (behindNearerObject(ctx, x, footY, r, depth, spot)) return null
+        }
+
+        return Enemy(
+            id = base.id,
+            position = base.hidePos,
+            radius = r,
+            kind = EnemyKind.Open,
+            state = EnemyState.Idle,
+            spot = spot,
+            timer = randomBetween(0.3f, 3f),
+            direction = outward
+        )
     }
 
     /** גיבוי: אויב עומד במקום אקראי (כשאין ניתוח, או כשלא נמצא מקום מתאים) */
@@ -616,11 +768,22 @@ class GameEngine(
         private const val RETREAT_SECONDS = 0.25f
 
         /** מהירות הליכה/ריצה ברדיוסים בשנייה */
-        private const val WALK_SPEED = 1.2f
+        private const val WALK_SPEED = 1.4f
         private const val RUN_SPEED = 3.2f
+
+        /** כמה רדיאנים של מחזור הליכה לכל רדיוס שהדמות עוברת */
+        private const val PHASE_PER_RADIUS = 3.5f
+
+        /** פס בקצה העולם שבו אין בדיקות הליכה (כניסה ויציאה), ונקודת הכניסה שממנה בודקים את הדרך */
+        private const val EDGE_BAND = 0.05f
+        private const val EDGE_GATE = 0.07f
+        private const val EDGE_PATH_STEPS = 6
+        private const val EDGE_PATH_STEP = 0.04f
+        private const val EMERGE_PATH_STEPS = 5
 
         /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
         private const val GROUND_PROBE = 0.012f
+
 
         /** גובה אדם אמיתי, וגובה הדמות המצוירת ביחידות רדיוס */
         private const val PERSON_HEIGHT_METERS = 1.7f
