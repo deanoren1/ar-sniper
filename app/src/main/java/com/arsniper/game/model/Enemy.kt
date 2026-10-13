@@ -38,5 +38,7 @@ data class Enemy(
     val timer: Float = 0f,
     val direction: Float = 1f,
     /** שלב מחזור ההליכה (רדיאנים), לאנימציית רגליים וידיים */
-    val phase: Float = 0f
+    val phase: Float = 0f,
+    /** תנועה לעומק: +1 = מתקרב למצלמה, -1 = מתרחק, 0 = הולך לרוחב בלבד */
+    val dirY: Float = 0f
 )
