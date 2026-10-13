@@ -8,6 +8,7 @@ import com.arsniper.ml.Ade20kClasses
 import com.arsniper.game.spots.HidingSpot
 import com.arsniper.game.spots.SpotKind
 import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -258,7 +259,10 @@ class GameEngine(
         if (ctx.spots.isNotEmpty() && coverCount < coverWanted) {
             spawnCover(existing)?.let { return it }
         }
-        return spawnOpen(existing) ?: spawnCover(existing)
+        // קודם אויב גלוי בגודל סביר, ואם אין מקום כזה בסצנה: טווח גדלים רחב יותר
+        return spawnOpen(existing, STRICT_MIN_HEIGHT, STRICT_MAX_HEIGHT)
+            ?: spawnOpen(existing, RELAXED_MIN_HEIGHT, RELAXED_MAX_HEIGHT)
+            ?: spawnCover(existing)
     }
 
     private fun spawnCover(existing: List<Enemy>): Enemy? {
@@ -270,7 +274,7 @@ class GameEngine(
             .sortedByDescending { random.nextFloat() * sqrt(it.cellCount.toFloat()) }
         for (spot in candidates.take(12)) {
             val enemy = spawnAtSpot(spot) ?: continue
-            if (!tooClose(enemy.peekPos, existing, ctx.mapper.screenAspect, 0.15f)) {
+            if (!tooClose(enemy.peekPos, enemy.radius, existing, ctx.mapper.screenAspect, 0.15f)) {
                 return enemy.copy(timer = randomBetween(0.3f, 2.5f))
             }
         }
@@ -377,7 +381,7 @@ class GameEngine(
             if (sill < WINDOW_MIN_SILL || sill > 0.95f) return null
 
             val r = radiusForDepth(spot.depth)
-            if (r < MIN_WINDOW_RADIUS) return null
+            if (!sizeOk(r)) return null
             // האדם צריך להיכנס בחלון: רואים רק את החלק העליון (עד המותניים), כמו מי שמציץ מבפנים
             val halfW = FIGURE_HALF_WIDTH * r / aspect
             if (wRight - wLeft < 2.2f * halfW) return null
@@ -408,66 +412,142 @@ class GameEngine(
             val outward = if (goLeft) -1f else 1f
             val edgeX = if (goLeft) left else right
 
-            // גודל האדם לפי העומק בנקודה שבה הוא עומד, בלי הקטנה כדי להתאים לעצם
+            // גודל האדם לפי העומק בנקודה שבה הוא עומד
             val r = radiusForDepth(ctx.depthAt(edgeX, (footY + 0.01f).coerceAtMost(0.97f)))
-            if (r < MIN_COVER_RADIUS) return null
-            // העצם חייב להיות לפחות כמעט בגובה אדם, ורחב מספיק כדי להסתיר אותו
-            if (heightInHeights < 2.0f * r || widthInHeights < 1.8f * r) return null
-            val centerY = footY - r
-            if (centerY < 0.05f || centerY > 0.95f) return null
+            if (!sizeOk(r)) return null
 
-            val peekX = edgeX + outward * (0.1f * r) / aspect
-            val hideX = edgeX - outward * (0.75f * r) / aspect
-            if (peekX < 0.04f || peekX > 0.96f) return null
-
-            // בצד שבו הוא מציץ צריכה להיות קרקע
-            val groundBesideX = edgeX + outward * (0.6f * r) / aspect
-            if (!ctx.isWalkable(groundBesideX, footY + 0.01f)) return null
-
-            // בדיקת קצה נקי: הקצה של העצם חייב להיות קו ברור לאורך כל גובה הדמות.
-            // (1) במקום ההסתתרות הדמות כולה בתוך העצם
-            val yTop = centerY - 1.2f * r
-            val yBottom = centerY + 0.9f * r
-            val hideHalf = (FIGURE_HALF_WIDTH + 0.05f) * r / aspect
-            if (coverage(ctx, spot, hideX - hideHalf, hideX + hideHalf, yTop, yBottom) < 0.85f) return null
-            // (2) בהצצה: החלק שמאחורי הקצה בתוך העצם, והחלק שבחוץ באמת בחוץ
-            val behindEnd = edgeX - outward * (0.45f * r) / aspect
-            if (coverage(ctx, spot, behindEnd, edgeX, yTop, yBottom) < 0.85f) return null
-            val outEnd = edgeX + outward * (0.65f * r) / aspect
-            if (coverage(ctx, spot, edgeX + outward * 0.02f, outEnd, yTop, yBottom) > 0.15f) return null
-
-            val peek = Vec2(peekX, centerY)
-            val hide = Vec2(hideX, centerY)
-            return Enemy(
-                id = nextEnemyId++,
-                position = hide,
-                radius = r,
-                kind = EnemyKind.Peek,
-                state = EnemyState.Hidden,
-                spot = spot,
-                hidePos = hide,
-                peekPos = peek,
-                exposure = 0f,
-                timer = randomBetween(0.3f, 2.5f)
-            )
+            return if (heightInHeights >= TALL_OBJECT_RADII * r) {
+                // עצם גבוה כמו אדם: האדם מציץ מהצד שלו
+                spawnSidePeek(spot, ctx, r, footY, edgeX, outward, widthInHeights)
+            } else {
+                // עצם נמוך (רכב, פח, שולחן): האדם עולה מאחוריו ורואים רק את החלק העליון שלו
+                spawnRise(spot, ctx, r, widthInHeights)
+            }
         }
     }
 
+    /** גודל סביר לדמות שקשורה למחבוא: לא זעירה ולא ענקית */
+    private fun sizeOk(r: Float): Boolean {
+        val height = r * FIGURE_HEIGHT_RADII
+        return height >= SPOT_MIN_HEIGHT && height <= SPOT_MAX_HEIGHT
+    }
+
+    /** מציץ מהצד של עצם גבוה, בקצה נקי */
+    private fun spawnSidePeek(
+        spot: HidingSpot,
+        ctx: SceneContext,
+        r: Float,
+        footY: Float,
+        edgeX: Float,
+        outward: Float,
+        widthInHeights: Float
+    ): Enemy? {
+        val aspect = ctx.mapper.screenAspect
+        if (widthInHeights < 1.8f * r) return null
+        val centerY = footY - r
+        if (centerY < 0.05f || centerY > 0.95f) return null
+
+        val peekX = edgeX + outward * (0.1f * r) / aspect
+        val hideX = edgeX - outward * (0.75f * r) / aspect
+        if (peekX < 0.04f || peekX > 0.96f) return null
+
+        // בצד שבו הוא מציץ צריכה להיות קרקע
+        val groundBesideX = edgeX + outward * (0.6f * r) / aspect
+        if (!ctx.isWalkable(groundBesideX, footY + 0.01f)) return null
+
+        // בדיקת קצה נקי: הקצה של העצם חייב להיות קו ברור לאורך כל גובה הדמות.
+        // (1) במקום ההסתתרות הדמות כולה בתוך העצם
+        val yTop = centerY - 1.2f * r
+        val yBottom = centerY + 0.9f * r
+        val hideHalf = (FIGURE_HALF_WIDTH + 0.05f) * r / aspect
+        if (coverage(ctx, spot, hideX - hideHalf, hideX + hideHalf, yTop, yBottom) < 0.85f) return null
+        // (2) בהצצה: החלק שמאחורי הקצה בתוך העצם, והחלק שבחוץ באמת בחוץ
+        val behindEnd = edgeX - outward * (0.45f * r) / aspect
+        if (coverage(ctx, spot, behindEnd, edgeX, yTop, yBottom) < 0.85f) return null
+        val outEnd = edgeX + outward * (0.65f * r) / aspect
+        if (coverage(ctx, spot, edgeX + outward * 0.02f, outEnd, yTop, yBottom) > 0.15f) return null
+
+        val peek = Vec2(peekX, centerY)
+        val hide = Vec2(hideX, centerY)
+        return Enemy(
+            id = nextEnemyId++,
+            position = hide,
+            radius = r,
+            kind = EnemyKind.Peek,
+            state = EnemyState.Hidden,
+            spot = spot,
+            hidePos = hide,
+            peekPos = peek,
+            exposure = 0f,
+            timer = randomBetween(0.3f, 2.5f)
+        )
+    }
+
+    /**
+     * אדם שעולה מאחורי עצם נמוך: במצב חשוף המותניים בקצה העליון של העצם, כלומר רואים ראש וחזה
+     * מעל הקצה, והחלק התחתון מוסתר על ידי העצם. ההסתתרות היא ירידה מאחורי העצם.
+     */
+    private fun spawnRise(
+        spot: HidingSpot,
+        ctx: SceneContext,
+        r: Float,
+        widthInHeights: Float
+    ): Enemy? {
+        val mapper = ctx.mapper
+        val aspect = mapper.screenAspect
+        if (widthInHeights < 1.6f * r) return null
+
+        val nx = spot.minX + (spot.maxX - spot.minX) * (0.25f + 0.5f * random.nextFloat())
+        val topPhoto = spot.columnTop(nx) ?: return null
+        val bottomPhoto = spot.columnBottom(nx) ?: return null
+        val objTop = mapper.worldY(topPhoto)
+        val objBottom = mapper.worldY(bottomPhoto)
+        val cx = mapper.worldX(nx)
+        if (cx < 0.05f || cx > 0.95f || objTop < 0.12f || objTop > 0.95f) return null
+        // לעצם צריך להיות מספיק גובה כדי להסתיר את החצי התחתון
+        if (objBottom - objTop < 1.1f * r) return null
+
+        val half = (FIGURE_HALF_WIDTH + 0.05f) * r / aspect
+        // מעל הקצה העליון: פנוי (שם רואים את האדם)
+        if (coverage(ctx, spot, cx - half, cx + half, objTop - 1.15f * r, objTop - 0.08f * r) > 0.15f) return null
+        // מתחת לקצה: העצם מכסה
+        val coverBottom = min(objTop + 1.0f * r, objBottom - 0.05f * r)
+        if (coverage(ctx, spot, cx - half, cx + half, objTop + 0.08f * r, coverBottom) < 0.85f) return null
+
+        val peek = Vec2(cx, objTop)
+        val hide = Vec2(cx, objTop + WINDOW_HIDE_OFFSET * r)
+        return Enemy(
+            id = nextEnemyId++,
+            position = hide,
+            radius = r,
+            kind = EnemyKind.Peek,
+            state = EnemyState.Hidden,
+            spot = spot,
+            hidePos = hide,
+            peekPos = peek,
+            exposure = 0f,
+            timer = randomBetween(0.3f, 2.5f)
+        )
+    }
+
     /** אויב גלוי שהולך על הקרקע (כביש, מדרכה, רצפה...) */
-    private fun spawnOpen(existing: List<Enemy>): Enemy? {
+    private fun spawnOpen(existing: List<Enemy>, minHeight: Float, maxHeight: Float): Enemy? {
         val ctx = scene ?: return null
         repeat(40) {
             val x = random.nextFloat() * 0.8f + 0.1f
-            val feetY = random.nextFloat() * 0.5f + 0.45f
+            val feetY = random.nextFloat() * 0.6f + 0.35f
             if (!ctx.isWalkable(x, feetY)) return@repeat
             // לא על כתם קרקע קטן: גם משני הצדדים צריכה להיות קרקע
             if (!ctx.isWalkable(x - 0.05f, feetY) || !ctx.isWalkable(x + 0.05f, feetY)) return@repeat
             val depth = ctx.depthAt(x, feetY)
             val r = radiusForDepth(depth)
+            // גודל סביר בלבד: לא ענק (קרוב מדי למצלמה) ולא זעיר
+            val figureHeight = r * FIGURE_HEIGHT_RADII
+            if (figureHeight < minHeight || figureHeight > maxHeight) return@repeat
             // לא להציב אדם "מלפני" עצם שקרוב אלינו יותר ממנו (שולחן, רכב...)
             if (behindNearerObject(ctx, x, feetY, r, depth)) return@repeat
             val position = Vec2(x, feetY - r)
-            if (tooClose(position, existing, ctx.mapper.screenAspect, 0.2f)) return@repeat
+            if (tooClose(position, r, existing, ctx.mapper.screenAspect, 0.2f)) return@repeat
             return Enemy(
                 id = nextEnemyId++,
                 position = position,
@@ -486,7 +566,7 @@ class GameEngine(
         val aspect = scene?.mapper?.screenAspect ?: 2f
         var position = randomPosition()
         repeat(15) {
-            if (!tooClose(position, existing, aspect, 0.25f)) {
+            if (!tooClose(position, 0.08f, existing, aspect, 0.25f)) {
                 return Enemy(id = nextEnemyId++, position = position)
             }
             position = randomPosition()
@@ -497,32 +577,36 @@ class GameEngine(
     private fun randomPosition(): Vec2 =
         Vec2(random.nextFloat() * 0.6f + 0.2f, random.nextFloat() * 0.45f + 0.2f)
 
-    private fun tooClose(position: Vec2, existing: List<Enemy>, aspect: Float, minDistance: Float): Boolean =
+    /** האם המיקום קרוב מדי לאויב אחר: המרחק המינימלי גדל עם גודל הדמויות, כדי שלא יחפפו */
+    private fun tooClose(
+        position: Vec2,
+        radius: Float,
+        existing: List<Enemy>,
+        aspect: Float,
+        minDistance: Float
+    ): Boolean =
         existing.any { other ->
+            val limit = max(minDistance, 1.6f * (radius + other.radius))
             val dx = (position.x - other.peekPos.x) * aspect
             val dy = position.y - other.peekPos.y
             val dx2 = (position.x - other.position.x) * aspect
             val dy2 = position.y - other.position.y
-            sqrt(dx * dx + dy * dy) < minDistance || sqrt(dx2 * dx2 + dy2 * dy2) < minDistance
+            sqrt(dx * dx + dy * dy) < limit || sqrt(dx2 * dx2 + dy2 * dy2) < limit
         }
 
-    /**
-     * רדיוס אויב לפי עומק: גובה אדם בתמונה = scale * 1.7 / עומק, כלומר גודל אמיתי ביחס לסצנה
-     * (ה-scale מכויל לפי עצמים מוכרים). קרוב יותר תמיד גדול יותר: ההגבלה שמטה מונוטונית,
-     * כך שאף פעם דמות רחוקה לא תהיה גדולה מקרובה.
-     */
-    private fun radiusForDepth(depthMeters: Float): Float {
-        val ctx = scene ?: return 0.08f
+    /** גובה אדם בעולם (חלק מגובה המסך) לפי העומק: scale * 1.7 / עומק, בקנה מידה של הסצנה */
+    private fun figureHeightWorld(depthMeters: Float): Float {
+        val ctx = scene ?: return 0.18f
         val depth = if (depthMeters.isNaN() || depthMeters < 0.8f) 0.8f else depthMeters
-        val raw = ctx.mapper.heightToWorld(scale * PERSON_HEIGHT_METERS / depth)
-        // מעל הגבול העליון הגדילה מואטת, מתחת לתחתון הגודל קבוע; בשני המקרים נשמר הסדר (קרוב >= רחוק)
-        val limited = if (raw > MAX_FIGURE_HEIGHT) {
-            MAX_FIGURE_HEIGHT + (raw - MAX_FIGURE_HEIGHT) * 0.15f
-        } else {
-            maxOf(raw, MIN_FIGURE_HEIGHT)
-        }
-        return limited / FIGURE_HEIGHT_RADII
+        return ctx.mapper.heightToWorld(scale * PERSON_HEIGHT_METERS / depth)
     }
+
+    /**
+     * רדיוס אויב לפי עומק: גודל אמיתי ביחס לסצנה (ה-scale מכויל לפי עצמים מוכרים), בלי הגבלות
+     * שמעוותות את הסדר: קרוב תמיד גדול מרחוק. מקומות שבהם האדם היה יוצא ענק או זעיר נפסלים בנפרד.
+     */
+    private fun radiusForDepth(depthMeters: Float): Float =
+        if (scene == null) 0.08f else figureHeightWorld(depthMeters) / FIGURE_HEIGHT_RADII
 
     private fun randomBetween(from: Float, to: Float): Float =
         from + random.nextFloat() * (to - from)
@@ -538,9 +622,6 @@ class GameEngine(
         /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
         private const val GROUND_PROBE = 0.012f
 
-        private const val MIN_COVER_RADIUS = 0.025f
-        private const val MIN_WINDOW_RADIUS = 0.02f
-
         /** גובה אדם אמיתי, וגובה הדמות המצוירת ביחידות רדיוס */
         private const val PERSON_HEIGHT_METERS = 1.7f
         private const val FIGURE_HEIGHT_RADII = 2.2f
@@ -550,9 +631,18 @@ class GameEngine(
         private const val MIN_SCALE = 0.4f
         private const val MAX_SCALE = 2.6f
 
-        /** גבולות גובה הדמות (חלק מגובה המסך): מעל הגבול העליון הגדילה מואטת מאוד, מתחת לתחתון הגודל קבוע */
-        private const val MAX_FIGURE_HEIGHT = 0.35f
-        private const val MIN_FIGURE_HEIGHT = 0.08f
+        /** טווח גובה דמות גלויה (חלק מגובה המסך): מועדף, ואם אין מקום כזה: הרחב */
+        private const val STRICT_MIN_HEIGHT = 0.10f
+        private const val STRICT_MAX_HEIGHT = 0.30f
+        private const val RELAXED_MIN_HEIGHT = 0.06f
+        private const val RELAXED_MAX_HEIGHT = 0.45f
+
+        /** טווח גובה דמות שקשורה למחבוא או לחלון */
+        private const val SPOT_MIN_HEIGHT = 0.06f
+        private const val SPOT_MAX_HEIGHT = 0.45f
+
+        /** עצם שגובהו לפחות כך (ביחידות רדיוס) נחשב גבוה: מציצים מהצד שלו, אחרת עולים מאחוריו */
+        private const val TALL_OBJECT_RADII = 2.1f
 
         /** גבהים אמיתיים (מטרים) של עצמים נפוצים, לכיול הסצנה */
         private val REAL_HEIGHTS = mapOf(
