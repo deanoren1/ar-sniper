@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -21,15 +22,16 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.arsniper.game.engine.SceneContext
+import com.arsniper.game.engine.WINDOW_HIDE_OFFSET
 import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
 import com.arsniper.game.spots.HidingSpot
 import kotlin.math.roundToInt
 
 /**
- * ציור האויבים. כרגע דמות פשוטה (מפלצת ירוקה).
+ * ציור האויבים: דמות אדם פשוטה.
  * מציץ: החלק שנמצא "בתוך" העצם נחתך, כך שנראה שהוא מאחורי העצם.
- * חלון: האויב נחתך לגבולות החלון.
+ * חלון: הדמות נחתכת באדן החלון.
  */
 @Composable
 fun EnemyLayer(
@@ -58,14 +60,17 @@ fun EnemyLayer(
             // צל על הקרקע מתחת לאויב (לא לאויב שיוצא מחלון)
             val shadow = enemy.kind != EnemyKind.Window
 
-            if (isPeeker && spot != null && scene != null) {
+            if (enemy.kind == EnemyKind.Window) {
+                // יוצא מחלון: הדמות נחתכת באדן החלון, כך שנראה שהיא עומדת מאחוריו
+                val sillY = (enemy.hidePos.y - WINDOW_HIDE_OFFSET * enemy.radius) * size.height
+                clipRect(0f, 0f, size.width, sillY) {
+                    drawPerson(center, radius, shade, false)
+                }
+            } else if (isPeeker && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
-                drawMonsterWithMask(
-                    center, radius, spot, mask, scene,
-                    enemy.kind == EnemyKind.Window, shade, shadow
-                )
+                drawPersonBehind(center, radius, spot, mask, scene, shade, shadow)
             } else {
-                drawMonster(center, radius, shade, shadow)
+                drawPerson(center, radius, shade, shadow)
             }
         }
     }
@@ -82,13 +87,13 @@ private fun buildMask(spot: HidingSpot): ImageBitmap {
         .asImageBitmap()
 }
 
-private fun DrawScope.drawMonsterWithMask(
+/** מצייר אדם מאחורי עצם: הדמות נמחקת בכל מקום שבו העצם (המסכה המלוטשת) נמצא */
+private fun DrawScope.drawPersonBehind(
     center: Offset,
     radius: Float,
     spot: HidingSpot,
     mask: ImageBitmap,
     scene: SceneContext,
-    insideOnly: Boolean,
     shade: Float,
     shadow: Boolean
 ) {
@@ -100,13 +105,7 @@ private fun DrawScope.drawMonsterWithMask(
 
     drawIntoCanvas { canvas ->
         canvas.saveLayer(Rect(0f, 0f, size.width, size.height), Paint())
-        if (insideOnly) {
-            clipRect(left, top, right, bottom) {
-                drawMonster(center, radius, shade, shadow)
-            }
-        } else {
-            drawMonster(center, radius, shade, shadow)
-        }
+        drawPerson(center, radius, shade, shadow)
         drawImage(
             image = mask,
             srcOffset = IntOffset.Zero,
@@ -116,7 +115,7 @@ private fun DrawScope.drawMonsterWithMask(
                 (right - left).roundToInt().coerceAtLeast(1),
                 (bottom - top).roundToInt().coerceAtLeast(1)
             ),
-            blendMode = if (insideOnly) BlendMode.DstIn else BlendMode.DstOut
+            blendMode = BlendMode.DstOut
         )
         canvas.restore()
     }
@@ -130,51 +129,59 @@ private fun Color.shaded(factor: Float): Color = Color(
     alpha = alpha
 )
 
-private fun DrawScope.drawMonster(center: Offset, r: Float, shade: Float, shadow: Boolean) {
-    // צל על הקרקע: אליפסה כהה מתחת לרגליים
+/**
+ * דמות אדם פשוטה. center = מרכז ההיט; הרגליים ב-center.y + r, והראש ב-center.y - 1.2r.
+ * הצבעים מוכהים או מובהרים לפי התאורה בתמונה (shade), ויש צל מתחת לרגליים.
+ */
+private fun DrawScope.drawPerson(center: Offset, r: Float, shade: Float, shadow: Boolean) {
+    val cx = center.x
+    val cy = center.y
+    val feetY = cy + r
+
+    // צל על הקרקע, בדיוק מתחת לרגליים
     if (shadow) {
         drawOval(
-            color = Color.Black.copy(alpha = 0.35f),
-            topLeft = Offset(center.x - r * 0.85f, center.y + r * 0.8f),
-            size = Size(r * 1.7f, r * 0.4f)
+            color = Color.Black.copy(alpha = 0.4f),
+            topLeft = Offset(cx - r * 0.8f, feetY - r * 0.14f),
+            size = Size(r * 1.6f, r * 0.3f)
         )
+    }
+
+    val cloth = Color(0xFF4A5D68).shaded(shade)
+    val clothDark = Color(0xFF263238).shaded(shade)
+    val skin = Color(0xFFD2A67F).shaded(shade)
+    val line = Color(0xFF10181C)
+    val stroke = Stroke(width = r * 0.05f)
+
+    // רגליים
+    for (side in listOf(-1f, 1f)) {
+        val topLeft = Offset(if (side < 0) cx - r * 0.36f else cx + r * 0.06f, cy + r * 0.15f)
+        val legSize = Size(r * 0.3f, r * 0.85f)
+        drawRoundRect(clothDark, topLeft, legSize, CornerRadius(r * 0.08f))
+        drawRoundRect(line, topLeft, legSize, CornerRadius(r * 0.08f), stroke)
+    }
+
+    // ידיים
+    for (side in listOf(-1f, 1f)) {
+        val topLeft = Offset(if (side < 0) cx - r * 0.6f else cx + r * 0.42f, cy - r * 0.5f)
+        val armSize = Size(r * 0.18f, r * 0.68f)
+        drawRoundRect(cloth, topLeft, armSize, CornerRadius(r * 0.09f))
+        drawRoundRect(line, topLeft, armSize, CornerRadius(r * 0.09f), stroke)
+        drawCircle(skin, r * 0.1f, Offset(topLeft.x + r * 0.09f, cy + r * 0.22f))
     }
 
     // גוף
-    drawCircle(
-        color = Color(0xFF2E7D32).shaded(shade),
-        radius = r,
-        center = center
-    )
-    drawCircle(
-        color = Color(0xFF1B5E20).shaded(shade),
-        radius = r,
-        center = center,
-        style = Stroke(width = r * 0.08f)
-    )
+    val torsoTopLeft = Offset(cx - r * 0.44f, cy - r * 0.55f)
+    val torsoSize = Size(r * 0.88f, r * 0.8f)
+    drawRoundRect(cloth, torsoTopLeft, torsoSize, CornerRadius(r * 0.22f))
+    drawRoundRect(line, torsoTopLeft, torsoSize, CornerRadius(r * 0.22f), stroke)
 
-    // עיניים
-    val eyeY = center.y - r * 0.2f
-    val eyeRadius = r * 0.22f
-    listOf(-1f, 1f).forEach { side ->
-        val eyeCenter = Offset(center.x + side * r * 0.35f, eyeY)
-        drawCircle(
-            color = Color.White.shaded(shade),
-            radius = eyeRadius,
-            center = eyeCenter
-        )
-        drawCircle(
-            color = Color.Black,
-            radius = eyeRadius * 0.5f,
-            center = eyeCenter
-        )
-    }
-
-    // פה
-    drawLine(
-        color = Color(0xFF1B5E20).shaded(shade),
-        start = Offset(center.x - r * 0.35f, center.y + r * 0.4f),
-        end = Offset(center.x + r * 0.35f, center.y + r * 0.4f),
-        strokeWidth = r * 0.1f
-    )
+    // ראש וכובע
+    val headCenter = Offset(cx, cy - r * 0.9f)
+    drawCircle(skin, r * 0.3f, headCenter)
+    drawCircle(line, r * 0.3f, headCenter, style = stroke)
+    val capTopLeft = Offset(cx - r * 0.33f, cy - r * 1.22f)
+    val capSize = Size(r * 0.66f, r * 0.24f)
+    drawRoundRect(clothDark, capTopLeft, capSize, CornerRadius(r * 0.12f))
+    drawRoundRect(line, capTopLeft, capSize, CornerRadius(r * 0.12f), stroke)
 }
