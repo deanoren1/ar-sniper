@@ -76,9 +76,43 @@ fun EnemyLayer(
     }
 }
 
+/** כמה פיקסלים (ברזולוציית הציור) מצמצמים את מסכת העצם: ערך גבוה = הדמות קרובה יותר לעצם */
+private const val MASK_SHRINK_PX = 2
+
+/** שחיקה (min) של מסכה, אופקית ואז אנכית. מחוץ למסכה נחשב שקוף. */
+private fun erode(alpha: ByteArray, width: Int, height: Int, radius: Int): ByteArray {
+    if (radius <= 0) return alpha
+    val temp = ByteArray(alpha.size)
+    for (y in 0 until height) {
+        for (x in 0 until width) {
+            var m = 255
+            for (d in -radius..radius) {
+                val xx = x + d
+                val v = if (xx in 0 until width) alpha[y * width + xx].toInt() and 0xFF else 0
+                if (v < m) m = v
+            }
+            temp[y * width + x] = m.toByte()
+        }
+    }
+    val out = ByteArray(alpha.size)
+    for (y in 0 until height) {
+        for (x in 0 until width) {
+            var m = 255
+            for (d in -radius..radius) {
+                val yy = y + d
+                val v = if (yy in 0 until height) temp[yy * width + x].toInt() and 0xFF else 0
+                if (v < m) m = v
+            }
+            out[y * width + x] = m.toByte()
+        }
+    }
+    return out
+}
+
 /** מסכת הציור של המחבוא: לבן עם אלפא רכה (אחרי ליטוש הקצוות) */
 private fun buildMask(spot: HidingSpot): ImageBitmap {
-    val alpha = spot.drawAlpha()
+    // מצמצמים מעט את המסכה, כדי שלא יישאר פס רקע בין העצם לדמות
+    val alpha = erode(spot.drawAlpha(), spot.drawWidth, spot.drawHeight, MASK_SHRINK_PX)
     val pixels = IntArray(alpha.size)
     for (i in pixels.indices) {
         pixels[i] = ((alpha[i].toInt() and 0xFF) shl 24) or 0x00FFFFFF
