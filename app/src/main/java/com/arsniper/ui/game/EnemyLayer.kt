@@ -68,7 +68,15 @@ fun EnemyLayer(
                 }
             } else if (isPeeker && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
-                drawPersonBehind(center, radius, spot, mask, scene, shade, shadow)
+                // אדם שעולה מאחורי עצם נמוך (תנועה אנכית): נחתך בקצה התחתון של העצם
+                val rising = enemy.hidePos.y != enemy.peekPos.y
+                val clipBottom = if (rising) {
+                    spot.columnBottom(scene.mapper.photoX(enemy.position.x))
+                        ?.let { scene.mapper.worldY(it) * size.height }
+                } else {
+                    null
+                }
+                drawPersonBehind(center, radius, spot, mask, scene, shade, shadow && !rising, clipBottom)
             } else {
                 drawPerson(center, radius, shade, shadow)
             }
@@ -129,7 +137,8 @@ private fun DrawScope.drawPersonBehind(
     mask: ImageBitmap,
     scene: SceneContext,
     shade: Float,
-    shadow: Boolean
+    shadow: Boolean,
+    clipBottom: Float?
 ) {
     val mapper = scene.mapper
     val left = mapper.worldX(spot.drawMinX) * size.width
@@ -139,7 +148,13 @@ private fun DrawScope.drawPersonBehind(
 
     drawIntoCanvas { canvas ->
         canvas.saveLayer(Rect(0f, 0f, size.width, size.height), Paint())
-        drawPerson(center, radius, shade, shadow)
+        if (clipBottom != null) {
+            clipRect(0f, 0f, size.width, clipBottom) {
+                drawPerson(center, radius, shade, shadow)
+            }
+        } else {
+            drawPerson(center, radius, shade, shadow)
+        }
         drawImage(
             image = mask,
             srcOffset = IntOffset.Zero,
