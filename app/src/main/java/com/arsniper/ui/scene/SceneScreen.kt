@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,19 +17,24 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.data.PhotoRepository
@@ -38,17 +44,21 @@ import com.arsniper.game.spots.SpotKind
 import com.arsniper.ml.AnalysisCache
 import com.arsniper.ml.Ade20kClasses
 import com.arsniper.ml.ModelStore
+import com.arsniper.ml.Sam2Segmenter
 import com.arsniper.ml.SceneAnalysis
 import com.arsniper.ml.SceneSegmenter
 import com.arsniper.ml.SceneSession
+import com.arsniper.ml.UserObjects
 import java.io.File
 import java.util.Locale
+import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class ViewMode { Segmentation, Depth, Spots, Photo }
+private enum class ViewMode { Segmentation, Depth, Spots, Photo, Objects }
 
 /** כמה פעמים גבוהה מרשת הניתוח הרזולוציה של ליטוש הקצוות */
 private const val REFINE_SCALE = 3
@@ -64,8 +74,14 @@ private val HIDING_CLASSES = listOf(
     "fence", "car", "truck", "van", "bus", "streetlight", "bench"
 )
 
+private val PREVIEW_COLOR = AndroidColor.argb(150, 255, 0, 200)
+
 private class SceneView(
     val photo: ImageBitmap,
+    val bitmap: Bitmap,
+    val analysis: SceneAnalysis,
+    val cacheKey: String?,
+    val objects: List<FloatArray>,
     val segmentation: ImageBitmap,
     val depth: ImageBitmap,
     val legend: List<String>,
@@ -76,10 +92,14 @@ private class SceneView(
     val cached: Boolean
 )
 
+/** תוצאת עדכון רשימת העצמים שסומנו ידנית */
+private class SpotsUpdate(val overlay: ImageBitmap, val legend: List<String>)
+
 /**
  * מסך בדיקת היתכנות: מוריד (פעם אחת) את מודל הסצנה, מריץ אותו על התמונה,
  * ומציג מה המערכת "רואה": סוגי עצמים ועומק.
  * תמונה שכבר נותחה נטענת מהניתוח השמור (בלי להריץ את המודל מחדש).
+ * במצב OBJ אפשר לגעת בעצם שהמערכת פספסה (SAM) ולהוסיף אותו כמחבוא.
  */
 @Composable
 fun SceneScreen(
@@ -87,12 +107,33 @@ fun SceneScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var statusText by remember { mutableStateOf("Preparing...") }
     var busy by remember { mutableStateOf(true) }
     var sceneView by remember { mutableStateOf<SceneView?>(null) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var viewMode by remember { mutableStateOf(ViewMode.Segmentation) }
+
+    // מצב סימון עצמים (SAM)
+    val samHolder = remember { arrayOfNulls<Sam2Segmenter>(1) }
+    var samState by remember { mutableStateOf(0) } // 0 לא נטען, 1 טוען, 2 מוכן
+    var samStatus by remember { mutableStateOf("") }
+    var samBusy by remember { mutableStateOf(false) }
+    var boxSize by remember { mutableStateOf(IntSize(1, 1)) }
+    var masks by remember { mutableStateOf<Array<FloatArray>?>(null) }
+    var maskIndex by remember { mutableStateOf(0) }
+    var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var userObjects by remember { mutableStateOf<List<FloatArray>>(emptyList()) }
+    var spotsImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var spotsLines by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            samHolder[0]?.close()
+            samHolder[0] = null
+        }
+    }
 
     LaunchedEffect(Unit) {
         SceneSession.clear()
@@ -127,7 +168,12 @@ fun SceneScreen(
                 }
             }
             outcome
-                .onSuccess { sceneView = it }
+                .onSuccess {
+                    sceneView = it
+                    userObjects = it.objects
+                    spotsImage = it.spotsOverlay
+                    spotsLines = it.spotsLegend
+                }
                 .onFailure { errorText = it.message ?: it.toString() }
         } catch (e: CancellationException) {
             throw e
@@ -140,10 +186,128 @@ fun SceneScreen(
 
     val current = sceneView
 
+    /** מוריד את SAM (פעם אחת), טוען ומקודד את התמונה */
+    fun startSam(view: SceneView) {
+        if (samState != 0) return
+        samState = 1
+        scope.launch {
+            try {
+                samStatus = "Preparing object model..."
+                val files = ModelStore.ensureSamModels(context) { name, downloaded, total ->
+                    val mb = downloaded / 1_000_000L
+                    samStatus = if (total > 0L) {
+                        "Downloading object model ($name, one time): $mb / ${total / 1_000_000L} MB"
+                    } else {
+                        "Downloading object model ($name): $mb MB"
+                    }
+                }
+                samStatus = "Reading the photo (a few seconds)..."
+                val ms = withContext(Dispatchers.Default) {
+                    val sam = Sam2Segmenter(files)
+                    samHolder[0] = sam
+                    sam.encode(view.bitmap)
+                }
+                val acc = samHolder[0]?.encoderAccelerator ?: "?"
+                samStatus = "Tap an object (photo read in ${ms} ms, $acc)"
+                samState = 2
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                samStatus = "Object model failed: ${e.message ?: e}"
+                samState = 0
+            }
+        }
+    }
+
+    fun showMask(view: SceneView, all: Array<FloatArray>, index: Int) {
+        val gw = view.analysis.width
+        val gh = view.analysis.height
+        scope.launch {
+            val bmp = withContext(Dispatchers.Default) {
+                val px = UserObjects.previewPixels(all[index], gw, gh, PREVIEW_COLOR)
+                Bitmap.createBitmap(px, gw, gh, Bitmap.Config.ARGB_8888)
+            }
+            previewImage = bmp.asImageBitmap()
+        }
+    }
+
+    fun onTap(view: SceneView, x: Float, y: Float) {
+        val sam = samHolder[0] ?: return
+        if (samState != 2 || samBusy) return
+        val pw = view.bitmap.width.toFloat()
+        val ph = view.bitmap.height.toFloat()
+        val cw = boxSize.width.toFloat()
+        val ch = boxSize.height.toFloat()
+        val scale = max(cw / pw, ch / ph)
+        val offX = (cw - pw * scale) / 2f
+        val offY = (ch - ph * scale) / 2f
+        val nx = ((x - offX) / scale) / pw
+        val ny = ((y - offY) / scale) / ph
+        if (nx < 0f || nx > 1f || ny < 0f || ny > 1f) return
+        samBusy = true
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.Default) { sam.segment(nx, ny) }
+                masks = result
+                maskIndex = 0
+                showMask(view, result, 0)
+                samStatus = "Mask 1/3. ADD to keep it, or MASK to try another"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                samStatus = "Segmentation failed: ${e.message ?: e}"
+            } finally {
+                samBusy = false
+            }
+        }
+    }
+
+    fun applyObjects(view: SceneView, list: List<FloatArray>, message: String) {
+        scope.launch {
+            samBusy = true
+            val update = withContext(Dispatchers.Default) {
+                UserObjects.save(context.filesDir, view.cacheKey ?: "none", list)
+                SceneSession.setUserObjects(list)
+                SpotsUpdate(
+                    buildSpotsOverlay(view.analysis, SceneSession.spots).asImageBitmap(),
+                    buildSpotsLegend(SceneSession.spots)
+                )
+            }
+            userObjects = list
+            spotsImage = update.overlay
+            spotsLines = update.legend
+            masks = null
+            previewImage = null
+            samStatus = message
+            samBusy = false
+        }
+    }
+
+    fun addCurrent(view: SceneView) {
+        val all = masks ?: return
+        val logits = all[maskIndex]
+        val test = UserObjects.toSpot(view.analysis, logits, 0)
+        if (test == null) {
+            samStatus = "That mask is too small or too big. Try MASK or tap elsewhere"
+            return
+        }
+        val list = (userObjects + listOf(logits)).takeLast(UserObjects.MAX_OBJECTS)
+        applyObjects(view, list, "Added. Objects marked: ${list.size}")
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF0B0F14))
+            .onSizeChanged { boxSize = it }
+            .pointerInput(viewMode, samState, current) {
+                detectTapGestures { offset ->
+                    val view = current
+                    if (view != null && viewMode == ViewMode.Objects) {
+                        onTap(view, offset.x, offset.y)
+                    }
+                }
+            }
     ) {
         if (current != null) {
             Image(
@@ -165,18 +329,29 @@ fun SceneScreen(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-                ViewMode.Spots -> Image(
-                    bitmap = current.spotsOverlay,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                ViewMode.Spots, ViewMode.Objects -> {
+                    Image(
+                        bitmap = spotsImage ?: current.spotsOverlay,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    val preview = previewImage
+                    if (viewMode == ViewMode.Objects && preview != null) {
+                        Image(
+                            bitmap = preview,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
                 ViewMode.Photo -> Unit
             }
 
             val legendLines = when (viewMode) {
                 ViewMode.Segmentation -> current.legend
-                ViewMode.Spots -> current.spotsLegend
+                ViewMode.Spots, ViewMode.Objects -> if (spotsLines.isNotEmpty()) spotsLines else current.spotsLegend
                 else -> emptyList()
             }
             if (legendLines.isNotEmpty()) {
@@ -196,6 +371,7 @@ fun SceneScreen(
 
         val statusLine = when {
             errorText != null -> "Scene analysis failed: $errorText"
+            current != null && viewMode == ViewMode.Objects && samStatus.isNotEmpty() -> samStatus
             current != null && current.cached ->
                 "Scene loaded from saved analysis in ${String.format(Locale.US, "%.1f", current.seconds)}s"
             current != null ->
@@ -216,23 +392,58 @@ fun SceneScreen(
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         )
 
-        if (busy) {
+        if (busy || samState == 1 || samBusy) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp)
         ) {
-            ModeButton("SEG", ViewMode.Segmentation, viewMode, current != null) { viewMode = it }
-            ModeButton("DEPTH", ViewMode.Depth, viewMode, current != null) { viewMode = it }
-            ModeButton("SPOTS", ViewMode.Spots, viewMode, current != null) { viewMode = it }
-            ModeButton("PHOTO", ViewMode.Photo, viewMode, current != null) { viewMode = it }
-            Button(onClick = onContinue) { Text("CONTINUE") }
+            if (current != null && viewMode == ViewMode.Objects && samState == 2) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ActionButton("ADD", masks != null && !samBusy) { addCurrent(current) }
+                    ActionButton("MASK ${maskIndex + 1}/3", masks != null && !samBusy) {
+                        val all = masks
+                        if (all != null) {
+                            maskIndex = (maskIndex + 1) % 3
+                            showMask(current, all, maskIndex)
+                            samStatus = "Mask ${maskIndex + 1}/3. ADD to keep it"
+                        }
+                    }
+                    ActionButton("UNDO LAST", userObjects.isNotEmpty() && !samBusy) {
+                        applyObjects(current, userObjects.dropLast(1), "Removed last. Objects marked: ${userObjects.size - 1}")
+                    }
+                    ActionButton("CLEAR", userObjects.isNotEmpty() && !samBusy) {
+                        applyObjects(current, emptyList(), "All marked objects cleared")
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ModeButton("SEG", ViewMode.Segmentation, viewMode, current != null) { viewMode = it }
+                ModeButton("DEPTH", ViewMode.Depth, viewMode, current != null) { viewMode = it }
+                ModeButton("SPOTS", ViewMode.Spots, viewMode, current != null) { viewMode = it }
+                ModeButton("PHOTO", ViewMode.Photo, viewMode, current != null) { viewMode = it }
+                ModeButton("OBJ", ViewMode.Objects, viewMode, current != null) {
+                    viewMode = it
+                    if (current != null) startSam(current)
+                }
+                Button(onClick = onContinue) { Text("CONTINUE") }
+            }
         }
     }
+}
+
+@Composable
+private fun ActionButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A1B9A))
+    ) { Text(label) }
 }
 
 @Composable
@@ -266,6 +477,8 @@ private fun analyzeScene(
 ): SceneView {
     val startNanos = System.nanoTime()
     val photo = PhotoRepository.load(context) ?: error("No photo found")
+    val photoFile = PhotoRepository.currentFile(context)
+    val cacheKey = photoFile?.let { AnalysisCache.keyFor(it) }
 
     val analysis: SceneAnalysis
     if (saved != null) {
@@ -278,18 +491,25 @@ private fun analyzeScene(
             segmenter.close()
         }
         // שומרים לפעם הבאה (אותה תמונה = ניתוח מיידי)
-        PhotoRepository.currentFile(context)?.let { file ->
-            AnalysisCache.save(context.filesDir, AnalysisCache.keyFor(file), analysis)
-        }
+        if (cacheKey != null) AnalysisCache.save(context.filesDir, cacheKey, analysis)
     }
 
     // שומרים את הניתוח (ומוצאים מחבואים ומלטשים את הקצוות שלהם) בשביל מסך המשחק
     SceneSession.set(analysis, buildGuide(photo, analysis.width, analysis.height))
+
+    // עצמים שסומנו ידנית בעבר על אותה תמונה
+    val objects = if (cacheKey != null) UserObjects.load(context.filesDir, cacheKey) else emptyList()
+    if (objects.isNotEmpty()) SceneSession.setUserObjects(objects)
+
     val spots = SceneSession.spots
     val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
 
     return SceneView(
         photo = photo.asImageBitmap(),
+        bitmap = photo,
+        analysis = analysis,
+        cacheKey = cacheKey,
+        objects = objects,
         segmentation = buildSegmentationOverlay(analysis).asImageBitmap(),
         depth = buildDepthImage(analysis).asImageBitmap(),
         legend = buildLegend(analysis),
@@ -418,6 +638,7 @@ private fun buildSpotsLegend(spots: List<HidingSpot>): List<String> {
     val lines = ArrayList<String>()
     lines.add("hiding spots: $covers cover (orange)")
     lines.add("windows/doors: $windows (blue)")
+    if (SceneSession.userObjects.isNotEmpty()) lines.add("marked by you: ${SceneSession.userObjects.size}")
     for (spot in spots.take(8)) {
         val depthText = if (spot.depth.isNaN()) "?" else String.format(Locale.US, "%.0f m", spot.depth)
         lines.add("${Ade20kClasses.name(spot.classIndex)}  $depthText")
