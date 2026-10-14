@@ -52,6 +52,9 @@ private const val DEATH_SECONDS = 0.7f
 /** משך הבהוב האדום והרעידה אחרי פגיעה שלא הורגת (שניות) */
 private const val HURT_SECONDS = 0.35f
 
+/** מאיזה חלק גלוי של מציץ מתחילים להציג לו מד חיים (0..1) */
+private const val PEEK_BAR_EXPOSURE = 0.15f
+
 /** גובה דמות אדם ביחידות רדיוס (ראש עד רגליים), כמו במנוע */
 private const val FIGURE_HEIGHT_RADII = 2.2f
 
@@ -189,6 +192,10 @@ fun EnemyLayer(
                 clipRect(0f, 0f, size.width, sillY) {
                     draw()
                 }
+                // מד חיים מעל הראש: הרגליים מוסתרות, אז לא מתחתן
+                if (!item.dead && sprites != null && enemy.maxHp > 1 && enemy.exposure >= PEEK_BAR_EXPOSURE) {
+                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius, true)
+                }
             } else if (isPeeker && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
                 // אדם שעולה מאחורי עצם נמוך (תנועה אנכית): נחתך בקצה התחתון של העצם
@@ -200,6 +207,10 @@ fun EnemyLayer(
                     null
                 }
                 drawFigureBehind(figure(!rising), spot, mask, scene, clipBottom)
+                // מציץ: מד החיים מעל הראש, כי הרגליים מוסתרות מאחורי העצם
+                if (!item.dead && sprites != null && enemy.maxHp > 1 && enemy.exposure >= PEEK_BAR_EXPOSURE) {
+                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius, true)
+                }
             } else {
                 // עצמים שקרובים יותר למצלמה מכסים דמות הולכת שנמצאת מאחוריהם (לפי עומק הרגליים)
                 val blockers = if (scene != null && !item.dead) Occlusion.nearerSpots(scene, enemy) else emptyList()
@@ -233,7 +244,7 @@ fun EnemyLayer(
                 }
                 // מד חיים מתחת לרגליים, למפלצת עם יותר מפגיעה אחת (לא כשעצם מכסה אותה)
                 if (!item.dead && sprites != null && enemy.maxHp > 1 && blockers.isEmpty()) {
-                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius)
+                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius, false)
                 }
             }
         }
@@ -398,15 +409,18 @@ private fun DrawScope.drawMonster(
     }
 }
 
-/** מד חיים: פס עם תא לכל נקודת חיים, מתחת לרגליים. ירוק, ואז צהוב ואדום כשנשאר מעט. */
-private fun DrawScope.drawHealthBar(box: MonsterBox, enemy: Enemy, r: Float) {
+/**
+ * מד חיים: פס עם תא לכל נקודת חיים. ירוק, ואז צהוב ואדום כשנשאר מעט.
+ * above = false: מתחת לרגליים (מפלצת שהולכת). above = true: מעל הראש (מציץ או חלון, כשהרגליים מוסתרות).
+ */
+private fun DrawScope.drawHealthBar(box: MonsterBox, enemy: Enemy, r: Float, above: Boolean) {
     val total = enemy.maxHp
     val segmentWidth = max(r * 0.28f, 6f)
     val gap = max(r * 0.04f, 1.5f)
     val barHeight = max(r * 0.12f, 4f)
     val width = total * segmentWidth + (total - 1) * gap
     val left = box.cx - width / 2f
-    val top = box.feetY + r * 0.2f
+    val top = if (above) box.headY - barHeight - r * 0.25f else box.feetY + r * 0.2f
 
     drawRoundRect(
         color = Color.Black.copy(alpha = 0.55f),
