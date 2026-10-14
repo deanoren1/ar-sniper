@@ -223,4 +223,4 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(end = 64.dp, bottom = 32.dp)
         )
     }
-}
+} 
