@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.arsniper.game.engine.AccessoryKind
-import com.arsniper.game.engine.Accessories
+import com.arsniper.game.engine.AccessoryTarget
 import com.arsniper.game.model.Enemy
 import kotlin.math.PI
 import kotlin.math.cos
@@ -37,17 +37,79 @@ class Blast(
     val bornNanos: Long
 )
 
+/** רדיוס הפגיעה ביחס לרדיוס הציור של האביזר (קצת נדיב, כי האביזר קטן) */
+const val ACCESSORY_HIT_SCALE = 1.15f
+
+/**
+ * התיבה של מפלצת מצוירת במסך (בפיקסלים): מרכז אופקי, קצה הראש, הרגליים וחצי הרוחב.
+ * האביזרים ממוקמים לפיה, כדי שיהיו צמודים למפלצת בכל גודל.
+ */
+class MonsterBox(val cx: Float, val headY: Float, val feetY: Float, val halfWidth: Float) {
+    val height: Float get() = feetY - headY
+}
+
+/** מקום וגודל של אביזר במסך (פיקסלים): מרכז ורדיוס */
+class AccessorySpot(val x: Float, val y: Float, val radius: Float)
+
+/**
+ * האביזרים שצוירו בפריים האחרון, במקום האמיתי שלהם. GameScreen בודק בהם פגיעה,
+ * כך שמה שרואים הוא בדיוק מה שאפשר לפגוע בו. נכתב ונקרא רק מה-UI thread.
+ */
+object AccessoryRegistry {
+    private val current = ArrayList<AccessoryTarget>()
+
+    fun clear() {
+        current.clear()
+    }
+
+    fun add(target: AccessoryTarget) {
+        current.add(target)
+    }
+
+    fun snapshot(): List<AccessoryTarget> = ArrayList(current)
+}
+
+/**
+ * איפה האביזר ביחס למפלצת: בלון מעל הראש על חוט, יהלום צף מעל הראש, פצצה בצד הגוף.
+ * הגודל יחסי לגובה המפלצת (עם מינימום, כדי שגם מפלצת רחוקה תהיה בת-פגיעה בתקריב).
+ */
+fun accessorySpot(kind: AccessoryKind, box: MonsterBox, screenHeight: Float): AccessorySpot {
+    val ar = max(box.height * 0.15f, screenHeight * 0.014f)
+    return when (kind) {
+        AccessoryKind.Balloon -> AccessorySpot(
+            x = box.cx + box.halfWidth * 0.25f,
+            y = box.headY - box.height * 0.28f - ar,
+            radius = ar
+        )
+        AccessoryKind.Bomb -> AccessorySpot(
+            x = box.cx + box.halfWidth + ar * 0.6f,
+            y = box.feetY - box.height * 0.3f,
+            radius = ar
+        )
+        AccessoryKind.Gem -> AccessorySpot(
+            x = box.cx,
+            y = box.headY - box.height * 0.1f - ar * 1.3f,
+            radius = ar
+        )
+    }
+}
+
 private val STICKER_WHITE = Color.White
 
 /**
  * מצייר את האביזר של מפלצת: בלון על חוט, פצצה עם פתיל בוער, או יהלום זוהר.
- * center = מרכז המפלצת במסך, rPx = הרדיוס שלה בפיקסלים. המיקום זהה לחישוב ב-Accessories.anchor,
- * כך שהפגיעה מתאימה למה שרואים.
+ * box = התיבה של המפלצת המצוירת, spot = המקום והגודל מ-accessorySpot.
  */
-fun DrawScope.drawAccessory(kind: AccessoryKind, enemy: Enemy, center: Offset, rPx: Float, anim: Float) {
-    val ar = Accessories.hitRadius(enemy) * size.height
-    val ax = center.x + Accessories.offsetX(kind) * rPx
-    val ay = center.y + Accessories.offsetY(kind) * rPx
+fun DrawScope.drawAccessory(
+    kind: AccessoryKind,
+    enemy: Enemy,
+    box: MonsterBox,
+    spot: AccessorySpot,
+    anim: Float
+) {
+    val ar = spot.radius
+    val ax = spot.x
+    val ay = spot.y
     val outline = max(2f, ar * 0.16f)
 
     when (kind) {
@@ -57,7 +119,7 @@ fun DrawScope.drawAccessory(kind: AccessoryKind, enemy: Enemy, center: Offset, r
             // חוט מהראש אל הבלון
             drawLine(
                 color = Color(0xFF37474F),
-                start = Offset(center.x, center.y - 1.3f * rPx),
+                start = Offset(box.cx + box.halfWidth * 0.2f, box.headY + box.height * 0.12f),
                 end = Offset(bx, ay + ar * 1.05f),
                 strokeWidth = max(1.5f, ar * 0.07f)
             )
@@ -111,8 +173,8 @@ fun DrawScope.drawAccessory(kind: AccessoryKind, enemy: Enemy, center: Offset, r
         AccessoryKind.Gem -> {
             val pulse = 1f + 0.1f * sin(anim * 4f + enemy.id)
             drawCircle(
-                color = Color(0xFF00E5FF).copy(alpha = 0.22f + 0.12f * sin(anim * 4f + enemy.id)),
-                radius = ar * 1.6f * pulse,
+                color = Color(0xFF00E5FF).copy(alpha = 0.14f + 0.07f * sin(anim * 4f + enemy.id)),
+                radius = ar * 1.5f * pulse,
                 center = Offset(ax, ay)
             )
             val gem = Path().apply {
