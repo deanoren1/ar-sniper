@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.arsniper.game.engine.Accessories
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.WINDOW_HIDE_OFFSET
 import com.arsniper.game.model.Enemy
@@ -67,6 +68,7 @@ private class DrawItem(val enemy: Enemy, val dead: Boolean, val progress: Float)
  * מפלצת שיוצאת מאחורי עצם וממשיכה ללכת: מצוירת שלמה (בלי חיתוך), כדי שתמיד תהיה גלויה במלואה.
  * חלון: הדמות נחתכת באדן החלון.
  * פגיעה: המפלצת מוצגת בתנוחת פגיעה עם כוכבים ונעלמת בענן.
+ * נקודת תורפה: לכל מפלצת חופשית יש אביזר (בלון, פצצה או יהלום) שפגיעה בו נותנת ניקוד גדול.
  */
 @Composable
 fun EnemyLayer(
@@ -182,6 +184,10 @@ fun EnemyLayer(
             } else {
                 val draw = figure(true)
                 draw()
+                // נקודת תורפה: בלון, פצצה או יהלום ליד המפלצת
+                if (!item.dead && sprites != null && Accessories.isActive(enemy)) {
+                    drawAccessory(Accessories.kindOf(enemy), enemy, center, radius, anim)
+                }
             }
         }
     }
@@ -242,7 +248,7 @@ private fun DrawScope.drawMonster(
 
     val cx = center.x
     val feetY = center.y + r
-    // גובה הדמות בפיקסלים: הפריים עצמו (בלי מסגרת) מוקטן/מוגדל בהתאם לפריים העמידה של המפלצת.
+    // גובה הדמות בפיקסלים: הפריים עצמו (בלי מסגרת) מוקטן/מוגדל בהתאם לפריים העמידה של המפלצת
     // מפלצות רחבות מאדם, ולכן הגודל מוגבל גם לפי הרוחב: כך הן לא יוצאות ענקיות וחצי מהן מחוץ למסך
     val widest = max(
         max(sheet.idle.width, sheet.hit.width),
