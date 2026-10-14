@@ -14,7 +14,24 @@ object HidingSpotFinder {
     private val COVER_NAMES = listOf(
         "ashcan", "barrel", "box", "column", "pole", "fence", "car", "truck", "van", "bus",
         "bench", "streetlight", "cabinet", "wardrobe", "bookcase", "plant", "tree", "palm",
-        "boat", "minibike", "bicycle", "table", "desk"
+        "boat", "minibike", "bicycle", "table", "desk",
+        // רהיטים וחפצים בבית: ספה, כורסה, כיסא, כריות, פוף, סל, תיק, שרפרף, שידה...
+        "sofa", "armchair", "chair", "swivel chair", "seat", "cushion", "pillow", "ottoman",
+        "bed", "basket", "bag", "stool", "chest of drawers", "counter", "kitchen island",
+        "refrigerator", "coffee table", "buffet", "case", "plaything", "ball", "blanket",
+        "shelf", "crt screen", "washer", "oven", "bar", "cradle", "tank", "bookcase"
+    )
+
+    /**
+     * משפחות של עצמים שהמודל נוטה לפצל לכמה קטגוריות באותו עצם (כרית שחציה "כרית" וחציה "פוף").
+     * תאים סמוכים מאותה משפחה מתאחדים לעצם אחד.
+     */
+    private val FAMILIES = listOf(
+        listOf("sofa", "armchair", "cushion", "pillow", "ottoman", "seat", "bed", "blanket", "bag", "basket"),
+        listOf("chair", "swivel chair", "stool"),
+        listOf("cabinet", "wardrobe", "bookcase", "chest of drawers", "buffet", "shelf", "case"),
+        listOf("table", "desk", "coffee table", "counter", "kitchen island", "bar"),
+        listOf("plaything", "ball", "box")
     )
     private val WINDOW_NAMES = listOf("windowpane", "door")
 
@@ -44,6 +61,14 @@ object HidingSpotFinder {
             if (index >= 0) kindByLabel[index] = SpotKind.WINDOW
         }
 
+        // קבוצה לכל קטגוריה: קטגוריות באותה משפחה מקבלות אותה קבוצה, כדי שיתאחדו
+        val groupByLabel = IntArray(256) { it }
+        for (family in FAMILIES) {
+            val indices = family.map { Ade20kClasses.NAMES.indexOf(it) }.filter { it >= 0 }
+            if (indices.isEmpty()) continue
+            for (index in indices) groupByLabel[index] = indices[0]
+        }
+
         val thinByLabel = BooleanArray(256)
         for (name in THIN_NAMES) {
             val index = Ade20kClasses.NAMES.indexOf(name)
@@ -59,6 +84,7 @@ object HidingSpotFinder {
             if (visited[start]) continue
             val label = analysis.labelIndex(start)
             val kind = kindByLabel[label]
+            val group = groupByLabel[label]
             if (kind == null) {
                 visited[start] = true
                 continue
@@ -69,6 +95,7 @@ object HidingSpotFinder {
             var tail = 0
             queue[tail++] = start
             visited[start] = true
+            val labelCounts = IntArray(256)
             var minX = width
             var maxX = -1
             var minY = height
@@ -78,6 +105,7 @@ object HidingSpotFinder {
                 val position = queue[head++]
                 val x = position % width
                 val y = position / width
+                labelCounts[analysis.labelIndex(position)] += 1
                 if (x < minX) minX = x
                 if (x > maxX) maxX = x
                 if (y < minY) minY = y
@@ -85,28 +113,28 @@ object HidingSpotFinder {
 
                 if (x > 0) {
                     val n = position - 1
-                    if (!visited[n] && analysis.labelIndex(n) == label) {
+                    if (!visited[n] && sameGroup(analysis.labelIndex(n), group, kindByLabel, kind, groupByLabel)) {
                         visited[n] = true
                         queue[tail++] = n
                     }
                 }
                 if (x < width - 1) {
                     val n = position + 1
-                    if (!visited[n] && analysis.labelIndex(n) == label) {
+                    if (!visited[n] && sameGroup(analysis.labelIndex(n), group, kindByLabel, kind, groupByLabel)) {
                         visited[n] = true
                         queue[tail++] = n
                     }
                 }
                 if (y > 0) {
                     val n = position - width
-                    if (!visited[n] && analysis.labelIndex(n) == label) {
+                    if (!visited[n] && sameGroup(analysis.labelIndex(n), group, kindByLabel, kind, groupByLabel)) {
                         visited[n] = true
                         queue[tail++] = n
                     }
                 }
                 if (y < height - 1) {
                     val n = position + width
-                    if (!visited[n] && analysis.labelIndex(n) == label) {
+                    if (!visited[n] && sameGroup(analysis.labelIndex(n), group, kindByLabel, kind, groupByLabel)) {
                         visited[n] = true
                         queue[tail++] = n
                     }
@@ -115,6 +143,10 @@ object HidingSpotFinder {
 
             val count = tail
             if (count < minCells) continue
+
+            // הקטגוריה הנפוצה ביותר בעצם: משמשת לשם ולבחירת ניקוי הקצוות
+            var dominant = label
+            for (i in 0 until 256) if (labelCounts[i] > labelCounts[dominant]) dominant = i
 
             val maskWidth = maxX - minX + 1
             val maskHeight = maxY - minY + 1
@@ -128,7 +160,7 @@ object HidingSpotFinder {
             }
 
             // ניקוי: סוגר חורים, ממלא חורים קטנים, מסיר בליטות דקות
-            val cleaned = MaskTools.clean(rawMask, maskWidth, maskHeight, thinByLabel[label])
+            val cleaned = MaskTools.clean(rawMask, maskWidth, maskHeight, thinByLabel[dominant])
             val cellX = if (cleaned != null) minX + cleaned.offsetX else minX
             val cellY = if (cleaned != null) minY + cleaned.offsetY else minY
             val useCleaned = cleaned != null &&
@@ -160,7 +192,7 @@ object HidingSpotFinder {
                 HidingSpot(
                     id = -1,
                     kind = kind,
-                    classIndex = label,
+                    classIndex = dominant,
                     gridWidth = width,
                     gridHeight = height,
                     cellX = finalX,
@@ -179,6 +211,15 @@ object HidingSpotFinder {
             .take(MAX_SPOTS)
             .mapIndexed { index, spot -> spot.copy(id = index) }
     }
+
+    /** האם תא עם קטגוריה מסוימת שייך לאותו עצם: אותו סוג, ואותה קבוצה (משפחה) */
+    private fun sameGroup(
+        otherLabel: Int,
+        group: Int,
+        kindByLabel: Array<SpotKind?>,
+        kind: SpotKind,
+        groupByLabel: IntArray
+    ): Boolean = kindByLabel[otherLabel] == kind && groupByLabel[otherLabel] == group
 
     /** עומק חציוני של הרכיב, לפי מדגם של עד כ-200 תאים */
     private fun medianDepth(analysis: SceneAnalysis, cells: IntArray, count: Int): Float {
