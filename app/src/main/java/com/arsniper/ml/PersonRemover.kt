@@ -13,7 +13,11 @@ import kotlin.math.roundToInt
  */
 class PersonRemover(context: Context) {
 
+    private val appContext: Context = context.applicationContext ?: context
     private val inpainter = MigAnInpainter(context)
+
+    /** מזהה האנשים של המעבר השני (נטען רק אם צריך) */
+    private var segmenter: PersonSegmenter? = null
 
     /** האם ההסרה רצה על ה-GPU */
     val usesGpu: Boolean get() = inpainter.usesGpu
@@ -27,12 +31,42 @@ class PersonRemover(context: Context) {
         val height = source.height
         if (mask.coverage() == 0f) return source
 
-        // הרחבת המסכה כדי לכסות קצוות וצללים קרובים
-        val radius = max(4, min(width, height) / 150)
-        val remaining = dilate(mask.data, width, height, radius)
-
         val pixels = IntArray(width * height)
         source.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        // מעבר ראשון: מסירים את מה שסומן
+        onProgress(0, 0)
+        var done = erase(pixels, mask.data, width, height, 0, onProgress)
+
+        // מעברים נוספים: מחפשים שאריות של אנשים ליד המקום שבו עמדו, ומסירים אותן
+        val near = dilate(mask.data, width, height, max(8, min(width, height) / NEAR_DIVISOR))
+        for (round in 0 until MAX_REFINE_ROUNDS) {
+            val residual = findResidual(pixels, near, width, height) ?: break
+            done += erase(pixels, residual, width, height, done, onProgress)
+        }
+
+        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+    }
+
+    fun close() {
+        inpainter.close()
+        segmenter?.close()
+        segmenter = null
+    }
+
+    /**
+     * מרחיב את המסכה, מפצל לכתמים וממלא כל כתם. מחזיר כמה כתמים טופלו.
+     * done = כמה כתמים כבר טופלו במעברים קודמים (להצגת התקדמות).
+     */
+    private fun erase(
+        pixels: IntArray,
+        rawMask: BooleanArray,
+        width: Int,
+        height: Int,
+        done: Int,
+        onProgress: (done: Int, total: Int) -> Unit
+    ): Int {
+        val remaining = expandMask(rawMask, width, height)
 
         // כתמים נפרדים (כל אדם בנפרד), מהגדול לקטן
         val labels = IntArray(width * height)
@@ -49,17 +83,115 @@ class PersonRemover(context: Context) {
             if (remaining[i] && !isTarget[labels[i]]) remaining[i] = false
         }
 
-        onProgress(0, targets.size)
+        val total = done + targets.size
+        onProgress(done, total)
         targets.forEachIndexed { index, component ->
             inpaintComponent(pixels, remaining, labels, width, height, component)
-            onProgress(index + 1, targets.size)
+            onProgress(done + index + 1, total)
         }
-
-        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+        return targets.size
     }
 
-    fun close() {
-        inpainter.close()
+    /**
+     * הרחבת המסכה לפי גודל כל אדם: המודל מזהה ברזולוציה נמוכה ולכן הקצוות (ידיים, שיער, רגליים, צל)
+     * נחתכים, והחיתוך גדול יותר באדם גדול. אדם גדול מורחב יותר, אדם קטן פחות.
+     */
+    private fun expandMask(raw: BooleanArray, width: Int, height: Int): BooleanArray {
+        val minRadius = max(4, min(width, height) / 150)
+        val maxRadius = max(minRadius, min(width, height) / MAX_GROW_DIVISOR)
+
+        // קודם הרחבה קטנה, כדי לאחד שברים של אותו אדם לכתם אחד
+        val coarse = dilate(raw, width, height, minRadius)
+        val labels = IntArray(width * height)
+        val components = findComponents(coarse, labels, width, height)
+
+        val out = BooleanArray(width * height)
+        for (component in components) {
+            val bboxWidth = component.maxX - component.minX + 1
+            val bboxHeight = component.maxY - component.minY + 1
+            val radius = (GROW_FRACTION * max(bboxWidth, bboxHeight)).roundToInt()
+                .coerceIn(minRadius, maxRadius)
+
+            val left = max(0, component.minX - radius)
+            val top = max(0, component.minY - radius)
+            val right = min(width - 1, component.maxX + radius)
+            val bottom = min(height - 1, component.maxY + radius)
+            val localWidth = right - left + 1
+            val localHeight = bottom - top + 1
+
+            val local = BooleanArray(localWidth * localHeight)
+            for (y in component.minY..component.maxY) {
+                for (x in component.minX..component.maxX) {
+                    val index = y * width + x
+                    if (raw[index] && labels[index] == component.label) {
+                        local[(y - top) * localWidth + (x - left)] = true
+                    }
+                }
+            }
+            val grown = dilate(local, localWidth, localHeight, radius)
+            for (y in 0 until localHeight) {
+                for (x in 0 until localWidth) {
+                    if (grown[y * localWidth + x]) out[(top + y) * width + (left + x)] = true
+                }
+            }
+        }
+        return out
+    }
+
+    /**
+     * מחפש שאריות של אנשים בתמונה אחרי ההסרה: מריץ שוב את הזיהוי על האזור שבו עמדו האנשים,
+     * ומחזיר רק מה שנמצא ליד המסכה המקורית (כך שדברים שהמשתמש מחק מהסימון, כמו כיסא, לא יוסרו).
+     * מחזיר null אם לא נשאר כלום, או אם הזיהוי נכשל.
+     */
+    private fun findResidual(pixels: IntArray, near: BooleanArray, width: Int, height: Int): BooleanArray? {
+        try {
+            var minX = width
+            var minY = height
+            var maxX = -1
+            var maxY = -1
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    if (near[y * width + x]) {
+                        if (x < minX) minX = x
+                        if (x > maxX) maxX = x
+                        if (y < minY) minY = y
+                        if (y > maxY) maxY = y
+                    }
+                }
+            }
+            if (maxX < 0) return null
+
+            // חלק מהתמונה שמכיל את האזור, לא קטן מדי בשביל הזיהוי
+            val minSide = min(MIN_DETECT_SIDE, min(width, height))
+            var cropWidth = max(maxX - minX + 1, minSide)
+            var cropHeight = max(maxY - minY + 1, minSide)
+            cropWidth = min(cropWidth, width)
+            cropHeight = min(cropHeight, height)
+            val left = ((minX + maxX) / 2 - cropWidth / 2).coerceIn(0, width - cropWidth)
+            val top = ((minY + maxY) / 2 - cropHeight / 2).coerceIn(0, height - cropHeight)
+
+            val crop = Bitmap.createBitmap(
+                pixels, top * width + left, width, cropWidth, cropHeight, Bitmap.Config.ARGB_8888
+            )
+            val detector = segmenter ?: PersonSegmenter(appContext).also { segmenter = it }
+            val found = detector.detectPeople(crop)
+            crop.recycle()
+
+            val residual = BooleanArray(width * height)
+            var count = 0
+            for (y in 0 until cropHeight) {
+                for (x in 0 until cropWidth) {
+                    val index = (top + y) * width + (left + x)
+                    if (found.data[y * cropWidth + x] && near[index]) {
+                        residual[index] = true
+                        count++
+                    }
+                }
+            }
+            return if (count >= max(MIN_RESIDUAL, width * height / RESIDUAL_DIVISOR)) residual else null
+        } catch (e: Exception) {
+            return null
+        }
     }
 
     private class Component(val label: Int) {
@@ -280,5 +412,24 @@ class PersonRemover(context: Context) {
 
         /** מקסימום כתמים לטיפול בתמונה אחת, כדי להגביל את הזמן */
         private const val MAX_COMPONENTS = 25
+
+        /** הרחבת המסכה סביב אדם, כחלק מהצלע הארוכה שלו (אדם גדול מורחב יותר) */
+        private const val GROW_FRACTION = 0.035f
+
+        /** גבול עליון להרחבה: הצלע הקצרה של התמונה חלקי המספר הזה */
+        private const val MAX_GROW_DIVISOR = 30
+
+        /** כמה מעברים נוספים לחיפוש שאריות אחרי ההסרה הראשונה */
+        private const val MAX_REFINE_ROUNDS = 2
+
+        /** שאריות נחפשות רק עד מרחק כזה מהמסכה המקורית (הצלע הקצרה חלקי המספר הזה) */
+        private const val NEAR_DIVISOR = 30
+
+        /** גודל מינימלי של החלק שמריצים עליו את הזיהוי בפיקסלים */
+        private const val MIN_DETECT_SIDE = 256
+
+        /** שאריות קטנות מזה (בפיקסלים) מתעלמים מהן */
+        private const val MIN_RESIDUAL = 150
+        private const val RESIDUAL_DIVISOR = 20000
     }
 }
