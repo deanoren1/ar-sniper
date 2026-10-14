@@ -175,6 +175,16 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(16.dp)
         )
 
+        // שורת אבחון (זמנית): מה נטען מגיליון המפלצות
+        Text(
+            text = MonsterSprites.report,
+            color = Color.Yellow.copy(alpha = 0.9f),
+            fontSize = 11.sp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp)
+        )
+
         // שורת אבחון (זמנית): עוזרת להבין למה דמויות לא מופיעות
         Text(
             text = engine.debugInfo(enemies),
