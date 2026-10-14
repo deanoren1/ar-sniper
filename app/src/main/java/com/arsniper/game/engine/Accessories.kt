@@ -4,7 +4,6 @@ import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
 import com.arsniper.game.model.EnemyState
 import com.arsniper.game.model.Vec2
-import kotlin.math.max
 import kotlin.math.sqrt
 
 /** סוג האביזר ("נקודת תורפה") שנושאת מפלצת. פגיעה בו מפעילה אפקט מיוחד ופרס גדול. */
@@ -19,8 +18,18 @@ enum class AccessoryKind(val label: String) {
     Gem("JACKPOT!")
 }
 
-/** פגיעה באביזר של אויב מסוים. anchor = מיקום האביזר (קואורדינטות עולם) */
-data class AccessoryHit(val enemy: Enemy, val kind: AccessoryKind, val anchor: Vec2)
+/**
+ * אביזר שצויר עכשיו על המסך. המיקום והגודל נקבעים בזמן הציור (לפי הגודל האמיתי של המפלצת המצוירת),
+ * כך שהפגיעה תמיד מתאימה בדיוק למה שרואים.
+ * anchor = מרכז האביזר (קואורדינטות עולם), hitRadius ו-bodyHeight ביחידות גובה מסך.
+ */
+data class AccessoryTarget(
+    val enemy: Enemy,
+    val kind: AccessoryKind,
+    val anchor: Vec2,
+    val hitRadius: Float,
+    val bodyHeight: Float
+)
 
 /** תוצאת פגיעה באביזר: מי נפל, כמה נקודות, ומה להציג */
 data class AccessoryOutcome(
@@ -40,14 +49,8 @@ data class AccessoryOutcome(
  */
 object Accessories {
 
-    /** רדיוס הפגיעה באביזר ביחידות רדיוס של המפלצת */
-    private const val HIT_RADIUS_RADII = 0.6f
-
-    /** רדיוס פגיעה מינימלי (יחידות גובה מסך), כדי שגם מפלצת רחוקה תהיה בת-פגיעה בתקריב */
-    private const val MIN_HIT_RADIUS = 0.018f
-
-    /** רדיוס הפיצוץ של פצצה ביחידות רדיוס של המפלצת שנושאת אותה */
-    private const val BOMB_BLAST_RADII = 3.4f
+    /** רדיוס הפיצוץ של פצצה ביחידות גובה המפלצת שנושאת אותה */
+    private const val BOMB_BLAST_BODIES = 1.5f
 
     private const val BALLOON_POINTS = 300
     private const val GEM_POINTS = 500
@@ -61,50 +64,31 @@ object Accessories {
             else -> AccessoryKind.Gem
         }
 
-    /** מיקום האביזר ביחס למרכז המפלצת, ביחידות רדיוס (x ימינה, y למטה) */
-    fun offsetX(kind: AccessoryKind): Float =
-        when (kind) {
-            AccessoryKind.Balloon -> 0.6f
-            AccessoryKind.Bomb -> 1.25f
-            AccessoryKind.Gem -> 0f
-        }
-
-    fun offsetY(kind: AccessoryKind): Float =
-        when (kind) {
-            AccessoryKind.Balloon -> -2.7f
-            AccessoryKind.Bomb -> 0.35f
-            AccessoryKind.Gem -> -2.3f
-        }
-
-    /** רדיוס הפגיעה (והציור) של האביזר, ביחידות גובה מסך */
-    fun hitRadius(enemy: Enemy): Float = max(enemy.radius * HIT_RADIUS_RADII, MIN_HIT_RADIUS)
-
     /** האם לאויב יש כרגע אביזר גלוי שאפשר לפגוע בו */
     fun isActive(enemy: Enemy): Boolean =
         enemy.isAlive &&
             ((enemy.kind == EnemyKind.Open && enemy.spot == null) || enemy.kind == EnemyKind.Static)
 
-    /** מיקום האביזר בעולם (0..1). aspect = רוחב המסך חלקי גובהו */
-    fun anchor(enemy: Enemy, aspect: Float): Vec2 {
-        val kind = kindOf(enemy)
-        return Vec2(
-            enemy.position.x + offsetX(kind) * enemy.radius / aspect,
-            enemy.position.y + offsetY(kind) * enemy.radius
-        )
-    }
-
-    /** האביזר הקרוב ביותר לכוונת שנפגע, או null אם הכוונת לא על אף אביזר */
-    fun hit(crosshair: Vec2, enemies: List<Enemy>, aspect: Float): AccessoryHit? {
-        var best: AccessoryHit? = null
+    /**
+     * האביזר הקרוב ביותר לכוונת שנפגע, או null אם הכוונת לא על אף אביזר.
+     * targets = האביזרים שצוירו בפריים האחרון. aspect = רוחב המסך חלקי גובהו.
+     */
+    fun hit(
+        crosshair: Vec2,
+        targets: List<AccessoryTarget>,
+        enemies: List<Enemy>,
+        aspect: Float
+    ): AccessoryTarget? {
+        var best: AccessoryTarget? = null
         var bestDistance = Float.MAX_VALUE
-        for (enemy in enemies) {
-            if (!isActive(enemy)) continue
-            val anchor = anchor(enemy, aspect)
-            val dx = (crosshair.x - anchor.x) * aspect
-            val dy = crosshair.y - anchor.y
+        for (target in targets) {
+            // האויב כבר נפל מאז הציור האחרון
+            if (enemies.none { it.id == target.enemy.id && it.isAlive }) continue
+            val dx = (crosshair.x - target.anchor.x) * aspect
+            val dy = crosshair.y - target.anchor.y
             val distance = sqrt(dx * dx + dy * dy)
-            if (distance <= hitRadius(enemy) && distance < bestDistance) {
-                best = AccessoryHit(enemy, kindOf(enemy), anchor)
+            if (distance <= target.hitRadius && distance < bestDistance) {
+                best = target
                 bestDistance = distance
             }
         }
@@ -112,7 +96,7 @@ object Accessories {
     }
 
     /** מחשב מה קורה כשפוגעים באביזר: מי נופל וכמה נקודות מקבלים */
-    fun explode(hit: AccessoryHit, enemies: List<Enemy>, aspect: Float): AccessoryOutcome {
+    fun explode(hit: AccessoryTarget, enemies: List<Enemy>, aspect: Float): AccessoryOutcome {
         val carrier = hit.enemy
         return when (hit.kind) {
             AccessoryKind.Balloon -> AccessoryOutcome(
@@ -121,7 +105,7 @@ object Accessories {
                 label = hit.kind.label,
                 kind = hit.kind,
                 anchor = hit.anchor,
-                blastRadius = carrier.radius * 1.8f
+                blastRadius = hit.bodyHeight * 0.55f
             )
             AccessoryKind.Gem -> AccessoryOutcome(
                 killedIds = setOf(carrier.id),
@@ -129,10 +113,10 @@ object Accessories {
                 label = hit.kind.label,
                 kind = hit.kind,
                 anchor = hit.anchor,
-                blastRadius = carrier.radius * 2f
+                blastRadius = hit.bodyHeight * 0.65f
             )
             AccessoryKind.Bomb -> {
-                val blast = BOMB_BLAST_RADII * carrier.radius
+                val blast = BOMB_BLAST_BODIES * hit.bodyHeight
                 val killed = HashSet<Int>()
                 killed.add(carrier.id)
                 for (other in enemies) {
