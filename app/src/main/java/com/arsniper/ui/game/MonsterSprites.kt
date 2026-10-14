@@ -97,6 +97,9 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 return null
             }
             val atlas = withoutBackground(decoded)
+            // בלי צפיפות: אחרת Canvas מגדיל את הפריימים לפי יחס הצפיפות כשמציירים אותם, ורק פינה שלהם נכנסת
+            decoded.density = Bitmap.DENSITY_NONE
+            atlas.density = Bitmap.DENSITY_NONE
             debugAtlas = atlas.asImageBitmap()
             if (atlas.width < COLUMNS || atlas.height < ROWS) {
                 report = "sprites: atlas too small ${atlas.width}x${atlas.height}"
@@ -198,6 +201,7 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
         /** מוסיף מסגרת לבנה עבה סביב הצורה (כמו מדבקה): הדמות משורטטת לבנה בכמה היסטים ואז הדמות עצמה מעליה */
         private fun outlined(src: Bitmap, pad: Int): Bitmap {
             val out = Bitmap.createBitmap(src.width + 2 * pad, src.height + 2 * pad, Bitmap.Config.ARGB_8888)
+            out.density = Bitmap.DENSITY_NONE
             val canvas = Canvas(out)
             val white = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
             white.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
