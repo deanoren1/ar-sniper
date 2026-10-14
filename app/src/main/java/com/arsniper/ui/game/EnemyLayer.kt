@@ -52,7 +52,7 @@ private const val FIGURE_HEIGHT_RADII = 2.2f
 private const val MONSTER_SCALE = 1.1f
 
 /** הרוחב המקסימלי של מפלצת (הפריים הרחב ביותר שלה) ביחידות רדיוס */
-private const val MAX_WIDTH_RADII = 2.4f
+private const val MAX_WIDTH_RADII = 3.0f
 
 /** כמה פריימי הליכה מתחלפים בכל מחזור של phase (2π) */
 private const val FRAMES_PER_CYCLE = 6f
@@ -64,6 +64,7 @@ private class DrawItem(val enemy: Enemy, val dead: Boolean, val progress: Float)
 /**
  * ציור האויבים: מפלצות מצוירות (ספרייטים), ואם הקבצים לא קיימים בפרויקט: דמות אדם פשוטה.
  * מציץ: החלק שנמצא "בתוך" העצם נחתך, כך שנראה שהוא מאחורי העצם.
+ * מפלצת שיוצאת מאחורי עצם וממשיכה ללכת: מצוירת שלמה (בלי חיתוך), כדי שתמיד תהיה גלויה במלואה.
  * חלון: הדמות נחתכת באדן החלון.
  * פגיעה: המפלצת מוצגת בתנוחת פגיעה עם כוכבים ונעלמת בענן.
  */
@@ -128,7 +129,6 @@ fun EnemyLayer(
                 // דמות הולכת שמחכה מוסתרת מאחורי עצם: לא מציירים כלל
                 if (enemy.kind == EnemyKind.Open && enemy.spot != null && enemy.state == EnemyState.Idle) continue
             }
-            val emerging = enemy.kind == EnemyKind.Open && enemy.spot != null
 
             val center = Offset(size.width * enemy.position.x, size.height * enemy.position.y)
             val radius = size.height * enemy.radius
@@ -168,10 +168,10 @@ fun EnemyLayer(
                 clipRect(0f, 0f, size.width, sillY) {
                     draw()
                 }
-            } else if ((isPeeker || emerging) && spot != null && scene != null) {
+            } else if (isPeeker && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
                 // אדם שעולה מאחורי עצם נמוך (תנועה אנכית): נחתך בקצה התחתון של העצם
-                val rising = isPeeker && enemy.hidePos.y != enemy.peekPos.y
+                val rising = enemy.hidePos.y != enemy.peekPos.y
                 val clipBottom = if (rising) {
                     spot.columnBottom(scene.mapper.photoX(enemy.position.x))
                         ?.let { scene.mapper.worldY(it) * size.height }
