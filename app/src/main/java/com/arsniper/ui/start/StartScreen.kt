@@ -34,6 +34,9 @@ import kotlinx.coroutines.withContext
 /**
  * מסך פתיחה. START = צילום במצלמה האחורית. PICK PHOTO = בחירת תמונה מהגלריה
  * (כך אפשר לבדוק שוב ושוב את אותה תמונה בלי לצלם מחדש).
+ *
+ * הבחירה עוברת דרך בוחר הקבצים של המערכת (OpenDocument), שנפתח במסך מלא גם במצב לרוחב.
+ * בוחר התמונות החלון-תחתון של אנדרואיד נפתח כרצועה צרה כשהמסך לרוחב.
  */
 @Composable
 fun StartScreen(
@@ -47,7 +50,7 @@ fun StartScreen(
     var failed by remember { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             busy = true
@@ -87,7 +90,7 @@ fun StartScreen(
                 }
                 Spacer(modifier = Modifier.width(24.dp))
                 Button(
-                    onClick = { picker.launch("image/*") },
+                    onClick = { picker.launch(arrayOf("image/*")) },
                     enabled = !busy,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF424242)),
                     modifier = Modifier
