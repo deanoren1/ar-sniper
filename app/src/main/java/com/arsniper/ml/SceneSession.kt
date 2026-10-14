@@ -14,7 +14,7 @@ object SceneSession {
     var analysis: SceneAnalysis? = null
         private set
 
-    /** כל המחבואים: האוטומטיים ואחריהם אלה שהשחקן סימן */
+    /** כל המחבואים: האוטומטיים (בלי אלה שהוחלפו) ואחריהם אלה שהשחקן סימן */
     var spots: List<HidingSpot> = emptyList()
         private set
 
@@ -49,20 +49,40 @@ object SceneSession {
 
     /**
      * קובע את רשימת העצמים שהשחקן סימן (מחליף את הקודמת) ובונה מהם מחבואים.
-     * מסכה שקטנה או גדולה מדי נזרקת.
+     * מסכה שקטנה או גדולה מדי נזרקת. מחבוא אוטומטי שרוב השטח שלו נמצא בתוך עצם שהשחקן סימן
+     * מוחלף בו (המסכה של SAM מדויקת יותר, למשל פח עם המכסה שלו), כדי שלא יישארו שני מחבואים על אותו עצם.
      */
     fun setUserObjects(objects: List<FloatArray>) {
         val current = analysis ?: return
         userObjects = objects
         var nextId = (autoSpots.maxOfOrNull { it.id } ?: -1) + 1
+        val raw = ArrayList<HidingSpot>()
         val extra = ArrayList<HidingSpot>()
         for (logits in objects) {
             val spot = UserObjects.toSpot(current, logits, nextId) ?: continue
+            raw.add(spot)
             val g = guide
             extra.add(if (g != null) SpotRefiner.refine(spot, g) else spot)
             nextId++
         }
-        spots = autoSpots + extra
+        val kept = autoSpots.filter { auto -> raw.none { user -> mostlyInside(auto, user) } }
+        spots = kept + extra
+    }
+
+    /** האם יותר ממחצית תאי המסכה של המחבוא נמצאים בתוך עצם אחר */
+    private fun mostlyInside(inner: HidingSpot, outer: HidingSpot): Boolean {
+        var total = 0
+        var inside = 0
+        for (ly in 0 until inner.maskHeight) {
+            for (lx in 0 until inner.maskWidth) {
+                if (!inner.mask[ly * inner.maskWidth + lx]) continue
+                total++
+                val nx = (inner.cellX + lx + 0.5f) / inner.gridWidth
+                val ny = (inner.cellY + ly + 0.5f) / inner.gridHeight
+                if (outer.contains(nx, ny)) inside++
+            }
+        }
+        return total > 0 && inside * 2 > total
     }
 
     fun clear() {
