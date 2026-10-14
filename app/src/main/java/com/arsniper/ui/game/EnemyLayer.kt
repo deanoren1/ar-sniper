@@ -54,6 +54,9 @@ private const val MONSTER_SCALE = 1.1f
 /** הרוחב המקסימלי של מפלצת (הפריים הרחב ביותר שלה) ביחידות רדיוס */
 private const val MAX_WIDTH_RADII = 3.0f
 
+/** בדיקה זמנית: מציגה שורת ספרייטים לא חתוכים במסך */
+private const val SHOW_SPRITE_TEST_ROW = true
+
 /** כמה פריימי הליכה מתחלפים בכל מחזור של phase (2π) */
 private const val FRAMES_PER_CYCLE = 6f
 
@@ -182,6 +185,26 @@ fun EnemyLayer(
             } else {
                 val draw = figure(true)
                 draw()
+            }
+        }
+
+        // בדיקה זמנית: שורת פריימי העמידה של כל המפלצות, בגודל מקורי חצי, בלי חיתוך ובלי צבע.
+        // אם גם כאן הם נראים חתוכים, הבעיה בתמונה שנטענה; אם שלמים, הבעיה בציור במשחק.
+        if (sprites != null && SHOW_SPRITE_TEST_ROW) {
+            var testX = size.width * 0.25f
+            val testY = size.height * 0.30f
+            for (i in 0 until 5) {
+                val test = sprites.forEnemy(i).idle
+                val testW = (test.image.width * 0.5f).roundToInt()
+                val testH = (test.image.height * 0.5f).roundToInt()
+                drawImage(
+                    image = test.image,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(test.image.width, test.image.height),
+                    dstOffset = IntOffset(testX.roundToInt(), testY.roundToInt()),
+                    dstSize = IntSize(testW, testH)
+                )
+                testX += testW + 8f
             }
         }
     }
