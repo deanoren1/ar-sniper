@@ -6,8 +6,8 @@ import kotlin.math.max
 
 /**
  * מוצא מקומות הסתתרות באופן אוטומטי מתוך ניתוח הסצנה:
- * רכיבים רציפים של עצמים שאפשר להסתתר מאחוריהם (פחים, ארגזים, רכבים...)
- * או לצאת מתוכם (חלונות, דלתות). Kotlin טהור.
+ * רכיבים רציפים של עצמים שאפשר להסתתר מאחוריהם (פחים, ארגזים, רכבים, דלתות...)
+ * או לצאת מתוכם (חלונות). Kotlin טהור.
  */
 object HidingSpotFinder {
 
@@ -15,6 +15,8 @@ object HidingSpotFinder {
         "ashcan", "barrel", "box", "column", "pole", "fence", "car", "truck", "van", "bus",
         "bench", "streetlight", "cabinet", "wardrobe", "bookcase", "plant", "tree", "palm",
         "boat", "minibike", "bicycle", "table", "desk",
+        // דלת: עצם שעומד על הרצפה. דמות מציצה מהקצה שלה (דלת סגורה היא לא חלון שאפשר לצאת ממנו)
+        "door",
         // רהיטים וחפצים בבית: ספה, כורסה, כיסא, כריות, פוף, סל, תיק, שרפרף, שידה...
         "sofa", "armchair", "chair", "swivel chair", "seat", "cushion", "pillow", "ottoman",
         "bed", "basket", "bag", "stool", "chest of drawers", "counter", "kitchen island",
@@ -33,7 +35,7 @@ object HidingSpotFinder {
         listOf("table", "desk", "coffee table", "counter", "kitchen island", "bar"),
         listOf("plaything", "ball", "box")
     )
-    private val WINDOW_NAMES = listOf("windowpane", "door")
+    private val WINDOW_NAMES = listOf("windowpane")
 
     /** עצמים דקים: לא מנקים בהם בליטות, כדי שלא יימחקו */
     private val THIN_NAMES = listOf("pole", "streetlight", "fence", "column")
