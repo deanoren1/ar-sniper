@@ -215,7 +215,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
         FireButton(
             onClick = {
                 soundPlayer.playShot()
-                val accessoryHit = Accessories.hit(crosshair, enemies, aspect)
+                val accessoryHit = Accessories.hit(crosshair, AccessoryRegistry.snapshot(), enemies, aspect)
                 if (accessoryHit != null) {
                     // פגיעה בנקודת תורפה: פיצוץ, ניקוד גדול, ואולי עוד מפלצות נופלות
                     val outcome = Accessories.explode(accessoryHit, enemies, aspect)
