@@ -27,11 +27,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.arsniper.game.engine.Accessories
+import com.arsniper.game.engine.AccessoryTarget
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.WINDOW_HIDE_OFFSET
 import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
 import com.arsniper.game.model.EnemyState
+import com.arsniper.game.model.Vec2
 import com.arsniper.game.spots.HidingSpot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -91,6 +93,9 @@ fun EnemyLayer(
     val finished = remember(scene) { HashSet<Int>() }
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        // האביזרים נרשמים מחדש בכל ציור, כדי שהפגיעה תתאים למה שרואים עכשיו
+        AccessoryRegistry.clear()
+
         // הספרייטים עוד נטענים: לא מציירים כלום (כדי לא להבהב דמות אדם לרגע)
         if (spritesAvailable && sprites == null) return@Canvas
 
@@ -186,7 +191,19 @@ fun EnemyLayer(
                 draw()
                 // נקודת תורפה: בלון, פצצה או יהלום ליד המפלצת
                 if (!item.dead && sprites != null && Accessories.isActive(enemy)) {
-                    drawAccessory(Accessories.kindOf(enemy), enemy, center, radius, anim)
+                    val box = monsterBox(sprites.forEnemy(enemy.id), center, radius)
+                    val kind = Accessories.kindOf(enemy)
+                    val accessory = accessorySpot(kind, box, size.height)
+                    drawAccessory(kind, enemy, box, accessory, anim)
+                    AccessoryRegistry.add(
+                        AccessoryTarget(
+                            enemy = enemy,
+                            kind = kind,
+                            anchor = Vec2(accessory.x / size.width, accessory.y / size.height),
+                            hitRadius = accessory.radius * ACCESSORY_HIT_SCALE / size.height,
+                            bodyHeight = box.height / size.height
+                        )
+                    )
                 }
             }
         }
@@ -220,6 +237,32 @@ private class Gait(val phase: Float, val swing: Float) {
 }
 
 /**
+ * קנה המידה של הספרייט בפיקסלים (לכל פיקסל של הפריים): לפי הגובה הרצוי, ומוגבל גם לפי הרוחב.
+ * מפלצות רחבות מאדם, ולכן בלי ההגבלה הן יוצאות ענקיות וחצי מהן מחוץ למסך.
+ */
+private fun spriteScale(sheet: MonsterSheet, r: Float): Float {
+    val widest = max(
+        max(sheet.idle.width, sheet.hit.width),
+        sheet.walk.maxOf { it.width }
+    )
+    val kByHeight = r * FIGURE_HEIGHT_RADII * MONSTER_SCALE * sheet.sizeScale / sheet.idle.height
+    val kByWidth = r * MAX_WIDTH_RADII / widest
+    return min(kByHeight, kByWidth)
+}
+
+/** התיבה שהמפלצת תופסת במסך (בלי המסגרת הלבנה), לפי אותו חישוב גודל שמשמש לציור */
+private fun monsterBox(sheet: MonsterSheet, center: Offset, r: Float): MonsterBox {
+    val k = spriteScale(sheet, r)
+    val feetY = center.y + r
+    return MonsterBox(
+        cx = center.x,
+        headY = feetY - sheet.idle.height * k,
+        feetY = feetY,
+        halfWidth = sheet.idle.width * k / 2f
+    )
+}
+
+/**
  * מציירת מפלצת: עומדת (פריים עמידה עם נשימה קלה), הולכת (4 פריימים, מתהפכת לפי כיוון ההליכה),
  * או נפגעת (תנוחת פגיעה עם כוכבים, נעלמת בענן). הרגליים ב-center.y + r, כמו הדמות הפשוטה.
  */
@@ -249,14 +292,7 @@ private fun DrawScope.drawMonster(
     val cx = center.x
     val feetY = center.y + r
     // גובה הדמות בפיקסלים: הפריים עצמו (בלי מסגרת) מוקטן/מוגדל בהתאם לפריים העמידה של המפלצת
-    // מפלצות רחבות מאדם, ולכן הגודל מוגבל גם לפי הרוחב: כך הן לא יוצאות ענקיות וחצי מהן מחוץ למסך
-    val widest = max(
-        max(sheet.idle.width, sheet.hit.width),
-        sheet.walk.maxOf { it.width }
-    )
-    val kByHeight = r * FIGURE_HEIGHT_RADII * MONSTER_SCALE * sheet.sizeScale / sheet.idle.height
-    val kByWidth = r * MAX_WIDTH_RADII / widest
-    val k = min(kByHeight, kByWidth)
+    val k = spriteScale(sheet, r)
     val targetHeight = sheet.idle.height * k
 
     // נשימה קלה כשעומדת
