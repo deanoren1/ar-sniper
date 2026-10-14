@@ -234,7 +234,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(top = 24.dp)
         )
 
-        // זום: שורה אופקית מעל ה-joystick, ממורכזת אליו (joystick: מרכז ב-134dp משמאל)
+        // זום: בפינה הימנית העליונה, מעל אזור ההליכה של המפלצות, כדי שלא יסתיר אותן
         ZoomControls(
             // לשחקן מוצג הזום ביחס לבסיס: הרמה ההתחלתית היא x1.0
             zoom = zoom / BASE_ZOOM,
@@ -245,8 +245,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 zoom = (zoom - ZOOM_STEP * BASE_ZOOM).coerceAtLeast(BASE_ZOOM)
             },
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 56.dp, bottom = 184.dp)
+                .align(Alignment.TopEnd)
+                .padding(top = 16.dp, end = 16.dp)
         )
 
         Joystick(
