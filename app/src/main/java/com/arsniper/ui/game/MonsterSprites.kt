@@ -24,7 +24,9 @@ class MonsterSprite(
     val image: ImageBitmap,
     val width: Int,
     val height: Int,
-    val pad: Int
+    val pad: Int,
+    /** הפריים כפי שנחתך מהגיליון, בלי מסגרת (לבדיקה) */
+    val raw: ImageBitmap
 )
 
 /** כל הפריימים של מפלצת אחת */
@@ -55,6 +57,10 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
         /** שורת אבחון: מה נטען בפועל (גודל הגיליון ומידות פריים העמידה של כל מפלצת). מוצגת במשחק זמנית. */
         @Volatile
         var report: String = "sprites: not loaded"
+
+        /** הגיליון המלא כפי שנטען במכשיר (לבדיקה בלבד) */
+        @Volatile
+        var debugAtlas: ImageBitmap? = null
 
         private const val ATLAS_NAME = "monsters_atlas"
         private const val COLUMNS = 7
@@ -91,6 +97,7 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 return null
             }
             val atlas = withoutBackground(decoded)
+            debugAtlas = atlas.asImageBitmap()
             if (atlas.width < COLUMNS || atlas.height < ROWS) {
                 report = "sprites: atlas too small ${atlas.width}x${atlas.height}"
                 return null
@@ -171,7 +178,13 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
             val pad = max(3, frames[0].height / 36)
             fun sprite(column: Int): MonsterSprite {
                 val src = frames[column]
-                return MonsterSprite(outlined(src, pad).asImageBitmap(), src.width, src.height, pad)
+                return MonsterSprite(
+                    outlined(src, pad).asImageBitmap(),
+                    src.width,
+                    src.height,
+                    pad,
+                    src.asImageBitmap()
+                )
             }
             return MonsterSheet(
                 idle = sprite(0),
