@@ -11,10 +11,9 @@ import android.graphics.PorterDuffColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -39,9 +38,12 @@ class MonsterSheet(
 )
 
 /**
- * טוען את ספרייטי המפלצות מגיליון אחד: הקובץ monsters_atlas.png בתיקייה res/drawable-nodpi (או res/drawable).
+ * טוען את ספרייטי המפלצות מגיליון אחד: הקובץ monsters_atlas.png בתיקייה res/drawable.
  * הגיליון בנוי משורה לכל מפלצת (ורוד, סגול, ירוק, כתום, כחול) ו-7 עמודות:
- * עמידה, 4 פריימי הליכה, הצצה, פגיעה. כל תא בגודל 280 על 190 והפריים בפינה השמאלית העליונה שלו.
+ * עמידה, 4 פריימי הליכה, הצצה, פגיעה.
+ *
+ * החיתוך לא תלוי בגודל הקובץ: הגיליון מחולק ל-7 על 5 תאים שווים, ובכל תא מחפשים את הפיקסלים
+ * הלא-שקופים של הדמות. אם הקובץ נשמר עם רקע אחיד במקום שקיפות, הרקע מוסר אוטומטית.
  * אם הקובץ לא קיים, load מחזיר null והמשחק חוזר לדמות הפשוטה.
  */
 class MonsterSprites private constructor(private val sheets: List<MonsterSheet>) {
@@ -51,31 +53,17 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
 
     companion object {
         private const val ATLAS_NAME = "monsters_atlas"
-        private const val CELL_WIDTH = 280
-        private const val CELL_HEIGHT = 190
+        private const val COLUMNS = 7
+        private const val ROWS = 5
 
-        /** גודל הגיליון המקורי בפיקסלים */
-        private const val ATLAS_WIDTH = 1960
-        private const val ATLAS_HEIGHT = 950
+        /** פיקסל נחשב חלק מהדמות רק אם השקיפות שלו מעל הסף הזה */
+        private const val ALPHA_MIN = 24
+
+        /** מרחק צבע מרקע אחיד שעדיין נחשב רקע */
+        private const val BACKGROUND_TOLERANCE = 40
 
         /** גודל יחסי לכל מפלצת, לפי סדר השורות בגיליון */
         private val SIZE_SCALES = floatArrayOf(1.05f, 1.0f, 0.8f, 0.88f, 1.15f)
-
-        /** רוחב וגובה של כל פריים בגיליון: שורה לכל מפלצת, עמודה לכל פריים */
-        private val FRAME_WIDTHS = arrayOf(
-            intArrayOf(275, 209, 223, 213, 192, 254, 268),
-            intArrayOf(239, 175, 174, 168, 159, 242, 225),
-            intArrayOf(174, 138, 139, 139, 129, 199, 188),
-            intArrayOf(181, 181, 184, 167, 164, 225, 216),
-            intArrayOf(248, 195, 213, 168, 192, 247, 240)
-        )
-        private val FRAME_HEIGHTS = arrayOf(
-            intArrayOf(186, 182, 182, 181, 182, 124, 185),
-            intArrayOf(171, 160, 160, 157, 157, 125, 173),
-            intArrayOf(139, 138, 135, 137, 137, 125, 138),
-            intArrayOf(136, 135, 136, 136, 133, 131, 137),
-            intArrayOf(170, 168, 168, 167, 168, 142, 172)
-        )
 
         private fun atlasId(context: Context): Int =
             context.resources.getIdentifier(ATLAS_NAME, "drawable", context.packageName)
@@ -90,7 +78,9 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 inScaled = false
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
-            val atlas = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            val decoded = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            val atlas = withoutBackground(decoded)
+            if (atlas.width < COLUMNS || atlas.height < ROWS) return null
             val sheets = ArrayList<MonsterSheet>()
             for (row in SIZE_SCALES.indices) {
                 val sheet = loadSheet(atlas, row) ?: continue
@@ -100,23 +90,60 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
         }
 
         /**
-         * חותך פריים מהגיליון. הטבלאות מתארות גיליון בגודל המקורי (1960 על 950), ואם הקובץ שהועלה מוקטן
-         * (למשל תמונה שנשמרה מתצוגה מקדימה), כל המידות מוקטנות באותו יחס.
+         * אם הפינה השמאלית העליונה אטומה, הגיליון נשמר בלי שקיפות (רקע אחיד).
+         * במקרה כזה הופכים לשקוף כל פיקסל שדומה לצבע הפינה.
+         */
+        private fun withoutBackground(source: Bitmap): Bitmap {
+            val corner = source.getPixel(0, 0)
+            if (Color.alpha(corner) < 200) return source
+            val copy = source.copy(Bitmap.Config.ARGB_8888, true) ?: return source
+            val pixels = IntArray(copy.width * copy.height)
+            copy.getPixels(pixels, 0, copy.width, 0, 0, copy.width, copy.height)
+            val r = Color.red(corner)
+            val g = Color.green(corner)
+            val b = Color.blue(corner)
+            for (i in pixels.indices) {
+                val p = pixels[i]
+                val distance = abs(Color.red(p) - r) + abs(Color.green(p) - g) + abs(Color.blue(p) - b)
+                if (distance <= BACKGROUND_TOLERANCE) pixels[i] = 0
+            }
+            copy.setPixels(pixels, 0, copy.width, 0, 0, copy.width, copy.height)
+            return copy
+        }
+
+        /**
+         * חותך פריים: תא שווה בגיליון, ובתוכו המלבן הצר ביותר שמקיף את כל הפיקסלים הלא-שקופים.
          */
         private fun cut(atlas: Bitmap, row: Int, column: Int): Bitmap? {
-            val scaleX = atlas.width / ATLAS_WIDTH.toFloat()
-            val scaleY = atlas.height / ATLAS_HEIGHT.toFloat()
-            val x = (column * CELL_WIDTH * scaleX).roundToInt()
-            val y = (row * CELL_HEIGHT * scaleY).roundToInt()
-            val w = min((FRAME_WIDTHS[row][column] * scaleX).roundToInt(), atlas.width - x)
-            val h = min((FRAME_HEIGHTS[row][column] * scaleY).roundToInt(), atlas.height - y)
-            if (x < 0 || y < 0 || w < 1 || h < 1) return null
-            return Bitmap.createBitmap(atlas, x, y, w, h)
+            val cellWidth = atlas.width / COLUMNS
+            val cellHeight = atlas.height / ROWS
+            val x0 = column * cellWidth
+            val y0 = row * cellHeight
+            val pixels = IntArray(cellWidth * cellHeight)
+            atlas.getPixels(pixels, 0, cellWidth, x0, y0, cellWidth, cellHeight)
+
+            var minX = cellWidth
+            var minY = cellHeight
+            var maxX = -1
+            var maxY = -1
+            for (y in 0 until cellHeight) {
+                val offset = y * cellWidth
+                for (x in 0 until cellWidth) {
+                    if (Color.alpha(pixels[offset + x]) > ALPHA_MIN) {
+                        if (x < minX) minX = x
+                        if (x > maxX) maxX = x
+                        if (y < minY) minY = y
+                        if (y > maxY) maxY = y
+                    }
+                }
+            }
+            if (maxX < 0 || maxY < 0) return null
+            return Bitmap.createBitmap(atlas, x0 + minX, y0 + minY, maxX - minX + 1, maxY - minY + 1)
         }
 
         private fun loadSheet(atlas: Bitmap, row: Int): MonsterSheet? {
             val frames = ArrayList<Bitmap>()
-            for (column in 0 until 7) {
+            for (column in 0 until COLUMNS) {
                 frames.add(cut(atlas, row, column) ?: return null)
             }
             // עובי המסגרת יחסי לגובה הדמות, כך שבכל הגדלים היא נראית אותו דבר
