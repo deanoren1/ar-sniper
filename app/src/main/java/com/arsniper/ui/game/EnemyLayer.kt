@@ -54,9 +54,6 @@ private const val MONSTER_SCALE = 1.1f
 /** הרוחב המקסימלי של מפלצת (הפריים הרחב ביותר שלה) ביחידות רדיוס */
 private const val MAX_WIDTH_RADII = 3.0f
 
-/** בדיקה זמנית: מציגה שורת ספרייטים לא חתוכים במסך */
-private const val SHOW_SPRITE_TEST_ROW = true
-
 /** כמה פריימי הליכה מתחלפים בכל מחזור של phase (2π) */
 private const val FRAMES_PER_CYCLE = 6f
 
@@ -174,7 +171,7 @@ fun EnemyLayer(
             } else if (isPeeker && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
                 // אדם שעולה מאחורי עצם נמוך (תנועה אנכית): נחתך בקצה התחתון של העצם
-                val rising = enemy.hidePos.y != enemy.peekPos.y
+                val rising = isPeeker && enemy.hidePos.y != enemy.peekPos.y
                 val clipBottom = if (rising) {
                     spot.columnBottom(scene.mapper.photoX(enemy.position.x))
                         ?.let { scene.mapper.worldY(it) * size.height }
@@ -185,57 +182,6 @@ fun EnemyLayer(
             } else {
                 val draw = figure(true)
                 draw()
-            }
-        }
-
-        // בדיקה זמנית: שורת פריימי העמידה של כל המפלצות, בגודל מקורי חצי, בלי חיתוך ובלי צבע.
-        // אם גם כאן הם נראים חתוכים, הבעיה בתמונה שנטענה; אם שלמים, הבעיה בציור במשחק.
-        if (sprites != null && SHOW_SPRITE_TEST_ROW) {
-            var testX = size.width * 0.25f
-            val testY = size.height * 0.30f
-            for (i in 0 until 5) {
-                val test = sprites.forEnemy(i).idle
-                val testW = (test.image.width * 0.5f).roundToInt()
-                val testH = (test.image.height * 0.5f).roundToInt()
-                drawImage(
-                    image = test.image,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(test.image.width, test.image.height),
-                    dstOffset = IntOffset(testX.roundToInt(), testY.roundToInt()),
-                    dstSize = IntSize(testW, testH)
-                )
-                testX += testW + 8f
-            }
-
-            // שורה שנייה: אותם פריימים כפי שנחתכו מהגיליון, לפני המסגרת הלבנה
-            var rawX = size.width * 0.25f
-            val rawY = size.height * 0.30f + 110f
-            for (i in 0 until 5) {
-                val test = sprites.forEnemy(i).idle
-                val rawW = (test.raw.width * 0.5f).roundToInt()
-                val rawH = (test.raw.height * 0.5f).roundToInt()
-                drawImage(
-                    image = test.raw,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(test.raw.width, test.raw.height),
-                    dstOffset = IntOffset(rawX.roundToInt(), rawY.roundToInt()),
-                    dstSize = IntSize(rawW, rawH)
-                )
-                rawX += rawW + 8f
-            }
-
-            // והגיליון כולו כפי שנטען במכשיר
-            val whole = MonsterSprites.debugAtlas
-            if (whole != null) {
-                val wholeW = (size.width * 0.4f).roundToInt()
-                val wholeH = (wholeW * whole.height / whole.width.toFloat()).roundToInt()
-                drawImage(
-                    image = whole,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(whole.width, whole.height),
-                    dstOffset = IntOffset((size.width * 0.25f).roundToInt(), (size.height * 0.30f + 220f).roundToInt()),
-                    dstSize = IntSize(wholeW, wholeH)
-                )
             }
         }
     }
