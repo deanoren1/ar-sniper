@@ -33,11 +33,15 @@ class GameEngine(
 ) {
 
     private var nextEnemyId: Int = 1
+
+    /** כמה זמן (שניות) כל דמות הולכת נתקעה במקום (מסתובבת בלי להתקדם); מי שנתקעה זמן רב מוסרת */
+    private val stuckTime = HashMap<Int, Float>()
     private var scene: SceneContext? = null
 
     /** מגדיר את הסצנה (או null אם אין ניתוח: אז האויבים עומדים במקומות אקראיים) */
     fun configure(scene: SceneContext?) {
         this.scene = scene
+        stuckTime.clear()
         this.scale = if (scene != null) calibrateScale(scene) else DEFAULT_SCALE
         this.ground = if (scene != null) GroundModel.fit(scene) else GroundModel.default()
     }
@@ -189,6 +193,7 @@ class GameEngine(
 
             EnemyState.Walking -> {
                 val moved = moveAlongGround(enemy, WALK_SPEED, dt, all) ?: return null
+                if (isStuck(enemy, moved, dt)) return null
                 if (timer <= 0f) {
                     if (random.nextFloat() < 0.3f) {
                         moved.copy(state = EnemyState.Running, timer = randomBetween(0.8f, 1.6f))
@@ -202,6 +207,7 @@ class GameEngine(
 
             EnemyState.Running -> {
                 val moved = moveAlongGround(enemy, RUN_SPEED, dt, all) ?: return null
+                if (isStuck(enemy, moved, dt)) return null
                 if (timer <= 0f) {
                     moved.copy(state = EnemyState.Walking, timer = randomBetween(1.5f, 3f))
                 } else {
@@ -211,6 +217,24 @@ class GameEngine(
 
             else -> enemy
         }
+    }
+
+    /**
+     * האם הדמות תקועה: לא התקדמה בפריים הזה (רק הסתובבה) כבר זמן רב, למשל כשהיא צמודה לעצם
+     * וכל צעד לשני הכיוונים נחסם. דמות תקועה מוסרת, ובמקומה תיכנס אחרת.
+     */
+    private fun isStuck(before: Enemy, after: Enemy, dt: Float): Boolean {
+        if (after.position != before.position || after.radius != before.radius) {
+            stuckTime.remove(before.id)
+            return false
+        }
+        val total = (stuckTime[before.id] ?: 0f) + dt
+        if (total >= STUCK_SECONDS) {
+            stuckTime.remove(before.id)
+            return true
+        }
+        stuckTime[before.id] = total
+        return false
     }
 
     /**
@@ -938,6 +962,9 @@ class GameEngine(
 
     companion object {
         private const val PEEK_SECONDS = 0.3f
+
+        /** דמות הולכת שלא מתקדמת כל כך הרבה זמן (שניות) נחשבת תקועה */
+        private const val STUCK_SECONDS = 0.7f
 
         /** עצם מסתיר אדם אם הבסיס שלו נמוך מרגלי האדם ביותר מזה (יחידות עולם) */
         private const val OCCLUDER_MARGIN = 0.005f
