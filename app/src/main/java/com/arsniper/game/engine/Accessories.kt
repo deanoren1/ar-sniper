@@ -34,6 +34,8 @@ data class AccessoryTarget(
 /** תוצאת פגיעה באביזר: מי נפל, כמה נקודות, ומה להציג */
 data class AccessoryOutcome(
     val killedIds: Set<Int>,
+    /** מפלצות שנפגעו מהפיצוץ אבל שרדו (יש להן עוד חיים) */
+    val damagedIds: Set<Int>,
     val points: Int,
     val label: String,
     val kind: AccessoryKind,
@@ -51,6 +53,12 @@ object Accessories {
 
     /** רדיוס הפיצוץ של פצצה ביחידות גובה המפלצת שנושאת אותה */
     private const val BOMB_BLAST_BODIES = 1.5f
+
+    /** כמה נזק גורם פיצוץ פצצה למפלצות קרובות (נקודות חיים) */
+    const val BOMB_SPLASH_DAMAGE = 2
+
+    /** ניקוד על כל מפלצת קרובה שנפגעה מהפיצוץ ושרדה */
+    private const val BOMB_SPLASH_POINTS = 50
 
     private const val BALLOON_POINTS = 300
     private const val GEM_POINTS = 500
@@ -95,12 +103,16 @@ object Accessories {
         return best
     }
 
-    /** מחשב מה קורה כשפוגעים באביזר: מי נופל וכמה נקודות מקבלים */
+    /**
+     * מחשב מה קורה כשפוגעים באביזר: מי נופל, מי נפגע וכמה נקודות מקבלים.
+     * פגיעה באביזר הורגת את המפלצת שנושאת אותו מיד, בלי קשר לכמה חיים נשארו לה.
+     */
     fun explode(hit: AccessoryTarget, enemies: List<Enemy>, aspect: Float): AccessoryOutcome {
         val carrier = hit.enemy
         return when (hit.kind) {
             AccessoryKind.Balloon -> AccessoryOutcome(
                 killedIds = setOf(carrier.id),
+                damagedIds = emptySet(),
                 points = BALLOON_POINTS,
                 label = hit.kind.label,
                 kind = hit.kind,
@@ -109,6 +121,7 @@ object Accessories {
             )
             AccessoryKind.Gem -> AccessoryOutcome(
                 killedIds = setOf(carrier.id),
+                damagedIds = emptySet(),
                 points = GEM_POINTS,
                 label = hit.kind.label,
                 kind = hit.kind,
@@ -118,6 +131,7 @@ object Accessories {
             AccessoryKind.Bomb -> {
                 val blast = BOMB_BLAST_BODIES * hit.bodyHeight
                 val killed = HashSet<Int>()
+                val damaged = HashSet<Int>()
                 killed.add(carrier.id)
                 for (other in enemies) {
                     if (!other.isAlive || other.id == carrier.id) continue
@@ -126,12 +140,18 @@ object Accessories {
                     if (other.kind == EnemyKind.Open && other.spot != null && other.state == EnemyState.Idle) continue
                     val dx = (other.position.x - hit.anchor.x) * aspect
                     val dy = other.position.y - hit.anchor.y
-                    if (sqrt(dx * dx + dy * dy) <= blast) killed.add(other.id)
+                    if (sqrt(dx * dx + dy * dy) <= blast) {
+                        // מפלצת עם מעט חיים נופלת, חזקה יותר רק נפגעת
+                        val hp = if (other.hp > 0) other.hp else 1
+                        if (hp <= BOMB_SPLASH_DAMAGE) killed.add(other.id) else damaged.add(other.id)
+                    }
                 }
                 val count = killed.size
                 AccessoryOutcome(
                     killedIds = killed,
-                    points = BOMB_POINTS_PER_KILL * count + BOMB_COMBO_BONUS * (count - 1),
+                    damagedIds = damaged,
+                    points = BOMB_POINTS_PER_KILL * count + BOMB_COMBO_BONUS * (count - 1) +
+                        BOMB_SPLASH_POINTS * damaged.size,
                     label = if (count > 1) "BOOM x$count!" else hit.kind.label,
                     kind = hit.kind,
                     anchor = hit.anchor,
