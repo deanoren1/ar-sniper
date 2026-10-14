@@ -37,6 +37,8 @@ import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -48,6 +50,9 @@ private const val FIGURE_HEIGHT_RADII = 2.2f
 
 /** הגדלה כללית של המפלצות ביחס לגודל "אדם" באותו מקום */
 private const val MONSTER_SCALE = 1.1f
+
+/** הרוחב המקסימלי של מפלצת (הפריים הרחב ביותר שלה) ביחידות רדיוס */
+private const val MAX_WIDTH_RADII = 2.4f
 
 /** כמה פריימי הליכה מתחלפים בכל מחזור של phase (2π) */
 private const val FRAMES_PER_CYCLE = 6f
@@ -237,9 +242,16 @@ private fun DrawScope.drawMonster(
 
     val cx = center.x
     val feetY = center.y + r
-    // גובה הדמות בפיקסלים: הפריים עצמו (בלי מסגרת) מוקטן/מוגדל בהתאם לפריים העמידה של המפלצת
-    val targetHeight = r * FIGURE_HEIGHT_RADII * MONSTER_SCALE * sheet.sizeScale
-    val k = targetHeight / sheet.idle.height
+    // גובה הדמות בפיקסלים: הפריים עצמו (בלי מסגרת) מוקטן/מוגדל בהתאם לפריים העמידה של המפלצת.
+    // מפלצות רחבות מאדם, ולכן הגודל מוגבל גם לפי הרוחב: כך הן לא יוצאות ענקיות וחצי מהן מחוץ למסך
+    val widest = max(
+        max(sheet.idle.width, sheet.hit.width),
+        sheet.walk.maxOf { it.width }
+    )
+    val kByHeight = r * FIGURE_HEIGHT_RADII * MONSTER_SCALE * sheet.sizeScale / sheet.idle.height
+    val kByWidth = r * MAX_WIDTH_RADII / widest
+    val k = min(kByHeight, kByWidth)
+    val targetHeight = sheet.idle.height * k
 
     // נשימה קלה כשעומדת
     var sx = 1f
