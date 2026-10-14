@@ -49,6 +49,9 @@ import kotlin.math.sin
 /** משך אנימציית הפגיעה (שניות): המפלצת נופלת עם כוכבים, ואז נעלמת בענן */
 private const val DEATH_SECONDS = 0.7f
 
+/** משך הבהוב האדום והרעידה אחרי פגיעה שלא הורגת (שניות) */
+private const val HURT_SECONDS = 0.35f
+
 /** גובה דמות אדם ביחידות רדיוס (ראש עד רגליים), כמו במנוע */
 private const val FIGURE_HEIGHT_RADII = 2.2f
 
@@ -68,7 +71,7 @@ private class DrawItem(val enemy: Enemy, val dead: Boolean, val progress: Float)
 /**
  * ציור האויבים: מפלצות מצוירות (ספרייטים), ואם הקבצים לא קיימים בפרויקט: דמות אדם פשוטה.
  * מציץ: החלק שנמצא "בתוך" העצם נחתך, כך שנראה שהוא מאחורי העצם.
- * דמות הולכת: עצם שקרוב יותר למצלמה (נוגע ברצפה נמוך מהרגליים שלה) מכסה אותה.
+ * מפלצת שיוצאת מאחורי עצם וממשיכה ללכת: מצוירת שלמה (בלי חיתוך), כדי שתמיד תהיה גלויה במלואה.
  * חלון: הדמות נחתכת באדן החלון.
  * פגיעה: המפלצת מוצגת בתנוחת פגיעה עם כוכבים ונעלמת בענן.
  */
@@ -141,6 +144,16 @@ fun EnemyLayer(
             val radius = size.height * enemy.radius
             val spot = enemy.spot
 
+            // אחרי פגיעה שלא הורגת: הבהוב אדום ורעידה קלה, שדועכים
+            val sinceHurt = (nowS - enemy.hurtAt).toFloat()
+            val hurtLevel = if (!item.dead && sinceHurt >= 0f && sinceHurt <= HURT_SECONDS) {
+                1f - sinceHurt / HURT_SECONDS
+            } else {
+                0f
+            }
+            val shakePx = if (!isPeeker && hurtLevel > 0f) sin(sinceHurt * 70f) * radius * 0.12f * hurtLevel else 0f
+            val drawCenter = Offset(center.x + shakePx, center.y)
+
             // התאמה לתאורה בתמונה: באזור כהה האויב כהה יותר, באזור בהיר בהיר יותר
             val shade = if (scene != null) {
                 (0.55f + 0.6f * scene.lumaAt(enemy.position.x, enemy.position.y)).coerceIn(0.55f, 1.1f)
@@ -157,14 +170,15 @@ fun EnemyLayer(
                         enemy = enemy,
                         dead = item.dead,
                         progress = item.progress,
-                        center = center,
+                        center = drawCenter,
                         r = radius,
                         shade = shade,
                         shadow = withShadow,
-                        anim = anim
+                        anim = anim,
+                        hurt = hurtLevel
                     )
                 } else {
-                    drawPerson(center, radius, shade, withShadow, gait)
+                    drawPerson(drawCenter, radius, shade, withShadow, gait)
                 }
             }
 
@@ -202,7 +216,7 @@ fun EnemyLayer(
                         Occlusion.covered(scene, blockers, px / size.width, py / size.height)
                 // נקודת תורפה: בלון, פצצה או יהלום ליד המפלצת
                 if (!item.dead && sprites != null && Accessories.isActive(enemy)) {
-                    val box = monsterBox(sprites.forEnemy(enemy.id), center, radius)
+                    val box = monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius)
                     val kind = Accessories.kindOf(enemy)
                     val accessory = accessorySpot(kind, box, size.height)
                     val accessoryCovered = covered(accessory.x, accessory.y)
@@ -216,6 +230,10 @@ fun EnemyLayer(
                             bodyHeight = box.height / size.height
                         )
                     )
+                }
+                // מד חיים מתחת לרגליים, למפלצת עם יותר מפגיעה אחת (לא כשעצם מכסה אותה)
+                if (!item.dead && sprites != null && enemy.maxHp > 1 && blockers.isEmpty()) {
+                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius)
                 }
             }
         }
@@ -287,7 +305,8 @@ private fun DrawScope.drawMonster(
     r: Float,
     shade: Float,
     shadow: Boolean,
-    anim: Float
+    anim: Float,
+    hurt: Float = 0f
 ) {
     val gait = Gait.of(enemy)
     val walking = !dead && gait.swing > 0f
@@ -332,7 +351,12 @@ private fun DrawScope.drawMonster(
     }
 
     val gray = (0.3f + 0.7f * shade).coerceIn(0.4f, 1f)
-    val tint = ColorFilter.tint(Color(gray, gray, gray, 1f), BlendMode.Modulate)
+    val tint = if (hurt > 0f) {
+        // פגיעה שלא הורגת: הבהוב אדום שדועך
+        ColorFilter.tint(Color(1f, 0.3f, 0.3f, 0.65f * hurt), BlendMode.SrcAtop)
+    } else {
+        ColorFilter.tint(Color(gray, gray, gray, 1f), BlendMode.Modulate)
+    }
     val width = sprite.image.width * k * sx
     val height = sprite.image.height * k * sy
     val padPx = sprite.pad * k * sy
@@ -371,6 +395,40 @@ private fun DrawScope.drawMonster(
                 center = Offset(bodyCenter.x + cos(angle) * distance, bodyCenter.y + sin(angle) * distance)
             )
         }
+    }
+}
+
+/** מד חיים: פס עם תא לכל נקודת חיים, מתחת לרגליים. ירוק, ואז צהוב ואדום כשנשאר מעט. */
+private fun DrawScope.drawHealthBar(box: MonsterBox, enemy: Enemy, r: Float) {
+    val total = enemy.maxHp
+    val segmentWidth = max(r * 0.28f, 6f)
+    val gap = max(r * 0.04f, 1.5f)
+    val barHeight = max(r * 0.12f, 4f)
+    val width = total * segmentWidth + (total - 1) * gap
+    val left = box.cx - width / 2f
+    val top = box.feetY + r * 0.2f
+
+    drawRoundRect(
+        color = Color.Black.copy(alpha = 0.55f),
+        topLeft = Offset(left - gap * 1.5f, top - gap * 1.5f),
+        size = Size(width + gap * 3f, barHeight + gap * 3f),
+        cornerRadius = CornerRadius(barHeight * 0.7f)
+    )
+    val fraction = enemy.hp.toFloat() / total
+    val fill = if (fraction > 0.6f) {
+        Color(0xFF4CAF50)
+    } else if (fraction > 0.34f) {
+        Color(0xFFFFC107)
+    } else {
+        Color(0xFFE53935)
+    }
+    for (i in 0 until total) {
+        drawRoundRect(
+            color = if (i < enemy.hp) fill else Color.White.copy(alpha = 0.22f),
+            topLeft = Offset(left + i * (segmentWidth + gap), top),
+            size = Size(segmentWidth, barHeight),
+            cornerRadius = CornerRadius(barHeight * 0.5f)
+        )
     }
 }
 
