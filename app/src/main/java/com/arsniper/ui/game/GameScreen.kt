@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.arsniper.audio.SoundPlayer
 import com.arsniper.data.PhotoRepository
+import com.arsniper.game.engine.Accessories
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
 import com.arsniper.game.engine.SceneContext
@@ -71,6 +72,10 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var hitCount by remember { mutableStateOf(0) }
     var showHit by remember { mutableStateOf(false) }
 
+    // פיצוצים של נקודות תורפה, וזמן הפריים הנוכחי (מפעיל את האנימציה שלהם)
+    var blasts by remember { mutableStateOf(emptyList<Blast>()) }
+    var frameNanos by remember { mutableStateOf(0L) }
+
     // אחרי שגודל המסך ידוע: בונים את הסצנה (מחבואים לפי ניתוח התמונה) ויוצרים אויבים
     LaunchedEffect(sizeKnown) {
         if (sizeKnown) {
@@ -112,6 +117,11 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     enemies = engine.update(enemies, dt)
                 }
                 lastFrameNanos = now
+                frameNanos = now
+                if (blasts.isNotEmpty()) {
+                    val alive = blasts.filter { (now - it.bornNanos) / 1e9f <= BLAST_SECONDS }
+                    if (alive.size != blasts.size) blasts = alive
+                }
             }
         }
     }
@@ -160,6 +170,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
         ) {
             BackgroundLayer(photo = photo)
             EnemyLayer(enemies = enemies, scene = scene)
+            EffectsLayer(blasts = blasts, nowNanos = frameNanos)
         }
 
         // הכוונת מצוירת במיקום המסך שלה
@@ -204,17 +215,36 @@ fun GameScreen(modifier: Modifier = Modifier) {
         FireButton(
             onClick = {
                 soundPlayer.playShot()
-                val result = engine.fire(crosshair, enemies, aspect)
-                score = scoreManager.apply(score, result)
-                when (result) {
-                    is FireResult.Hit -> {
-                        enemies = enemies.map {
-                            if (it.id == result.enemy.id) it.copy(isAlive = false) else it
-                        }
-                        hitCount += 1
+                val accessoryHit = Accessories.hit(crosshair, enemies, aspect)
+                if (accessoryHit != null) {
+                    // פגיעה בנקודת תורפה: פיצוץ, ניקוד גדול, ואולי עוד מפלצות נופלות
+                    val outcome = Accessories.explode(accessoryHit, enemies, aspect)
+                    score += outcome.points
+                    enemies = enemies.map {
+                        if (outcome.killedIds.contains(it.id)) it.copy(isAlive = false) else it
                     }
-                    is FireResult.Miss -> {
-                        // פספוס: רק צליל, בלי שינוי נוסף
+                    blasts = blasts + Blast(
+                        x = outcome.anchor.x,
+                        y = outcome.anchor.y,
+                        kind = outcome.kind,
+                        label = outcome.label,
+                        radius = outcome.blastRadius,
+                        bornNanos = frameNanos
+                    )
+                    hitCount += 1
+                } else {
+                    val result = engine.fire(crosshair, enemies, aspect)
+                    score = scoreManager.apply(score, result)
+                    when (result) {
+                        is FireResult.Hit -> {
+                            enemies = enemies.map {
+                                if (it.id == result.enemy.id) it.copy(isAlive = false) else it
+                            }
+                            hitCount += 1
+                        }
+                        is FireResult.Miss -> {
+                            // פספוס: רק צליל, בלי שינוי נוסף
+                        }
                     }
                 }
             },
