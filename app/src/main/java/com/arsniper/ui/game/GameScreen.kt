@@ -30,6 +30,8 @@ import com.arsniper.game.engine.GameEngine
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.ScoreManager
 import com.arsniper.game.model.Enemy
+import com.arsniper.game.model.EnemyKind
+import com.arsniper.game.model.EnemyState
 import com.arsniper.game.model.GameCamera
 import com.arsniper.game.model.Vec2
 import com.arsniper.game.model.WorldMapper
@@ -45,6 +47,48 @@ private const val ZOOM_STEP = 0.5f
  * ולגלות מטרות שהכפתורים מסתירים. לשחקן הוא מוצג כ-x1.0 והוא גם הרמה הנמוכה ביותר.
  */
 private const val BASE_ZOOM = 1.2f
+
+/** חיים לכל מפלצת, לפי סדר השורות בגיליון המפלצות: ורוד, סגול, ירוק, כתום, כחול */
+private val MONSTER_HP = intArrayOf(2, 3, 1, 2, 3)
+
+/** ניקוד על פגיעה שלא הורגת (הריגה נותנת את הניקוד המלא) */
+private const val HURT_POINTS = 25
+
+/** כמה זמן מפלצת שנפגעה ולא מתה רצה (מתעצבנת), בשניות */
+private const val ENRAGE_SECONDS = 2f
+
+private fun hpFor(id: Int): Int = MONSTER_HP[((id % MONSTER_HP.size) + MONSTER_HP.size) % MONSTER_HP.size]
+
+/** קובע חיים למפלצות חדשות. מחזיר את אותה רשימה אם לכולן כבר יש חיים. */
+private fun withHp(list: List<Enemy>): List<Enemy> =
+    if (list.none { it.maxHp == 0 }) {
+        list
+    } else {
+        list.map {
+            if (it.maxHp == 0) {
+                val max = hpFor(it.id)
+                it.copy(maxHp = max, hp = max)
+            } else {
+                it
+            }
+        }
+    }
+
+private fun nowSeconds(): Double = System.nanoTime() / 1e9
+
+/** מורידה חיים (תמיד נשאר לפחות 1: ההריגה נעשית בנפרד), מבהבהת, ורצה אם הולכת בחוץ */
+private fun hurt(enemy: Enemy, damage: Int, now: Double): Enemy {
+    val max = if (enemy.maxHp > 0) enemy.maxHp else hpFor(enemy.id)
+    val current = if (enemy.maxHp > 0) enemy.hp else max
+    val enraged = enemy.kind == EnemyKind.Open && enemy.spot == null
+    return enemy.copy(
+        maxHp = max,
+        hp = (current - damage).coerceAtLeast(1),
+        hurtAt = now,
+        state = if (enraged) EnemyState.Running else enemy.state,
+        timer = if (enraged) ENRAGE_SECONDS else enemy.timer
+    )
+}
 
 @Composable
 fun GameScreen(modifier: Modifier = Modifier) {
@@ -92,7 +136,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             }
             scene = sceneContext
             engine.configure(sceneContext)
-            enemies = engine.replenish(emptyList(), TARGET_ENEMIES, aspect)
+            enemies = withHp(engine.replenish(emptyList(), TARGET_ENEMIES, aspect))
         }
     }
 
@@ -101,7 +145,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
         while (true) {
             delay(1500)
             if (sizeKnown) {
-                enemies = engine.replenish(enemies, TARGET_ENEMIES, aspect)
+                enemies = withHp(engine.replenish(enemies, TARGET_ENEMIES, aspect))
             }
         }
     }
@@ -114,7 +158,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 if (lastFrameNanos != 0L) {
                     val dt = (now - lastFrameNanos) / 1_000_000_000f
                     crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom / BASE_ZOOM)
-                    enemies = engine.update(enemies, dt)
+                    enemies = withHp(engine.update(enemies, dt))
                 }
                 lastFrameNanos = now
                 frameNanos = now
@@ -132,7 +176,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
             showHit = true
             delay(1000)
             showHit = false
-            enemies = engine.replenish(enemies, TARGET_ENEMIES, aspect)
+            enemies = withHp(engine.replenish(enemies, TARGET_ENEMIES, aspect))
         }
     }
 
@@ -220,8 +264,15 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     // פגיעה בנקודת תורפה: פיצוץ, ניקוד גדול, ואולי עוד מפלצות נופלות
                     val outcome = Accessories.explode(accessoryHit, enemies, aspect)
                     score += outcome.points
+                    val now = nowSeconds()
                     enemies = enemies.map {
-                        if (outcome.killedIds.contains(it.id)) it.copy(isAlive = false) else it
+                        if (outcome.killedIds.contains(it.id)) {
+                            it.copy(isAlive = false)
+                        } else if (outcome.damagedIds.contains(it.id)) {
+                            hurt(it, Accessories.BOMB_SPLASH_DAMAGE, now)
+                        } else {
+                            it
+                        }
                     }
                     blasts = blasts + Blast(
                         x = outcome.anchor.x,
@@ -234,13 +285,30 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     hitCount += 1
                 } else {
                     val result = engine.fire(crosshair, enemies, aspect)
-                    score = scoreManager.apply(score, result)
                     when (result) {
                         is FireResult.Hit -> {
-                            enemies = enemies.map {
-                                if (it.id == result.enemy.id) it.copy(isAlive = false) else it
+                            val target = enemies.firstOrNull { it.id == result.enemy.id }
+                            val remaining = if (target == null) {
+                                1
+                            } else if (target.maxHp > 0) {
+                                target.hp
+                            } else {
+                                hpFor(target.id)
                             }
-                            hitCount += 1
+                            if (remaining > 1) {
+                                // נפגעה ולא מתה: מאבדת חיים, מבהבהת ורצה
+                                score += HURT_POINTS
+                                val now = nowSeconds()
+                                enemies = enemies.map {
+                                    if (it.id == result.enemy.id) hurt(it, 1, now) else it
+                                }
+                            } else {
+                                score = scoreManager.apply(score, result)
+                                enemies = enemies.map {
+                                    if (it.id == result.enemy.id) it.copy(isAlive = false) else it
+                                }
+                                hitCount += 1
+                            }
                         }
                         is FireResult.Miss -> {
                             // פספוס: רק צליל, בלי שינוי נוסף
