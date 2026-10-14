@@ -22,12 +22,12 @@ fun FireButton(
         onClick = onClick,
         shape = CircleShape,
         contentPadding = PaddingValues(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
-        modifier = modifier.size(110.dp)
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828).copy(alpha = 0.6f)),
+        modifier = modifier.size(96.dp)
     ) {
         Text(
             text = "FIRE",
-            fontSize = 22.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White
         )
