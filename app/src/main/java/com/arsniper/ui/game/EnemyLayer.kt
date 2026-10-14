@@ -206,6 +206,37 @@ fun EnemyLayer(
                 )
                 testX += testW + 8f
             }
+
+            // שורה שנייה: אותם פריימים כפי שנחתכו מהגיליון, לפני המסגרת הלבנה
+            var rawX = size.width * 0.25f
+            val rawY = size.height * 0.30f + 110f
+            for (i in 0 until 5) {
+                val test = sprites.forEnemy(i).idle
+                val rawW = (test.raw.width * 0.5f).roundToInt()
+                val rawH = (test.raw.height * 0.5f).roundToInt()
+                drawImage(
+                    image = test.raw,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(test.raw.width, test.raw.height),
+                    dstOffset = IntOffset(rawX.roundToInt(), rawY.roundToInt()),
+                    dstSize = IntSize(rawW, rawH)
+                )
+                rawX += rawW + 8f
+            }
+
+            // והגיליון כולו כפי שנטען במכשיר
+            val whole = MonsterSprites.debugAtlas
+            if (whole != null) {
+                val wholeW = (size.width * 0.4f).roundToInt()
+                val wholeH = (wholeW * whole.height / whole.width.toFloat()).roundToInt()
+                drawImage(
+                    image = whole,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(whole.width, whole.height),
+                    dstOffset = IntOffset((size.width * 0.25f).roundToInt(), (size.height * 0.30f + 220f).roundToInt()),
+                    dstSize = IntSize(wholeW, wholeH)
+                )
+            }
         }
     }
 }
