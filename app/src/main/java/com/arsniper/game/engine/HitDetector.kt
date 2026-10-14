@@ -12,7 +12,7 @@ object HitDetector {
 
     /**
      * פגיעה = הכוונת בתוך רדיוס האויב, והאויב חשוף, והנקודה בחלק הגלוי שלו.
-     * מציץ: לא פוגעים בחלק שמוסתר מאחורי העצם. חלון: פוגעים רק בתוך מלבן החלון.
+     * מציץ: לא פוגעים בחלק שמוסתר מאחורי העצם. דמות הולכת: לא פוגעים בחלק שעצם קרוב יותר מכסה. חלון: פוגעים רק בתוך מלבן החלון.
      * aspect (רוחב חלקי גובה) מתקן את ציר ה-x כדי שהמרחק יהיה זהה פיזית בשני הצירים.
      */
     fun isHit(
@@ -29,6 +29,12 @@ object HitDetector {
         val dx = (crosshair.x - enemy.position.x) * aspect
         val dy = crosshair.y - enemy.position.y
         if (dx * dx + dy * dy > enemy.radius * enemy.radius) return false
+
+        // עצם שקרוב יותר למצלמה מכסה את הדמות: אי אפשר לפגוע בה דרכו
+        if (scene != null) {
+            val blockers = Occlusion.nearerSpots(scene, enemy)
+            if (blockers.isNotEmpty() && Occlusion.covered(scene, blockers, crosshair.x, crosshair.y)) return false
+        }
 
         val spot = enemy.spot
         if (spot != null && scene != null) {
