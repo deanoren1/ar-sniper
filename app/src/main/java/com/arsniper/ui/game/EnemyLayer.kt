@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.arsniper.game.engine.Accessories
 import com.arsniper.game.engine.AccessoryTarget
+import com.arsniper.game.engine.Occlusion
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.WINDOW_HIDE_OFFSET
 import com.arsniper.game.model.Enemy
@@ -67,10 +68,9 @@ private class DrawItem(val enemy: Enemy, val dead: Boolean, val progress: Float)
 /**
  * ציור האויבים: מפלצות מצוירות (ספרייטים), ואם הקבצים לא קיימים בפרויקט: דמות אדם פשוטה.
  * מציץ: החלק שנמצא "בתוך" העצם נחתך, כך שנראה שהוא מאחורי העצם.
- * מפלצת שיוצאת מאחורי עצם וממשיכה ללכת: מצוירת שלמה (בלי חיתוך), כדי שתמיד תהיה גלויה במלואה.
+ * דמות הולכת: עצם שקרוב יותר למצלמה (נוגע ברצפה נמוך מהרגליים שלה) מכסה אותה.
  * חלון: הדמות נחתכת באדן החלון.
  * פגיעה: המפלצת מוצגת בתנוחת פגיעה עם כוכבים ונעלמת בענן.
- * נקודת תורפה: לכל מפלצת חופשית יש אביזר (בלון, פצצה או יהלום) שפגיעה בו נותנת ניקוד גדול.
  */
 @Composable
 fun EnemyLayer(
@@ -187,15 +187,27 @@ fun EnemyLayer(
                 }
                 drawFigureBehind(figure(!rising), spot, mask, scene, clipBottom)
             } else {
-                val draw = figure(true)
-                draw()
+                // עצמים שקרובים יותר למצלמה מכסים דמות הולכת שנמצאת מאחוריהם (לפי עומק הרגליים)
+                val blockers = if (scene != null && !item.dead) Occlusion.nearerSpots(scene, enemy) else emptyList()
+                if (scene != null && blockers.isNotEmpty()) {
+                    val masks = blockers.map { maskCache.getOrPut(it.id) { buildMask(it) } }
+                    drawFigureBehindAll(figure(true), blockers, masks, scene)
+                } else {
+                    val draw = figure(true)
+                    draw()
+                }
+                // נקודת תורפה שמוסתרת מאחורי עצם לא מצוירת ולא ניתנת לפגיעה
+                fun covered(px: Float, py: Float): Boolean =
+                    scene != null && blockers.isNotEmpty() &&
+                        Occlusion.covered(scene, blockers, px / size.width, py / size.height)
                 // נקודת תורפה: בלון, פצצה או יהלום ליד המפלצת
                 if (!item.dead && sprites != null && Accessories.isActive(enemy)) {
                     val box = monsterBox(sprites.forEnemy(enemy.id), center, radius)
                     val kind = Accessories.kindOf(enemy)
                     val accessory = accessorySpot(kind, box, size.height)
-                    drawAccessory(kind, enemy, box, accessory, anim)
-                    AccessoryRegistry.add(
+                    val accessoryCovered = covered(accessory.x, accessory.y)
+                    if (!accessoryCovered) drawAccessory(kind, enemy, box, accessory, anim)
+                    if (!accessoryCovered) AccessoryRegistry.add(
                         AccessoryTarget(
                             enemy = enemy,
                             kind = kind,
@@ -441,6 +453,40 @@ private fun DrawScope.drawFigureBehind(
             ),
             blendMode = BlendMode.DstOut
         )
+        canvas.restore()
+    }
+}
+
+/** כמו drawFigureBehind, אבל לכמה עצמים בבת אחת: הדמות נמחקת בכל מקום שבו אחד מהעצמים הקרובים נמצא */
+private fun DrawScope.drawFigureBehindAll(
+    drawFigure: DrawScope.() -> Unit,
+    spots: List<HidingSpot>,
+    masks: List<ImageBitmap>,
+    scene: SceneContext
+) {
+    val mapper = scene.mapper
+    drawIntoCanvas { canvas ->
+        canvas.saveLayer(Rect(0f, 0f, size.width, size.height), Paint())
+        drawFigure()
+        for (i in spots.indices) {
+            val spot = spots[i]
+            val mask = masks[i]
+            val left = mapper.worldX(spot.drawMinX) * size.width
+            val top = mapper.worldY(spot.drawMinY) * size.height
+            val right = mapper.worldX(spot.drawMaxX) * size.width
+            val bottom = mapper.worldY(spot.drawMaxY) * size.height
+            drawImage(
+                image = mask,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(mask.width, mask.height),
+                dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
+                dstSize = IntSize(
+                    (right - left).roundToInt().coerceAtLeast(1),
+                    (bottom - top).roundToInt().coerceAtLeast(1)
+                ),
+                blendMode = BlendMode.DstOut
+            )
+        }
         canvas.restore()
     }
 }
