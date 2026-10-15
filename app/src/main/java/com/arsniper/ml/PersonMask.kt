@@ -10,6 +10,9 @@ class PersonMask(
 ) {
     private var count: Int = data.count { it }
 
+    /** true כשהמסכה דויקה בעזרת SAM (קצוות מדויקים), ואז מרחיבים אותה פחות לפני ההסרה */
+    var precise: Boolean = false
+
     /** חלק התמונה (0..1) שמסומן כאדם */
     fun coverage(): Float {
         if (data.isEmpty()) return 0f
