@@ -46,7 +46,8 @@ object SceneSession {
     fun set(analysis: SceneAnalysis, guide: GuideImage? = null) {
         this.analysis = analysis
         this.guide = guide
-        val found = HidingSpotFinder.find(analysis)
+        // חצאית מתחת לכל מחבוא (גם דלת מהזיהוי הרגיל), כדי שכף רגל של דמות לא תציץ מתחתיו
+        val found = HidingSpotFinder.find(analysis).map { UserObjects.addSkirt(it) }
         this.autoSpots = if (guide != null) {
             found.map { SpotRefiner.refine(it, guide) }
         } else {
@@ -73,7 +74,7 @@ object SceneSession {
     }
 
     /**
-     * בונה את המחבואים: בסיס = המחבואים לפי סוגים, או (אם SAM רץ) החלונות + דלתות + עצמי SAM.
+     * בונה את המחבואים: בסיס = המחבואים לפי סוגים, או (אם SAM רץ) החלונות + עצמי SAM.
      * מעל זה עצמים שהשחקן סימן: הם מחליפים מחבוא בסיס שהוא בעצם אותו עצם.
      */
     private fun rebuild() {
