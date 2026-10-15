@@ -6,8 +6,8 @@ import kotlin.math.max
 
 /**
  * מוצא מקומות הסתתרות באופן אוטומטי מתוך ניתוח הסצנה:
- * רכיבים רציפים של עצמים שאפשר להסתתר מאחוריהם (פחים, ארגזים, רכבים, דלתות...)
- * או לצאת מתוכם (חלונות). Kotlin טהור.
+ * רכיבים רציפים של עצמים שאפשר להסתתר מאחוריהם (פחים, ארגזים, רכבים...)
+ * או לצאת מתוכם (חלונות, דלתות). Kotlin טהור.
  */
 object HidingSpotFinder {
 
@@ -45,6 +45,9 @@ object HidingSpotFinder {
 
     /** רכיב גדול מזה (ברוחב או בגובה התמונה) הוא לא מחבוא אלא רקע */
     private const val MAX_SIZE_FRACTION = 0.65f
+
+    /** דלת היא מחבוא גם כשהיא גבוהה (דלת רגילה תופסת כ-65% מגובה התמונה ויותר, והיא נחתכה בטעות) */
+    private const val MAX_DOOR_SIZE_FRACTION = 0.9f
 
     private const val MAX_SPOTS = 24
 
@@ -152,8 +155,9 @@ object HidingSpotFinder {
 
             val maskWidth = maxX - minX + 1
             val maskHeight = maxY - minY + 1
-            if (maskWidth.toFloat() / width > MAX_SIZE_FRACTION) continue
-            if (maskHeight.toFloat() / height > MAX_SIZE_FRACTION) continue
+            val maxFraction = if (Ade20kClasses.NAMES.getOrNull(dominant) == "door") MAX_DOOR_SIZE_FRACTION else MAX_SIZE_FRACTION
+            if (maskWidth.toFloat() / width > maxFraction) continue
+            if (maskHeight.toFloat() / height > maxFraction) continue
 
             val rawMask = BooleanArray(maskWidth * maskHeight)
             for (i in 0 until count) {
