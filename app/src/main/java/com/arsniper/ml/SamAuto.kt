@@ -39,6 +39,33 @@ object SamAuto {
 
     private class Point(val x: Float, val y: Float, val spot: HidingSpot?)
 
+    /** סיבות דחייה (לדיבוג) והצבע שלהן בתצוגה: ARGB */
+    const val R_WALL = "wall"
+    const val R_AREA = "area"
+    const val R_FLOOR = "floor"
+    const val R_UNSTABLE = "unstable"
+    const val R_DUP = "dup"
+    const val R_SKIP = "skip"
+    val DEBUG_COLORS = mapOf(
+        R_WALL to 0x99FF2020.toInt(),
+        R_AREA to 0x99FFFF00.toInt(),
+        R_FLOOR to 0x9900FF00.toInt(),
+        R_UNSTABLE to 0x9900FFFF.toInt(),
+        R_DUP to 0x99FFFFFF.toInt()
+    )
+
+    /** תמונת דיבוג של הריצה האחרונה: כל המסכות שנדחו, צבועות לפי סיבת הדחייה (ברזולוציית רשת הניתוח) */
+    var debugOverlay: IntArray? = null
+        private set
+    var debugWidth = 0
+        private set
+    var debugHeight = 0
+        private set
+
+    /** כמה מסכות נדחו מכל סיבה בריצה האחרונה (וגם kept = כמה נשמרו, skip = נקודות שכבר מכוסות) */
+    var debugCounts: Map<String, Int> = emptyMap()
+        private set
+
     /**
      * מריץ את הזיהוי ומחזיר מסכות logit (256x256) של עצמים. segment(x, y) = שלוש המסכות של SAM לנקודה
      * בקואורדינטות 0..1. onProgress(נעשה, סה"כ). cancelled() מאפשר לעצור באמצע.
@@ -74,6 +101,14 @@ object SamAuto {
         val keptGrid = ArrayList<BooleanArray>()
         val covered = BooleanArray(gw * gh)
 
+        val overlay = IntArray(gw * gh)
+        val counts = HashMap<String, Int>()
+        fun count(reason: String) { counts[reason] = (counts[reason] ?: 0) + 1 }
+        fun paint(grid: BooleanArray, reason: String) {
+            val color = DEBUG_COLORS[reason] ?: return
+            for (i in grid.indices) if (grid[i]) overlay[i] = color
+        }
+
         for ((index, point) in points.withIndex()) {
             if (cancelled()) break
             onProgress(index, points.size)
@@ -82,7 +117,10 @@ object SamAuto {
             if (point.spot == null) {
                 val cx = (point.x * gw).toInt().coerceIn(0, gw - 1)
                 val cy = (point.y * gh).toInt().coerceIn(0, gh - 1)
-                if (covered[cy * gw + cx]) continue
+                if (covered[cy * gw + cx]) {
+                    count(R_SKIP)
+                    continue
+                }
             }
 
             val masks = segment(point.x, point.y)
@@ -103,14 +141,28 @@ object SamAuto {
             }
             val logits = best ?: continue
             val grid = bestGrid ?: continue
-            if (!acceptable(logits, grid, analysis, wallLabels, floorLabels)) continue
-            if (keptGrid.any { iou(it, grid) > SAME_OBJECT_IOU }) continue
+            val reason = rejectReason(logits, grid, analysis, wallLabels, floorLabels)
+            if (reason != null) {
+                count(reason)
+                paint(grid, reason)
+                continue
+            }
+            if (keptGrid.any { iou(it, grid) > SAME_OBJECT_IOU }) {
+                count(R_DUP)
+                paint(grid, R_DUP)
+                continue
+            }
 
+            count("kept")
             kept.add(logits)
             keptGrid.add(grid)
             for (i in grid.indices) if (grid[i]) covered[i] = true
         }
         onProgress(points.size, points.size)
+        debugOverlay = overlay
+        debugWidth = gw
+        debugHeight = gh
+        debugCounts = counts
         return kept
     }
 
@@ -191,13 +243,14 @@ object SamAuto {
         return Pair(nx, ny)
     }
 
-    private fun acceptable(
+    /** null = המסכה מתקבלת. אחרת הסיבה לדחייה */
+    private fun rejectReason(
         logits: FloatArray,
         grid: BooleanArray,
         analysis: SceneAnalysis,
         wallLabels: BooleanArray,
         floorLabels: BooleanArray
-    ): Boolean {
+    ): String? {
         var cells = 0
         var wall = 0
         var floor = 0
@@ -210,9 +263,9 @@ object SamAuto {
         }
         val total = grid.size
         val fraction = cells.toFloat() / total
-        if (fraction < MIN_AREA || fraction > MAX_AREA) return false
-        if (wall >= BACKGROUND_FRACTION * cells) return false
-        if (fraction > FLOOR_MAX_AREA && floor >= FLOOR_FRACTION * cells) return false
+        if (fraction < MIN_AREA || fraction > MAX_AREA) return R_AREA
+        if (wall >= BACKGROUND_FRACTION * cells) return R_WALL
+        if (fraction > FLOOR_MAX_AREA && floor >= FLOOR_FRACTION * cells) return R_FLOOR
 
         // יציבות: כמה מהשטח נשאר כשהסף עולה
         var loose = 0
@@ -221,7 +274,7 @@ object SamAuto {
             if (v > -1f) loose++
             if (v > 1f) strict++
         }
-        if (loose == 0 || strict.toFloat() / loose < MIN_STABILITY) return false
-        return true
+        if (loose == 0 || strict.toFloat() / loose < MIN_STABILITY) return R_UNSTABLE
+        return null
     }
 }
