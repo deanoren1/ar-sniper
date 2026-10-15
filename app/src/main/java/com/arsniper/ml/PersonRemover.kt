@@ -19,6 +19,9 @@ class PersonRemover(context: Context) {
     /** מזהה האנשים של המעבר השני (נטען רק אם צריך) */
     private var segmenter: PersonSegmenter? = null
 
+    /** כמה להרחיב את המסכה (כחלק מגודל האדם): מסכה שדויקה ב-SAM צריכה פחות */
+    private var growFraction = GROW_FRACTION
+
     /** האם ההסרה רצה על ה-GPU */
     val usesGpu: Boolean get() = inpainter.usesGpu
 
@@ -30,6 +33,7 @@ class PersonRemover(context: Context) {
         val width = source.width
         val height = source.height
         if (mask.coverage() == 0f) return source
+        growFraction = if (mask.precise) PRECISE_GROW_FRACTION else GROW_FRACTION
 
         val pixels = IntArray(width * height)
         source.getPixels(pixels, 0, width, 0, 0, width, height)
@@ -109,7 +113,7 @@ class PersonRemover(context: Context) {
         for (component in components) {
             val bboxWidth = component.maxX - component.minX + 1
             val bboxHeight = component.maxY - component.minY + 1
-            val radius = (GROW_FRACTION * max(bboxWidth, bboxHeight)).roundToInt()
+            val radius = (growFraction * max(bboxWidth, bboxHeight)).roundToInt()
                 .coerceIn(minRadius, maxRadius)
 
             val left = max(0, component.minX - radius)
@@ -415,6 +419,9 @@ class PersonRemover(context: Context) {
 
         /** הרחבת המסכה סביב אדם, כחלק מהצלע הארוכה שלו (אדם גדול מורחב יותר) */
         private const val GROW_FRACTION = 0.035f
+
+        /** הרחבה למסכה מדויקת (SAM): רק כדי לכסות את שולי הצל והשיער */
+        private const val PRECISE_GROW_FRACTION = 0.015f
 
         /** גבול עליון להרחבה: הצלע הקצרה של התמונה חלקי המספר הזה */
         private const val MAX_GROW_DIVISOR = 30
