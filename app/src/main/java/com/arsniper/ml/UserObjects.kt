@@ -10,7 +10,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * עצמים שהשחקן סימן בנגיעה (המודל SAM מצייר את המסכה): מהמסכה של SAM ל-HidingSpot, ושמירה בקובץ.
+ * עצמים שהשחקן סימן בנגיעה (המודל SAM מצייר את המסכה), או ש-SAM מצא לבד: מהמסכה של SAM
+ * ל-HidingSpot, ושמירה בקובץ.
  * מסכה = 256x256 ערכי logit (מעל 0 = העצם), שמכסה את כל התמונה (כמו שהמודל רואה אותה).
  * Kotlin טהור, בלי תלות ב-Android.
  */
@@ -150,7 +151,8 @@ object UserObjects {
 
     // --- שמירה בקובץ (לפי תוכן התמונה) ---
 
-    fun file(dir: File, key: String): File = File(dir, "objects_$key.bin")
+    /** prefix: "objects" = עצמים שסומנו ידנית, "sam" = עצמים ש-SAM מצא לבד */
+    fun file(dir: File, key: String, prefix: String = "objects"): File = File(dir, "${prefix}_$key.bin")
 
     fun pack(logits: FloatArray): ByteArray = ByteArray(logits.size) {
         (logits[it] * QUANT + 128f).roundToInt().coerceIn(0, 255).toByte()
@@ -160,13 +162,13 @@ object UserObjects {
         ((bytes[offset + it].toInt() and 0xFF) - 128) / QUANT
     }
 
-    fun save(dir: File, key: String, objects: List<FloatArray>) {
-        val file = file(dir, key)
+    fun save(dir: File, key: String, objects: List<FloatArray>, prefix: String = "objects", max: Int = MAX_OBJECTS) {
+        val file = file(dir, key, prefix)
         if (objects.isEmpty()) {
             file.delete()
             return
         }
-        val list = objects.takeLast(MAX_OBJECTS)
+        val list = objects.takeLast(max)
         val data = ByteArray(1 + list.size * MASK_SIZE * MASK_SIZE)
         data[0] = list.size.toByte()
         for ((index, logits) in list.withIndex()) {
@@ -175,8 +177,8 @@ object UserObjects {
         file.writeBytes(data)
     }
 
-    fun load(dir: File, key: String): List<FloatArray> {
-        val file = file(dir, key)
+    fun load(dir: File, key: String, prefix: String = "objects"): List<FloatArray> {
+        val file = file(dir, key, prefix)
         if (!file.exists()) return emptyList()
         val data = try {
             file.readBytes()
