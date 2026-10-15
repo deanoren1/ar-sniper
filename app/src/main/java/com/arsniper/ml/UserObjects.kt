@@ -10,8 +10,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * עצמים שהשחקן סימן בנגיעה (המודל SAM מצייר את המסכה), או ש-SAM מצא לבד: מהמסכה של SAM
- * ל-HidingSpot, ושמירה בקובץ.
+ * עצמים שהשחקן סימן בנגיעה (המודל SAM מצייר את המסכה): מהמסכה של SAM ל-HidingSpot, ושמירה בקובץ.
  * מסכה = 256x256 ערכי logit (מעל 0 = העצם), שמכסה את כל התמונה (כמו שהמודל רואה אותה).
  * Kotlin טהור, בלי תלות ב-Android.
  */
@@ -57,6 +56,33 @@ object UserObjects {
     fun previewPixels(logits: FloatArray, gridWidth: Int, gridHeight: Int, argb: Int): IntArray {
         val grid = gridLogits(logits, gridWidth, gridHeight)
         return IntArray(grid.size) { if (grid[it] > 0f) argb else 0 }
+    }
+
+    /**
+     * "חצאית" מתחת לעצם: כמה תאים מאריכים כל עמודה של המסכה כלפי מטה. מסכת SAM נגמרת לפעמים
+     * כמה פיקסלים לפני הבסיס האמיתי של העצם (דלת, ארון), ואז כף הרגל של דמות שמסתתרת מאחוריו
+     * מציצה מתחתיו.
+     */
+    private const val SKIRT_CELLS = 5
+
+    /** מאריך כל עמודה שיש בה תא דלוק ב-extra תאים מתחת לתא הדלוק האחרון שלה */
+    private fun growDown(mask: BooleanArray, width: Int, height: Int, extra: Int): Pair<BooleanArray, Int> {
+        if (extra <= 0) return Pair(mask, height)
+        val newHeight = height + extra
+        val out = BooleanArray(width * newHeight)
+        System.arraycopy(mask, 0, out, 0, mask.size)
+        for (x in 0 until width) {
+            var last = -1
+            for (y in height - 1 downTo 0) {
+                if (mask[y * width + x]) {
+                    last = y
+                    break
+                }
+            }
+            if (last < 0) continue
+            for (k in 1..extra) out[(last + k) * width + x] = true
+        }
+        return Pair(out, newHeight)
     }
 
     /**
@@ -133,6 +159,11 @@ object UserObjects {
         depths.sort()
         val depth = if (depths.isEmpty()) Float.NaN else depths[depths.size / 2]
 
+        val extra = minOf(SKIRT_CELLS, height - (y0 + maskHeight))
+        val grown = growDown(mask, maskWidth, maskHeight, extra)
+        var grownCount = 0
+        for (v in grown.first) if (v) grownCount++
+
         return HidingSpot(
             id = id,
             kind = SpotKind.COVER,
@@ -142,16 +173,15 @@ object UserObjects {
             cellX = x0,
             cellY = y0,
             maskWidth = maskWidth,
-            maskHeight = maskHeight,
-            mask = mask,
-            cellCount = finalCount,
+            maskHeight = grown.second,
+            mask = grown.first,
+            cellCount = grownCount,
             depth = depth
         )
     }
 
     // --- שמירה בקובץ (לפי תוכן התמונה) ---
 
-    /** prefix: "objects" = עצמים שסומנו ידנית, "sam" = עצמים ש-SAM מצא לבד */
     fun file(dir: File, key: String, prefix: String = "objects"): File = File(dir, "${prefix}_$key.bin")
 
     fun pack(logits: FloatArray): ByteArray = ByteArray(logits.size) {
