@@ -85,6 +85,17 @@ object UserObjects {
         return Pair(out, newHeight)
     }
 
+    /** מוסיף "חצאית" גם למחבוא שנמצא לפי סוג העצם (דלת, ארון...), לפני הליטוש. למחבוא חלון לא נוגעים */
+    fun addSkirt(spot: HidingSpot): HidingSpot {
+        if (spot.kind != SpotKind.COVER || spot.alpha != null) return spot
+        val extra = minOf(SKIRT_CELLS, spot.gridHeight - (spot.cellY + spot.maskHeight))
+        if (extra <= 0) return spot
+        val grown = growDown(spot.mask, spot.maskWidth, spot.maskHeight, extra)
+        var count = 0
+        for (v in grown.first) if (v) count++
+        return spot.copy(maskHeight = grown.second, mask = grown.first, cellCount = count)
+    }
+
     /**
      * ממיר מסכת SAM למקום הסתתרות. מחזיר null אם המסכה קטנה מדי או גדולה מדי.
      * העומק הוא החציון של תאי העצם, והסוג הוא הסוג הנפוץ ביותר בתוכו (בשביל השם).
