@@ -22,11 +22,12 @@ object SamAuto {
     private const val MAX_AREA = 0.35f
 
     /**
-     * יציבות: חלק מהשטח שנשאר כשמחמירים את הסף. מסכה לא יציבה היא בדרך כלל ניחוש.
-     * הסף נמוך כי עצמים דקים (כיסא, דלת עם מסגרת) מאבדים הרבה שטח בקצוות גם כשהמסכה טובה:
-     * בבדיקה על מכשיר סף 0.85 דחה כיסא, דלת ומדרגות.
+     * יציבות: איזה חלק משטח המסכה (logit מעל 0) הוא "בטוח" (מעל 30% מהערך הגבוה האופייני של המסכה).
+     * מסכה לא יציבה (לא בטוחה, נקודות נקודות) היא בדרך כלל ניחוש. המדידה יחסית לעוצמה של המסכה עצמה,
+     * כי בבדיקה על מכשיר סף קבוע דחה גם קרש חד וברור (עוצמת ה-logit בפועל נמוכה מהצפוי).
      */
-    private const val MIN_STABILITY = 0.5f
+    private const val MIN_STABILITY = 0.6f
+    private const val CONFIDENT_FRACTION = 0.3f
 
     /** שתי מסכות עם חפיפה (IoU) כזו נחשבות אותו עצם */
     const val SAME_OBJECT_IOU = 0.6f
@@ -277,14 +278,19 @@ object SamAuto {
         if (fraction >= BACKGROUND_MIN_AREA && wall >= BACKGROUND_FRACTION * cells) return R_WALL
         if (fraction > FLOOR_MAX_AREA && floor >= FLOOR_FRACTION * cells) return R_FLOOR
 
-        // יציבות: כמה מהשטח נשאר כשהסף עולה
-        var loose = 0
+        // יציבות: כמה משטח המסכה הוא מעל חלק מהערך הגבוה האופייני שלה (אחוזון 90)
+        var positive = 0
+        for (v in logits) if (v > 0f) positive++
+        if (positive == 0) return R_UNSTABLE
+        val values = FloatArray(positive)
+        var written = 0
+        for (v in logits) if (v > 0f) values[written++] = v
+        values.sort()
+        val typical = values[(positive * 0.9f).toInt().coerceAtMost(positive - 1)]
+        val threshold = (typical * CONFIDENT_FRACTION).coerceAtLeast(0.2f)
         var strict = 0
-        for (v in logits) {
-            if (v > -1f) loose++
-            if (v > 1f) strict++
-        }
-        if (loose == 0 || strict.toFloat() / loose < MIN_STABILITY) return R_UNSTABLE
+        for (v in values) if (v > threshold) strict++
+        if (strict.toFloat() / positive < MIN_STABILITY) return R_UNSTABLE
         return null
     }
 }
