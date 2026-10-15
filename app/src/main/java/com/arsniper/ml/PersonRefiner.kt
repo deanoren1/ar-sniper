@@ -8,7 +8,8 @@ import kotlin.math.roundToInt
 /**
  * מדייק את מסכת האנשים של DeepLab בעזרת SAM.
  * DeepLab גס (257x257 לחלק) ולכן הקצוות מרובעים והמסכה גולשת לרקע ולרהיטים. כאן, לכל אדם שנמצא,
- * SAM מציע שלוש מסכות מנקודה שבתוכו, ובוחרים את הקטנה ביותר שמכסה את רוב ליבת האדם ולא חורגת ממנו.
+ * SAM מציע שלוש מסכות מנקודה שבתוכו. מתחילים מהקטנה שמכסה את רוב ליבת האדם, וגדלים למסכה גדולה יותר
+ * (כל האדם: ראש, ידיים) רק אם התוספת כמעט כולה בתוך מה ש-DeepLab סימן.
  * אם אין מסכה מתאימה, האדם נשאר כמו שזוהה. את התוצאה מחליקים לרזולוציית התמונה המלאה.
  * Kotlin טהור: את SAM מקבלים כפונקציה, כך אפשר לבדוק בלי Android.
  */
@@ -31,6 +32,9 @@ object PersonRefiner {
 
     /** ולא יותר מזה משטחה יכול להיות מחוץ לאדם (המורחב) */
     private const val MAX_OUTSIDE = 0.4f
+
+    /** מסכה גדולה יותר מתקבלת אם לפחות כל כך מהתוספת שלה בתוך הכתם ש-DeepLab סימן */
+    private const val GROW_SUPPORT = 0.9f
 
     /** ולא גדולה מפי כך משטח הכתם (אחרת זה חדר או רהיט, לא האדם) */
     private const val MAX_AREA_RATIO = 2.5f
@@ -98,9 +102,9 @@ object PersonRefiner {
                 continue
             }
 
-            var bestIndex = -1
-            var bestArea = Int.MAX_VALUE
+            // מועמדות: מסכות SAM שמכסות את הליבה, לא בורחות, ולא גדולות מדי
             val grids = ArrayList<FloatArray>()
+            val candidates = ArrayList<Pair<Int, Int>>() // (שטח, אינדקס)
             for ((i, logits) in masks.withIndex()) {
                 val g = UserObjects.gridLogits(logits, gw, gh)
                 grids.add(g)
@@ -115,17 +119,32 @@ object PersonRefiner {
                     }
                 }
                 if (area == 0) continue
-                val coverage = insideCore.toFloat() / coreCount
-                val outsideFraction = outside.toFloat() / area
-                if (coverage < MIN_CORE_COVERAGE) continue
-                if (outsideFraction > MAX_OUTSIDE) continue
+                if (insideCore.toFloat() / coreCount < MIN_CORE_COVERAGE) continue
+                if (outside.toFloat() / area > MAX_OUTSIDE) continue
                 if (area > MAX_AREA_RATIO * component.cells.size) continue
-                if (area < bestArea) {
-                    bestArea = area
-                    bestIndex = i
+                candidates.add(Pair(area, i))
+            }
+            if (candidates.isEmpty()) continue
+            candidates.sortBy { it.first }
+
+            // מתחילים מהמסכה הקטנה (למשל החולצה) וגדלים למסכה גדולה יותר (כל האדם: ראש, ידיים)
+            // רק אם התוספת כמעט כולה בתוך מה ש-DeepLab סימן כאדם. תוספת שגולשת לרהיטים לא נכנסת
+            var bestIndex = candidates[0].second
+            for (n in 1 until candidates.size) {
+                val gn = grids[candidates[n].second]
+                val gb = grids[bestIndex]
+                var extra = 0
+                var extraInside = 0
+                for (k in gn.indices) {
+                    if (gn[k] > 0f && gb[k] <= 0f) {
+                        extra++
+                        if (comp[k]) extraInside++
+                    }
+                }
+                if (extra > 0 && extraInside.toFloat() / extra >= GROW_SUPPORT) {
+                    bestIndex = candidates[n].second
                 }
             }
-            if (bestIndex < 0) continue
 
             // בתוך האזור המותר הציון הגס מוחלף בציון של SAM. תא שהוא חלק מאדם אחר לא נוגעים בו,
             // ותא שאדם אחר כבר סימן כחיובי נשאר חיובי
