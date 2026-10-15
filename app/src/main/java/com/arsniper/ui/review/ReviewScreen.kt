@@ -3,6 +3,7 @@ package com.arsniper.ui.review
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
+import android.graphics.Matrix
 import android.graphics.Rect
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -38,10 +39,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.arsniper.data.PhotoQuality
 import com.arsniper.data.PhotoRepository
+import com.arsniper.ml.ModelStore
 import com.arsniper.ml.PersonMask
+import com.arsniper.ml.PersonRefiner
 import com.arsniper.ml.PersonRemover
 import com.arsniper.ml.PersonSegmenter
+import com.arsniper.ml.Sam2Segmenter
+import java.io.File
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -61,13 +67,17 @@ private class ReviewResult(
     val photo: ImageBitmap,
     val mask: PersonMask,
     val overlay: Bitmap,
-    val seconds: Float
+    val seconds: Float,
+    val quality: PhotoQuality.Report,
+    /** הערה על דיוק המסכה (ריקה אם לא דויקה) */
+    val refineNote: String
 )
 
 /**
  * מסך בדיקה ועריכה אחרי הצילום: מציג את התמונה, מסמן באדום אנשים שזוהו,
  * מאפשר להוסיף סימון (ADD) או למחוק סימון שגוי (ERASE),
  * ומסיר את האנשים המסומנים (REMOVE).
+ * בודק גם את איכות התמונה (טשטוש, חשכה, כיוון) ומזהיר. ROTATE מסובב תמונה שנשמרה על הצד.
  */
 @Composable
 fun ReviewScreen(
@@ -93,13 +103,36 @@ fun ReviewScreen(
     var progressText by remember { mutableStateOf("") }
     var removeInfo by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    // עולה בכל סיבוב של התמונה, כדי שהניתוח ירוץ מחדש על התמונה המסובבת
+    var reloadKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(reloadKey) {
         val outcome = withContext(Dispatchers.Default) {
             runCatching { analyze(context) }
         }
         outcome
             .onSuccess { result = it }
             .onFailure { errorText = it.message ?: it.toString() }
+    }
+
+    // סיבוב התמונה ב-90 מעלות עם כיוון השעון (לתמונה שנשמרה על הצד), ואז ניתוח מחדש
+    fun rotatePhoto() {
+        if (removing || cleaned != null || result == null) return
+        result = null
+        errorText = null
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val bitmap = PhotoRepository.load(context)
+                if (bitmap != null) {
+                    val matrix = Matrix().apply { postRotate(90f) }
+                    val rotated = Bitmap.createBitmap(
+                        bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                    )
+                    PhotoRepository.save(context, rotated)
+                }
+            }
+            reloadKey += 1
+        }
     }
 
     // ציור במיקום מגע: ממיר מקואורדינטות מסך לקואורדינטות תמונה (ContentScale.Crop)
@@ -230,9 +263,11 @@ fun ReviewScreen(
                     "People marked: ${formatNumber(percent)}% of the photo"
                 }
                 val extra = removeInfo?.let { "\n$it" } ?: ""
-                "$marked (${formatNumber(current.seconds)}s)\n" +
+                val warnings = current.quality.warnings().joinToString("") { "\n$it" }
+                "$marked (${formatNumber(current.seconds)}s${current.refineNote})\n" +
                     "ADD: paint missed people · ERASE: remove wrong marks · REMOVE: erase people" +
-                    extra
+                    extra +
+                    warnings
             }
         }
 
@@ -250,6 +285,17 @@ fun ReviewScreen(
 
         if ((current == null && errorText == null) || removing) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+
+        // סיבוב תמונה: בצד, כדי שלא יתפוס מקום בשורת הכפתורים
+        if (current != null && !removing && cleanedBitmap == null) {
+            Button(
+                onClick = { rotatePhoto() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF616161)),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp)
+            ) { Text("ROTATE") }
         }
 
         val editingEnabled = current != null && !removing && cleanedBitmap == null
@@ -327,7 +373,33 @@ private fun analyze(context: Context): ReviewResult {
     val bitmap = PhotoRepository.load(context) ?: error("No photo found")
     val segmenter = PersonSegmenter(context)
     try {
-        val mask = segmenter.detectPeople(bitmap)
+        val quality = PhotoQuality.assess(bitmap)
+        val rough = segmenter.detectPeople(bitmap)
+        var mask = rough
+        var refineNote = ""
+        if (rough.coverage() > 0f && ModelStore.samReady(context)) {
+            // מדייקים את הקצוות בעזרת SAM; כל כשל משאיר את המסכה כמו שזוהתה
+            val files = ModelStore.SamFiles(
+                File(context.filesDir, ModelStore.SAM_ENCODER_NAME),
+                File(context.filesDir, ModelStore.SAM_DECODER_NAME),
+                File(context.filesDir, ModelStore.SAM_PROMPT_NAME)
+            )
+            var sam: Sam2Segmenter? = null
+            try {
+                sam = Sam2Segmenter(files)
+                sam.encode(bitmap)
+                val active = sam
+                val refined = PersonRefiner.refine(rough) { x, y -> active.segment(x, y) }
+                if (refined.refined > 0) {
+                    mask = refined.mask
+                    refineNote = " · refined ${refined.refined}/${refined.people}"
+                }
+            } catch (e: Throwable) {
+                refineNote = ""
+            } finally {
+                try { sam?.close() } catch (e: Throwable) { }
+            }
+        }
         val overlay = Bitmap.createBitmap(mask.width, mask.height, Bitmap.Config.ARGB_8888)
         refreshOverlay(overlay, mask, Rect(0, 0, mask.width, mask.height))
         val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
@@ -336,7 +408,9 @@ private fun analyze(context: Context): ReviewResult {
             photo = bitmap.asImageBitmap(),
             mask = mask,
             overlay = overlay,
-            seconds = seconds
+            seconds = seconds,
+            quality = quality,
+            refineNote = refineNote
         )
     } finally {
         segmenter.close()
