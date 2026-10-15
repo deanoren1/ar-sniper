@@ -21,14 +21,24 @@ object SamAuto {
     private const val MIN_AREA = 0.0004f
     private const val MAX_AREA = 0.35f
 
-    /** יציבות: חלק מהשטח שנשאר כשמחמירים את הסף. מסכה לא יציבה היא בדרך כלל ניחוש */
-    private const val MIN_STABILITY = 0.85f
+    /**
+     * יציבות: חלק מהשטח שנשאר כשמחמירים את הסף. מסכה לא יציבה היא בדרך כלל ניחוש.
+     * הסף נמוך כי עצמים דקים (כיסא, דלת עם מסגרת) מאבדים הרבה שטח בקצוות גם כשהמסכה טובה:
+     * בבדיקה על מכשיר סף 0.85 דחה כיסא, דלת ומדרגות.
+     */
+    private const val MIN_STABILITY = 0.5f
 
     /** שתי מסכות עם חפיפה (IoU) כזו נחשבות אותו עצם */
     const val SAME_OBJECT_IOU = 0.6f
 
     /** מסכה שרובה קיר, תקרה או שמיים היא רקע, לא עצם */
     private const val BACKGROUND_FRACTION = 0.7f
+
+    /**
+     * ...אבל רק אם היא גדולה. מסכה קטנה שהמודל קרא לה "קיר" (קרש שנשען על הקיר, דלת לבנה)
+     * היא עצם אמיתי. חלק משטח התמונה
+     */
+    private const val BACKGROUND_MIN_AREA = 0.04f
 
     /** מסכה גדולה שרובה רצפה היא הרצפה עצמה (מסכה קטנה על "רצפה" יכולה להיות קורקינט שהמודל לא מכיר) */
     private const val FLOOR_FRACTION = 0.6f
@@ -264,7 +274,7 @@ object SamAuto {
         val total = grid.size
         val fraction = cells.toFloat() / total
         if (fraction < MIN_AREA || fraction > MAX_AREA) return R_AREA
-        if (wall >= BACKGROUND_FRACTION * cells) return R_WALL
+        if (fraction >= BACKGROUND_MIN_AREA && wall >= BACKGROUND_FRACTION * cells) return R_WALL
         if (fraction > FLOOR_MAX_AREA && floor >= FLOOR_FRACTION * cells) return R_FLOOR
 
         // יציבות: כמה מהשטח נשאר כשהסף עולה
