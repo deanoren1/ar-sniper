@@ -39,7 +39,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.arsniper.data.PhotoQuality
 import com.arsniper.data.PhotoRepository
 import com.arsniper.ml.ModelStore
 import com.arsniper.ml.PersonMask
@@ -68,7 +67,6 @@ private class ReviewResult(
     val mask: PersonMask,
     val overlay: Bitmap,
     val seconds: Float,
-    val quality: PhotoQuality.Report,
     /** הערה על דיוק המסכה (ריקה אם לא דויקה) */
     val refineNote: String
 )
@@ -77,7 +75,7 @@ private class ReviewResult(
  * מסך בדיקה ועריכה אחרי הצילום: מציג את התמונה, מסמן באדום אנשים שזוהו,
  * מאפשר להוסיף סימון (ADD) או למחוק סימון שגוי (ERASE),
  * ומסיר את האנשים המסומנים (REMOVE).
- * בודק גם את איכות התמונה (טשטוש, חשכה, כיוון) ומזהיר. ROTATE מסובב תמונה שנשמרה על הצד.
+ * ROTATE מסובב תמונה שנשמרה על הצד.
  */
 @Composable
 fun ReviewScreen(
@@ -263,11 +261,9 @@ fun ReviewScreen(
                     "People marked: ${formatNumber(percent)}% of the photo"
                 }
                 val extra = removeInfo?.let { "\n$it" } ?: ""
-                val warnings = current.quality.warnings().joinToString("") { "\n$it" }
                 "$marked (${formatNumber(current.seconds)}s${current.refineNote})\n" +
                     "ADD: paint missed people · ERASE: remove wrong marks · REMOVE: erase people" +
-                    extra +
-                    warnings
+                    extra
             }
         }
 
@@ -373,7 +369,6 @@ private fun analyze(context: Context): ReviewResult {
     val bitmap = PhotoRepository.load(context) ?: error("No photo found")
     val segmenter = PersonSegmenter(context)
     try {
-        val quality = PhotoQuality.assess(bitmap)
         val rough = segmenter.detectPeople(bitmap)
         var mask = rough
         var refineNote = ""
@@ -409,7 +404,6 @@ private fun analyze(context: Context): ReviewResult {
             mask = mask,
             overlay = overlay,
             seconds = seconds,
-            quality = quality,
             refineNote = refineNote
         )
     } finally {
