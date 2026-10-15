@@ -45,6 +45,7 @@ import com.arsniper.ml.AnalysisCache
 import com.arsniper.ml.Ade20kClasses
 import com.arsniper.ml.ModelStore
 import com.arsniper.ml.Sam2Segmenter
+import com.arsniper.ml.SamAuto
 import com.arsniper.ml.SceneAnalysis
 import com.arsniper.ml.SceneSegmenter
 import com.arsniper.ml.SceneSession
@@ -82,6 +83,7 @@ private class SceneView(
     val analysis: SceneAnalysis,
     val cacheKey: String?,
     val objects: List<FloatArray>,
+    val samMasks: List<FloatArray>,
     val segmentation: ImageBitmap,
     val depth: ImageBitmap,
     val legend: List<String>,
@@ -99,7 +101,8 @@ private class SpotsUpdate(val overlay: ImageBitmap, val legend: List<String>)
  * מסך בדיקת היתכנות: מוריד (פעם אחת) את מודל הסצנה, מריץ אותו על התמונה,
  * ומציג מה המערכת "רואה": סוגי עצמים ועומק.
  * תמונה שכבר נותחה נטענת מהניתוח השמור (בלי להריץ את המודל מחדש).
- * במצב OBJ אפשר לגעת בעצם שהמערכת פספסה (SAM) ולהוסיף אותו כמחבוא.
+ * במצב OBJ אפשר לגעת בעצם שהמערכת פספסה (SAM) ולהוסיף אותו כמחבוא,
+ * או ללחוץ AUTO ש-SAM ימצא עצמים בכל התמונה לבד.
  */
 @Composable
 fun SceneScreen(
@@ -125,6 +128,7 @@ fun SceneScreen(
     var maskIndex by remember { mutableStateOf(0) }
     var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
     var userObjects by remember { mutableStateOf<List<FloatArray>>(emptyList()) }
+    var autoMasks by remember { mutableStateOf<List<FloatArray>>(emptyList()) }
     var spotsImage by remember { mutableStateOf<ImageBitmap?>(null) }
     var spotsLines by remember { mutableStateOf<List<String>>(emptyList()) }
 
@@ -171,6 +175,7 @@ fun SceneScreen(
                 .onSuccess {
                     sceneView = it
                     userObjects = it.objects
+                    autoMasks = it.samMasks
                     spotsImage = it.spotsOverlay
                     spotsLines = it.spotsLegend
                 }
@@ -280,6 +285,60 @@ fun SceneScreen(
             previewImage = null
             samStatus = message
             samBusy = false
+        }
+    }
+
+    /** שומר את העצמים ש-SAM מצא לבד (ריק = חוזרים לזיהוי לפי סוגים) ומעדכן את התצוגה */
+    fun applyAuto(view: SceneView, list: List<FloatArray>, message: String) {
+        scope.launch {
+            samBusy = true
+            val update = withContext(Dispatchers.Default) {
+                UserObjects.save(context.filesDir, view.cacheKey ?: "none", list, "sam", SamAuto.MAX_MASKS)
+                SceneSession.setSamMasks(list)
+                SpotsUpdate(
+                    buildSpotsOverlay(view.analysis, SceneSession.spots).asImageBitmap(),
+                    buildSpotsLegend(SceneSession.spots)
+                )
+            }
+            autoMasks = list
+            spotsImage = update.overlay
+            spotsLines = update.legend
+            masks = null
+            previewImage = null
+            samStatus = message
+            samBusy = false
+        }
+    }
+
+    /** זיהוי אוטומטי: SAM מנסה נקודות בכל התמונה ובמרכז כל מחבוא, ושומר את העצמים שמצא */
+    fun runAuto(view: SceneView) {
+        val sam = samHolder[0] ?: return
+        if (samState != 2 || samBusy) return
+        samBusy = true
+        scope.launch {
+            try {
+                val startMs = System.currentTimeMillis()
+                val found = withContext(Dispatchers.Default) {
+                    SamAuto.run(
+                        view.analysis,
+                        SceneSession.finderSpots,
+                        { x, y -> sam.segment(x, y) },
+                        { done, total ->
+                            val seconds = (System.currentTimeMillis() - startMs) / 1000
+                            samStatus = "Finding objects: $done / $total (${seconds}s)"
+                        }
+                    )
+                }
+                val seconds = (System.currentTimeMillis() - startMs) / 1000
+                samBusy = false
+                applyAuto(view, found, "Auto: found ${found.size} objects in ${seconds}s")
+            } catch (e: CancellationException) {
+                samBusy = false
+                throw e
+            } catch (e: Throwable) {
+                samBusy = false
+                samStatus = "Auto failed: ${e.message ?: e}"
+            }
         }
     }
 
@@ -414,11 +473,15 @@ fun SceneScreen(
                             samStatus = "Mask ${maskIndex + 1}/3. ADD to keep it"
                         }
                     }
-                    ActionButton("UNDO LAST", userObjects.isNotEmpty() && !samBusy) {
+                    ActionButton("UNDO", userObjects.isNotEmpty() && !samBusy) {
                         applyObjects(current, userObjects.dropLast(1), "Removed last. Objects marked: ${userObjects.size - 1}")
                     }
                     ActionButton("CLEAR", userObjects.isNotEmpty() && !samBusy) {
                         applyObjects(current, emptyList(), "All marked objects cleared")
+                    }
+                    ActionButton(if (autoMasks.isEmpty()) "AUTO" else "AUTO OFF", !samBusy) {
+                        if (autoMasks.isEmpty()) runAuto(current)
+                        else applyAuto(current, emptyList(), "Auto off: back to the standard detection")
                     }
                 }
             }
@@ -501,6 +564,10 @@ private fun analyzeScene(
     val objects = if (cacheKey != null) UserObjects.load(context.filesDir, cacheKey) else emptyList()
     if (objects.isNotEmpty()) SceneSession.setUserObjects(objects)
 
+    // עצמים ש-SAM מצא לבד באותה תמונה (אם הופעל זיהוי אוטומטי בעבר)
+    val samMasks = if (cacheKey != null) UserObjects.load(context.filesDir, cacheKey, "sam") else emptyList()
+    if (samMasks.isNotEmpty()) SceneSession.setSamMasks(samMasks)
+
     val spots = SceneSession.spots
     val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
 
@@ -510,6 +577,7 @@ private fun analyzeScene(
         analysis = analysis,
         cacheKey = cacheKey,
         objects = objects,
+        samMasks = samMasks,
         segmentation = buildSegmentationOverlay(analysis).asImageBitmap(),
         depth = buildDepthImage(analysis).asImageBitmap(),
         legend = buildLegend(analysis),
@@ -597,7 +665,7 @@ private fun buildGuide(photo: Bitmap, gridWidth: Int, gridHeight: Int): GuideIma
 
 /**
  * מסכת המחבואים שזוהו, ברזולוציה של הליטוש (כך רואים את הקצוות המלוטשים):
- * כתום = מאחורי עצם, תכלת = חלון או דלת. שקיפות הקצה משקפת את האלפא הרכה.
+ * כתום = מאחורי עצם, תכלת = חלון. שקיפות הקצה משקפת את האלפא הרכה.
  */
 private fun buildSpotsOverlay(analysis: SceneAnalysis, spots: List<HidingSpot>): Bitmap {
     val width = analysis.width * REFINE_SCALE
@@ -637,7 +705,8 @@ private fun buildSpotsLegend(spots: List<HidingSpot>): List<String> {
     val windows = spots.count { it.kind == SpotKind.WINDOW }
     val lines = ArrayList<String>()
     lines.add("hiding spots: $covers cover (orange)")
-    lines.add("windows/doors: $windows (blue)")
+    lines.add("windows: $windows (blue)")
+    if (SceneSession.samMasks.isNotEmpty()) lines.add("auto objects (SAM): ${SceneSession.samMasks.size}")
     if (SceneSession.userObjects.isNotEmpty()) lines.add("marked by you: ${SceneSession.userObjects.size}")
     for (spot in spots.take(8)) {
         val depthText = if (spot.depth.isNaN()) "?" else String.format(Locale.US, "%.0f m", spot.depth)
