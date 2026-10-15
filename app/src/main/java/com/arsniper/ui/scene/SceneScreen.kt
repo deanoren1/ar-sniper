@@ -101,8 +101,7 @@ private class SpotsUpdate(val overlay: ImageBitmap, val legend: List<String>)
  * מסך בדיקת היתכנות: מוריד (פעם אחת) את מודל הסצנה, מריץ אותו על התמונה,
  * ומציג מה המערכת "רואה": סוגי עצמים ועומק.
  * תמונה שכבר נותחה נטענת מהניתוח השמור (בלי להריץ את המודל מחדש).
- * במצב OBJ אפשר לגעת בעצם שהמערכת פספסה (SAM) ולהוסיף אותו כמחבוא,
- * או ללחוץ AUTO ש-SAM ימצא עצמים בכל התמונה לבד.
+ * במצב OBJ אפשר לגעת בעצם שהמערכת פספסה (SAM) ולהוסיף אותו כמחבוא.
  */
 @Composable
 fun SceneScreen(
@@ -130,6 +129,9 @@ fun SceneScreen(
     var userObjects by remember { mutableStateOf<List<FloatArray>>(emptyList()) }
     var autoMasks by remember { mutableStateOf<List<FloatArray>>(emptyList()) }
     var spotsImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var debugImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var debugLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showDebug by remember { mutableStateOf(false) }
     var spotsLines by remember { mutableStateOf<List<String>>(emptyList()) }
 
     DisposableEffect(Unit) {
@@ -330,8 +332,25 @@ fun SceneScreen(
                     )
                 }
                 val seconds = (System.currentTimeMillis() - startMs) / 1000
+                val overlay = SamAuto.debugOverlay
+                if (overlay != null) {
+                    val dw = SamAuto.debugWidth
+                    val dh = SamAuto.debugHeight
+                    debugImage = Bitmap.createBitmap(overlay, dw, dh, Bitmap.Config.ARGB_8888).asImageBitmap()
+                    val c = SamAuto.debugCounts
+                    debugLines = listOf(
+                        "kept (orange): ${c["kept"] ?: 0}",
+                        "RED = wall: ${c[SamAuto.R_WALL] ?: 0}",
+                        "YELLOW = size: ${c[SamAuto.R_AREA] ?: 0}",
+                        "GREEN = floor: ${c[SamAuto.R_FLOOR] ?: 0}",
+                        "CYAN = unstable: ${c[SamAuto.R_UNSTABLE] ?: 0}",
+                        "WHITE = duplicate: ${c[SamAuto.R_DUP] ?: 0}",
+                        "skipped points: ${c[SamAuto.R_SKIP] ?: 0}"
+                    )
+                    showDebug = false
+                }
                 samBusy = false
-                applyAuto(view, found, "Auto: found ${found.size} objects in ${seconds}s")
+                applyAuto(view, found, "Auto: found ${found.size} objects in ${seconds}s. DBG shows rejected")
             } catch (e: CancellationException) {
                 samBusy = false
                 throw e
@@ -395,6 +414,15 @@ fun SceneScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
+                    val dbg = debugImage
+                    if (viewMode == ViewMode.Objects && showDebug && dbg != null) {
+                        Image(
+                            bitmap = dbg,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                     val preview = previewImage
                     if (viewMode == ViewMode.Objects && preview != null) {
                         Image(
@@ -410,7 +438,9 @@ fun SceneScreen(
 
             val legendLines = when (viewMode) {
                 ViewMode.Segmentation -> current.legend
-                ViewMode.Spots, ViewMode.Objects -> if (spotsLines.isNotEmpty()) spotsLines else current.spotsLegend
+                ViewMode.Spots, ViewMode.Objects ->
+                    if (viewMode == ViewMode.Objects && showDebug && debugLines.isNotEmpty()) debugLines
+                    else if (spotsLines.isNotEmpty()) spotsLines else current.spotsLegend
                 else -> emptyList()
             }
             if (legendLines.isNotEmpty()) {
@@ -482,6 +512,9 @@ fun SceneScreen(
                     ActionButton(if (autoMasks.isEmpty()) "AUTO" else "AUTO OFF", !samBusy) {
                         if (autoMasks.isEmpty()) runAuto(current)
                         else applyAuto(current, emptyList(), "Auto off: back to the standard detection")
+                    }
+                    ActionButton(if (showDebug) "DBG OFF" else "DBG", debugImage != null && !samBusy) {
+                        showDebug = !showDebug
                     }
                 }
             }
