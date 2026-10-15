@@ -60,8 +60,9 @@ object UserObjects {
 
     /**
      * "חצאית" מתחת לעצם: כמה תאים מאריכים כל עמודה של המסכה כלפי מטה. מסכת SAM נגמרת לפעמים
-     * כמה פיקסלים לפני הבסיס האמיתי של העצם (דלת, ארון), ואז כף הרגל של דמות שמסתתרת מאחוריו
-     * מציצה מתחתיו.
+     * כמה פיקסלים לפני הבסיס האמיתי של העצם (דלת, ארון), וגם הצל של הדמות יוצא מתחת לבסיס,
+     * ואז הרגל של דמות שמסתתרת מאחוריו מציצה מתחתיו. החצאית רק מוחקת, ולא משנה איפה הרגליים
+     * עומדות (columnBottom של HidingSpot מחזיר את הבסיס בלי החצאית).
      */
     private const val SKIRT_CELLS = 5
 
@@ -93,7 +94,12 @@ object UserObjects {
         val grown = growDown(spot.mask, spot.maskWidth, spot.maskHeight, extra)
         var count = 0
         for (v in grown.first) if (v) count++
-        return spot.copy(maskHeight = grown.second, mask = grown.first, cellCount = count)
+        return spot.copy(
+            maskHeight = grown.second,
+            mask = grown.first,
+            cellCount = count,
+            skirtCells = spot.skirtCells + extra
+        )
     }
 
     /**
@@ -187,7 +193,8 @@ object UserObjects {
             maskHeight = grown.second,
             mask = grown.first,
             cellCount = grownCount,
-            depth = depth
+            depth = depth,
+            skirtCells = extra
         )
     }
 
