@@ -7,14 +7,14 @@ import com.arsniper.game.spots.SpotRefiner
 
 /**
  * תוצאת ניתוח הסצנה של הזירה הנוכחית, שעוברת ממסך הסצנה למסך המשחק (בזיכרון בלבד).
- * המחבואים = מה שנמצא אוטומטית לפי סוגי העצמים (או לפי SAM) + עצמים שהשחקן סימן בנגיעה.
+ * המחבואים = מה שנמצא אוטומטית לפי סוגי העצמים + עצמים שהשחקן סימן בנגיעה (SAM).
  */
 object SceneSession {
 
     var analysis: SceneAnalysis? = null
         private set
 
-    /** כל המחבואים: הבסיס (לפי סוגים או לפי SAM) ואחריו אלה שהשחקן סימן */
+    /** כל המחבואים: האוטומטיים ואחריהם אלה שהשחקן סימן */
     var spots: List<HidingSpot> = emptyList()
         private set
 
@@ -73,7 +73,7 @@ object SceneSession {
     }
 
     /**
-     * בונה את המחבואים: בסיס = המחבואים לפי סוגים, או (אם SAM רץ) החלונות + עצמי SAM.
+     * בונה את המחבואים: בסיס = המחבואים לפי סוגים, או (אם SAM רץ) החלונות + דלתות + עצמי SAM.
      * מעל זה עצמים שהשחקן סימן: הם מחליפים מחבוא בסיס שהוא בעצם אותו עצם.
      */
     private fun rebuild() {
@@ -90,7 +90,15 @@ object SceneSession {
                 fromSam.add(if (g != null) SpotRefiner.refine(spot, g) else spot)
                 nextId++
             }
-            autoSpots.filter { it.kind == com.arsniper.game.spots.SpotKind.WINDOW } + fromSam
+            // דלתות: SAM לא תמיד מצליח עליהן (דלת לבנה על קיר בהיר), אז דלת שהמערכת מצאה לפי סוג
+            // נשארת, אלא אם SAM כבר מצא אותה
+            val doorIndex = Ade20kClasses.NAMES.indexOf("door")
+            val doors = autoSpots.filter { a ->
+                a.kind == com.arsniper.game.spots.SpotKind.COVER &&
+                    a.classIndex == doorIndex &&
+                    fromSam.none { s -> mostlyInside(a, s) }
+            }
+            autoSpots.filter { it.kind == com.arsniper.game.spots.SpotKind.WINDOW } + doors + fromSam
         }
 
         val raw = ArrayList<HidingSpot>()
