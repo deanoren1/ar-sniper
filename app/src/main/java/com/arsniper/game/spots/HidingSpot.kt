@@ -35,7 +35,9 @@ data class HidingSpot(
     val alphaY: Int = 0,
     val alphaWidth: Int = 0,
     val alphaHeight: Int = 0,
-    val alphaScale: Int = 1
+    val alphaScale: Int = 1,
+    /** כמה תאי "חצאית" נוספו למסכה מתחת לעצם (מסתירה רגליים וצל, אבל אינה חלק מהעצם עצמו) */
+    val skirtCells: Int = 0
 ) {
     val minX: Float get() = cellX.toFloat() / gridWidth
     val maxX: Float get() = (cellX + maskWidth).toFloat() / gridWidth
@@ -87,12 +89,16 @@ data class HidingSpot(
         return null
     }
 
-    /** הקצה התחתון של העצם בעמודה מסוימת (מנורמל), או null אם אין שם עצם */
+    /**
+     * הקצה התחתון האמיתי של העצם בעמודה מסוימת (מנורמל), או null אם אין שם עצם.
+     * בלי ה"חצאית": זה המקום שבו העצם נוגע ברצפה, ושם עומדות רגלי דמות שמסתתרת מאחוריו.
+     */
     fun columnBottom(nx: Float): Float? {
         val localX = ((nx * gridWidth).toInt() - cellX).coerceIn(0, maskWidth - 1)
         for (localY in maskHeight - 1 downTo 0) {
             if (mask[localY * maskWidth + localX]) {
-                return (cellY + localY + 1).toFloat() / gridHeight
+                val rows = (localY + 1 - skirtCells).coerceAtLeast(1)
+                return (cellY + rows).toFloat() / gridHeight
             }
         }
         return null
