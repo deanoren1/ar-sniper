@@ -327,6 +327,8 @@ private fun DrawScope.drawMonster(
         val raw = (gait.phase / (2f * PI.toFloat()) * FRAMES_PER_CYCLE).toInt()
         val count = sheet.walk.size
         sheet.walk[((raw % count) + count) % count]
+    } else if (AttackPose.ids.contains(enemy.id)) {
+        sheet.peek
     } else {
         sheet.idle
     }

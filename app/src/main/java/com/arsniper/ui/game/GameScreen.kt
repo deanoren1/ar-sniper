@@ -181,6 +181,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         score += director.takeBonus()
 
                         val out = fire.update(dt, enemies, director)
+                        AttackPose.ids = fire.telegraphViews.map { it.enemyId }.toSet()
                         for (spot in out.stopped) {
                             score += STOP_POINTS
                             blasts = blasts + Blast(
@@ -258,6 +259,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
         score = 0
         flash = 0f
         fire.reset()
+        AttackPose.ids = emptySet()
         director.restart()
     }
 

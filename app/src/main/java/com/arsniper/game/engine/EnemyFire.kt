@@ -26,7 +26,7 @@ class Shot(
 )
 
 /** הכנה לירייה: המפלצת מהבהבת באדום זמן קצר לפני שהיא יורה. אפשר להרוג אותה בזמן הזה */
-class TelegraphView(val x: Float, val y: Float, val radius: Float, val progress: Float)
+class TelegraphView(val x: Float, val y: Float, val radius: Float, val progress: Float, val enemyId: Int)
 
 /** תוצאת פגיעה בקליע: הקליע, והאם הושמד (או רק נסדק) */
 class Intercept(val shot: Shot, val destroyed: Boolean)
@@ -135,7 +135,8 @@ class EnemyFire(private val random: Random = Random.Default) {
                     x = enemy.position.x,
                     y = enemy.position.y,
                     radius = enemy.radius,
-                    progress = ((time - t.start) / t.duration).coerceIn(0f, 1f)
+                    progress = ((time - t.start) / t.duration).coerceIn(0f, 1f),
+                    enemyId = enemy.id
                 )
             )
         }

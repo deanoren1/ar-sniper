@@ -27,6 +27,12 @@ class MonsterSprite(
     val pad: Int
 )
 
+/** אילו אויבים מתכוננים עכשיו לירות (GameScreen מעדכן בכל פריים): הם מציגים את תנוחת ההתקפה */
+object AttackPose {
+    @Volatile
+    var ids: Set<Int> = emptySet()
+}
+
 /** כל הפריימים של מפלצת אחת */
 class MonsterSheet(
     val idle: MonsterSprite,
@@ -150,10 +156,10 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 frames.add(cut(atlas, row, column) ?: return null)
             }
             // עובי המסגרת יחסי לגובה הדמות, כך שבכל הגדלים היא נראית אותו דבר
-            val pad = max(3, frames[0].height / 36)
+            // בלי מסגרת לבנה: הציורים החדשים כבר נראים טוב על הרקע (pad = 0)
             fun sprite(column: Int): MonsterSprite {
                 val src = frames[column]
-                return MonsterSprite(outlined(src, pad).asImageBitmap(), src.width, src.height, pad)
+                return MonsterSprite(src.asImageBitmap(), src.width, src.height, 0)
             }
             return MonsterSheet(
                 idle = sprite(0),
