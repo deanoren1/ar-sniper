@@ -68,6 +68,9 @@ private const val STOP_POINTS = 100
 /** מרווח נוסף סביב האצבע בלחיצה על קליע (ביחידות גובה מסך), ובירי עם הכוונת */
 private const val TAP_SLACK = 0.06f
 
+/** מחיר החייאה ביהלומים */
+private const val REVIVE_COST = 3
+
 /** מרחק הכדורים הצדדיים בנשק הפיזור (בקואורדינטות עולם) */
 private const val SPREAD_OFFSET = 0.05f
 
@@ -174,6 +177,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var showHit by remember { mutableStateOf(false) }
     // יהלומים שנאספו בריצה הזאת (לתצוגה בסוף)
     var diamondsGained by remember { mutableStateOf(0) }
+    // מספר ההחייאות בריצה (מותר אחת)
+    var revives by remember { mutableStateOf(0) }
     var started by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(0f) }
     // רעידת מסך (0..1): פגיעה בשחקן, שאגת בוס, מוות הבוס. דועכת מהר
@@ -609,8 +614,32 @@ fun GameScreen(modifier: Modifier = Modifier) {
     }
     fireRef[0] = { fireNow() }
 
+    // החייאה ביהלומים: חוזרים לאותו גל עם 2 לבבות, מחסנית והלם מלאים
+    fun reviveRun() {
+        if (director.phase != ArenaPhase.Lost || revives >= 1) return
+        if (!PlayerProfile.spendDiamonds(REVIVE_COST)) return
+        revives += 1
+        enemies = emptyList()
+        blasts = emptyList()
+        poofs = emptyList()
+        loot.reset()
+        fire.reset()
+        weapon.refill()
+        shock.chargeNow()
+        AttackPose.ids = emptySet()
+        AttackPose.progress = emptyMap()
+        AttackPose.bossSinceFire = 999f
+        AttackPose.bossStunned = false
+        AttackPose.bossEnraged = false
+        flash = 0f
+        sfxMemo.phase = null
+        sfxMemo.damagedThisWave = true
+        director.revive()
+    }
+
     fun retry() {
         bankRun()
+        revives = 0
         enemies = emptyList()
         blasts = emptyList()
         score = 0
@@ -848,6 +877,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 wave = director.waveIndex + 1,
                 diamondsGained = diamondsGained,
                 totalCoins = PlayerProfile.coins,
+                reviveCost = if (revives < 1) REVIVE_COST else 0,
+                diamonds = PlayerProfile.diamonds,
+                onRevive = { reviveRun() },
                 onRetry = { retry() }
             )
         }

@@ -192,6 +192,19 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         return value
     }
 
+    /** החייאה אחרי הפסד: חוזרים לאותו גל עם 2 לבבות ומפלצות חדשות */
+    fun revive() {
+        if (phase != ArenaPhase.Lost) return
+        hearts = REVIVE_HEARTS
+        foeById.clear()
+        counted.clear()
+        lastSeen.clear()
+        teleportQueue.clear()
+        teleportEvents.clear()
+        invulnerableLeft = 0f
+        loadWave(waveIndex)
+    }
+
     /** פרס לב: מחזיר לב אחד. true אם הוסיף (כלומר חסר לב) */
     fun heal(): Boolean {
         if (phase != ArenaPhase.Fighting || hearts >= MAX_HEARTS) return false
@@ -387,6 +400,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
     companion object {
         const val MAX_HEARTS = 3
+        const val REVIVE_HEARTS = 2
         const val INTRO_SECONDS = 2.2f
         const val CLEAR_SECONDS = 3.0f
 

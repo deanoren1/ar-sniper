@@ -116,6 +116,9 @@ fun EndOverlay(
     wave: Int,
     diamondsGained: Int,
     totalCoins: Int,
+    reviveCost: Int,
+    diamonds: Int,
+    onRevive: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -173,6 +176,26 @@ fun EndOverlay(
                 fontSize = 16.sp,
                 modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
             )
+            if (!won && reviveCost > 0) {
+                Button(
+                    onClick = onRevive,
+                    enabled = diamonds >= reviveCost,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00ACC1)),
+                    modifier = Modifier.padding(bottom = 10.dp)
+                ) {
+                    Text(text = "REVIVE   ", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    DiamondIcon(size = 22.dp)
+                    Text(text = " $reviveCost", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+                if (diamonds < reviveCost) {
+                    Text(
+                        text = "Need $reviveCost diamonds (you have $diamonds)",
+                        color = Color(0xFF84FFFF),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+            }
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
