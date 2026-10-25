@@ -18,6 +18,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
+          gradle-version: 8.14.3
           cache-disabled: true
 
       - name: Build debug APK
