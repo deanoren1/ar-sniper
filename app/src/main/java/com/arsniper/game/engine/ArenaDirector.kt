@@ -119,6 +119,11 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
     private var minionCycle = 0
 
+    /** הבוס נפל: אנימציית מוות רצה, ואז הארנה נוצחת */
+    var bossDying: Boolean = false
+        private set
+    private var winTimer = 0f
+
     /** האם הגל הנוכחי הוא גל הבוס */
     val isBossWave: Boolean get() = currentWave.foes.contains(Foe.Dragon)
 
@@ -163,6 +168,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         bossMax = 0
         bossAlive = false
         minionCycle = 0
+        bossDying = false
         phase = ArenaPhase.Intro
         phaseTimer = INTRO_SECONDS
         spawnCooldown = 0f
@@ -231,6 +237,12 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
             else -> Unit
         }
 
+        if (bossDying) {
+            winTimer -= dt
+            if (winTimer <= 0f) phase = ArenaPhase.Won
+            return enemies
+        }
+
         // הריגות: אויב של הארנה שמסומן מת. אויב שנעלם מהרשימה בלי למות (יצא מהעולם) חוזר לתור
         for (e in enemies) {
             if (!e.isAlive && foeById.containsKey(e.id) && counted.add(e.id)) killedInWave++
@@ -242,9 +254,11 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
             bossHp = if (boss.isAlive) boss.hp.coerceAtLeast(1) else 0
             bossAlive = boss.isAlive
             if (!boss.isAlive && isBossWave) {
+                // הבוס נפל: כל המפלצות הרגילות מתפוצצות איתו, ואחרי אנימציית המוות הארנה נוצחת
+                bossDying = true
+                winTimer = BOSS_DEATH_SECONDS
                 pendingBonus += BOSS_BONUS
-                phase = ArenaPhase.Won
-                return enemies
+                return enemies.map { if (it.id != BOSS_ID && it.isAlive) it.copy(isAlive = false) else it }
             }
         }
         // בגל הבוס המפלצות הרגילות ממשיכות להגיע עד שהבוס נופל
@@ -377,6 +391,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         /** בונוס סיום גל, כפול מספר הגל */
         private const val CLEAR_BONUS = 200
         private const val BOSS_BONUS = 2000
+        private const val BOSS_DEATH_SECONDS = 2.4f
 
         /** המפלצות הרגילות שמצטרפות לבוס, בסבב */
         private val MINIONS = listOf(Foe.Balloon, Foe.Octopus, Foe.Balloon, Foe.Alien)

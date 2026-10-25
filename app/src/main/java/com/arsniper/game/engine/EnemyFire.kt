@@ -98,6 +98,12 @@ class EnemyFire(private val random: Random = Random.Default) {
             telegraphViews.clear()
             return FireOutcome(0, emptyList())
         }
+        if (director.bossDying) {
+            shots.clear()
+            telegraphs.clear()
+            telegraphViews.clear()
+            return FireOutcome(0, emptyList())
+        }
         time += dt
         val wave = director.currentWave
         val stopped = ArrayList<Vec2>()

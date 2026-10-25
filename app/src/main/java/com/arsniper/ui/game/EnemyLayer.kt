@@ -54,6 +54,11 @@ import kotlin.math.sin
 /** משך אנימציית הפגיעה (שניות): המפלצת נופלת עם כוכבים, ואז נעלמת בענן */
 private const val DEATH_SECONDS = 0.7f
 
+/** מוות הבוס ארוך יותר: נופל, שוכב ומתפוצץ */
+private const val BOSS_DEATH_SECONDS = 2.2f
+
+private fun deathSeconds(enemy: Enemy): Float = if (enemy.id == ArenaDirector.BOSS_ID) BOSS_DEATH_SECONDS else DEATH_SECONDS
+
 /** משך הבהוב האדום והרעידה אחרי פגיעה שלא הורגת (שניות) */
 private const val HURT_SECONDS = 0.35f
 
@@ -122,7 +127,7 @@ fun EnemyLayer(
         val iterator = dying.entries.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()
-            if (nowS - entry.value.since > DEATH_SECONDS) {
+            if (nowS - entry.value.since > deathSeconds(entry.value.enemy)) {
                 finished.add(entry.key)
                 iterator.remove()
             }
@@ -134,7 +139,7 @@ fun EnemyLayer(
         }
         if (sprites != null) {
             for ((_, d) in dying) {
-                items.add(DrawItem(d.enemy, true, ((nowS - d.since) / DEATH_SECONDS).toFloat().coerceIn(0f, 1f)))
+                items.add(DrawItem(d.enemy, true, ((nowS - d.since) / deathSeconds(d.enemy)).toFloat().coerceIn(0f, 1f)))
             }
         }
         // מהרחוק לקרוב: הדמות שרגליה נמוכות יותר במסך (קרובה יותר) מצוירת אחרונה, מעל האחרות
@@ -368,7 +373,9 @@ private fun DrawScope.drawMonster(
 ) {
     val gait = Gait.of(enemy)
     val walking = !dead && gait.swing > 0f
-    val sprite: MonsterSprite = if (dead) {
+    val sprite: MonsterSprite = if (dead && sheet.bossAnim != null) {
+        sheet.bossAnim.death[(progress * 6f).toInt().coerceIn(0, 5)]
+    } else if (dead) {
         sheet.hit
     } else if (walking) {
         // המבט נקבע לפי כיוון ההליכה: אל המצלמה = מבט קדמי, מתרחקת = גב, לרוחב = צד.
@@ -439,7 +446,9 @@ private fun DrawScope.drawMonster(
             shakeX = sin(anim * 55f) * r * 0.04f
         }
     }
-    val alpha = if (dead) {
+    val alpha = if (dead && sheet.bossAnim != null) {
+        if (progress < 0.9f) 1f else (1f - (progress - 0.9f) * 10f).coerceIn(0f, 1f)
+    } else if (dead) {
         if (progress < 0.5f) 1f else (1f - (progress - 0.5f) * 2f).coerceIn(0f, 1f)
     } else {
         1f
@@ -471,7 +480,7 @@ private fun DrawScope.drawMonster(
     val padPx = sprite.pad * k * sy
     val left = cx - width / 2f + shakeX
     val top = feetY + padPx - height - hop
-    val flip = (walking || dead) && enemy.direction < 0f && (dead || abs(enemy.dirY) <= 0.5f)
+    val flip = sheet.bossAnim == null && (walking || dead) && enemy.direction < 0f && (dead || abs(enemy.dirY) <= 0.5f)
 
     val drawSprite: DrawScope.() -> Unit = {
         drawImage(
@@ -492,8 +501,23 @@ private fun DrawScope.drawMonster(
         }
     }
 
+    // בוס מת: פיצוצי אש סביב הגוף שגדלים ודועכים
+    if (dead && sheet.bossAnim != null) {
+        val body = Offset(cx, feetY - targetHeight * 0.3f)
+        for (i in 0 until 9) {
+            val local = (progress * 1.6f - i * 0.07f).coerceIn(0f, 1f)
+            if (local <= 0f || local >= 1f) continue
+            val angle = i * 2.4f
+            val reach = targetHeight * (0.15f + 0.4f * (((i * 37) % 10) / 10f))
+            val center = Offset(body.x + cos(angle) * reach * 1.4f, body.y + sin(angle) * reach * 0.6f)
+            val radius = targetHeight * (0.06f + 0.16f * local)
+            drawCircle(Color(0xFFFFC107).copy(alpha = (1f - local) * 0.85f), radius, center)
+            drawCircle(Color(0xFFFF5722).copy(alpha = (1f - local) * 0.6f), radius * 1.5f, center)
+        }
+    }
+
     // ענן קטן בזמן הפגיעה
-    if (dead && progress < 0.6f) {
+    if (dead && sheet.bossAnim == null && progress < 0.6f) {
         val puff = progress / 0.6f
         val puffAlpha = (1f - puff) * 0.7f
         // מפלצת בלונים: הבלונים מתפוצצים בחתיכות אדומות מעל הראש

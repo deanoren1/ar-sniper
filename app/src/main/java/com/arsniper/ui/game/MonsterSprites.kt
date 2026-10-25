@@ -54,7 +54,9 @@ class BossAnim(
     val idle: List<MonsterSprite>,
     val prep: List<MonsterSprite>,
     val fire: List<MonsterSprite>,
-    val hit: List<MonsterSprite>
+    val hit: List<MonsterSprite>,
+    /** מוות: 6 פריימים (נופל, שוכב, מתפוצץ) */
+    val death: List<MonsterSprite>
 )
 
 /** כל הפריימים של מפלצת אחת */
@@ -255,10 +257,10 @@ class MonsterSprites private constructor(
         }
 
         private const val BOSS_COLUMNS = 6
-        private const val BOSS_ROWS = 4
+        private const val BOSS_ROWS = 5
 
         /**
-         * גיליון הבוס (boss_anim.png): 6 עמודות על 4 שורות: עמידה (6 פריימים), הכנה (5), ירייה (2), פגיעה (4).
+         * גיליון הבוס (boss_anim.png): 6 עמודות על 5 שורות: עמידה (6 פריימים), הכנה (5), ירייה (2), פגיעה (4), מוות (6).
          * אין קובץ: null והבוס יצויר כמפלצת רגילה.
          */
         private fun loadBoss(context: Context): MonsterSheet? {
@@ -286,14 +288,15 @@ class MonsterSprites private constructor(
             val prep = line(1, 5)
             val fire = line(2, 2)
             val hit = line(3, 4)
-            if (idle.size < 6 || prep.size < 5 || fire.size < 2 || hit.size < 4) return null
+            val death = line(4, 6)
+            if (idle.size < 6 || prep.size < 5 || fire.size < 2 || hit.size < 4 || death.size < 6) return null
             return MonsterSheet(
                 idle = idle[3],
                 walk = listOf(idle[1], idle[2], idle[4], idle[5]),
                 peek = prep[3],
                 hit = hit[1],
                 sizeScale = 1.0f,
-                bossAnim = BossAnim(idle, prep, fire, hit)
+                bossAnim = BossAnim(idle, prep, fire, hit, death)
             )
         }
 

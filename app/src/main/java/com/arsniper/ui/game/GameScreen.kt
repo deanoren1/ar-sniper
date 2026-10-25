@@ -50,6 +50,9 @@ import com.arsniper.game.model.GameCamera
 import com.arsniper.game.model.Vec2
 import com.arsniper.game.model.WorldMapper
 import com.arsniper.ml.SceneSession
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.sin
 import kotlinx.coroutines.delay
 
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
@@ -153,6 +156,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var showHit by remember { mutableStateOf(false) }
     var started by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(0f) }
+    // רעידת מסך (0..1): פגיעה בשחקן, שאגת בוס, מוות הבוס. דועכת מהר
+    var shake by remember { mutableStateOf(0f) }
 
     // פיצוצים של נקודות תורפה, וזמן הפריים הנוכחי (מפעיל את האנימציה שלהם)
     var blasts by remember { mutableStateOf(emptyList<Blast>()) }
@@ -216,6 +221,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         val newlyTelegraphing = telegraphing - AttackPose.ids
                         if (newlyTelegraphing.isNotEmpty()) {
                             soundPlayer.play(if (ArenaDirector.BOSS_ID in newlyTelegraphing) Sfx.BossRoar else Sfx.Telegraph)
+                            if (ArenaDirector.BOSS_ID in newlyTelegraphing) shake = max(shake, 0.3f)
                         }
                         if (fire.launchCount != sfxMemo.launches) {
                             if (fire.launchCount > sfxMemo.launches) soundPlayer.play(Sfx.Launch)
@@ -240,6 +246,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         for (i in 0 until out.playerHits) {
                             if (director.hitPlayer()) {
                                 soundPlayer.play(Sfx.PlayerHit)
+                                shake = max(shake, 0.7f)
                                 combo.reset()
                                 flash = FLASH_START
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -276,6 +283,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         if (live.size != floaters.size) floaters = live
                     }
                     if (flash > 0f) flash = (flash - FLASH_DECAY_PER_SECOND * dt).coerceAtLeast(0f)
+                    if (director.bossDying) shake = max(shake, 0.55f)
+                    if (shake > 0f) shake = (shake - 2.0f * dt).coerceAtLeast(0f)
                 }
                 lastFrameNanos = now
                 frameNanos = now
@@ -287,11 +296,21 @@ fun GameScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // הבוס מת: שאגה אחרונה ופיצוץ
+    LaunchedEffect(director.bossDying) {
+        if (director.bossDying) {
+            soundPlayer.play(Sfx.BossRoar)
+            soundPlayer.play(Sfx.EnemyDie, 0.7f)
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
     // הבוס נכנס לשליש האחרון: כרזה קצרה ושאגה
     var rageBanner by remember { mutableStateOf(false) }
     LaunchedEffect(director.bossEnraged) {
         if (director.bossEnraged) {
             soundPlayer.play(Sfx.BossRoar)
+            shake = max(shake, 0.9f)
             rageBanner = true
             delay(1700)
             rageBanner = false
@@ -396,8 +415,11 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     transformOrigin = TransformOrigin(0f, 0f)
                     scaleX = camera.zoom
                     scaleY = camera.zoom
-                    translationX = (0.5f - camera.center.x * camera.zoom) * size.width
-                    translationY = (0.5f - camera.center.y * camera.zoom) * size.height
+                    val t = frameNanos / 1e9f
+                    val shakeX = sin(t * 83f) * shake * size.width * 0.012f
+                    val shakeY = cos(t * 97f) * shake * size.height * 0.016f
+                    translationX = (0.5f - camera.center.x * camera.zoom) * size.width + shakeX
+                    translationY = (0.5f - camera.center.y * camera.zoom) * size.height + shakeY
                 }
         ) {
             BackgroundLayer(photo = photo)
