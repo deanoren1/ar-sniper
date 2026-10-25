@@ -241,7 +241,9 @@ fun EnemyLayer(
                     val ownBalloons = Hover.isBalloonMonster(enemy)
                     val kind = if (ownBalloons) AccessoryKind.Balloon else Accessories.kindOf(enemy)
                     val accessory = if (ownBalloons) {
-                        AccessorySpot(box.cx, box.headY + box.height * 0.2f, box.halfWidth * 0.85f)
+                        // פחות בלונים: אזור הפגיעה קטן יותר
+                        val share = if (enemy.maxHp > 0) enemy.hp.coerceIn(1, 3) else 3
+                        AccessorySpot(box.cx, box.headY + box.height * 0.2f, box.halfWidth * (0.45f + 0.15f * share))
                     } else {
                         accessorySpot(kind, box, size.height)
                     }
@@ -342,7 +344,7 @@ private fun DrawScope.drawMonster(
     } else if (walking) {
         // המבט נקבע לפי כיוון ההליכה: אל המצלמה = מבט קדמי, מתרחקת = גב, לרוחב = צד.
         // התנועה עצמה נוצרת בקפיצות, הטיות ולחיצות של אותו ציור (החלפת תנוחות בהליכה נראתה קופצנית)
-        val moves = sheet.moves
+        val moves = movesFor(sheet, enemy)
         if (moves != null) {
             // פריימי הליכה אמיתיים: פריים לפי שלב המחזור (אותו קצב כמו התנועה, כך שהרגליים לא "מחליקות")
             val list = if (enemy.dirY > 0.5f) {
@@ -360,7 +362,8 @@ private fun DrawScope.drawMonster(
     } else if (AttackPose.ids.contains(enemy.id)) {
         sheet.peek
     } else {
-        sheet.idle
+        // מפלצת בלונים שאיבדה בלון: עומדת בציור של מספר הבלונים שנשאר
+        sheet.fewer[balloonsLeft(sheet, enemy)]?.front?.get(0) ?: sheet.idle
     }
 
     val cx = center.x
@@ -473,6 +476,16 @@ private fun DrawScope.drawMonster(
         }
     }
 }
+
+/** כמה בלונים נשארו למפלצת הבלונים (1..2 = פחות מהמלא), או 0 אם היא מלאה או לא מפלצת בלונים */
+private fun balloonsLeft(sheet: MonsterSheet, enemy: Enemy): Int {
+    if (!Hover.isBalloonMonster(enemy) || enemy.maxHp <= 0 || sheet.fewer.isEmpty()) return 0
+    return if (enemy.hp in 1..2) enemy.hp else 0
+}
+
+/** לולאות ההליכה של המפלצת: של מספר הבלונים שנשאר אם יש ציור כזה, אחרת הרגילות */
+private fun movesFor(sheet: MonsterSheet, enemy: Enemy): WalkSet? =
+    sheet.fewer[balloonsLeft(sheet, enemy)] ?: sheet.moves
 
 /**
  * מד חיים: פס עם תא לכל נקודת חיים. ירוק, ואז צהוב ואדום כשנשאר מעט.

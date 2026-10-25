@@ -42,7 +42,9 @@ class MonsterSheet(
     /** גודל יחסי של המפלצת (גובה העמידה שלה ביחס לגודל "אדם" באותו מקום) */
     val sizeScale: Float,
     /** פריימי הליכה אמיתיים (אם הועלה גיליון הליכה למפלצת הזאת), אחרת null וההליכה מדומה */
-    val moves: WalkSet? = null
+    val moves: WalkSet? = null,
+    /** מפלצת הבלונים עם פחות בלונים: המפתח הוא מספר הבלונים שנשארו (2 או 1). ריק אם אין ציורים */
+    val fewer: Map<Int, WalkSet> = emptyMap()
 )
 
 /** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
@@ -102,7 +104,12 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
             if (atlas.width < COLUMNS || atlas.height < ROWS) return null
             val sheets = ArrayList<MonsterSheet>()
             for (row in SIZE_SCALES.indices) {
-                val sheet = loadSheet(atlas, row, loadWalk(context, row)) ?: continue
+                // מפלצת הבלונים (שורה 3): אם יש ציורים עם 2 או 1 בלונים (walk_3_2, walk_3_1), טוענים גם אותם
+                val fewer = HashMap<Int, WalkSet>()
+                for (balloons in 1..2) {
+                    loadWalk(context, row, "walk_${row}_$balloons")?.let { fewer[balloons] = it }
+                }
+                val sheet = loadSheet(atlas, row, loadWalk(context, row, "walk_$row"), fewer) ?: continue
                 sheets.add(sheet)
             }
             return if (sheets.isEmpty()) null else MonsterSprites(sheets)
@@ -168,8 +175,8 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
          * צד, קדימה, אחורה, ריצה. בכל שורה כל הפריימים נחתכים באותו מלבן, כדי שהתנועה בתוך הפריים תישמר.
          * אין קובץ: מחזיר null.
          */
-        private fun loadWalk(context: Context, row: Int): WalkSet? {
-            val id = context.resources.getIdentifier("walk_$row", "drawable", context.packageName)
+        private fun loadWalk(context: Context, row: Int, name: String): WalkSet? {
+            val id = context.resources.getIdentifier(name, "drawable", context.packageName)
             if (id == 0) return null
             val options = BitmapFactory.Options().apply {
                 inScaled = false
@@ -218,7 +225,7 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
             return WalkSet(side = lines[0], front = lines[1], back = lines[2], run = lines[3])
         }
 
-        private fun loadSheet(atlas: Bitmap, row: Int, moves: WalkSet?): MonsterSheet? {
+        private fun loadSheet(atlas: Bitmap, row: Int, moves: WalkSet?, fewer: Map<Int, WalkSet>): MonsterSheet? {
             val frames = ArrayList<Bitmap>()
             for (column in 0 until COLUMNS) {
                 frames.add(cut(atlas, row, column) ?: return null)
@@ -235,7 +242,8 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 peek = sprite(5),
                 hit = sprite(6),
                 sizeScale = SIZE_SCALES[row],
-                moves = moves
+                moves = moves,
+                fewer = fewer
             )
         }
 

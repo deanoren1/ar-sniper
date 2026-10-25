@@ -69,7 +69,7 @@ private const val ZOOM_STEP = 0.5f
 private const val BASE_ZOOM = 1.2f
 
 /** חיים לכל מפלצת, לפי סדר השורות בגיליון המפלצות: ורוד, סגול, ירוק, כתום, כחול */
-private val MONSTER_HP = intArrayOf(2, 3, 1, 2, 3)
+private val MONSTER_HP = intArrayOf(2, 3, 1, 3, 3)
 
 /** ניקוד על פגיעה שלא הורגת (הריגה נותנת את הניקוד המלא) */
 private const val HURT_POINTS = 25
@@ -431,7 +431,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         if (outcome.killedIds.contains(it.id)) {
                             it.copy(isAlive = false)
                         } else if (outcome.damagedIds.contains(it.id)) {
-                            hurt(it, Accessories.BOMB_SPLASH_DAMAGE, now)
+                            hurt(it, if (outcome.kind == AccessoryKind.Balloon) 1 else Accessories.BOMB_SPLASH_DAMAGE, now)
                         } else {
                             it
                         }

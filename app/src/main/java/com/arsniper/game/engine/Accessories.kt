@@ -65,12 +65,9 @@ object Accessories {
     private const val BOMB_POINTS_PER_KILL = 200
     private const val BOMB_COMBO_BONUS = 100
 
+    /** פצצה או יהלום לסירוגין. בלון הוא רק של מפלצת הבלונים (הבלונים שבציור שלה), ולא של שאר המפלצות */
     fun kindOf(enemy: Enemy): AccessoryKind =
-        when (((enemy.id % 3) + 3) % 3) {
-            0 -> AccessoryKind.Balloon
-            1 -> AccessoryKind.Bomb
-            else -> AccessoryKind.Gem
-        }
+        if (((enemy.id % 2) + 2) % 2 == 0) AccessoryKind.Bomb else AccessoryKind.Gem
 
     /** האם לאויב יש כרגע אביזר גלוי שאפשר לפגוע בו */
     fun isActive(enemy: Enemy): Boolean =
@@ -110,10 +107,11 @@ object Accessories {
     fun explode(hit: AccessoryTarget, enemies: List<Enemy>, aspect: Float): AccessoryOutcome {
         val carrier = hit.enemy
         return when (hit.kind) {
+            // בלון אחד מתפוצץ בכל פגיעה: המפלצת נופלת רק כשהבלון האחרון מתפוצץ
             AccessoryKind.Balloon -> AccessoryOutcome(
-                killedIds = setOf(carrier.id),
-                damagedIds = emptySet(),
-                points = BALLOON_POINTS,
+                killedIds = if (carrier.hp <= 1) setOf(carrier.id) else emptySet(),
+                damagedIds = if (carrier.hp <= 1) emptySet() else setOf(carrier.id),
+                points = if (carrier.hp <= 1) BALLOON_POINTS else BALLOON_POINTS / 3,
                 label = hit.kind.label,
                 kind = hit.kind,
                 anchor = hit.anchor,

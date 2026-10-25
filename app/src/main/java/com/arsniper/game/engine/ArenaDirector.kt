@@ -21,7 +21,7 @@ enum class Foe(
     val flightSeconds: Float,
     val shotHp: Int = 1
 ) {
-    Balloon(row = 3, hp = 2, threat = 1, shot = ShotKind.Bomb, flightSeconds = 1.8f),
+    Balloon(row = 3, hp = 3, threat = 1, shot = ShotKind.Bomb, flightSeconds = 1.8f),
     Octopus(row = 1, hp = 3, threat = 2, shot = ShotKind.Orb, flightSeconds = 1.6f),
     Alien(row = 4, hp = 3, threat = 2, shot = ShotKind.Gas, flightSeconds = 1.9f),
     Giant(row = 0, hp = 4, threat = 3, shot = ShotKind.Rock, flightSeconds = 2.1f, shotHp = 2),
