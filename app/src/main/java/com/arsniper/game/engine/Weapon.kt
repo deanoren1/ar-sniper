@@ -36,12 +36,17 @@ class Weapon(
     var sinceShot: Float = 999f
         private set
 
+    /** כמה זמן עבר מאז שהרובה "נשלף" (תחילת גל), לאנימציית העלייה */
+    var sinceEquip: Float = 999f
+        private set
+
     /** התקדמות הטעינה 0..1 (0 כשלא טוענת) */
     val reloadProgress: Float
         get() = if (reloading) (reloadElapsed / reloadSeconds).coerceIn(0f, 1f) else 0f
 
     fun update(dt: Float) {
         sinceShot += dt
+        sinceEquip += dt
         if (reloading) {
             reloadElapsed += dt
             if (reloadElapsed >= reloadSeconds) {
@@ -78,6 +83,7 @@ class Weapon(
 
     /** מחסנית מלאה מיד (בתחילת גל) */
     fun refill() {
+        sinceEquip = 0f
         ammo = magSize
         reloading = false
         reloadElapsed = 0f
