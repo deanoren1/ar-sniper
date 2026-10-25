@@ -206,6 +206,19 @@ class EnemyFire(private val random: Random = Random.Default) {
         )
     }
 
+    /** מסחרר מפלצת (הלם): לא תוקפת כמה שניות, וקוטע את ההכנה שלה */
+    fun stun(enemyId: Int, seconds: Float) {
+        disabledUntil[enemyId] = max(disabledUntil[enemyId] ?: 0f, time + seconds)
+        cancelTelegraph(enemyId)
+    }
+
+    /** מנקה את כל הקליעים וההכנות באוויר (הלם) */
+    fun clearAll() {
+        shots.clear()
+        telegraphs.clear()
+        telegraphViews.clear()
+    }
+
     /** פגיעה בנקודת תורפה: מפעילה את ההשפעה שלה על המפלצת */
     fun applyZone(enemyId: Int, zone: Zone) {
         if (zone.cancel) cancelTelegraph(enemyId)

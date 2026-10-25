@@ -55,7 +55,13 @@ enum class Sfx(val res: Int, val volume: Float = 1f) {
     Reload(R.raw.sfx_reload, 0.9f),
 
     /** נאסף פרס */
-    Pickup(R.raw.sfx_pickup)
+    Pickup(R.raw.sfx_pickup),
+
+    /** הלם */
+    Boom(R.raw.sfx_boom),
+
+    /** מטבע או יהלום */
+    Gem(R.raw.sfx_gem, 0.8f)
 }
 
 /** עטיפה ל-SoundPool: טוענת את כל האפקטים ומנגנת אותם בהשהיה נמוכה. */

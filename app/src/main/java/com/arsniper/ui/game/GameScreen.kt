@@ -41,6 +41,7 @@ import com.arsniper.game.engine.Loot
 import com.arsniper.game.engine.LootKind
 import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.ShotResult
+import com.arsniper.game.engine.Shockwave
 import com.arsniper.game.engine.WeakZones
 import com.arsniper.game.engine.Weapon
 import com.arsniper.game.engine.SceneContext
@@ -64,6 +65,9 @@ private const val STOP_POINTS = 100
 
 /** מרווח נוסף סביב האצבע בלחיצה על קליע (ביחידות גובה מסך), ובירי עם הכוונת */
 private const val TAP_SLACK = 0.06f
+
+/** ניקוד על כל מפלצת שההלם מחסל (חצי מהריגה רגילה, בלי קומבו) */
+private const val SHOCK_KILL_POINTS = 100
 private const val FIRE_SLACK = 0.02f
 
 /** כמה זמן נמשך הבהוב האדום כשהשחקן נפגע */
@@ -131,6 +135,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
     // הרובה: מחסנית וטעינה. ammoShown/reloadingShown מעדכנים את מד הכדורים רק כשהם משתנים
     val weapon = remember { Weapon() }
     val loot = remember { Loot() }
+    val shock = remember { Shockwave() }
+    var shockStart by remember { mutableStateOf(0L) }
     val weaponArt = rememberWeaponArt()
     var ammoShown by remember { mutableStateOf(weapon.ammo) }
     var reloadingShown by remember { mutableStateOf(false) }
@@ -281,6 +287,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     }
                     combo.update(dt)
                     weapon.update(dt)
+                    if (director.phase == ArenaPhase.Fighting && !director.bossDying) shock.update(dt)
                     if (weapon.ammo != ammoShown) ammoShown = weapon.ammo
                     if (weapon.reloading != reloadingShown) {
                         if (weapon.reloading) soundPlayer.play(Sfx.Reload)
@@ -344,6 +351,36 @@ fun GameScreen(modifier: Modifier = Modifier) {
     val latestCamera by rememberUpdatedState(camera)
     val latestAspect by rememberUpdatedState(aspect)
 
+    // הלם: מחסל את כל המפלצות הרגילות וכל הקליעים. הבוס לא מת: מאבד 15% מהחיים ומסוחרר
+    fun triggerShock() {
+        if (director.phase != ArenaPhase.Fighting || director.bossDying) return
+        if (!shock.trigger()) return
+        soundPlayer.play(Sfx.Boom)
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        shake = max(shake, 1.3f)
+        shockStart = frameNanos
+        fire.clearAll()
+        val now = nowSeconds()
+        var kills = 0
+        enemies = enemies.map { e ->
+            if (!e.isAlive) {
+                e
+            } else if (e.id == ArenaDirector.BOSS_ID) {
+                val cut = kotlin.math.ceil(e.maxHp * Shockwave.BOSS_DAMAGE_FRACTION).toInt()
+                e.copy(hp = (e.hp - cut).coerceAtLeast(1), hurtAt = now)
+            } else {
+                kills++
+                sfxMemo.lootSeen.add(e.id)
+                e.copy(isAlive = false)
+            }
+        }
+        fire.stun(ArenaDirector.BOSS_ID, Shockwave.BOSS_STUN_SECONDS)
+        if (kills > 0) {
+            score += kills * SHOCK_KILL_POINTS
+            floaters = floaters + Floater(0.5f, 0.35f, "SHOCKWAVE  +${kills * SHOCK_KILL_POINTS}", frameNanos, big = true)
+        }
+    }
+
     // איסוף פרס: לב מחזיר חיים (אם כבר מלא: נקודות), כדורים ממלאים את המחסנית מיד
     fun collectLoot(drop: com.arsniper.game.engine.LootDrop) {
         soundPlayer.play(Sfx.Pickup)
@@ -370,6 +407,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     fun onIntercept(result: com.arsniper.game.engine.Intercept) {
         val shot = result.shot
         soundPlayer.play(if (result.destroyed) Sfx.Deflect else Sfx.Crack)
+        if (result.destroyed) shock.reward()
         if (result.destroyed) {
             award(BLOCK_POINTS, shot.x, shot.y)
             blasts = blasts + Blast(
@@ -403,6 +441,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
         combo.reset()
         fire.reset()
         weapon.reset()
+        shock.reset()
+        shockStart = 0L
         loot.reset()
         sfxMemo.lootSeen.clear()
         AttackPose.ids = emptySet()
@@ -534,6 +574,16 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(top = 16.dp, end = 16.dp)
         )
 
+        ShockButton(
+            fraction = shock.fraction,
+            ready = shock.ready && director.phase == ArenaPhase.Fighting,
+            nowNanos = frameNanos,
+            onClick = { triggerShock() },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 176.dp, bottom = 42.dp)
+        )
+
         // הרובה בתחתית המסך (בלי מגע), ומד הכדורים מעל כפתור הירי
         if (weaponArt != null) {
             WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget)
@@ -619,7 +669,10 @@ fun GameScreen(modifier: Modifier = Modifier) {
                             radius = zoneHit.hitRadius * 1.6f,
                             bornNanos = frameNanos
                         )
-                        if (killed) hitCount += 1
+                        if (killed) {
+                            hitCount += 1
+                            shock.reward()
+                        }
                     }
                 } else {
                     val result = engine.fire(crosshair, Hover.lifted(enemies, nowSeconds()), aspect)
@@ -649,6 +702,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                                     if (it.id == result.enemy.id) it.copy(isAlive = false) else it
                                 }
                                 hitCount += 1
+                                shock.reward()
                             }
                         }
                         is FireResult.Miss -> {
@@ -698,6 +752,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.align(Alignment.Center)
             )
         }
+
+        ShockwaveEffect(startNanos = shockStart, nowNanos = frameNanos)
 
         // הבהוב אדום כשנפגעים
         DamageFlash(alpha = flash)
