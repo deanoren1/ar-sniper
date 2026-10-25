@@ -1,5 +1,6 @@
 package com.arsniper.ui.game
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -14,26 +16,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+/** לב אחד, מצויר ידנית (לא טקסט: בסמסונג התו ♥ מוצג כאימוג'י אדום תמיד, בלי קשר לצבע) */
+@Composable
+fun HeartIcon(filled: Boolean, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(width = 34.dp, height = 30.dp)) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(0.5f * w, 0.95f * h)
+            cubicTo(-0.1f * w, 0.5f * h, 0.1f * w, -0.05f * h, 0.5f * w, 0.3f * h)
+            cubicTo(0.9f * w, -0.05f * h, 1.1f * w, 0.5f * h, 0.5f * w, 0.95f * h)
+            close()
+        }
+        drawPath(path, if (filled) Color(0xFFFF1744) else Color(0xFF555555))
+    }
+}
 
 /** לבבות החיים: מלאים באדום, ריקים באפור */
 @Composable
 fun HeartsRow(hearts: Int, max: Int, modifier: Modifier = Modifier) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.45f))
-            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         for (i in 0 until max) {
-            Text(
-                text = "♥",
-                color = if (i < hearts) Color(0xFFFF1744) else Color(0xFF616161),
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold
-            )
+            HeartIcon(filled = i < hearts)
         }
     }
 }
