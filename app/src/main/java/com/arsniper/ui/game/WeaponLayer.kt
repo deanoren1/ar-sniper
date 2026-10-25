@@ -103,7 +103,9 @@ fun WeaponLayer(
     }
 }
 
-private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerTarget: Offset?, timeSeconds: Float) {
+private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float) {
+    // היעד נשמר כשבר מהמסך (0..1), כמו מיקום הכוונת. ממירים לפיקסלים
+    val tracerTarget = tracerNormalized?.let { Offset(it.x * size.width, it.y * size.height) }
     val since = weapon.sinceShot
     val (row, column) = frameOf(weapon, timeSeconds)
 
