@@ -42,6 +42,7 @@ import kotlinx.coroutines.withContext
 fun StartScreen(
     onStart: () -> Unit,
     onPhotoPicked: () -> Unit,
+    onShop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -99,6 +100,17 @@ fun StartScreen(
                 ) {
                     Text(text = if (busy) "LOADING..." else "PICK PHOTO", fontSize = 20.sp)
                 }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onShop,
+                enabled = !busy,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF9A825)),
+                modifier = Modifier
+                    .width(220.dp)
+                    .height(56.dp)
+            ) {
+                Text(text = "SHOP", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
             if (failed) {
                 Spacer(modifier = Modifier.height(16.dp))

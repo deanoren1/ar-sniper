@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -32,45 +33,60 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.R
 import com.arsniper.game.engine.Weapon
+import com.arsniper.game.progress.WeaponId
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
- * הרובה בגוף ראשון: גיליון אחד של 6 עמודות על 3 שורות, כל תא באותו גודל ומיושר באותו מקום:
- * שורה 0: נשימה (0-2) והדף עם הבזק (3-5). שורה 1: טעינה (6 פריימים).
- * שורה 2: עמודה 0 ריק (לא בשימוש), עמודות 1-3 שליפה (עלייה מלמטה).
+ * ציורי הרובה בגוף ראשון. Sheet = Plasma Blaster עם גיליון אנימציה (6 עמודות על 3 שורות, כל תא מיושר):
+ * שורה 0: נשימה (0-2) והדף עם הבזק (3-5). שורה 1: טעינה (6 פריימים). שורה 2: שליפה (עמודות 1-3).
+ * Still = שאר הנשקים: ציור עמידה וציור ירי, והתנועות (הדף, טעינה) נעשות בקוד.
+ * muzzleX/Y = מיקום הלוע בציור הירי (שבר מהרוחב והגובה), ממנו יוצא קו הפלזמה.
  */
-class WeaponArt(val sheet: ImageBitmap) {
-    val cell: Int = sheet.width / COLUMNS
-
-    companion object {
-        const val COLUMNS = 6
+sealed class WeaponArt {
+    class Sheet(val sheet: ImageBitmap) : WeaponArt() {
+        val cell: Int = sheet.width / 6
     }
+
+    class Still(val idle: ImageBitmap, val fire: ImageBitmap, val muzzleX: Float, val muzzleY: Float) : WeaponArt()
+}
+
+private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
+    val options = BitmapFactory.Options().apply {
+        inScaled = false
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+    }
+    val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+    bitmap.density = Bitmap.DENSITY_NONE
+    return bitmap.asImageBitmap()
 }
 
 @Composable
-fun rememberWeaponArt(): WeaponArt? {
+fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
     val context = LocalContext.current
-    return remember {
-        val options = BitmapFactory.Options().apply {
-            inScaled = false
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
-        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.weapon_sheet, options)
-        if (bitmap == null) {
-            null
-        } else {
-            bitmap.density = Bitmap.DENSITY_NONE
-            WeaponArt(bitmap.asImageBitmap())
+    return remember(weapon) {
+        when (weapon) {
+            WeaponId.Plasma -> decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
+            WeaponId.Auto -> still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
+            WeaponId.Spread -> still(context, R.drawable.weapon_spread_idle, R.drawable.weapon_spread_fire, 0.42f, 0.37f)
+            WeaponId.Sniper -> still(context, R.drawable.weapon_sniper_idle, R.drawable.weapon_sniper_fire, 0.39f, 0.35f)
         }
     }
+}
+
+private fun still(context: android.content.Context, idle: Int, fire: Int, mx: Float, my: Float): WeaponArt? {
+    val i = decode(context, idle) ?: return null
+    val f = decode(context, fire) ?: return null
+    return WeaponArt.Still(i, f, mx, my)
 }
 
 private const val TRACER_SECONDS = 0.13f
 
-/** מיקום הלוע בתוך תא ההדף (שבר מרוחב ומגובה התא), ממנו יוצא קו הפלזמה */
+/** מיקום הלוע בתא ההדף של Plasma (שבר מרוחב ומגובה התא), ממנו יוצא קו הפלזמה */
 private const val MUZZLE_X = 0.33f
 private const val MUZZLE_Y = 0.30f
 
-/** התא (שורה, עמודה) לציור עכשיו, לפי מה שהרובה עושה */
+/** התא (שורה, עמודה) לציור עכשיו בגיליון של Plasma, לפי מה שהרובה עושה */
 private fun frameOf(weapon: Weapon, timeSeconds: Float): Pair<Int, Int> {
     if (weapon.reloading) {
         return 1 to (weapon.reloadProgress * 6f).toInt().coerceIn(0, 5)
@@ -88,7 +104,7 @@ private fun frameOf(weapon: Weapon, timeSeconds: Float): Pair<Int, Int> {
 
 /**
  * מצייר את הרובה בתחתית המסך, מימין למרכז. לא מקבל מגע: הכול עובר דרכו למשחק.
- * nowNanos מגרה ציור מחדש בכל פריים. tracerTarget = היעד של הירייה האחרונה (במסך).
+ * nowNanos מגרה ציור מחדש בכל פריים. tracerTarget = היעד של הירייה האחרונה (שבר מהמסך).
  */
 @Composable
 fun WeaponLayer(
@@ -103,17 +119,27 @@ fun WeaponLayer(
     }
 }
 
+private fun DrawScope.drawTracer(muzzle: Offset, target: Offset, since: Float) {
+    if (since >= TRACER_SECONDS) return
+    val a = 1f - since / TRACER_SECONDS
+    drawLine(
+        brush = Brush.linearGradient(
+            colors = listOf(Color(0xFFB3E5FC).copy(alpha = a), Color(0xFF29B6F6).copy(alpha = a * 0.6f)),
+            start = muzzle,
+            end = target
+        ),
+        start = muzzle,
+        end = target,
+        strokeWidth = 7f * density * a + 2f
+    )
+    drawCircle(Color(0xFFE1F5FE).copy(alpha = a * 0.8f), 26f * density * (1.4f - a * 0.4f), target)
+    drawCircle(Color(0xFF40C4FF).copy(alpha = a * 0.5f), 44f * density * (1.5f - a * 0.5f), target)
+}
+
 private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float) {
     // היעד נשמר כשבר מהמסך (0..1), כמו מיקום הכוונת. ממירים לפיקסלים
     val tracerTarget = tracerNormalized?.let { Offset(it.x * size.width, it.y * size.height) }
     val since = weapon.sinceShot
-    val (row, column) = frameOf(weapon, timeSeconds)
-
-    // גודל: גובה התא הוא 55% מגובה המסך. הרובה מיושר לתחתית, וקצת יוצא מהמסך
-    val scale = size.height * 0.55f / art.cell
-    val left = size.width * 0.62f - art.cell * scale / 2f
-    val bottom = size.height + size.height * 0.02f
-    val top = bottom - art.cell * scale
 
     // הדף: דוחף אחורה (ימינה ולמטה) ומתאושש
     val kick = if (since < 0.2f) {
@@ -124,33 +150,91 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
     }
     val dx = kick * size.height * 0.02f
     val dy = kick * size.height * 0.035f
+    val bottom = size.height + size.height * 0.02f
 
-    // קו הפלזמה מהלוע עד היעד (נעלם מהר)
-    if (tracerTarget != null && since < TRACER_SECONDS) {
-        val a = 1f - since / TRACER_SECONDS
-        val muzzle = Offset(left + art.cell * scale * MUZZLE_X + dx, top + art.cell * scale * MUZZLE_Y + dy)
-        drawLine(
-            brush = Brush.linearGradient(
-                colors = listOf(Color(0xFFB3E5FC).copy(alpha = a), Color(0xFF29B6F6).copy(alpha = a * 0.6f)),
-                start = muzzle,
-                end = tracerTarget
-            ),
-            start = muzzle,
-            end = tracerTarget,
-            strokeWidth = 7f * density * a + 2f
-        )
-        drawCircle(Color(0xFFE1F5FE).copy(alpha = a * 0.8f), 26f * density * (1.4f - a * 0.4f), tracerTarget)
-        drawCircle(Color(0xFF40C4FF).copy(alpha = a * 0.5f), 44f * density * (1.5f - a * 0.5f), tracerTarget)
+    when (art) {
+        is WeaponArt.Sheet -> {
+            val (row, column) = frameOf(weapon, timeSeconds)
+            // גובה התא הוא 55% מגובה המסך. הרובה מיושר לתחתית, וקצת יוצא מהמסך
+            val scale = size.height * 0.55f / art.cell
+            val left = size.width * 0.62f - art.cell * scale / 2f
+            val top = bottom - art.cell * scale
+            if (tracerTarget != null) {
+                drawTracer(Offset(left + art.cell * scale * MUZZLE_X + dx, top + art.cell * scale * MUZZLE_Y + dy), tracerTarget, since)
+            }
+            translate(dx, dy) {
+                drawImage(
+                    image = art.sheet,
+                    srcOffset = IntOffset(column * art.cell, row * art.cell),
+                    srcSize = IntSize(art.cell, art.cell),
+                    dstOffset = IntOffset(left.toInt(), top.toInt()),
+                    dstSize = IntSize((art.cell * scale).toInt(), (art.cell * scale).toInt())
+                )
+            }
+        }
+
+        is WeaponArt.Still -> {
+            val reloading = weapon.reloading
+            // טעינה: הרובה יורד, מוטה, וחוזר
+            val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
+            val scale = size.height * 0.52f / art.idle.height
+            val left = size.width * 0.62f - art.idle.width * scale / 2f
+            val firing = !reloading && since < 0.09f
+            val image = if (firing) art.fire else art.idle
+            val top = bottom - image.height * scale
+            val ox = dx + dip * size.width * 0.03f
+            val oy = dy + dip * size.height * 0.42f
+            if (tracerTarget != null) {
+                val fireTop = bottom - art.fire.height * scale
+                drawTracer(
+                    Offset(left + art.fire.width * scale * art.muzzleX + ox, fireTop + art.fire.height * scale * art.muzzleY + oy),
+                    tracerTarget, since
+                )
+            }
+            val pivot = Offset(left + image.width * scale * 0.5f, bottom)
+            rotate(dip * -14f, pivot) {
+                translate(ox, oy) {
+                    drawImage(
+                        image = image,
+                        srcOffset = IntOffset.Zero,
+                        srcSize = IntSize(image.width, image.height),
+                        dstOffset = IntOffset(left.toInt(), top.toInt()),
+                        dstSize = IntSize((image.width * scale).toInt(), (image.height * scale).toInt())
+                    )
+                }
+            }
+        }
     }
+}
 
-    translate(dx, dy) {
-        drawImage(
-            image = art.sheet,
-            srcOffset = IntOffset(column * art.cell, row * art.cell),
-            srcSize = IntSize(art.cell, art.cell),
-            dstOffset = IntOffset(left.toInt(), top.toInt()),
-            dstSize = IntSize((art.cell * scale).toInt(), (art.cell * scale).toInt())
-        )
+/** תצוגה מקדימה של רובה (עמידה) לחנות: מצייר את ציור העמידה כך שיתאים לתיבה */
+@Composable
+fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
+    val art = rememberWeaponArt(weapon) ?: return
+    Canvas(modifier = modifier) {
+        when (art) {
+            is WeaponArt.Sheet -> {
+                val s = minOf(size.width, size.height) / art.cell
+                drawImage(
+                    image = art.sheet,
+                    srcOffset = IntOffset(0, 0),
+                    srcSize = IntSize(art.cell, art.cell),
+                    dstOffset = IntOffset(((size.width - art.cell * s) / 2f).toInt(), (size.height - art.cell * s).toInt()),
+                    dstSize = IntSize((art.cell * s).toInt(), (art.cell * s).toInt())
+                )
+            }
+
+            is WeaponArt.Still -> {
+                val s = minOf(size.width / art.idle.width, size.height / art.idle.height)
+                drawImage(
+                    image = art.idle,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(art.idle.width, art.idle.height),
+                    dstOffset = IntOffset(((size.width - art.idle.width * s) / 2f).toInt(), (size.height - art.idle.height * s).toInt()),
+                    dstSize = IntSize((art.idle.width * s).toInt(), (art.idle.height * s).toInt())
+                )
+            }
+        }
     }
 }
 
@@ -168,7 +252,23 @@ fun AmmoBar(
             .clickable(onClick = onReload)
             .padding(8.dp)
     ) {
-        Row {
+        if (magSize > 14) {
+            // מחסנית גדולה: פס אחד וספירה, במקום פס לכל כדור
+            val frac = if (reloading) 0f else ammo.toFloat() / magSize
+            Box(
+                modifier = Modifier
+                    .width(190.dp)
+                    .height(16.dp)
+                    .background(Color(0x55FFFFFF), RoundedCornerShape(4.dp))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width((190f * frac).dp)
+                        .height(16.dp)
+                        .background(Color(0xFF40C4FF), RoundedCornerShape(4.dp))
+                )
+            }
+        } else Row {
             for (i in 0 until magSize) {
                 val lit = !reloading && i < ammo
                 Box(
@@ -182,6 +282,9 @@ fun AmmoBar(
                 )
                 if (i < magSize - 1) Spacer(Modifier.width(3.dp))
             }
+        }
+        if (!reloading && ammo > 0 && magSize > 14) {
+            Text(text = "$ammo / $magSize", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp))
         }
         if (reloading) {
             Text(

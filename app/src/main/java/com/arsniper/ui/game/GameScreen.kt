@@ -42,6 +42,7 @@ import com.arsniper.game.engine.Loot
 import com.arsniper.game.engine.LootKind
 import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.ShotResult
+import com.arsniper.game.progress.Catalog
 import com.arsniper.game.engine.Shockwave
 import com.arsniper.game.engine.WeakZones
 import com.arsniper.game.engine.Weapon
@@ -66,6 +67,9 @@ private const val STOP_POINTS = 100
 
 /** מרווח נוסף סביב האצבע בלחיצה על קליע (ביחידות גובה מסך), ובירי עם הכוונת */
 private const val TAP_SLACK = 0.06f
+
+/** מרחק הכדורים הצדדיים בנשק הפיזור (בקואורדינטות עולם) */
+private const val SPREAD_OFFSET = 0.05f
 
 /** ניקוד על כל מפלצת שההלם מחסל (חצי מהריגה רגילה, בלי קומבו) */
 private const val SHOCK_KILL_POINTS = 100
@@ -134,11 +138,15 @@ fun GameScreen(modifier: Modifier = Modifier) {
     // זיכרון קטן לזיהוי אירועי צליל בלולאת המשחק (לא מצב שמצויר, ולכן לא גורם לציור מחדש)
     val sfxMemo = remember { SfxMemo() }
     // הרובה: מחסנית וטעינה. ammoShown/reloadingShown מעדכנים את מד הכדורים רק כשהם משתנים
-    val weapon = remember { Weapon() }
+    val equippedId = remember { PlayerProfile.equipped }
+    val stats = remember { PlayerProfile.equippedStats() }
+    val weapon = remember { Weapon(stats.magazine, stats.reloadSeconds) }
+    // הפניה לפונקציית הירי, כדי שלולאת המשחק תוכל לירות ברצף כשמחזיקים את הכפתור (Auto Gun)
+    val fireRef = remember { arrayOfNulls<() -> Unit>(1) }
     val loot = remember { Loot() }
     val shock = remember { Shockwave() }
     var shockStart by remember { mutableStateOf(0L) }
-    val weaponArt = rememberWeaponArt()
+    val weaponArt = rememberWeaponArt(equippedId)
     var ammoShown by remember { mutableStateOf(weapon.ammo) }
     var reloadingShown by remember { mutableStateOf(false) }
     var tracerTarget by remember { mutableStateOf<Offset?>(null) }
@@ -324,6 +332,16 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     }
                     combo.update(dt)
                     weapon.update(dt)
+                    // ירי רצוף בהחזקת הכפתור (נשק עם autoRate)
+                    if (sfxMemo.holding && stats.autoRate > 0f && director.phase == ArenaPhase.Fighting) {
+                        sfxMemo.autoTimer += dt
+                        val interval = 1f / stats.autoRate
+                        var guard = 0
+                        while (sfxMemo.autoTimer >= interval && guard++ < 3) {
+                            sfxMemo.autoTimer -= interval
+                            fireRef[0]?.invoke()
+                        }
+                    }
                     if (director.phase == ArenaPhase.Fighting && !director.bossDying) shock.update(dt)
                     if (weapon.ammo != ammoShown) ammoShown = weapon.ammo
                     if (weapon.reloading != reloadingShown) {
@@ -471,6 +489,125 @@ fun GameScreen(modifier: Modifier = Modifier) {
             )
         }
     }
+
+    // ירייה אחת בנקודה p (קואורדינטות עולם) עם נזק dmg: קליע של מפלצת, נקודת תורפה, או מפלצת
+    fun shootAt(p: Vec2, dmg: Int) {
+        val blocked = fire.intercept(p, aspect, FIRE_SLACK)
+        if (blocked != null) {
+            onIntercept(blocked)
+            return
+        }
+        val zoneHit = WeakZones.hit(p, ZoneRegistry.snapshot(), enemies, aspect)
+        if (zoneHit != null) {
+            // פגיעה בנקודת תורפה: ההשפעה של הנקודה (השבתה, בלבול, נזק מוגבר...) וניקוד
+            val zone = zoneHit.zone
+            val target = enemies.firstOrNull { it.id == zoneHit.enemy.id }
+            if (target != null) {
+                val now = nowSeconds()
+                val remaining = if (target.maxHp > 0) target.hp else hpFor(target.id)
+                val zoneDamage = if (zone.damage > 0) zone.damage + (dmg - 1) else 0
+                val killed = zoneDamage > 0 && zoneDamage >= remaining
+                enemies = enemies.map {
+                    if (it.id != target.id) {
+                        it
+                    } else if (killed) {
+                        it.copy(isAlive = false)
+                    } else if (zoneDamage > 0) {
+                        hurt(it, zoneDamage, now)
+                    } else {
+                        it
+                    }
+                }
+                fire.applyZone(target.id, zone)
+                val balloons = zone.id == WeakZones.BALLOONS.id
+                soundPlayer.play(
+                    if (balloons) Sfx.BalloonPop else if (killed) Sfx.EnemyDie else Sfx.Zone,
+                    if (balloons) 0.9f + 0.1f * (remaining % 3) else 1f
+                )
+                if (!killed && !balloons && zone.damage > 0) soundPlayer.play(Sfx.EnemyHurt)
+                award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y)
+                blasts = blasts + Blast(
+                    x = zoneHit.anchor.x,
+                    y = zoneHit.anchor.y,
+                    kind = if (balloons) AccessoryKind.Balloon else if (zone.damage >= 2) AccessoryKind.Bomb else AccessoryKind.Gem,
+                    label = zone.label,
+                    radius = zoneHit.hitRadius * 1.6f,
+                    bornNanos = frameNanos
+                )
+                if (killed) {
+                    hitCount += 1
+                    shock.reward()
+                }
+            }
+        } else {
+            val result = engine.fire(p, Hover.lifted(enemies, nowSeconds()), aspect)
+            when (result) {
+                is FireResult.Hit -> {
+                    val target = enemies.firstOrNull { it.id == result.enemy.id }
+                    val remaining = if (target == null) {
+                        1
+                    } else if (target.maxHp > 0) {
+                        target.hp
+                    } else {
+                        hpFor(target.id)
+                    }
+                    if (remaining > dmg) {
+                        // נפגעה ולא מתה: מאבדת חיים, מבהבהת ורצה
+                        soundPlayer.play(Sfx.EnemyHurt)
+                        award(HURT_POINTS, target?.position?.x ?: result.enemy.position.x, target?.position?.y ?: result.enemy.position.y, register = false)
+                        val now = nowSeconds()
+                        enemies = enemies.map {
+                            if (it.id == result.enemy.id) hurt(it, dmg, now) else it
+                        }
+                    } else {
+                        soundPlayer.play(Sfx.EnemyDie)
+                        val base = scoreManager.apply(score, result) - score
+                        award(base, result.enemy.position.x, result.enemy.position.y)
+                        enemies = enemies.map {
+                            if (it.id == result.enemy.id) it.copy(isAlive = false) else it
+                        }
+                        hitCount += 1
+                        shock.reward()
+                    }
+                }
+                is FireResult.Miss -> {
+                    // פספוס: שובר את הקומבו
+                    combo.reset()
+                }
+            }
+        }
+    }
+
+    // לחיצה על ירי: פרס בכוונת, מחסנית/טעינה, ואז כל הכדורים של הנשק (פיזור = כמה כדורים)
+    fun fireNow() {
+        if (director.phase != ArenaPhase.Fighting) {
+            soundPlayer.playShot()
+            return
+        }
+        // כוונת על פרס: אוספים אותו (בלי לצרוך כדור)
+        val picked = loot.collect(crosshair, aspect, FIRE_SLACK + 0.03f)
+        if (picked != null) {
+            collectLoot(picked)
+            return
+        }
+        when (weapon.tryFire()) {
+            ShotResult.Fired -> {
+                soundPlayer.playShot()
+                tracerTarget = Offset(crosshairOnScreen.x, crosshairOnScreen.y)
+            }
+            else -> {
+                // מחסנית ריקה או בטעינה: רק נקישה
+                soundPlayer.play(Sfx.Empty)
+                return
+            }
+        }
+        val offsets = if (stats.pellets > 1) floatArrayOf(-SPREAD_OFFSET, 0f, SPREAD_OFFSET) else floatArrayOf(0f)
+        for (offset in offsets) {
+            val dmg = Catalog.rollDamage(stats.damage, kotlin.random.Random.nextFloat())
+            shootAt(Vec2(crosshair.x + offset, crosshair.y), dmg)
+        }
+    }
+    fireRef[0] = { fireNow() }
 
     fun retry() {
         bankRun()
@@ -651,112 +788,12 @@ fun GameScreen(modifier: Modifier = Modifier) {
         )
 
         FireButton(
-            onClick = {
-                if (director.phase != ArenaPhase.Fighting) {
-                    soundPlayer.playShot()
-                    return@FireButton
-                }
-                // כוונת על פרס: אוספים אותו (בלי לצרוך כדור)
-                val picked = loot.collect(crosshair, aspect, FIRE_SLACK + 0.03f)
-                if (picked != null) {
-                    collectLoot(picked)
-                    return@FireButton
-                }
-                when (weapon.tryFire()) {
-                    ShotResult.Fired -> {
-                        soundPlayer.playShot()
-                        tracerTarget = Offset(crosshairOnScreen.x, crosshairOnScreen.y)
-                    }
-                    else -> {
-                        // מחסנית ריקה או בטעינה: רק נקישה
-                        soundPlayer.play(Sfx.Empty)
-                        return@FireButton
-                    }
-                }
-                val blocked = fire.intercept(crosshair, aspect, FIRE_SLACK)
-                if (blocked != null) {
-                    onIntercept(blocked)
-                    return@FireButton
-                }
-                val zoneHit = WeakZones.hit(crosshair, ZoneRegistry.snapshot(), enemies, aspect)
-                if (zoneHit != null) {
-                    // פגיעה בנקודת תורפה: ההשפעה של הנקודה (השבתה, בלבול, נזק מוגבר...) וניקוד
-                    val zone = zoneHit.zone
-                    val target = enemies.firstOrNull { it.id == zoneHit.enemy.id }
-                    if (target != null) {
-                        val now = nowSeconds()
-                        val remaining = if (target.maxHp > 0) target.hp else hpFor(target.id)
-                        val killed = zone.damage > 0 && zone.damage >= remaining
-                        enemies = enemies.map {
-                            if (it.id != target.id) {
-                                it
-                            } else if (killed) {
-                                it.copy(isAlive = false)
-                            } else if (zone.damage > 0) {
-                                hurt(it, zone.damage, now)
-                            } else {
-                                it
-                            }
-                        }
-                        fire.applyZone(target.id, zone)
-                        val balloons = zone.id == WeakZones.BALLOONS.id
-                        soundPlayer.play(
-                            if (balloons) Sfx.BalloonPop else if (killed) Sfx.EnemyDie else Sfx.Zone,
-                            if (balloons) 0.9f + 0.1f * (remaining % 3) else 1f
-                        )
-                        if (!killed && !balloons && zone.damage > 0) soundPlayer.play(Sfx.EnemyHurt)
-                        award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y)
-                        blasts = blasts + Blast(
-                            x = zoneHit.anchor.x,
-                            y = zoneHit.anchor.y,
-                            kind = if (balloons) AccessoryKind.Balloon else if (zone.damage >= 2) AccessoryKind.Bomb else AccessoryKind.Gem,
-                            label = zone.label,
-                            radius = zoneHit.hitRadius * 1.6f,
-                            bornNanos = frameNanos
-                        )
-                        if (killed) {
-                            hitCount += 1
-                            shock.reward()
-                        }
-                    }
-                } else {
-                    val result = engine.fire(crosshair, Hover.lifted(enemies, nowSeconds()), aspect)
-                    when (result) {
-                        is FireResult.Hit -> {
-                            val target = enemies.firstOrNull { it.id == result.enemy.id }
-                            val remaining = if (target == null) {
-                                1
-                            } else if (target.maxHp > 0) {
-                                target.hp
-                            } else {
-                                hpFor(target.id)
-                            }
-                            if (remaining > 1) {
-                                // נפגעה ולא מתה: מאבדת חיים, מבהבהת ורצה
-                                soundPlayer.play(Sfx.EnemyHurt)
-                                award(HURT_POINTS, target?.position?.x ?: result.enemy.position.x, target?.position?.y ?: result.enemy.position.y, register = false)
-                                val now = nowSeconds()
-                                enemies = enemies.map {
-                                    if (it.id == result.enemy.id) hurt(it, 1, now) else it
-                                }
-                            } else {
-                                soundPlayer.play(Sfx.EnemyDie)
-                                val base = scoreManager.apply(score, result) - score
-                                award(base, result.enemy.position.x, result.enemy.position.y)
-                                enemies = enemies.map {
-                                    if (it.id == result.enemy.id) it.copy(isAlive = false) else it
-                                }
-                                hitCount += 1
-                                shock.reward()
-                            }
-                        }
-                        is FireResult.Miss -> {
-                            // פספוס: שובר את הקומבו
-                            combo.reset()
-                        }
-                    }
-                }
+            onPress = {
+                sfxMemo.holding = true
+                sfxMemo.autoTimer = 0f
+                fireNow()
             },
+            onRelease = { sfxMemo.holding = false },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 64.dp, bottom = 32.dp)
@@ -825,5 +862,9 @@ private class SfxMemo {
     var damagedThisWave: Boolean = false
     val lootSeen = HashSet<Int>()
     var launches: Int = 0
+
+    /** כפתור הירי לחוץ, וכמה זמן עבר מהירייה הרצופה האחרונה */
+    var holding: Boolean = false
+    var autoTimer: Float = 0f
     var phase: ArenaPhase? = null
 }
