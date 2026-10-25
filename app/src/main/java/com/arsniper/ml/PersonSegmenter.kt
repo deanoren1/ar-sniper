@@ -19,6 +19,7 @@ import kotlin.math.min
  * במקום מסכה קטגורית (שמתנפחת לריבועים של 257 פיקסלים) משתמשים בהסתברות "אדם" של כל פיקסל,
  * מגדילים אותה באינטרפולציה חלקה, ולוקחים את המקסימום מכל המעברים. כך הקצוות רכים ומדויקים יותר.
  * אם המודל לא מחזיר הסתברויות, חוזרים למסכה הקטגורית כמו קודם.
+ * בסוף נמחקים כתמים קטנים ורחוקים מהאנשים (זיהוי שגוי, כמו נעל); אפשר להוסיף אותם בחזרה עם ADD.
  */
 class PersonSegmenter(context: Context) {
 
@@ -69,7 +70,8 @@ class PersonSegmenter(context: Context) {
             }
         }
 
-        return PersonMask(width, height, threshold(probability, ww, wh, k, width, height))
+        // כתמים קטנים ורחוקים מהאנשים (למשל נעל על הרצפה) הם בדרך כלל זיהוי שגוי: מוחקים אותם
+        return PersonRefiner.dropStray(PersonMask(width, height, threshold(probability, ww, wh, k, width, height)))
     }
 
     fun close() {
