@@ -8,8 +8,7 @@ import kotlin.math.roundToInt
 /**
  * מדייק את מסכת האנשים של DeepLab בעזרת SAM.
  * DeepLab גס (257x257 לחלק) ולכן הקצוות מרובעים והמסכה גולשת לרקע ולרהיטים. כאן, לכל אדם שנמצא,
- * SAM מציע שלוש מסכות מנקודה שבתוכו. מתחילים מהקטנה שמכסה את רוב ליבת האדם, וגדלים למסכה גדולה יותר
- * (כל האדם: ראש, ידיים) רק אם התוספת כמעט כולה בתוך מה ש-DeepLab סימן.
+ * SAM מציע שלוש מסכות מנקודה שבתוכו, ובוחרים את הקטנה ביותר שמכסה את רוב ליבת האדם ולא חורגת ממנו.
  * אם אין מסכה מתאימה, האדם נשאר כמו שזוהה. את התוצאה מחליקים לרזולוציית התמונה המלאה.
  * Kotlin טהור: את SAM מקבלים כפונקציה, כך אפשר לבדוק בלי Android.
  */
@@ -36,11 +35,38 @@ object PersonRefiner {
     /** מסכה גדולה יותר מתקבלת אם לפחות כל כך מהתוספת שלה בתוך הכתם ש-DeepLab סימן */
     private const val GROW_SUPPORT = 0.9f
 
-    /** ולא גדולה מפי כך משטח הכתם (אחרת זה חדר או רהיט, לא האדם) */
+    /** ולא גדולה מפי כך משטח הכתם (אחרת זו חדר או רהיט, לא האדם) */
     private const val MAX_AREA_RATIO = 2.5f
 
     /** גבול הערכים בציון (לוגיט): כדי שרמת הביטחון של SAM לא תשפיע על ההחלקה */
     private const val SCORE_CLAMP = 4f
+
+    /** כמה הנחיות SAM לכל אדם לכל היותר: הראשונה על החלק העבה ביותר, והבאות על חלקים שנשארו לא מכוסים (ראש, יד) */
+    private const val MAX_PROMPTS = 8
+
+    /** מפסיקים להוסיף חלקים כשפחות מזה מהכתם נשאר לא מכוסה */
+    private const val MIN_UNCOVERED = 0.12f
+
+    /** חלק לא מכוסה חייב להיות עבה לפחות כך (בתאי רשת), אחרת זו שארית דקה */
+    private const val MIN_PART_DEPTH = 2
+
+    /** מסכת חלק נוסף: לפחות כל כך משטחה בתוך מה ש-DeepLab סימן */
+    private const val PART_INSIDE = 0.75f
+
+    /** אם SAM מכסה פחות מזה מהכתם של DeepLab, לא סומכים עליו והכתם נשאר כמו שזוהה */
+    private const val MIN_KEEP = 0.4f
+
+    /**
+     * SAM קובע את הקצה רק עד כמה תאים מחלק שהוא כיסה. תא של DeepLab שרחוק מכל חלק כזה (למשל יד
+     * ש-SAM לא הצליח לבודד) נשאר מסומן כמו ש-DeepLab זיהה, כדי שלא יישארו שאריות של אדם בתמונה
+     */
+    private const val TRUST_BAND = 3
+
+    /** כתם קטן מ-10% מהכתם הגדול ביותר, ורחוק מכל כתם משמעותי: נחשב טעות זיהוי (למשל נעל) */
+    private const val STRAY_RATIO = 0.10f
+
+    /** "קרוב" = בתוך מלבן הכתם המשמעותי, מורחב בכך (כחלק מצלעו הגדולה) */
+    private const val STRAY_NEAR = 0.3f
 
     /** תוצאת הדיוק: המסכה, וכמה אנשים דוייקו (לדיווח) */
     class Result(val mask: PersonMask, val refined: Int, val people: Int)
@@ -146,13 +172,96 @@ object PersonRefiner {
                 }
             }
 
+            // חלקים נוספים: חלק של האדם שהמסכות עד כה לא כיסו (ראש, יד) מקבל הנחיה משלו
+            val union = grids[bestIndex].copyOf()
+            val covered = BooleanArray(gw * gh)
+            for (k in union.indices) if (union[k] > 0f && allowed[k]) covered[k] = true
+            // אזור שהנחיה עליו לא הניבה מסכה מתאימה (למשל גלישה לרהיט): לא מנסים עליו שוב
+            val tried = BooleanArray(gw * gh)
+            var prompts = 1
+            while (prompts < MAX_PROMPTS) {
+                val rest = ArrayList<Int>()
+                for (cell in component.cells) if (!covered[cell] && !tried[cell]) rest.add(cell)
+                if (rest.size < MIN_UNCOVERED * component.cells.size) break
+                val restCells = rest.toIntArray()
+                val restMask = BooleanArray(gw * gh)
+                var rMinX = gw
+                var rMinY = gh
+                var rMaxX = -1
+                var rMaxY = -1
+                for (c in restCells) {
+                    restMask[c] = true
+                    val x = c % gw
+                    val y = c / gw
+                    if (x < rMinX) rMinX = x
+                    if (x > rMaxX) rMaxX = x
+                    if (y < rMinY) rMinY = y
+                    if (y > rMaxY) rMaxY = y
+                }
+                val restField = distanceField(restMask, gw, gh, Component(restCells, rMinX, rMinY, rMaxX, rMaxY))
+                if (restField.max < MIN_PART_DEPTH) break
+                val point = restField.deepest(restCells)
+                prompts++
+                val partMasks = try {
+                    segment((point % gw + 0.5f) / gw, (point / gw + 0.5f) / gh)
+                } catch (e: Exception) {
+                    break
+                }
+                // המסכה הגדולה ביותר שמכילה את הנקודה, ברובה בתוך הכתם, ומוסיפה כיסוי חדש
+                var part: FloatArray? = null
+                var partArea = 0
+                for (logits in partMasks) {
+                    val pg = UserObjects.gridLogits(logits, gw, gh)
+                    if (pg[point] <= 0f) continue
+                    var area = 0
+                    var inside = 0
+                    var added = 0
+                    for (k in pg.indices) {
+                        if (pg[k] > 0f) {
+                            area++
+                            if (comp[k]) {
+                                inside++
+                                if (!covered[k]) added++
+                            }
+                        }
+                    }
+                    if (area == 0 || added == 0) continue
+                    if (inside.toFloat() / area < PART_INSIDE) continue
+                    if (area > MAX_AREA_RATIO * component.cells.size) continue
+                    if (area > partArea) {
+                        partArea = area
+                        part = pg
+                    }
+                }
+                val chosen = part
+                if (chosen == null) {
+                    val radius = max(1, restField.at(point % gw, point / gw))
+                    val px = point % gw
+                    val py = point / gw
+                    for (c in restCells) {
+                        if (kotlin.math.abs(c % gw - px) <= radius && kotlin.math.abs(c / gw - py) <= radius) tried[c] = true
+                    }
+                    continue
+                }
+                for (k in chosen.indices) {
+                    if (chosen[k] > 0f && allowed[k]) covered[k] = true
+                    if (chosen[k] > union[k]) union[k] = chosen[k]
+                }
+            }
+
+            // SAM כיסה פחות מדי מהכתם (למשל רק את החולצה): לא סומכים עליו, הכתם נשאר כמו ש-DeepLab סימן
+            var keptCells = 0
+            for (cell in component.cells) if (covered[cell]) keptCells++
+            if (keptCells < MIN_KEEP * component.cells.size) continue
+            val trust = MaskTools.dilate(covered, gw, gh, TRUST_BAND)
+
             // בתוך האזור המותר הציון הגס מוחלף בציון של SAM. תא שהוא חלק מאדם אחר לא נוגעים בו,
             // ותא שאדם אחר כבר סימן כחיובי נשאר חיובי
-            val g = grids[bestIndex]
-            for (k in g.indices) {
+            for (k in union.indices) {
                 if (!allowed[k]) continue
                 if (grid[k] && !comp[k]) continue
-                val value = g[k].coerceIn(-SCORE_CLAMP, SCORE_CLAMP)
+                if (comp[k] && !trust[k]) continue
+                val value = union[k].coerceIn(-SCORE_CLAMP, SCORE_CLAMP)
                 if (value > 0f) {
                     score[k] = if (positive[k]) max(score[k], value) else value
                     positive[k] = true
@@ -169,6 +278,50 @@ object PersonRefiner {
         val refined = PersonMask(width, height, out)
         refined.precise = true
         return Result(refined, refinedCount, components.size)
+    }
+
+    /**
+     * מוחק כתמים בודדים קטנים שרחוקים מהאנשים (בדרך כלל זיהוי שגוי, למשל נעל על הרצפה).
+     * כתם נמחק רק אם יש לפחות כתם משמעותי אחד, הוא קטן מ-10% מהגדול, והוא לא קרוב לאף כתם משמעותי
+     * (כך שברי אדם, כמו יד או ראש שנפרדו, נשארים). מחזיר מסכה חדשה, או את המקורית אם אין מה למחוק.
+     */
+    fun dropStray(mask: PersonMask): PersonMask {
+        val width = mask.width
+        val height = mask.height
+        if (mask.coverage() == 0f) return mask
+        val s = max(1, (max(width, height) / WORK_SIDE).roundToInt())
+        val gw = (width + s - 1) / s
+        val gh = (height + s - 1) / s
+        val grid = downsample(mask.data, width, height, s, gw, gh)
+        val comps = findComponents(grid, gw, gh)
+        if (comps.size < 2) return mask
+        val largest = comps.maxOf { it.cells.size }
+        val big = comps.filter { it.cells.size >= STRAY_RATIO * largest }
+        val strays = comps.filter { c -> c.cells.size < STRAY_RATIO * largest && big.none { b -> isNear(c, b) } }
+        if (strays.isEmpty()) return mask
+
+        val flags = BooleanArray(gw * gh)
+        for (c in strays) for (cell in c.cells) flags[cell] = true
+        val clear = MaskTools.dilate(flags, gw, gh, 1)
+        val data = mask.data.copyOf()
+        for (cell in clear.indices) {
+            if (!clear[cell]) continue
+            val x0 = (cell % gw) * s
+            val y0 = (cell / gw) * s
+            for (y in y0 until min(height, y0 + s)) {
+                val row = y * width
+                for (x in x0 until min(width, x0 + s)) data[row + x] = false
+            }
+        }
+        return PersonMask(width, height, data)
+    }
+
+    /** האם מלבן הכתם a נוגע במלבן של b, מורחב ב-30% מצלעו הגדולה */
+    private fun isNear(a: Component, b: Component): Boolean {
+        val side = max(b.maxX - b.minX + 1, b.maxY - b.minY + 1)
+        val margin = max(1, Math.ceil(STRAY_NEAR * side.toDouble()).toInt())
+        return a.maxX >= b.minX - margin && a.minX <= b.maxX + margin &&
+            a.maxY >= b.minY - margin && a.minY <= b.maxY + margin
     }
 
     // --- עזרים ---
