@@ -1,6 +1,7 @@
 package com.arsniper.game.engine
 
 import com.arsniper.game.model.Enemy
+import com.arsniper.game.model.Vec2
 import kotlin.math.max
 
 /** סוג הקליע שמפלצת יורה על השחקן */
@@ -39,6 +40,9 @@ class WaveSpec(
     val cooldownMax: Float,
     val flightScale: Float
 )
+
+/** מפלצת שנעלמה ממקום אחד (תקועה, או יצאה מהמסך) והופיעה במקום אחר: להצגת אפקט בשני המקומות */
+class TeleportEvent(val from: Vec2, val to: Vec2)
 
 enum class ArenaPhase {
     /** כרזה "WAVE n" לפני שהגל מתחיל */
@@ -96,6 +100,11 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     private val queue = ArrayDeque<Foe>()
     private val foeById = HashMap<Int, Foe>()
     private val counted = HashSet<Int>()
+
+    /** המצב האחרון של כל מפלצת חיה, כדי שאם היא נעלמת מהעולם אפשר להעביר אותה (אותם חיים) למקום אחר */
+    private val lastSeen = HashMap<Int, Enemy>()
+    private val teleportQueue = ArrayDeque<Enemy>()
+    private val teleportEvents = ArrayList<TeleportEvent>()
     private var nextSeq = 0
     private var spawnCooldown = 0f
     private var invulnerableLeft = 0f
@@ -110,6 +119,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         hearts = MAX_HEARTS
         foeById.clear()
         counted.clear()
+        lastSeen.clear()
+        teleportQueue.clear()
+        teleportEvents.clear()
         pendingBonus = 0
         invulnerableLeft = 0f
         healedOnClear = false
@@ -129,6 +141,14 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
     /** סוג המפלצת של אויב (null אם זה לא אויב של הארנה) */
     fun foeOf(enemyId: Int): Foe? = foeById[enemyId]
+
+    /** העברות מקום שקרו מאז הקריאה האחרונה (לאפקט "פוף") */
+    fun takeTeleports(): List<TeleportEvent> {
+        if (teleportEvents.isEmpty()) return emptyList()
+        val out = ArrayList(teleportEvents)
+        teleportEvents.clear()
+        return out
+    }
 
     /** ניקוד בונוס שנצבר מאז הקריאה האחרונה (סיום גל) */
     fun takeBonus(): Int {
@@ -192,8 +212,13 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         while (iterator.hasNext()) {
             val entry = iterator.next()
             if (entry.key !in present) {
-                if (entry.key !in counted) queue.addFirst(entry.value)
+                if (entry.key !in counted) {
+                    // נעלמה בלי למות (תקועה או יצאה מהמסך): תופיע במקום אחר, אותה מפלצת עם אותם חיים
+                    val previous = lastSeen[entry.key]
+                    if (previous != null && previous.isAlive) teleportQueue.addLast(previous) else queue.addFirst(entry.value)
+                }
                 counted.remove(entry.key)
+                lastSeen.remove(entry.key)
                 iterator.remove()
             }
         }
@@ -210,7 +235,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         }
 
         // הגל נגמר: התור ריק ואף מפלצת לא חיה
-        if (queue.isEmpty() && aliveArena == 0) {
+        if (queue.isEmpty() && teleportQueue.isEmpty() && aliveArena == 0) {
             if (waveIndex >= waves.size - 1) {
                 phase = ArenaPhase.Won
             } else {
@@ -225,14 +250,27 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
         // יצירת מפלצת הבאה, בכפוף לתקרת האיום
         spawnCooldown -= dt
-        if (queue.isNotEmpty() && spawnCooldown <= 0f) {
-            val next = queue.first()
+        if ((queue.isNotEmpty() || teleportQueue.isNotEmpty()) && spawnCooldown <= 0f) {
+            val moving = teleportQueue.firstOrNull()
+            val next = if (moving != null) foeOfRow(moving) else queue.first()
             if (aliveArena == 0 || threat + next.threat <= currentWave.maxThreat) {
                 val grown = engine.replenish(enemies, alive + 1, aspect)
-                return adopt(grown)
+                val adopted = adopt(grown)
+                rememberAlive(adopted)
+                return adopted
             }
         }
+        rememberAlive(enemies)
         return enemies
+    }
+
+    /** סוג המפלצת לפי המספר שלה (id % 5 = שורת הספרייט) */
+    private fun foeOfRow(enemy: Enemy): Foe = foeById[enemy.id] ?: Foe.values().first { it.row == ((enemy.id % 5) + 5) % 5 }
+
+    private fun rememberAlive(list: List<Enemy>) {
+        for (e in list) {
+            if (e.isAlive && foeById.containsKey(e.id)) lastSeen[e.id] = e
+        }
     }
 
     /** מפלצת חדשה שהמנוע יצר מקבלת סוג מהתור: מספר חדש (id % 5 = שורת הספרייט) וחיים לפי הסוג */
@@ -241,6 +279,16 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         val out = ArrayList<Enemy>(list.size)
         for (e in list) {
             if (e.isAlive && e.id < ID_BASE) {
+                val moving = teleportQueue.removeFirstOrNull()
+                if (moving != null) {
+                    // אותה מפלצת (אותו מספר וחיים) במקום החדש
+                    val foe = foeOfRow(moving)
+                    foeById[moving.id] = foe
+                    out.add(e.copy(id = moving.id, maxHp = moving.maxHp, hp = moving.hp))
+                    teleportEvents.add(TeleportEvent(from = moving.position, to = e.position))
+                    assigned = true
+                    continue
+                }
                 val foe = queue.removeFirstOrNull()
                 if (foe == null) continue // המנוע יצר יותר מהנדרש: מוותרים על המיותרת
                 val id = ID_BASE + nextSeq * 5 + foe.row

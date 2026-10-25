@@ -82,3 +82,47 @@ fun ComboBadge(count: Int, multiplier: Int, modifier: Modifier = Modifier) {
             .padding(horizontal = 10.dp, vertical = 3.dp)
     )
 }
+
+/** כמה זמן "פוף" ההעברה נראה, בשניות */
+const val POOF_SECONDS = 0.6f
+
+/** אפקט העברת מקום: טבעת וניצוצות שמתרחבים ונעלמים. x ו-y בקואורדינטות עולם */
+class Poof(val x: Float, val y: Float, val bornNanos: Long)
+
+@Composable
+fun PoofLayer(poofs: List<Poof>, nowNanos: Long, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.fillMaxSize()) {
+        for (poof in poofs) {
+            val age = (nowNanos - poof.bornNanos) / 1e9f
+            if (age < 0f || age > POOF_SECONDS) continue
+            val p = age / POOF_SECONDS
+            val cx = poof.x * size.width
+            val cy = poof.y * size.height
+            val radius = size.height * (0.03f + 0.11f * p)
+            val alpha = (1f - p) * 0.9f
+            val color = Color(0xFF80DEEA)
+            drawCircle(
+                color = color.copy(alpha = alpha),
+                radius = radius,
+                center = androidx.compose.ui.geometry.Offset(cx, cy),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = size.height * 0.012f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = alpha * 0.5f),
+                radius = radius * 0.6f,
+                center = androidx.compose.ui.geometry.Offset(cx, cy)
+            )
+            for (i in 0 until 8) {
+                val a = (2.0 * Math.PI * i / 8.0).toFloat()
+                drawCircle(
+                    color = Color.White.copy(alpha = alpha),
+                    radius = size.height * 0.008f,
+                    center = androidx.compose.ui.geometry.Offset(
+                        cx + kotlin.math.cos(a) * radius * 1.3f,
+                        cy + kotlin.math.sin(a) * radius * 1.3f
+                    )
+                )
+            }
+        }
+    }
+}

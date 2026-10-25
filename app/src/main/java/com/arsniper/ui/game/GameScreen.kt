@@ -146,6 +146,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var blasts by remember { mutableStateOf(emptyList<Blast>()) }
     var frameNanos by remember { mutableStateOf(0L) }
     var floaters by remember { mutableStateOf(emptyList<Floater>()) }
+    var poofs by remember { mutableStateOf(emptyList<Poof>()) }
 
     // ניקוד עם מכפיל הקומבו, וניקוד צף במקום ההצלחה. register=false: לא מאריך את הרצף
     fun award(points: Int, x: Float, y: Float, register: Boolean = true) {
@@ -192,6 +193,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         enemies = withHp(engine.update(enemies, dt))
                         enemies = director.step(dt, enemies, engine, aspect)
                         score += director.takeBonus()
+                        for (jump in director.takeTeleports()) {
+                            poofs = poofs + Poof(jump.from.x, jump.from.y, now) + Poof(jump.to.x, jump.to.y, now)
+                        }
 
                         val out = fire.update(dt, Hover.lifted(enemies, nowSeconds()), director)
                         AttackPose.ids = fire.telegraphViews.map { it.enemyId }.toSet()
@@ -215,6 +219,10 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         }
                     }
                     combo.update(dt)
+                    if (poofs.isNotEmpty()) {
+                        val live = poofs.filter { (now - it.bornNanos) / 1e9f <= POOF_SECONDS }
+                        if (live.size != poofs.size) poofs = live
+                    }
                     if (floaters.isNotEmpty()) {
                         val live = floaters.filter { (now - it.bornNanos) / 1e9f <= FLOATER_SECONDS }
                         if (live.size != floaters.size) floaters = live
@@ -278,6 +286,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
         score = 0
         flash = 0f
         floaters = emptyList()
+        poofs = emptyList()
         combo.reset()
         fire.reset()
         AttackPose.ids = emptySet()
@@ -335,6 +344,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 shotRadius = { fire.currentRadius(it) }
             )
             EffectsLayer(blasts = blasts, nowNanos = frameNanos)
+            PoofLayer(poofs = poofs, nowNanos = frameNanos)
             FloatingTextLayer(floaters = floaters, nowNanos = frameNanos)
         }
 
