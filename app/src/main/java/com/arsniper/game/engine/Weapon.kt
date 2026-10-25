@@ -81,6 +81,13 @@ class Weapon(
         reloadElapsed = 0f
     }
 
+    /** מילוי מחסנית מיד (פרס), בלי אנימציית שליפה */
+    fun topUp() {
+        ammo = magSize
+        reloading = false
+        reloadElapsed = 0f
+    }
+
     /** מחסנית מלאה מיד (בתחילת גל) */
     fun refill() {
         sinceEquip = 0f

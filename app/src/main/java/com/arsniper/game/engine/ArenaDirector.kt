@@ -192,6 +192,13 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         return value
     }
 
+    /** פרס לב: מחזיר לב אחד. true אם הוסיף (כלומר חסר לב) */
+    fun heal(): Boolean {
+        if (phase != ArenaPhase.Fighting || hearts >= MAX_HEARTS) return false
+        hearts += 1
+        return true
+    }
+
     /** כוכבים בסוף ארנה מנצחת: לפי הלבבות שנשארו */
     val stars: Int get() = hearts.coerceIn(1, 3)
 

@@ -37,6 +37,8 @@ import com.arsniper.game.engine.ComboTracker
 import com.arsniper.game.engine.EnemyFire
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
+import com.arsniper.game.engine.Loot
+import com.arsniper.game.engine.LootKind
 import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.ShotResult
 import com.arsniper.game.engine.WeakZones
@@ -128,6 +130,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     val sfxMemo = remember { SfxMemo() }
     // הרובה: מחסנית וטעינה. ammoShown/reloadingShown מעדכנים את מד הכדורים רק כשהם משתנים
     val weapon = remember { Weapon() }
+    val loot = remember { Loot() }
     val weaponArt = rememberWeaponArt()
     var ammoShown by remember { mutableStateOf(weapon.ammo) }
     var reloadingShown by remember { mutableStateOf(false) }
@@ -210,6 +213,15 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom / BASE_ZOOM)
                     if (started && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
                         enemies = withHp(engine.update(enemies, dt))
+                        // מפלצת שמתה (חוץ מהבוס ומהמפלצות שמתפוצצות איתו): אולי נופל פרס
+                        for (e in enemies) {
+                            if (!e.isAlive && e.id != ArenaDirector.BOSS_ID && !director.bossDying &&
+                                director.foeOf(e.id) != null && sfxMemo.lootSeen.add(e.id)
+                            ) {
+                                loot.onKill(e.position.x, e.position.y, director.hearts, ArenaDirector.MAX_HEARTS, weapon.ammo, weapon.magSize)
+                            }
+                        }
+                        loot.update(dt)
                         enemies = director.step(dt, enemies, engine, aspect)
                         score += director.takeBonus()
                         for (jump in director.takeTeleports()) {
@@ -332,6 +344,28 @@ fun GameScreen(modifier: Modifier = Modifier) {
     val latestCamera by rememberUpdatedState(camera)
     val latestAspect by rememberUpdatedState(aspect)
 
+    // איסוף פרס: לב מחזיר חיים (אם כבר מלא: נקודות), כדורים ממלאים את המחסנית מיד
+    fun collectLoot(drop: com.arsniper.game.engine.LootDrop) {
+        soundPlayer.play(Sfx.Pickup)
+        val label: String
+        when (drop.kind) {
+            LootKind.Heart -> {
+                if (director.heal()) {
+                    label = "+1 HEART"
+                    flash = 0f
+                } else {
+                    score += 150
+                    label = "+150"
+                }
+            }
+            LootKind.Ammo -> {
+                weapon.topUp()
+                label = "AMMO FULL"
+            }
+        }
+        floaters = floaters + Floater(drop.x, drop.y - 0.1f, label, frameNanos, big = true)
+    }
+
     // ניקוד ואפקט על קליע שנפגע (בלחיצה או בירי)
     fun onIntercept(result: com.arsniper.game.engine.Intercept) {
         val shot = result.shot
@@ -369,6 +403,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
         combo.reset()
         fire.reset()
         weapon.reset()
+        loot.reset()
+        sfxMemo.lootSeen.clear()
         AttackPose.ids = emptySet()
         AttackPose.progress = emptyMap()
         AttackPose.bossSinceFire = 999f
@@ -401,8 +437,13 @@ fun GameScreen(modifier: Modifier = Modifier) {
                             (offset.x / size.width - 0.5f) / cam.zoom + cam.center.x,
                             (offset.y / size.height - 0.5f) / cam.zoom + cam.center.y
                         )
-                        val result = fire.intercept(world, latestAspect, TAP_SLACK)
-                        if (result != null) onIntercept(result)
+                        val picked = loot.collect(Vec2(world.x, world.y), latestAspect, TAP_SLACK)
+                        if (picked != null) {
+                            collectLoot(picked)
+                        } else {
+                            val result = fire.intercept(world, latestAspect, TAP_SLACK)
+                            if (result != null) onIntercept(result)
+                        }
                     }
                 }
             }
@@ -430,6 +471,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 time = fire.time,
                 shotRadius = { fire.currentRadius(it) }
             )
+            LootLayer(loot = loot, nowNanos = frameNanos)
             EffectsLayer(blasts = blasts, nowNanos = frameNanos)
             PoofLayer(poofs = poofs, nowNanos = frameNanos)
             FloatingTextLayer(floaters = floaters, nowNanos = frameNanos)
@@ -517,6 +559,12 @@ fun GameScreen(modifier: Modifier = Modifier) {
             onClick = {
                 if (director.phase != ArenaPhase.Fighting) {
                     soundPlayer.playShot()
+                    return@FireButton
+                }
+                // כוונת על פרס: אוספים אותו (בלי לצרוך כדור)
+                val picked = loot.collect(crosshair, aspect, FIRE_SLACK + 0.03f)
+                if (picked != null) {
+                    collectLoot(picked)
                     return@FireButton
                 }
                 when (weapon.tryFire()) {
@@ -667,6 +715,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
 }
 /** מה כבר ננגן ממנו צליל: כמה קליעים יצאו, ובאיזה שלב היה הארנה בפריים הקודם */
 private class SfxMemo {
+    val lootSeen = HashSet<Int>()
     var launches: Int = 0
     var phase: ArenaPhase? = null
 }
