@@ -21,6 +21,8 @@ class MainActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
         }
 
+        com.arsniper.data.PlayerProfile.init(this)
+
         setContent {
             MaterialTheme {
                 AppNavigation()

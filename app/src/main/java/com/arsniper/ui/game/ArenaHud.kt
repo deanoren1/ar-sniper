@@ -109,7 +109,16 @@ fun DamageFlash(alpha: Float, modifier: Modifier = Modifier) {
 
 /** מסך סיום: ניצחון (עם כוכבים) או הפסד, וכפתור לנסות שוב */
 @Composable
-fun EndOverlay(won: Boolean, stars: Int, score: Int, wave: Int, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun EndOverlay(
+    won: Boolean,
+    stars: Int,
+    score: Int,
+    wave: Int,
+    diamondsGained: Int,
+    totalCoins: Int,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -136,12 +145,33 @@ fun EndOverlay(won: Boolean, stars: Int, score: Int, wave: Int, onRetry: () -> U
                     fontSize = 20.sp
                 )
             }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 6.dp)
+            ) {
+                CoinIcon(size = 28.dp)
+                Text(
+                    text = "  +$score",
+                    color = Color(0xFFFFD54F),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (diamondsGained > 0) {
+                    Text(text = "     ", fontSize = 28.sp)
+                    DiamondIcon(size = 28.dp)
+                    Text(
+                        text = "  +$diamondsGained",
+                        color = Color(0xFF84FFFF),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             Text(
-                text = "SCORE: $score",
-                color = Color.White,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 6.dp, bottom = 14.dp)
+                text = "Total: $totalCoins coins",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 16.sp,
+                modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
             )
             Button(
                 onClick = onRetry,

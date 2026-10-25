@@ -5,7 +5,7 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /** מה נופל ממפלצת: לב (מחזיר חיים) או כדורים (מחסנית מלאה מיד) */
-enum class LootKind { Heart, Ammo }
+enum class LootKind { Heart, Ammo, Diamond }
 
 /** פרס אחד שנופל על הקרקע: x,y בקואורדינטות עולם (0..1), born = שעון הלוט כשנוצר */
 class LootDrop(val id: Int, val x: Float, val y: Float, val kind: LootKind, val born: Float)
@@ -43,6 +43,10 @@ class Loot(private val random: Random = Random.Default) {
     /** מפלצת מתה במקום (x,y): אולי נופל פרס */
     fun onKill(x: Float, y: Float, hearts: Int, maxHearts: Int, ammo: Int, magSize: Int) {
         killsSinceDrop++
+        // יהלום: נדיר, בנפרד מהפרס הרגיל
+        if (random.nextFloat() < DIAMOND_CHANCE) {
+            drops.add(LootDrop(nextId++, (x + 0.04f).coerceAtMost(0.98f), y, LootKind.Diamond, time))
+        }
         val lowAmmo = ammo <= magSize / 3
         val chance = if (lowAmmo || hearts < maxHearts) DROP_CHANCE + 0.1f else DROP_CHANCE
         if (killsSinceDrop < PITY_KILLS && random.nextFloat() > chance) return
@@ -82,6 +86,7 @@ class Loot(private val random: Random = Random.Default) {
         const val RADIUS = 0.06f
 
         private const val DROP_CHANCE = 0.22f
+        private const val DIAMOND_CHANCE = 0.04f
         private const val PITY_KILLS = 6
     }
 }

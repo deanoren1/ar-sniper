@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.arsniper.audio.Sfx
+import com.arsniper.data.PlayerProfile
 import com.arsniper.audio.SoundPlayer
 import com.arsniper.data.PhotoRepository
 import com.arsniper.game.engine.Accessories
@@ -163,6 +164,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
     var score by remember { mutableStateOf(0) }
     var hitCount by remember { mutableStateOf(0) }
     var showHit by remember { mutableStateOf(false) }
+    // יהלומים שנאספו בריצה הזאת (לתצוגה בסוף)
+    var diamondsGained by remember { mutableStateOf(0) }
     var started by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(0f) }
     // רעידת מסך (0..1): פגיעה בשחקן, שאגת בוס, מוות הבוס. דועכת מהר
@@ -183,6 +186,27 @@ fun GameScreen(modifier: Modifier = Modifier) {
         score += gained
         val text = if (combo.multiplier > 1) "+$gained  x${combo.multiplier}" else "+$gained"
         floaters = floaters + Floater(x, y - 0.04f, text, frameNanos, big = points >= BLOCK_POINTS)
+    }
+
+    // יהלומים: נשמרים בפרופיל מיד, ומוצגים בסוף הריצה
+    fun gainDiamonds(n: Int, label: String) {
+        if (n <= 0) return
+        PlayerProfile.addDiamonds(n)
+        diamondsGained += n
+        soundPlayer.play(Sfx.Gem)
+        floaters = floaters + Floater(0.5f, 0.42f, label, frameNanos, big = true)
+    }
+
+    // מעביר את הניקוד שנצבר (מטבעות) לפרופיל השמור. בטוח לקריאה חוזרת: מעביר רק את ההפרש
+    fun bankRun() {
+        val delta = score - sfxMemo.banked
+        if (delta > 0) {
+            PlayerProfile.addCoins(delta)
+            sfxMemo.banked = score
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { bankRun() }
     }
 
     // אחרי שגודל המסך ידוע: בונים את הסצנה (מחבואים לפי ניתוח התמונה) ויוצרים אויבים
@@ -264,6 +288,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         for (i in 0 until out.playerHits) {
                             if (director.hitPlayer()) {
                                 soundPlayer.play(Sfx.PlayerHit)
+                                sfxMemo.damagedThisWave = true
                                 shake = max(shake, 0.7f)
                                 combo.reset()
                                 flash = FLASH_START
@@ -274,12 +299,24 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         if (director.phase != sfxMemo.phase) {
                             when (director.phase) {
                                 ArenaPhase.Intro -> {
+                                    sfxMemo.damagedThisWave = false
                                     weapon.refill()
                                     soundPlayer.play(Sfx.WaveStart)
                                 }
-                                ArenaPhase.Clear -> soundPlayer.play(Sfx.WaveClear)
-                                ArenaPhase.Won -> soundPlayer.play(Sfx.Win)
-                                ArenaPhase.Lost -> soundPlayer.play(Sfx.Lose)
+                                ArenaPhase.Clear -> {
+                                    soundPlayer.play(Sfx.WaveClear)
+                                    if (!sfxMemo.damagedThisWave) gainDiamonds(1, "NO DAMAGE  +1 DIAMOND")
+                                }
+                                ArenaPhase.Won -> {
+                                    soundPlayer.play(Sfx.Win)
+                                    val bonus = (if (director.isBossWave) 5 else 0) + (if (director.stars == 3) 2 else 0)
+                                    gainDiamonds(bonus, "VICTORY  +$bonus DIAMONDS")
+                                    bankRun()
+                                }
+                                ArenaPhase.Lost -> {
+                                    soundPlayer.play(Sfx.Lose)
+                                    bankRun()
+                                }
                                 else -> Unit
                             }
                             sfxMemo.phase = director.phase
@@ -399,6 +436,10 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 weapon.topUp()
                 label = "AMMO FULL"
             }
+            LootKind.Diamond -> {
+                gainDiamonds(1, "+1 DIAMOND")
+                return
+            }
         }
         floaters = floaters + Floater(drop.x, drop.y - 0.1f, label, frameNanos, big = true)
     }
@@ -432,9 +473,12 @@ fun GameScreen(modifier: Modifier = Modifier) {
     }
 
     fun retry() {
+        bankRun()
         enemies = emptyList()
         blasts = emptyList()
         score = 0
+        sfxMemo.banked = 0
+        diamondsGained = 0
         flash = 0f
         floaters = emptyList()
         poofs = emptyList()
@@ -520,8 +564,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
 
-        ScoreDisplay(
-            score = score,
+        CurrencyBar(
+            coins = score,
+            diamonds = PlayerProfile.diamonds,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
@@ -764,6 +809,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 stars = director.stars,
                 score = score,
                 wave = director.waveIndex + 1,
+                diamondsGained = diamondsGained,
+                totalCoins = PlayerProfile.coins,
                 onRetry = { retry() }
             )
         }
@@ -771,6 +818,11 @@ fun GameScreen(modifier: Modifier = Modifier) {
 }
 /** מה כבר ננגן ממנו צליל: כמה קליעים יצאו, ובאיזה שלב היה הארנה בפריים הקודם */
 private class SfxMemo {
+    /** כמה מהניקוד כבר נכנס למטבעות השמורים */
+    var banked: Int = 0
+
+    /** האם נפגעתי בגל הנוכחי (לבונוס "גל בלי נזק") */
+    var damagedThisWave: Boolean = false
     val lootSeen = HashSet<Int>()
     var launches: Int = 0
     var phase: ArenaPhase? = null

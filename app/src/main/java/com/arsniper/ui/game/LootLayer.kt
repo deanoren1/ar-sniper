@@ -39,7 +39,11 @@ private fun DrawScope.drawDrop(drop: LootDrop, age: Float, time: Float) {
     val cx = drop.x * size.width
     val cy = (drop.y - Loot.RISE) * size.height + bob
     val center = Offset(cx, cy)
-    val glow = if (drop.kind == LootKind.Heart) Color(0xFFFF1744) else Color(0xFF40C4FF)
+    val glow = when (drop.kind) {
+        LootKind.Heart -> Color(0xFFFF1744)
+        LootKind.Ammo -> Color(0xFF40C4FF)
+        LootKind.Diamond -> Color(0xFF00E5FF)
+    }
 
     // הילה
     drawCircle(
@@ -62,7 +66,9 @@ private fun DrawScope.drawDrop(drop: LootDrop, age: Float, time: Float) {
         style = Stroke(width = r * 0.14f + 1.5f)
     )
 
-    if (drop.kind == LootKind.Heart) {
+    if (drop.kind == LootKind.Diamond) {
+        drawGem(cx, cy, r * 1.15f)
+    } else if (drop.kind == LootKind.Heart) {
         val w = r * 2f
         val h = r * 1.8f
         val path = Path().apply {
@@ -82,4 +88,30 @@ private fun DrawScope.drawDrop(drop: LootDrop, age: Float, time: Float) {
         drawRoundRect(Color.White.copy(alpha = 0.8f), Offset(cx - w * 0.12f, cy - h * 0.34f), Size(w * 0.16f, h * 0.5f), CornerRadius(w * 0.08f))
         drawRoundRect(Color.White.copy(alpha = 0.9f), Offset(cx - w / 2f, cy - h / 2f), Size(w, h), CornerRadius(w / 2f), style = Stroke(width = r * 0.1f + 1f))
     }
+}
+
+/** יהלום: מתומן מוארך עם פאות, בגוונים של תכלת */
+internal fun DrawScope.drawGem(cx: Float, cy: Float, r: Float) {
+    val top = Offset(cx, cy - r)
+    val left = Offset(cx - r * 0.95f, cy - r * 0.2f)
+    val right = Offset(cx + r * 0.95f, cy - r * 0.2f)
+    val bottom = Offset(cx, cy + r * 1.1f)
+    val body = Path().apply {
+        moveTo(top.x, top.y); lineTo(right.x, right.y); lineTo(bottom.x, bottom.y); lineTo(left.x, left.y); close()
+    }
+    drawPath(body, Color(0xFF00B8D4))
+    // פאה בהירה למעלה-שמאל, כהה בצד ימין
+    drawPath(
+        Path().apply { moveTo(top.x, top.y); lineTo(cx, cy - r * 0.2f); lineTo(left.x, left.y); close() },
+        Color(0xFF84FFFF)
+    )
+    drawPath(
+        Path().apply { moveTo(top.x, top.y); lineTo(right.x, right.y); lineTo(cx, cy - r * 0.2f); close() },
+        Color(0xFF18FFFF)
+    )
+    drawPath(
+        Path().apply { moveTo(left.x, left.y); lineTo(cx, cy - r * 0.2f); lineTo(bottom.x, bottom.y); close() },
+        Color(0xFF0097A7)
+    )
+    drawPath(body, Color.White, style = Stroke(width = r * 0.1f + 1f))
 }
