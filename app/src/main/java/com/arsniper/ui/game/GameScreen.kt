@@ -36,6 +36,7 @@ import com.arsniper.game.engine.ComboTracker
 import com.arsniper.game.engine.EnemyFire
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
+import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.ScoreManager
 import com.arsniper.game.model.Enemy
@@ -192,7 +193,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         enemies = director.step(dt, enemies, engine, aspect)
                         score += director.takeBonus()
 
-                        val out = fire.update(dt, enemies, director)
+                        val out = fire.update(dt, Hover.lifted(enemies, nowSeconds()), director)
                         AttackPose.ids = fire.telegraphViews.map { it.enemyId }.toSet()
                         for (spot in out.stopped) {
                             award(STOP_POINTS, spot.x, spot.y)
@@ -435,7 +436,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     )
                     hitCount += 1
                 } else {
-                    val result = engine.fire(crosshair, enemies, aspect)
+                    val result = engine.fire(crosshair, Hover.lifted(enemies, nowSeconds()), aspect)
                     when (result) {
                         is FireResult.Hit -> {
                             val target = enemies.firstOrNull { it.id == result.enemy.id }

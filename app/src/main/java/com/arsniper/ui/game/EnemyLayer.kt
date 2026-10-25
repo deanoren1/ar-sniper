@@ -27,7 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.arsniper.game.engine.Accessories
+import com.arsniper.game.engine.AccessoryKind
 import com.arsniper.game.engine.AccessoryTarget
+import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.Occlusion
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.WINDOW_HIDE_OFFSET
@@ -155,7 +157,13 @@ fun EnemyLayer(
                 0f
             }
             val shakePx = if (!isPeeker && hurtLevel > 0f) sin(sinceHurt * 70f) * radius * 0.12f * hurtLevel else 0f
-            val drawCenter = Offset(center.x + shakePx, center.y)
+            // מפלצת הבלונים מרחפת באוויר; כשהיא נופלת (מתה) היא צונחת אל הקרקע
+            var liftPx = Hover.lift(enemy, nowS) * size.height
+            if (item.dead) {
+                val fall = (item.progress * 2.5f).coerceIn(0f, 1f)
+                liftPx *= 1f - fall * fall
+            }
+            val drawCenter = Offset(center.x + shakePx, center.y - liftPx)
 
             // התאמה לתאורה בתמונה: באזור כהה האויב כהה יותר, באזור בהיר בהיר יותר
             val shade = if (scene != null) {
@@ -178,7 +186,8 @@ fun EnemyLayer(
                         shade = shade,
                         shadow = withShadow,
                         anim = anim,
-                        hurt = hurtLevel
+                        hurt = hurtLevel,
+                        groundLift = liftPx
                     )
                 } else {
                     drawPerson(drawCenter, radius, shade, withShadow, gait)
@@ -228,10 +237,16 @@ fun EnemyLayer(
                 // נקודת תורפה: בלון, פצצה או יהלום ליד המפלצת
                 if (!item.dead && sprites != null && Accessories.isActive(enemy)) {
                     val box = monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius)
-                    val kind = Accessories.kindOf(enemy)
-                    val accessory = accessorySpot(kind, box, size.height)
+                    // מפלצת הבלונים: הבלונים שבציור עצמם הם נקודת התורפה (בלי אביזר נפרד)
+                    val ownBalloons = Hover.isBalloonMonster(enemy)
+                    val kind = if (ownBalloons) AccessoryKind.Balloon else Accessories.kindOf(enemy)
+                    val accessory = if (ownBalloons) {
+                        AccessorySpot(box.cx, box.headY + box.height * 0.2f, box.halfWidth * 0.85f)
+                    } else {
+                        accessorySpot(kind, box, size.height)
+                    }
                     val accessoryCovered = covered(accessory.x, accessory.y)
-                    if (!accessoryCovered) drawAccessory(kind, enemy, box, accessory, anim)
+                    if (!accessoryCovered && !ownBalloons) drawAccessory(kind, enemy, box, accessory, anim)
                     if (!accessoryCovered) AccessoryRegistry.add(
                         AccessoryTarget(
                             enemy = enemy,
@@ -317,7 +332,8 @@ private fun DrawScope.drawMonster(
     shade: Float,
     shadow: Boolean,
     anim: Float,
-    hurt: Float = 0f
+    hurt: Float = 0f,
+    groundLift: Float = 0f
 ) {
     val gait = Gait.of(enemy)
     val walking = !dead && gait.swing > 0f
@@ -358,7 +374,7 @@ private fun DrawScope.drawMonster(
         val shadowWidth = sheet.idle.width * k * 0.75f
         drawOval(
             color = Color.Black.copy(alpha = 0.38f * alpha),
-            topLeft = Offset(cx - shadowWidth / 2f, feetY - r * 0.14f),
+            topLeft = Offset(cx - shadowWidth / 2f, feetY + groundLift - r * 0.14f),
             size = Size(shadowWidth, r * 0.3f)
         )
     }
@@ -398,12 +414,15 @@ private fun DrawScope.drawMonster(
     if (dead && progress < 0.6f) {
         val puff = progress / 0.6f
         val puffAlpha = (1f - puff) * 0.7f
-        val bodyCenter = Offset(cx, feetY - targetHeight * 0.45f)
+        // מפלצת בלונים: הבלונים מתפוצצים בחתיכות אדומות מעל הראש
+        val balloons = Hover.isBalloonMonster(enemy)
+        val bodyCenter = Offset(cx, feetY - targetHeight * (if (balloons) 0.8f else 0.45f))
+        val puffColor = if (balloons) Color(0xFFFF1744) else Color.White
         for (i in 0 until 6) {
             val angle = (2.0 * PI * i / 6.0).toFloat() + 0.5f
             val distance = targetHeight * (0.15f + 0.45f * puff)
             drawCircle(
-                color = Color.White.copy(alpha = puffAlpha),
+                color = puffColor.copy(alpha = puffAlpha),
                 radius = targetHeight * (0.10f + 0.10f * puff),
                 center = Offset(bodyCenter.x + cos(angle) * distance, bodyCenter.y + sin(angle) * distance)
             )
