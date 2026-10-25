@@ -32,7 +32,26 @@ class MonsterSprite(
 object AttackPose {
     @Volatile
     var ids: Set<Int> = emptySet()
+
+    /** התקדמות ההכנה של כל מפלצת מתכוננת (0..1), לאנימציית הבוס */
+    @Volatile
+    var progress: Map<Int, Float> = emptyMap()
+
+    /** הבוס: כמה שניות מאז הירייה האחרונה, והאם הוא מסוחרר */
+    @Volatile
+    var bossSinceFire: Float = 999f
+
+    @Volatile
+    var bossStunned: Boolean = false
 }
+
+/** אנימציות הבוס: נשימה/כנפיים בעמידה, הכנה (פה נפתח ונדלק), ירייה, ופגיעה (האחרון: מסוחרר עם כוכבים) */
+class BossAnim(
+    val idle: List<MonsterSprite>,
+    val prep: List<MonsterSprite>,
+    val fire: List<MonsterSprite>,
+    val hit: List<MonsterSprite>
+)
 
 /** כל הפריימים של מפלצת אחת */
 class MonsterSheet(
@@ -45,7 +64,9 @@ class MonsterSheet(
     /** פריימי הליכה אמיתיים (אם הועלה גיליון הליכה למפלצת הזאת), אחרת null וההליכה מדומה */
     val moves: WalkSet? = null,
     /** מפלצת הבלונים עם פחות בלונים: המפתח הוא מספר הבלונים שנשארו (2 או 1). ריק אם אין ציורים */
-    val fewer: Map<Int, WalkSet> = emptyMap()
+    val fewer: Map<Int, WalkSet> = emptyMap(),
+    /** רק לבוס: אנימציות מלאות */
+    val bossAnim: BossAnim? = null
 )
 
 /** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
@@ -144,8 +165,8 @@ class MonsterSprites private constructor(
         /**
          * חותך פריים: תא שווה בגיליון, ובתוכו המלבן הצר ביותר שמקיף את כל הפיקסלים הלא-שקופים.
          */
-        private fun cut(atlas: Bitmap, row: Int, column: Int, rows: Int = ROWS): Bitmap? {
-            val cellWidth = atlas.width / COLUMNS
+        private fun cut(atlas: Bitmap, row: Int, column: Int, rows: Int = ROWS, cols: Int = COLUMNS): Bitmap? {
+            val cellWidth = atlas.width / cols
             val cellHeight = atlas.height / rows
             val x0 = column * cellWidth
             val y0 = row * cellHeight
@@ -229,9 +250,15 @@ class MonsterSprites private constructor(
             return WalkSet(side = lines[0], front = lines[1], back = lines[2], run = lines[3])
         }
 
-        /** גיליון הבוס (boss_atlas.png): שורה אחת, אותן 7 עמודות (עמידה, 4 הליכה, הצצה/פה פתוח, פגיעה). אין קובץ: null */
+        private const val BOSS_COLUMNS = 6
+        private const val BOSS_ROWS = 4
+
+        /**
+         * גיליון הבוס (boss_anim.png): 6 עמודות על 4 שורות: עמידה (6 פריימים), הכנה (5), ירייה (2), פגיעה (4).
+         * אין קובץ: null והבוס יצויר כמפלצת רגילה.
+         */
         private fun loadBoss(context: Context): MonsterSheet? {
-            val id = context.resources.getIdentifier("boss_atlas", "drawable", context.packageName)
+            val id = context.resources.getIdentifier("boss_anim", "drawable", context.packageName)
             if (id == 0) return null
             val options = BitmapFactory.Options().apply {
                 inScaled = false
@@ -239,8 +266,31 @@ class MonsterSprites private constructor(
             }
             val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
             bitmap.density = Bitmap.DENSITY_NONE
-            if (bitmap.width < COLUMNS) return null
-            return loadSheet(bitmap, 0, null, emptyMap(), rows = 1, sizeScale = 1.0f)
+            if (bitmap.width < BOSS_COLUMNS) return null
+
+            fun line(row: Int, count: Int): List<MonsterSprite> {
+                val frames = ArrayList<MonsterSprite>()
+                for (column in 0 until count) {
+                    val src = cut(bitmap, row, column, BOSS_ROWS, BOSS_COLUMNS) ?: continue
+                    src.density = Bitmap.DENSITY_NONE
+                    frames.add(MonsterSprite(src.asImageBitmap(), src.width, src.height, 0))
+                }
+                return frames
+            }
+
+            val idle = line(0, 6)
+            val prep = line(1, 5)
+            val fire = line(2, 2)
+            val hit = line(3, 4)
+            if (idle.size < 6 || prep.size < 5 || fire.size < 2 || hit.size < 4) return null
+            return MonsterSheet(
+                idle = idle[3],
+                walk = listOf(idle[1], idle[2], idle[4], idle[5]),
+                peek = prep[3],
+                hit = hit[1],
+                sizeScale = 1.0f,
+                bossAnim = BossAnim(idle, prep, fire, hit)
+            )
         }
 
         private fun loadSheet(

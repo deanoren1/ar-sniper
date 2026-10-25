@@ -328,6 +328,27 @@ private fun monsterBox(sheet: MonsterSheet, center: Offset, r: Float): MonsterBo
 }
 
 /**
+ * הפריים של הבוס לפי מה שהוא עושה: מסוחרר (כוכבים), מתכווץ מפגיעה, מתכונן (הפה נפתח ונדלק לפי התקדמות ההכנה),
+ * יורה (פה פתוח ואז התאוששות), או עומד (כנפיים ונשימה בלולאה הלוך-חזור).
+ */
+private fun bossFrame(a: BossAnim, enemy: Enemy, anim: Float, hurt: Float): MonsterSprite {
+    if (AttackPose.bossStunned) return a.hit[3]
+    if (hurt > 0.5f) return a.hit[2]
+    val progress = AttackPose.progress[enemy.id]
+    if (progress != null) return a.prep[(progress * 4f).toInt().coerceIn(0, 3)]
+    val since = AttackPose.bossSinceFire
+    if (since < 0.18f) return a.fire[0]
+    if (since < 0.38f) return a.fire[1]
+    if (since < 0.6f) return a.prep[4]
+    // הלוך-חזור על פריימי העמידה: 0,1,2,3,4,5,4,3,2,1
+    val n = a.idle.size
+    val step = (anim * 6f).toInt()
+    val cycle = 2 * (n - 1)
+    val i = ((step % cycle) + cycle) % cycle
+    return a.idle[if (i < n) i else cycle - i]
+}
+
+/**
  * מציירת מפלצת: עומדת (פריים עמידה עם נשימה קלה), הולכת (4 פריימים, מתהפכת לפי כיוון ההליכה),
  * או נפגעת (תנוחת פגיעה עם כוכבים, נעלמת בענן). הרגליים ב-center.y + r, כמו הדמות הפשוטה.
  */
@@ -366,6 +387,8 @@ private fun DrawScope.drawMonster(
             val raw = (gait.phase / (2f * PI.toFloat()) * list.size).toInt()
             list[((raw % list.size) + list.size) % list.size]
         } else if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
+    } else if (sheet.bossAnim != null) {
+        bossFrame(sheet.bossAnim, enemy, anim, hurt)
     } else if (AttackPose.ids.contains(enemy.id)) {
         sheet.peek
     } else {
@@ -407,7 +430,7 @@ private fun DrawScope.drawMonster(
             // בלון הליום: מתנדנדת בעדינות מצד לצד
             tilt = sin(anim * 1.8f + enemy.id) * 4f
         }
-        if (AttackPose.ids.contains(enemy.id)) {
+        if (sheet.bossAnim == null && AttackPose.ids.contains(enemy.id)) {
             // לפני ירייה: מתנפחת קצת ורועדת
             val pulse = 1.05f + 0.025f * sin(anim * 28f)
             sx *= pulse

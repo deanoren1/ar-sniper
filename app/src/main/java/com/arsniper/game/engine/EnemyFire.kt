@@ -60,6 +60,7 @@ class EnemyFire(private val random: Random = Random.Default) {
     private val confusedUntil = HashMap<Int, Float>()
     private val weakened = HashMap<Int, Int>()
     private val groupHits = HashMap<Int, HashSet<String>>()
+    private val lastLaunchAt = HashMap<Int, Float>()
 
     fun reset() {
         shots.clear()
@@ -70,6 +71,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         confusedUntil.clear()
         weakened.clear()
         groupHits.clear()
+        lastLaunchAt.clear()
         time = 0f
     }
 
@@ -159,8 +161,15 @@ class EnemyFire(private val random: Random = Random.Default) {
         return FireOutcome(hits, stopped)
     }
 
+    /** כמה שניות עברו מאז שהמפלצת ירתה לאחרונה (לאנימציית הירייה), או ערך גדול אם לא ירתה */
+    fun secondsSinceLaunch(enemyId: Int): Float = lastLaunchAt[enemyId]?.let { time - it } ?: 999f
+
+    /** האם המפלצת מושבתת עכשיו (פגיעה בנקודת תורפה): מסוחררת ולא תוקפת */
+    fun isDisabled(enemyId: Int): Boolean = time < (disabledUntil[enemyId] ?: 0f)
+
     private fun launch(enemy: Enemy, director: ArenaDirector, wave: WaveSpec) {
         val foe = director.foeOf(enemy.id) ?: return
+        lastLaunchAt[enemy.id] = time
         shots.add(
             Shot(
                 id = nextShotId++,

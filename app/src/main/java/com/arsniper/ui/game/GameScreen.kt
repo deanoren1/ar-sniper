@@ -200,6 +200,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
 
                         val out = fire.update(dt, Hover.lifted(enemies, nowSeconds()), director)
                         AttackPose.ids = fire.telegraphViews.map { it.enemyId }.toSet()
+                        AttackPose.progress = fire.telegraphViews.associate { it.enemyId to it.progress }
+                        AttackPose.bossSinceFire = fire.secondsSinceLaunch(ArenaDirector.BOSS_ID)
+                        AttackPose.bossStunned = fire.isDisabled(ArenaDirector.BOSS_ID)
                         for (spot in out.stopped) {
                             award(STOP_POINTS, spot.x, spot.y)
                             blasts = blasts + Blast(
@@ -291,6 +294,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
         combo.reset()
         fire.reset()
         AttackPose.ids = emptySet()
+        AttackPose.progress = emptyMap()
+        AttackPose.bossSinceFire = 999f
+        AttackPose.bossStunned = false
         director.restart()
     }
 
