@@ -62,6 +62,10 @@ class EnemyFire(private val random: Random = Random.Default) {
     private val groupHits = HashMap<Int, HashSet<String>>()
     private val lastLaunchAt = HashMap<Int, Float>()
 
+    /** כמה קליעים יצאו עד עכשיו (לצליל ירייה של מפלצת) */
+    var launchCount: Int = 0
+        private set
+
     fun reset() {
         shots.clear()
         telegraphs.clear()
@@ -72,6 +76,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         weakened.clear()
         groupHits.clear()
         lastLaunchAt.clear()
+        launchCount = 0
         time = 0f
     }
 
@@ -170,6 +175,7 @@ class EnemyFire(private val random: Random = Random.Default) {
     private fun launch(enemy: Enemy, director: ArenaDirector, wave: WaveSpec) {
         val foe = director.foeOf(enemy.id) ?: return
         lastLaunchAt[enemy.id] = time
+        launchCount++
         shots.add(
             Shot(
                 id = nextShotId++,

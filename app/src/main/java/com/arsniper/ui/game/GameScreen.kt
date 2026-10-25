@@ -26,6 +26,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import com.arsniper.audio.Sfx
 import com.arsniper.audio.SoundPlayer
 import com.arsniper.data.PhotoRepository
 import com.arsniper.game.engine.Accessories
@@ -118,6 +119,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
     val soundPlayer = remember { SoundPlayer(context) }
+    // זיכרון קטן לזיהוי אירועי צליל בלולאת המשחק (לא מצב שמצויר, ולכן לא גורם לציור מחדש)
+    val sfxMemo = remember { SfxMemo() }
     val director = remember { ArenaDirector() }
     val fire = remember { EnemyFire() }
     val combo = remember { ComboTracker() }
@@ -151,7 +154,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
 
     // ניקוד עם מכפיל הקומבו, וניקוד צף במקום ההצלחה. register=false: לא מאריך את הרצף
     fun award(points: Int, x: Float, y: Float, register: Boolean = true) {
+        val multiplierBefore = combo.multiplier
         if (register) combo.register()
+        if (combo.multiplier > multiplierBefore) soundPlayer.play(Sfx.Combo, 0.9f + 0.1f * combo.multiplier)
         val gained = points * combo.multiplier
         score += gained
         val text = if (combo.multiplier > 1) "+$gained  x${combo.multiplier}" else "+$gained"
@@ -199,7 +204,16 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         }
 
                         val out = fire.update(dt, Hover.lifted(enemies, nowSeconds()), director)
-                        AttackPose.ids = fire.telegraphViews.map { it.enemyId }.toSet()
+                        val telegraphing = fire.telegraphViews.map { it.enemyId }.toSet()
+                        val newlyTelegraphing = telegraphing - AttackPose.ids
+                        if (newlyTelegraphing.isNotEmpty()) {
+                            soundPlayer.play(if (ArenaDirector.BOSS_ID in newlyTelegraphing) Sfx.BossRoar else Sfx.Telegraph)
+                        }
+                        if (fire.launchCount != sfxMemo.launches) {
+                            if (fire.launchCount > sfxMemo.launches) soundPlayer.play(Sfx.Launch)
+                            sfxMemo.launches = fire.launchCount
+                        }
+                        AttackPose.ids = telegraphing
                         AttackPose.progress = fire.telegraphViews.associate { it.enemyId to it.progress }
                         AttackPose.bossSinceFire = fire.secondsSinceLaunch(ArenaDirector.BOSS_ID)
                         AttackPose.bossStunned = fire.isDisabled(ArenaDirector.BOSS_ID)
@@ -216,10 +230,22 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         }
                         for (i in 0 until out.playerHits) {
                             if (director.hitPlayer()) {
+                                soundPlayer.play(Sfx.PlayerHit)
                                 combo.reset()
                                 flash = FLASH_START
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
+                        }
+                        // מעברי שלב: גל חדש, גל נגמר, ניצחון, הפסד
+                        if (director.phase != sfxMemo.phase) {
+                            when (director.phase) {
+                                ArenaPhase.Intro -> soundPlayer.play(Sfx.WaveStart)
+                                ArenaPhase.Clear -> soundPlayer.play(Sfx.WaveClear)
+                                ArenaPhase.Won -> soundPlayer.play(Sfx.Win)
+                                ArenaPhase.Lost -> soundPlayer.play(Sfx.Lose)
+                                else -> Unit
+                            }
+                            sfxMemo.phase = director.phase
                         }
                     }
                     combo.update(dt)
@@ -261,6 +287,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     // ניקוד ואפקט על קליע שנפגע (בלחיצה או בירי)
     fun onIntercept(result: com.arsniper.game.engine.Intercept) {
         val shot = result.shot
+        soundPlayer.play(if (result.destroyed) Sfx.Deflect else Sfx.Crack)
         if (result.destroyed) {
             award(BLOCK_POINTS, shot.x, shot.y)
             blasts = blasts + Blast(
@@ -450,6 +477,11 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         }
                         fire.applyZone(target.id, zone)
                         val balloons = zone.id == WeakZones.BALLOONS.id
+                        soundPlayer.play(
+                            if (balloons) Sfx.BalloonPop else if (killed) Sfx.EnemyDie else Sfx.Zone,
+                            if (balloons) 0.9f + 0.1f * (remaining % 3) else 1f
+                        )
+                        if (!killed && !balloons && zone.damage > 0) soundPlayer.play(Sfx.EnemyHurt)
                         award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y)
                         blasts = blasts + Blast(
                             x = zoneHit.anchor.x,
@@ -475,12 +507,14 @@ fun GameScreen(modifier: Modifier = Modifier) {
                             }
                             if (remaining > 1) {
                                 // נפגעה ולא מתה: מאבדת חיים, מבהבהת ורצה
+                                soundPlayer.play(Sfx.EnemyHurt)
                                 award(HURT_POINTS, target?.position?.x ?: result.enemy.position.x, target?.position?.y ?: result.enemy.position.y, register = false)
                                 val now = nowSeconds()
                                 enemies = enemies.map {
                                     if (it.id == result.enemy.id) hurt(it, 1, now) else it
                                 }
                             } else {
+                                soundPlayer.play(Sfx.EnemyDie)
                                 val base = scoreManager.apply(score, result) - score
                                 award(base, result.enemy.position.x, result.enemy.position.y)
                                 enemies = enemies.map {
@@ -530,4 +564,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+/** מה כבר ננגן ממנו צליל: כמה קליעים יצאו, ובאיזה שלב היה הארנה בפריים הקודם */
+private class SfxMemo {
+    var launches: Int = 0
+    var phase: ArenaPhase? = null
 }
