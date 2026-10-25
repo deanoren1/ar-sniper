@@ -225,6 +225,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         AttackPose.progress = fire.telegraphViews.associate { it.enemyId to it.progress }
                         AttackPose.bossSinceFire = fire.secondsSinceLaunch(ArenaDirector.BOSS_ID)
                         AttackPose.bossStunned = fire.isDisabled(ArenaDirector.BOSS_ID)
+                        AttackPose.bossEnraged = director.bossEnraged
                         for (spot in out.stopped) {
                             award(STOP_POINTS, spot.x, spot.y)
                             blasts = blasts + Blast(
@@ -286,6 +287,17 @@ fun GameScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // הבוס נכנס לשליש האחרון: כרזה קצרה ושאגה
+    var rageBanner by remember { mutableStateOf(false) }
+    LaunchedEffect(director.bossEnraged) {
+        if (director.bossEnraged) {
+            soundPlayer.play(Sfx.BossRoar)
+            rageBanner = true
+            delay(1700)
+            rageBanner = false
+        }
+    }
+
     // אחרי פגיעה: HIT נשאר שנייה, ואז מושלמים אויבים חדשים
     LaunchedEffect(hitCount) {
         if (hitCount > 0) {
@@ -342,6 +354,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
         AttackPose.progress = emptyMap()
         AttackPose.bossSinceFire = 999f
         AttackPose.bossStunned = false
+        AttackPose.bossEnraged = false
         director.restart()
     }
 
@@ -579,6 +592,26 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .align(Alignment.BottomEnd)
                 .padding(end = 64.dp, bottom = 32.dp)
         )
+
+        // קו החיים של הבוס, מתחת לסטטוס הגל
+        if (director.isBossWave && director.bossMax > 0 &&
+            (director.phase == ArenaPhase.Fighting || director.phase == ArenaPhase.Won)
+        ) {
+            BossBar(
+                fraction = director.bossFraction,
+                enraged = director.bossEnraged,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 86.dp)
+            )
+        }
+        if (rageBanner) {
+            ArenaBanner(
+                title = "ENRAGED!",
+                subtitle = "THE DRAGON FIRES FASTER",
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
 
         // כרזות בין הגלים
         if (director.phase == ArenaPhase.Intro) {

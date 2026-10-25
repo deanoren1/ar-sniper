@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.IntSize
 import com.arsniper.game.engine.Accessories
 import com.arsniper.game.engine.AccessoryKind
 import com.arsniper.game.engine.AccessoryTarget
+import com.arsniper.game.engine.ArenaDirector
 import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.WeakZones
 import com.arsniper.game.engine.ZoneTarget
@@ -342,7 +343,7 @@ private fun bossFrame(a: BossAnim, enemy: Enemy, anim: Float, hurt: Float): Mons
     if (since < 0.6f) return a.prep[4]
     // הלוך-חזור על פריימי העמידה: 0,1,2,3,4,5,4,3,2,1
     val n = a.idle.size
-    val step = (anim * 6f).toInt()
+    val step = (anim * (if (AttackPose.bossEnraged) 10f else 6f)).toInt()
     val cycle = 2 * (n - 1)
     val i = ((step % cycle) + cycle) % cycle
     return a.idle[if (i < n) i else cycle - i]
@@ -422,7 +423,7 @@ private fun DrawScope.drawMonster(
         val sideways = abs(enemy.dirY) <= 0.5f
         tilt = (if (sideways) forward * 3.5f * swing else 0f) + sin(gait.phase) * 3f * swing
     } else if (!dead) {
-        val breath = sin(anim * 3.2f + enemy.id)
+        val breath = sin(anim * (if (enemy.id == ArenaDirector.BOSS_ID && AttackPose.bossEnraged) 6f else 3.2f) + enemy.id)
         sy = 1f + 0.025f * breath
         sx = 1f - 0.015f * breath
         tilt = sin(anim * 1.3f + enemy.id) * 1f
@@ -455,7 +456,11 @@ private fun DrawScope.drawMonster(
     }
 
     val gray = (0.3f + 0.7f * shade).coerceIn(0.4f, 1f)
-    val tint = if (hurt > 0f) {
+    val raging = enemy.id == ArenaDirector.BOSS_ID && AttackPose.bossEnraged && !dead
+    val tint = if (raging && hurt <= 0f) {
+        // בוס כועס: גוון אדום פועם
+        ColorFilter.tint(Color(1f, 0.25f, 0.2f, 0.28f + 0.14f * sin(anim * 9f)), BlendMode.SrcAtop)
+    } else if (hurt > 0f) {
         // פגיעה שלא הורגת: הבהוב אדום שדועך
         ColorFilter.tint(Color(1f, 0.3f, 0.3f, 0.65f * hurt), BlendMode.SrcAtop)
     } else {

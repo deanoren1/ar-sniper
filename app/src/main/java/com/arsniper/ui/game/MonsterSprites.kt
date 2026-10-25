@@ -43,6 +43,10 @@ object AttackPose {
 
     @Volatile
     var bossStunned: Boolean = false
+
+    /** הבוס כועס (שליש חיים אחרון): אדום, נע מהר ורועד */
+    @Volatile
+    var bossEnraged: Boolean = false
 }
 
 /** אנימציות הבוס: נשימה/כנפיים בעמידה, הכנה (פה נפתח ונדלק), ירייה, ופגיעה (האחרון: מסוחרר עם כוכבים) */

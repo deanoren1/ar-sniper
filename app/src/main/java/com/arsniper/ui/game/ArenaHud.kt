@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -146,6 +149,53 @@ fun EndOverlay(won: Boolean, stars: Int, score: Int, wave: Int, onRetry: () -> U
             ) {
                 Text(text = "PLAY AGAIN", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+
+/** קו החיים של הבוס: פס רחב עם שם, שנהיה אדום ורועד קלות כשהוא כועס. fraction = החיים שנשארו (0..1) */
+@Composable
+fun BossBar(fraction: Float, enraged: Boolean, modifier: Modifier = Modifier) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        Text(
+            text = if (enraged) "DRAGON  -  ENRAGED" else "DRAGON",
+            color = if (enraged) Color(0xFFFF5252) else Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Box(
+            modifier = Modifier
+                .width(300.dp)
+                .height(16.dp)
+                .background(Color(0xAA000000), RoundedCornerShape(8.dp))
+                .padding(2.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x33FFFFFF), RoundedCornerShape(6.dp))
+            )
+            val shown = fraction.coerceIn(0f, 1f)
+            if (shown > 0f) {
+                Box(
+                    modifier = Modifier
+                        .width((296f * shown).dp)
+                        .height(12.dp)
+                        .background(
+                            if (enraged) Color(0xFFD50000) else Color(0xFFFF9800),
+                            RoundedCornerShape(6.dp)
+                        )
+                )
+            }
+            // סימן בשליש: מתי הוא נהיה כועס
+            Box(
+                modifier = Modifier
+                    .padding(start = (296f / 3f).dp)
+                    .width(2.dp)
+                    .height(12.dp)
+                    .background(Color(0xCCFFFFFF))
+            )
         }
     }
 }

@@ -118,11 +118,11 @@ class EnemyFire(private val random: Random = Random.Default) {
             } else if (!canAttack(enemy)) {
                 // התחבאה באמצע ההכנה: לא יורה
                 tIterator.remove()
-                nextAttack[enemy.id] = time + randomBetween(wave.cooldownMin, wave.cooldownMax)
+                nextAttack[enemy.id] = time + cooldownFor(enemy.id, wave, director)
             } else if (time - t.start >= t.duration) {
                 launch(enemy, director, wave)
                 tIterator.remove()
-                nextAttack[enemy.id] = time + randomBetween(wave.cooldownMin, wave.cooldownMax)
+                nextAttack[enemy.id] = time + cooldownFor(enemy.id, wave, director)
             }
         }
 
@@ -134,7 +134,8 @@ class EnemyFire(private val random: Random = Random.Default) {
             val due = nextAttack.getOrPut(e.id) { time + randomBetween(1.2f, 2.4f) }
             if (time < due) continue
             if (telegraphs.any { it.enemyId == e.id }) continue
-            if (telegraphs.size + shots.size >= wave.maxAttacks) continue
+            val capacity = wave.maxAttacks + if (director.bossEnraged) 1 else 0
+            if (telegraphs.size + shots.size >= capacity) continue
             telegraphs.add(Telegraph(e.id, time, TELEGRAPH_SECONDS))
         }
 
@@ -172,6 +173,12 @@ class EnemyFire(private val random: Random = Random.Default) {
     /** האם המפלצת מושבתת עכשיו (פגיעה בנקודת תורפה): מסוחררת ולא תוקפת */
     fun isDisabled(enemyId: Int): Boolean = time < (disabledUntil[enemyId] ?: 0f)
 
+    /** זמן עד ההתקפה הבאה. בוס כועס (שליש חיים אחרון) תוקף בקצב כפול */
+    private fun cooldownFor(enemyId: Int, wave: WaveSpec, director: ArenaDirector): Float {
+        val base = randomBetween(wave.cooldownMin, wave.cooldownMax)
+        return if (enemyId == ArenaDirector.BOSS_ID && director.bossEnraged) base * 0.5f else base
+    }
+
     private fun launch(enemy: Enemy, director: ArenaDirector, wave: WaveSpec) {
         val foe = director.foeOf(enemy.id) ?: return
         lastLaunchAt[enemy.id] = time
@@ -183,7 +190,8 @@ class EnemyFire(private val random: Random = Random.Default) {
                 y = enemy.position.y,
                 kind = foe.shot,
                 born = time,
-                flight = foe.flightSeconds * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)),
+                flight = foe.flightSeconds * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)) *
+                    (if (enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged) 0.85f else 1f),
                 baseRadius = baseRadiusOf(foe.shot),
                 maxHp = foe.shotHp,
                 hp = foe.shotHp,

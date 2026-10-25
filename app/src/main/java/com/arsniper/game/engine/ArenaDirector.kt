@@ -30,7 +30,7 @@ enum class Foe(
     Hedgehog(row = 2, hp = 2, threat = 3, shot = ShotKind.Spike, flightSeconds = 1.5f),
 
     /** הבוס: דרקון. אין לו שורה בגיליון הרגיל (row = 5), הוא מצויר מגיליון נפרד לפי BOSS_ID */
-    Dragon(row = 5, hp = 14, threat = 9, shot = ShotKind.Fire, flightSeconds = 1.7f, shotHp = 2)
+    Dragon(row = 5, hp = 30, threat = 5, shot = ShotKind.Fire, flightSeconds = 1.7f, shotHp = 2)
 }
 
 /**
@@ -100,7 +100,24 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
     val waveCount: Int get() = waves.size
     val currentWave: WaveSpec get() = waves[waveIndex.coerceIn(0, waves.size - 1)]
-    val leftInWave: Int get() = totalInWave - killedInWave
+    /** בגל הבוס: כמה "נשאר" להצגה: הבוס עצמו (המפלצות הרגילות ממשיכות להגיע עד שהוא נופל) */
+    val leftInWave: Int get() = if (isBossWave) (if (bossAlive) 1 else 0) else totalInWave - killedInWave
+
+    /** מצב הבוס, מתעדכן בכל פריים: חיים, חיים מקסימליים, האם חי */
+    var bossHp: Int = 0
+        private set
+    var bossMax: Int = 0
+        private set
+    var bossAlive: Boolean = false
+        private set
+
+    /** בשליש האחרון של החיים הבוס "כועס": יורה מהר יותר ותדיר יותר */
+    val bossEnraged: Boolean get() = bossAlive && bossMax > 0 && bossHp * 3 <= bossMax
+
+    /** שבר החיים שנשארו לבוס (0..1) */
+    val bossFraction: Float get() = if (bossMax > 0) bossHp.toFloat() / bossMax else 0f
+
+    private var minionCycle = 0
 
     /** האם הגל הנוכחי הוא גל הבוס */
     val isBossWave: Boolean get() = currentWave.foes.contains(Foe.Dragon)
@@ -142,6 +159,10 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         queue.addAll(waves[index].foes)
         killedInWave = 0
         totalInWave = waves[index].foes.size
+        bossHp = 0
+        bossMax = 0
+        bossAlive = false
+        minionCycle = 0
         phase = ArenaPhase.Intro
         phaseTimer = INTRO_SECONDS
         spawnCooldown = 0f
@@ -213,6 +234,23 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         // הריגות: אויב של הארנה שמסומן מת. אויב שנעלם מהרשימה בלי למות (יצא מהעולם) חוזר לתור
         for (e in enemies) {
             if (!e.isAlive && foeById.containsKey(e.id) && counted.add(e.id)) killedInWave++
+        }
+        // הבוס: מעדכנים חיים. כשהוא נופל הארנה נוצחת מיד (גם אם נשארו מפלצות רגילות)
+        val boss = enemies.firstOrNull { it.id == BOSS_ID }
+        if (boss != null) {
+            bossMax = boss.maxHp
+            bossHp = if (boss.isAlive) boss.hp.coerceAtLeast(1) else 0
+            bossAlive = boss.isAlive
+            if (!boss.isAlive && isBossWave) {
+                pendingBonus += BOSS_BONUS
+                phase = ArenaPhase.Won
+                return enemies
+            }
+        }
+        // בגל הבוס המפלצות הרגילות ממשיכות להגיע עד שהבוס נופל
+        if (isBossWave && bossAlive && queue.isEmpty() && teleportQueue.isEmpty()) {
+            queue.addLast(MINIONS[minionCycle % MINIONS.size])
+            minionCycle++
         }
         val present = HashSet<Int>()
         for (e in enemies) present.add(e.id)
@@ -338,6 +376,10 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
         /** בונוס סיום גל, כפול מספר הגל */
         private const val CLEAR_BONUS = 200
+        private const val BOSS_BONUS = 2000
+
+        /** המפלצות הרגילות שמצטרפות לבוס, בסבב */
+        private val MINIONS = listOf(Foe.Balloon, Foe.Octopus, Foe.Balloon, Foe.Alien)
 
         /** מספרי אויב מתחת לערך הזה יוצרים המנוע, מעליו המנהל */
         private const val ID_BASE = 100_000
@@ -351,22 +393,22 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
             // גל 1: בלונים, ובסוף התמנון הראשון
             WaveSpec(
                 foes = listOf(Foe.Balloon, Foe.Balloon, Foe.Balloon, Foe.Octopus),
-                maxThreat = 3, maxAttacks = 1, cooldownMin = 3.5f, cooldownMax = 5.5f, flightScale = 1.15f
+                maxThreat = 3, maxAttacks = 1, cooldownMin = 3.85f, cooldownMax = 6.05f, flightScale = 1.27f
             ),
             // גל 2: מופיע החייזר
             WaveSpec(
                 foes = listOf(Foe.Balloon, Foe.Octopus, Foe.Balloon, Foe.Octopus, Foe.Alien),
-                maxThreat = 4, maxAttacks = 2, cooldownMin = 3.0f, cooldownMax = 5.0f, flightScale = 1.05f
+                maxThreat = 4, maxAttacks = 2, cooldownMin = 3.3f, cooldownMax = 5.5f, flightScale = 1.16f
             ),
             // גל 3: מופיע הענק
             WaveSpec(
                 foes = listOf(Foe.Octopus, Foe.Alien, Foe.Octopus, Foe.Alien, Foe.Giant),
-                maxThreat = 5, maxAttacks = 2, cooldownMin = 2.6f, cooldownMax = 4.4f, flightScale = 1.0f
+                maxThreat = 5, maxAttacks = 2, cooldownMin = 2.86f, cooldownMax = 4.84f, flightScale = 1.1f
             ),
             // גל 4: מופיע הקיפוד
             WaveSpec(
                 foes = listOf(Foe.Balloon, Foe.Alien, Foe.Balloon, Foe.Alien, Foe.Giant, Foe.Hedgehog),
-                maxThreat = 6, maxAttacks = 2, cooldownMin = 2.2f, cooldownMax = 4.0f, flightScale = 0.95f
+                maxThreat = 6, maxAttacks = 2, cooldownMin = 2.42f, cooldownMax = 4.4f, flightScale = 1.05f
             ),
             // גל 5: כולם יחד
             WaveSpec(
@@ -374,12 +416,12 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                     Foe.Balloon, Foe.Octopus, Foe.Alien, Foe.Balloon, Foe.Hedgehog,
                     Foe.Octopus, Foe.Giant, Foe.Alien, Foe.Hedgehog
                 ),
-                maxThreat = 7, maxAttacks = 3, cooldownMin = 1.8f, cooldownMax = 3.4f, flightScale = 0.9f
+                maxThreat = 7, maxAttacks = 3, cooldownMin = 1.98f, cooldownMax = 3.74f, flightScale = 1.0f
             ),
             // גל 6: הבוס, הדרקון
             WaveSpec(
-                foes = listOf(Foe.Dragon),
-                maxThreat = 9, maxAttacks = 2, cooldownMin = 2.2f, cooldownMax = 3.4f, flightScale = 1.0f
+                foes = listOf(Foe.Dragon, Foe.Balloon, Foe.Octopus),
+                maxThreat = 9, maxAttacks = 3, cooldownMin = 2.4f, cooldownMax = 3.6f, flightScale = 1.0f
             )
         )
     }
