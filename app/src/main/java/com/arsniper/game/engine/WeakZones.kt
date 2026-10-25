@@ -69,8 +69,17 @@ object WeakZones {
         Zone("belly", "BELLY!", 0f, 0.74f, 0.14f, damage = 2, points = 300, onlyTelegraph = true)
     )
 
+    private val DRAGON = listOf(
+        Zone("wingL", "WING!", -0.9f, 0.4f, 0.14f, damage = 0, points = 150, slow = 1),
+        Zone("wingR", "WING!", 0.9f, 0.4f, 0.14f, damage = 0, points = 150, slow = 1),
+        Zone("head", "HEAD!", 0f, 0.27f, 0.13f, damage = 1, points = 250, confuse = 3f),
+        Zone("belly", "BELLY!", 0f, 0.72f, 0.14f, damage = 1, points = 200),
+        Zone("mouth", "FIRE OUT!", 0f, 0.4f, 0.13f, damage = 3, points = 600, cancel = true, disable = 3f, onlyTelegraph = true)
+    )
+
     /** סוג המפלצת לפי המספר שלה (id % 5 = שורת הספרייט), או null */
     fun foeByRow(enemyId: Int): Foe? {
+        if (enemyId == ArenaDirector.BOSS_ID) return Foe.Dragon
         val row = ((enemyId % 5) + 5) % 5
         return Foe.values().firstOrNull { it.row == row }
     }
@@ -80,6 +89,7 @@ object WeakZones {
         Foe.Alien -> ALIEN
         Foe.Giant -> GIANT
         Foe.Hedgehog -> HEDGEHOG
+        Foe.Dragon -> DRAGON
         else -> emptyList()
     }
 

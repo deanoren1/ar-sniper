@@ -1,11 +1,13 @@
 package com.arsniper.game.engine
 
 import com.arsniper.game.model.Enemy
+import com.arsniper.game.model.EnemyKind
+import com.arsniper.game.model.EnemyState
 import com.arsniper.game.model.Vec2
 import kotlin.math.max
 
 /** סוג הקליע שמפלצת יורה על השחקן */
-enum class ShotKind { Orb, Bomb, Gas, Rock, Spike }
+enum class ShotKind { Orb, Bomb, Gas, Rock, Spike, Fire }
 
 /**
  * סוג מפלצת בארנה. row = שורת הספרייט בגיליון המפלצות (ורוד 0, סגול 1, ירוק 2, כתום 3, כחול 4).
@@ -25,7 +27,10 @@ enum class Foe(
     Octopus(row = 1, hp = 3, threat = 2, shot = ShotKind.Orb, flightSeconds = 1.6f),
     Alien(row = 4, hp = 3, threat = 2, shot = ShotKind.Gas, flightSeconds = 1.9f),
     Giant(row = 0, hp = 4, threat = 3, shot = ShotKind.Rock, flightSeconds = 2.1f, shotHp = 2),
-    Hedgehog(row = 2, hp = 2, threat = 3, shot = ShotKind.Spike, flightSeconds = 1.5f)
+    Hedgehog(row = 2, hp = 2, threat = 3, shot = ShotKind.Spike, flightSeconds = 1.5f),
+
+    /** הבוס: דרקון. אין לו שורה בגיליון הרגיל (row = 5), הוא מצויר מגיליון נפרד לפי BOSS_ID */
+    Dragon(row = 5, hp = 14, threat = 9, shot = ShotKind.Fire, flightSeconds = 1.7f, shotHp = 2)
 }
 
 /**
@@ -96,6 +101,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     val waveCount: Int get() = waves.size
     val currentWave: WaveSpec get() = waves[waveIndex.coerceIn(0, waves.size - 1)]
     val leftInWave: Int get() = totalInWave - killedInWave
+
+    /** האם הגל הנוכחי הוא גל הבוס */
+    val isBossWave: Boolean get() = currentWave.foes.contains(Foe.Dragon)
 
     private val queue = ArrayDeque<Foe>()
     private val foeById = HashMap<Int, Foe>()
@@ -291,6 +299,20 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                 }
                 val foe = queue.removeFirstOrNull()
                 if (foe == null) continue // המנוע יצר יותר מהנדרש: מוותרים על המיותרת
+                if (foe == Foe.Dragon) {
+                    // הבוס: גדול, עומד במרכז, מספר קבוע (BOSS_ID) כדי שיצויר מהגיליון שלו
+                    foeById[BOSS_ID] = foe
+                    val center = Vec2(0.5f, 0.56f)
+                    out.add(
+                        e.copy(
+                            id = BOSS_ID, position = center, radius = BOSS_RADIUS, kind = EnemyKind.Static,
+                            state = EnemyState.Exposed, spot = null, hidePos = center, peekPos = center,
+                            exposure = 1f, maxHp = foe.hp, hp = foe.hp
+                        )
+                    )
+                    assigned = true
+                    continue
+                }
                 val id = ID_BASE + nextSeq * 5 + foe.row
                 nextSeq++
                 foeById[id] = foe
@@ -320,6 +342,11 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         /** מספרי אויב מתחת לערך הזה יוצרים המנוע, מעליו המנהל */
         private const val ID_BASE = 100_000
 
+        /** מספר קבוע לבוס (id % 5 אינו 3, כדי שלא ייחשב מפלצת בלונים) */
+        const val BOSS_ID = 300_002
+
+        /** רדיוס הבוס ביחידות גובה מסך */
+        const val BOSS_RADIUS = 0.19f
         val DEFAULT_WAVES: List<WaveSpec> = listOf(
             // גל 1: בלונים, ובסוף התמנון הראשון
             WaveSpec(
@@ -341,13 +368,18 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                 foes = listOf(Foe.Balloon, Foe.Alien, Foe.Balloon, Foe.Alien, Foe.Giant, Foe.Hedgehog),
                 maxThreat = 6, maxAttacks = 2, cooldownMin = 2.2f, cooldownMax = 4.0f, flightScale = 0.95f
             ),
-            // גל 5 (הגמר, עד שהדרקון יהיה הבוס): כולם יחד
+            // גל 5: כולם יחד
             WaveSpec(
                 foes = listOf(
                     Foe.Balloon, Foe.Octopus, Foe.Alien, Foe.Balloon, Foe.Hedgehog,
                     Foe.Octopus, Foe.Giant, Foe.Alien, Foe.Hedgehog
                 ),
                 maxThreat = 7, maxAttacks = 3, cooldownMin = 1.8f, cooldownMax = 3.4f, flightScale = 0.9f
+            ),
+            // גל 6: הבוס, הדרקון
+            WaveSpec(
+                foes = listOf(Foe.Dragon),
+                maxThreat = 9, maxAttacks = 2, cooldownMin = 2.2f, cooldownMax = 3.4f, flightScale = 1.0f
             )
         )
     }

@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
+import com.arsniper.game.engine.ArenaDirector
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlin.math.PI
 import kotlin.math.abs
@@ -64,10 +65,13 @@ class WalkSet(
  * הלא-שקופים של הדמות. אם הקובץ נשמר עם רקע אחיד במקום שקיפות, הרקע מוסר אוטומטית.
  * אם הקובץ לא קיים, load מחזיר null והמשחק חוזר לדמות הפשוטה.
  */
-class MonsterSprites private constructor(private val sheets: List<MonsterSheet>) {
+class MonsterSprites private constructor(
+    private val sheets: List<MonsterSheet>,
+    private val boss: MonsterSheet? = null
+) {
 
     /** המפלצת של אויב מסוים: קבועה לפי מספר האויב */
-    fun forEnemy(id: Int): MonsterSheet = sheets[((id % sheets.size) + sheets.size) % sheets.size]
+    fun forEnemy(id: Int): MonsterSheet = if (id == ArenaDirector.BOSS_ID && boss != null) boss else sheets[((id % sheets.size) + sheets.size) % sheets.size]
 
     companion object {
         private const val ATLAS_NAME = "monsters_atlas"
@@ -112,7 +116,7 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 val sheet = loadSheet(atlas, row, loadWalk(context, row, "walk_$row"), fewer) ?: continue
                 sheets.add(sheet)
             }
-            return if (sheets.isEmpty()) null else MonsterSprites(sheets)
+            return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context))
         }
 
         /**
@@ -140,9 +144,9 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
         /**
          * חותך פריים: תא שווה בגיליון, ובתוכו המלבן הצר ביותר שמקיף את כל הפיקסלים הלא-שקופים.
          */
-        private fun cut(atlas: Bitmap, row: Int, column: Int): Bitmap? {
+        private fun cut(atlas: Bitmap, row: Int, column: Int, rows: Int = ROWS): Bitmap? {
             val cellWidth = atlas.width / COLUMNS
-            val cellHeight = atlas.height / ROWS
+            val cellHeight = atlas.height / rows
             val x0 = column * cellWidth
             val y0 = row * cellHeight
             val pixels = IntArray(cellWidth * cellHeight)
@@ -225,10 +229,31 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
             return WalkSet(side = lines[0], front = lines[1], back = lines[2], run = lines[3])
         }
 
-        private fun loadSheet(atlas: Bitmap, row: Int, moves: WalkSet?, fewer: Map<Int, WalkSet>): MonsterSheet? {
+        /** גיליון הבוס (boss_atlas.png): שורה אחת, אותן 7 עמודות (עמידה, 4 הליכה, הצצה/פה פתוח, פגיעה). אין קובץ: null */
+        private fun loadBoss(context: Context): MonsterSheet? {
+            val id = context.resources.getIdentifier("boss_atlas", "drawable", context.packageName)
+            if (id == 0) return null
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            bitmap.density = Bitmap.DENSITY_NONE
+            if (bitmap.width < COLUMNS) return null
+            return loadSheet(bitmap, 0, null, emptyMap(), rows = 1, sizeScale = 1.0f)
+        }
+
+        private fun loadSheet(
+            atlas: Bitmap,
+            row: Int,
+            moves: WalkSet?,
+            fewer: Map<Int, WalkSet>,
+            rows: Int = ROWS,
+            sizeScale: Float = SIZE_SCALES[row]
+        ): MonsterSheet? {
             val frames = ArrayList<Bitmap>()
             for (column in 0 until COLUMNS) {
-                frames.add(cut(atlas, row, column) ?: return null)
+                frames.add(cut(atlas, row, column, rows) ?: return null)
             }
             // עובי המסגרת יחסי לגובה הדמות, כך שבכל הגדלים היא נראית אותו דבר
             // בלי מסגרת לבנה: הציורים החדשים כבר נראים טוב על הרקע (pad = 0)
@@ -241,7 +266,7 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 walk = listOf(sprite(1), sprite(2), sprite(3), sprite(4)),
                 peek = sprite(5),
                 hit = sprite(6),
-                sizeScale = SIZE_SCALES[row],
+                sizeScale = sizeScale,
                 moves = moves,
                 fewer = fewer
             )

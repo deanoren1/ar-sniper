@@ -242,6 +242,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         ShotKind.Gas -> 0.10f
         ShotKind.Rock -> 0.10f
         ShotKind.Spike -> 0.07f
+        ShotKind.Fire -> 0.13f
     }
 
     private fun randomBetween(min: Float, max: Float): Float = min + random.nextFloat() * (max - min)

@@ -498,8 +498,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
         // כרזות בין הגלים
         if (director.phase == ArenaPhase.Intro) {
             ArenaBanner(
-                title = "WAVE ${director.waveIndex + 1}",
-                subtitle = if (director.waveIndex == director.waveCount - 1) "FINAL WAVE" else null,
+                title = if (director.isBossWave) "BOSS!" else "WAVE ${director.waveIndex + 1}",
+                subtitle = if (director.isBossWave) "SHOOT THE MOUTH WHEN IT GLOWS" else null,
                 modifier = Modifier.align(Alignment.Center)
             )
         }

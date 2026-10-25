@@ -122,6 +122,30 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float) {
             }
         }
 
+        ShotKind.Fire -> {
+            // כדור אש: הילה כתומה, ליבה צהובה-לבנה, ולשונות להבה שמסתובבות
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFFFF59D), Color(0xFFFF9800), Color(0xFFD50000), Color(0x00D50000)),
+                    center = center,
+                    radius = r * 1.5f
+                ),
+                radius = r * 1.5f,
+                center = center
+            )
+            for (i in 0 until 6) {
+                val a = (2.0 * PI * i / 6.0).toFloat() - time * 4f
+                val tip = Offset(cx + cos(a) * r * 1.45f, cy + sin(a) * r * 1.45f)
+                drawLine(Color(0xFFFFAB00), center, tip, strokeWidth = r * 0.28f + 2f)
+            }
+            drawCircle(Color(0xFFFFF176), r * 0.75f, center)
+            drawCircle(Color.White, r * 0.38f, center)
+            // סדק (פגיעה ראשונה בקליע בעל שני חיים)
+            if (s.hp < s.maxHp) {
+                drawLine(Color(0xFF3E2723), Offset(cx - r * 0.5f, cy - r * 0.6f), Offset(cx + r * 0.2f, cy + r * 0.7f), strokeWidth = r * 0.1f + 2f)
+            }
+        }
+
         ShotKind.Spike -> {
             val spikes = 8
             for (i in 0 until spikes) {
