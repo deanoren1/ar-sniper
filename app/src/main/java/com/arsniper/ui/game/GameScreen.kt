@@ -363,7 +363,11 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     }
                     if (flash > 0f) flash = (flash - FLASH_DECAY_PER_SECOND * dt).coerceAtLeast(0f)
                     if (director.bossDying) shake = max(shake, 0.55f)
-                    if (shake > 0f) shake = (shake - 2.0f * dt).coerceAtLeast(0f)
+                }
+                if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
+                    shake = 0f
+                } else if (shake > 0f) {
+                    shake = (shake - 2.0f * dt).coerceAtLeast(0f)
                 }
                 lastFrameNanos = now
                 frameNanos = now
@@ -785,6 +789,10 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(top = 16.dp, end = 16.dp)
         )
 
+        // הרובה בתחתית המסך (בלי מגע), ומד הכדורים מעל כפתור הירי
+        if (weaponArt != null) {
+            WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget)
+        }
         ShockButton(
             fraction = shock.fraction,
             ready = shock.ready && director.phase == ArenaPhase.Fighting,
@@ -792,13 +800,9 @@ fun GameScreen(modifier: Modifier = Modifier) {
             onClick = { triggerShock() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 176.dp, bottom = 42.dp)
+                .padding(end = 28.dp, bottom = 196.dp)
         )
 
-        // הרובה בתחתית המסך (בלי מגע), ומד הכדורים מעל כפתור הירי
-        if (weaponArt != null) {
-            WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget)
-        }
         AmmoBar(
             ammo = ammoShown,
             magSize = weapon.magSize,

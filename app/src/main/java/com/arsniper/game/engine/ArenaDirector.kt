@@ -169,6 +169,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         bossAlive = false
         minionCycle = 0
         bossDying = false
+        bossAge = 0f
         phase = ArenaPhase.Intro
         phaseTimer = INTRO_SECONDS
         spawnCooldown = 0f
@@ -234,8 +235,24 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
      * מקדם את הארנה בפריים אחד ומחזיר את רשימת האויבים המעודכנת (עם מפלצות חדשות אם נוצרו).
      * engine = המנוע, שיוצר את המפלצות במקום המתאים בסצנה.
      */
-    fun step(dt: Float, enemies: List<Enemy>, engine: GameEngine, aspect: Float): List<Enemy> {
-        if (phase == ArenaPhase.Won || phase == ArenaPhase.Lost) return enemies
+    private var bossAge = 0f
+
+    /** הבוס מופיע קטן ורחוק, צועד לכיוון השחקן וגדל עד לגודל הסופי */
+    private fun approachBoss(dt: Float, list: List<Enemy>): List<Enemy> {
+        if (list.none { it.id == BOSS_ID && it.isAlive }) return list
+        bossAge += dt
+        val t = (bossAge / BOSS_APPROACH_SECONDS).coerceIn(0f, 1f)
+        val k = t * t * (3f - 2f * t)
+        val radius = BOSS_START_RADIUS + (BOSS_RADIUS - BOSS_START_RADIUS) * k
+        val pos = Vec2(0.5f, BOSS_START_Y + (BOSS_END_Y - BOSS_START_Y) * k)
+        return list.map {
+            if (it.id == BOSS_ID && it.isAlive) it.copy(position = pos, radius = radius, hidePos = pos, peekPos = pos) else it
+        }
+    }
+
+    fun step(dt: Float, enemiesIn: List<Enemy>, engine: GameEngine, aspect: Float): List<Enemy> {
+        if (phase == ArenaPhase.Won || phase == ArenaPhase.Lost) return enemiesIn
+        val enemies = approachBoss(dt, enemiesIn)
         invulnerableLeft = max(0f, invulnerableLeft - dt)
 
         when (phase) {
@@ -374,10 +391,10 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                 if (foe == Foe.Dragon) {
                     // הבוס: גדול, עומד במרכז, מספר קבוע (BOSS_ID) כדי שיצויר מהגיליון שלו
                     foeById[BOSS_ID] = foe
-                    val center = Vec2(0.5f, 0.56f)
+                    val center = Vec2(0.5f, BOSS_START_Y)
                     out.add(
                         e.copy(
-                            id = BOSS_ID, position = center, radius = BOSS_RADIUS, kind = EnemyKind.Static,
+                            id = BOSS_ID, position = center, radius = BOSS_START_RADIUS, kind = EnemyKind.Static,
                             state = EnemyState.Exposed, spot = null, hidePos = center, peekPos = center,
                             exposure = 1f, maxHp = foe.hp, hp = foe.hp
                         )
@@ -424,7 +441,11 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         const val BOSS_ID = 300_002
 
         /** רדיוס הבוס ביחידות גובה מסך */
-        const val BOSS_RADIUS = 0.19f
+        const val BOSS_RADIUS = 0.13f
+        const val BOSS_START_RADIUS = 0.05f
+        const val BOSS_START_Y = 0.36f
+        const val BOSS_END_Y = 0.56f
+        const val BOSS_APPROACH_SECONDS = 6f
         val DEFAULT_WAVES: List<WaveSpec> = listOf(
             // גל 1: בלונים, ובסוף התמנון הראשון
             WaveSpec(
