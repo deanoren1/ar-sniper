@@ -340,9 +340,9 @@ private fun DrawScope.drawMonster(
     val sprite: MonsterSprite = if (dead) {
         sheet.hit
     } else if (walking) {
-        val raw = (gait.phase / (2f * PI.toFloat()) * FRAMES_PER_CYCLE).toInt()
-        val count = sheet.walk.size
-        sheet.walk[((raw % count) + count) % count]
+        // פריים הליכה אחד (מבט צדדי): התנועה נוצרת בקפיצות, הטיות ולחיצות של אותו ציור.
+        // הציורים הם תנוחות שונות (קדימה, צד, גב) ולכן החלפה ביניהן בהליכה נראתה קופצנית
+        sheet.walk[0]
     } else if (AttackPose.ids.contains(enemy.id)) {
         sheet.peek
     } else {
@@ -355,13 +355,38 @@ private fun DrawScope.drawMonster(
     val k = spriteScale(sheet, r)
     val targetHeight = sheet.idle.height * k
 
-    // נשימה קלה כשעומדת
+    // תנועה: נשימה כשעומדת; קפיצה, לחיצה והטיה קדימה בהליכה; התנופפות קלה לבלונים; התכווצות לפני ירייה
     var sx = 1f
     var sy = 1f
-    if (!dead && !walking) {
+    var tilt = 0f
+    var hop = 0f
+    var shakeX = 0f
+    if (!dead && walking) {
+        val swing = gait.swing
+        val bounce = abs(sin(gait.phase))
+        hop = bounce * targetHeight * 0.05f * swing
+        // לחוץ בנחיתה, מתוח באוויר
+        sy = 1f + 0.05f * (bounce - 0.5f) * swing
+        sx = 1f - 0.035f * (bounce - 0.5f) * swing
+        // הטיה קדימה בכיוון ההליכה, וטלטול לצדדים עם כל צעד
+        val forward = if (enemy.direction < 0f) -1f else 1f
+        tilt = forward * 3.5f * swing + sin(gait.phase) * 3f * swing
+    } else if (!dead) {
         val breath = sin(anim * 3.2f + enemy.id)
         sy = 1f + 0.025f * breath
         sx = 1f - 0.015f * breath
+        tilt = sin(anim * 1.3f + enemy.id) * 1f
+        if (Hover.isBalloonMonster(enemy)) {
+            // בלון הליום: מתנדנדת בעדינות מצד לצד
+            tilt = sin(anim * 1.8f + enemy.id) * 4f
+        }
+        if (AttackPose.ids.contains(enemy.id)) {
+            // לפני ירייה: מתנפחת קצת ורועדת
+            val pulse = 1.05f + 0.025f * sin(anim * 28f)
+            sx *= pulse
+            sy *= pulse
+            shakeX = sin(anim * 55f) * r * 0.04f
+        }
     }
     val alpha = if (dead) {
         if (progress < 0.5f) 1f else (1f - (progress - 0.5f) * 2f).coerceIn(0f, 1f)
@@ -389,8 +414,8 @@ private fun DrawScope.drawMonster(
     val width = sprite.image.width * k * sx
     val height = sprite.image.height * k * sy
     val padPx = sprite.pad * k * sy
-    val left = cx - width / 2f
-    val top = feetY + padPx - height
+    val left = cx - width / 2f + shakeX
+    val top = feetY + padPx - height - hop
     val flip = (walking || dead) && enemy.direction < 0f
 
     val drawSprite: DrawScope.() -> Unit = {
@@ -404,10 +429,12 @@ private fun DrawScope.drawMonster(
             colorFilter = tint
         )
     }
-    if (flip) {
-        scale(-1f, 1f, Offset(cx, feetY)) { drawSprite() }
-    } else {
-        drawSprite()
+    rotate(tilt, Offset(cx, feetY)) {
+        if (flip) {
+            scale(-1f, 1f, Offset(cx, feetY)) { drawSprite() }
+        } else {
+            drawSprite()
+        }
     }
 
     // ענן קטן בזמן הפגיעה
