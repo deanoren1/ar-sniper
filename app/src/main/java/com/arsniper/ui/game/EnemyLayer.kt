@@ -342,7 +342,21 @@ private fun DrawScope.drawMonster(
     } else if (walking) {
         // המבט נקבע לפי כיוון ההליכה: אל המצלמה = מבט קדמי, מתרחקת = גב, לרוחב = צד.
         // התנועה עצמה נוצרת בקפיצות, הטיות ולחיצות של אותו ציור (החלפת תנוחות בהליכה נראתה קופצנית)
-        if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
+        val moves = sheet.moves
+        if (moves != null) {
+            // פריימי הליכה אמיתיים: פריים לפי שלב המחזור (אותו קצב כמו התנועה, כך שהרגליים לא "מחליקות")
+            val list = if (enemy.dirY > 0.5f) {
+                moves.front
+            } else if (enemy.dirY < -0.5f) {
+                moves.back
+            } else if (gait.swing > 1.2f) {
+                moves.run
+            } else {
+                moves.side
+            }
+            val raw = (gait.phase / (2f * PI.toFloat()) * list.size).toInt()
+            list[((raw % list.size) + list.size) % list.size]
+        } else if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
     } else if (AttackPose.ids.contains(enemy.id)) {
         sheet.peek
     } else {
@@ -364,10 +378,12 @@ private fun DrawScope.drawMonster(
     if (!dead && walking) {
         val swing = gait.swing
         val bounce = abs(sin(gait.phase))
-        hop = bounce * targetHeight * 0.05f * swing
+        // עם פריימי הליכה אמיתיים התנועה כבר בציור: רק קפיצה וטלטול קלים
+        val real = if (sheet.moves != null) 0.3f else 1f
+        hop = bounce * targetHeight * 0.05f * swing * real
         // לחוץ בנחיתה, מתוח באוויר
-        sy = 1f + 0.05f * (bounce - 0.5f) * swing
-        sx = 1f - 0.035f * (bounce - 0.5f) * swing
+        sy = 1f + 0.05f * (bounce - 0.5f) * swing * real
+        sx = 1f - 0.035f * (bounce - 0.5f) * swing * real
         // הטיה קדימה בכיוון ההליכה, וטלטול לצדדים עם כל צעד
         val forward = if (enemy.direction < 0f) -1f else 1f
         val sideways = abs(enemy.dirY) <= 0.5f

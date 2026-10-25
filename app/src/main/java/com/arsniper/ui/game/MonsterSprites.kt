@@ -40,7 +40,17 @@ class MonsterSheet(
     val peek: MonsterSprite,
     val hit: MonsterSprite,
     /** גודל יחסי של המפלצת (גובה העמידה שלה ביחס לגודל "אדם" באותו מקום) */
-    val sizeScale: Float
+    val sizeScale: Float,
+    /** פריימי הליכה אמיתיים (אם הועלה גיליון הליכה למפלצת הזאת), אחרת null וההליכה מדומה */
+    val moves: WalkSet? = null
+)
+
+/** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
+class WalkSet(
+    val side: List<MonsterSprite>,
+    val front: List<MonsterSprite>,
+    val back: List<MonsterSprite>,
+    val run: List<MonsterSprite>
 )
 
 /**
@@ -92,7 +102,7 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
             if (atlas.width < COLUMNS || atlas.height < ROWS) return null
             val sheets = ArrayList<MonsterSheet>()
             for (row in SIZE_SCALES.indices) {
-                val sheet = loadSheet(atlas, row) ?: continue
+                val sheet = loadSheet(atlas, row, loadWalk(context, row)) ?: continue
                 sheets.add(sheet)
             }
             return if (sheets.isEmpty()) null else MonsterSprites(sheets)
@@ -150,7 +160,65 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
             return Bitmap.createBitmap(atlas, x0 + minX, y0 + minY, maxX - minX + 1, maxY - minY + 1)
         }
 
-        private fun loadSheet(atlas: Bitmap, row: Int): MonsterSheet? {
+        private const val WALK_COLUMNS = 6
+        private const val WALK_ROWS = 4
+
+        /**
+         * גיליון הליכה של מפלצת: הקובץ walk_N.png (N = שורת המפלצת בגיליון הראשי), 6 עמודות על 4 שורות:
+         * צד, קדימה, אחורה, ריצה. בכל שורה כל הפריימים נחתכים באותו מלבן, כדי שהתנועה בתוך הפריים תישמר.
+         * אין קובץ: מחזיר null.
+         */
+        private fun loadWalk(context: Context, row: Int): WalkSet? {
+            val id = context.resources.getIdentifier("walk_$row", "drawable", context.packageName)
+            if (id == 0) return null
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            bitmap.density = Bitmap.DENSITY_NONE
+            val cellWidth = bitmap.width / WALK_COLUMNS
+            val cellHeight = bitmap.height / WALK_ROWS
+            if (cellWidth < 2 || cellHeight < 2) return null
+            val lines = ArrayList<List<MonsterSprite>>()
+            for (line in 0 until WALK_ROWS) {
+                var minX = cellWidth
+                var minY = cellHeight
+                var maxX = -1
+                var maxY = -1
+                val pixels = IntArray(cellWidth * cellHeight)
+                for (column in 0 until WALK_COLUMNS) {
+                    bitmap.getPixels(pixels, 0, cellWidth, column * cellWidth, line * cellHeight, cellWidth, cellHeight)
+                    for (y in 0 until cellHeight) {
+                        for (x in 0 until cellWidth) {
+                            if (Color.alpha(pixels[y * cellWidth + x]) > ALPHA_MIN) {
+                                if (x < minX) minX = x
+                                if (x > maxX) maxX = x
+                                if (y < minY) minY = y
+                                if (y > maxY) maxY = y
+                            }
+                        }
+                    }
+                }
+                if (maxX < 0) return null
+                val frames = ArrayList<MonsterSprite>()
+                for (column in 0 until WALK_COLUMNS) {
+                    val frame = Bitmap.createBitmap(
+                        bitmap,
+                        column * cellWidth + minX,
+                        line * cellHeight + minY,
+                        maxX - minX + 1,
+                        maxY - minY + 1
+                    )
+                    frame.density = Bitmap.DENSITY_NONE
+                    frames.add(MonsterSprite(frame.asImageBitmap(), frame.width, frame.height, 0))
+                }
+                lines.add(frames)
+            }
+            return WalkSet(side = lines[0], front = lines[1], back = lines[2], run = lines[3])
+        }
+
+        private fun loadSheet(atlas: Bitmap, row: Int, moves: WalkSet?): MonsterSheet? {
             val frames = ArrayList<Bitmap>()
             for (column in 0 until COLUMNS) {
                 frames.add(cut(atlas, row, column) ?: return null)
@@ -166,7 +234,8 @@ class MonsterSprites private constructor(private val sheets: List<MonsterSheet>)
                 walk = listOf(sprite(1), sprite(2), sprite(3), sprite(4)),
                 peek = sprite(5),
                 hit = sprite(6),
-                sizeScale = SIZE_SCALES[row]
+                sizeScale = SIZE_SCALES[row],
+                moves = moves
             )
         }
 
