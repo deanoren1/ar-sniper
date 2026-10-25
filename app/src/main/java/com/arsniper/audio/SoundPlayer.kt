@@ -46,7 +46,13 @@ enum class Sfx(val res: Int, val volume: Float = 1f) {
     WaveStart(R.raw.sfx_wave_start),
     WaveClear(R.raw.sfx_wave_clear),
     Win(R.raw.sfx_win),
-    Lose(R.raw.sfx_lose)
+    Lose(R.raw.sfx_lose),
+
+    /** לחיצה על ירייה כשהמחסנית ריקה או בטעינה */
+    Empty(R.raw.sfx_empty, 0.8f),
+
+    /** טעינה */
+    Reload(R.raw.sfx_reload, 0.9f)
 }
 
 /** עטיפה ל-SoundPool: טוענת את כל האפקטים ומנגנת אותם בהשהיה נמוכה. */

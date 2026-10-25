@@ -38,7 +38,9 @@ import com.arsniper.game.engine.EnemyFire
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
 import com.arsniper.game.engine.Hover
+import com.arsniper.game.engine.ShotResult
 import com.arsniper.game.engine.WeakZones
+import com.arsniper.game.engine.Weapon
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.ScoreManager
 import com.arsniper.game.model.Enemy
@@ -121,6 +123,12 @@ fun GameScreen(modifier: Modifier = Modifier) {
     val soundPlayer = remember { SoundPlayer(context) }
     // זיכרון קטן לזיהוי אירועי צליל בלולאת המשחק (לא מצב שמצויר, ולכן לא גורם לציור מחדש)
     val sfxMemo = remember { SfxMemo() }
+    // הרובה: מחסנית וטעינה. ammoShown/reloadingShown מעדכנים את מד הכדורים רק כשהם משתנים
+    val weapon = remember { Weapon() }
+    val weaponArt = rememberWeaponArt()
+    var ammoShown by remember { mutableStateOf(weapon.ammo) }
+    var reloadingShown by remember { mutableStateOf(false) }
+    var tracerTarget by remember { mutableStateOf<Offset?>(null) }
     val director = remember { ArenaDirector() }
     val fire = remember { EnemyFire() }
     val combo = remember { ComboTracker() }
@@ -239,7 +247,10 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         // מעברי שלב: גל חדש, גל נגמר, ניצחון, הפסד
                         if (director.phase != sfxMemo.phase) {
                             when (director.phase) {
-                                ArenaPhase.Intro -> soundPlayer.play(Sfx.WaveStart)
+                                ArenaPhase.Intro -> {
+                                    weapon.refill()
+                                    soundPlayer.play(Sfx.WaveStart)
+                                }
                                 ArenaPhase.Clear -> soundPlayer.play(Sfx.WaveClear)
                                 ArenaPhase.Won -> soundPlayer.play(Sfx.Win)
                                 ArenaPhase.Lost -> soundPlayer.play(Sfx.Lose)
@@ -249,6 +260,12 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         }
                     }
                     combo.update(dt)
+                    weapon.update(dt)
+                    if (weapon.ammo != ammoShown) ammoShown = weapon.ammo
+                    if (weapon.reloading != reloadingShown) {
+                        if (weapon.reloading) soundPlayer.play(Sfx.Reload)
+                        reloadingShown = weapon.reloading
+                    }
                     if (poofs.isNotEmpty()) {
                         val live = poofs.filter { (now - it.bornNanos) / 1e9f <= POOF_SECONDS }
                         if (live.size != poofs.size) poofs = live
@@ -320,6 +337,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
         poofs = emptyList()
         combo.reset()
         fire.reset()
+        weapon.reset()
         AttackPose.ids = emptySet()
         AttackPose.progress = emptyMap()
         AttackPose.bossSinceFire = 999f
@@ -439,6 +457,20 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 .padding(top = 16.dp, end = 16.dp)
         )
 
+        // הרובה בתחתית המסך (בלי מגע), ומד הכדורים מעל כפתור הירי
+        if (weaponArt != null) {
+            WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget)
+        }
+        AmmoBar(
+            ammo = ammoShown,
+            magSize = weapon.magSize,
+            reloading = reloadingShown,
+            onReload = { weapon.reload() },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 24.dp, bottom = 136.dp)
+        )
+
         Joystick(
             onMove = { joystick = it },
             modifier = Modifier
@@ -448,8 +480,21 @@ fun GameScreen(modifier: Modifier = Modifier) {
 
         FireButton(
             onClick = {
-                soundPlayer.playShot()
-                if (director.phase != ArenaPhase.Fighting) return@FireButton
+                if (director.phase != ArenaPhase.Fighting) {
+                    soundPlayer.playShot()
+                    return@FireButton
+                }
+                when (weapon.tryFire()) {
+                    ShotResult.Fired -> {
+                        soundPlayer.playShot()
+                        tracerTarget = Offset(crosshairOnScreen.x, crosshairOnScreen.y)
+                    }
+                    else -> {
+                        // מחסנית ריקה או בטעינה: רק נקישה
+                        soundPlayer.play(Sfx.Empty)
+                        return@FireButton
+                    }
+                }
                 val blocked = fire.intercept(crosshair, aspect, FIRE_SLACK)
                 if (blocked != null) {
                     onIntercept(blocked)
