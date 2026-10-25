@@ -32,6 +32,7 @@ import com.arsniper.game.engine.Accessories
 import com.arsniper.game.engine.AccessoryKind
 import com.arsniper.game.engine.ArenaDirector
 import com.arsniper.game.engine.ArenaPhase
+import com.arsniper.game.engine.ComboTracker
 import com.arsniper.game.engine.EnemyFire
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
@@ -117,6 +118,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     val soundPlayer = remember { SoundPlayer(context) }
     val director = remember { ArenaDirector() }
     val fire = remember { EnemyFire() }
+    val combo = remember { ComboTracker() }
     val haptic = LocalHapticFeedback.current
 
     DisposableEffect(Unit) {
@@ -142,6 +144,16 @@ fun GameScreen(modifier: Modifier = Modifier) {
     // פיצוצים של נקודות תורפה, וזמן הפריים הנוכחי (מפעיל את האנימציה שלהם)
     var blasts by remember { mutableStateOf(emptyList<Blast>()) }
     var frameNanos by remember { mutableStateOf(0L) }
+    var floaters by remember { mutableStateOf(emptyList<Floater>()) }
+
+    // ניקוד עם מכפיל הקומבו, וניקוד צף במקום ההצלחה. register=false: לא מאריך את הרצף
+    fun award(points: Int, x: Float, y: Float, register: Boolean = true) {
+        if (register) combo.register()
+        val gained = points * combo.multiplier
+        score += gained
+        val text = if (combo.multiplier > 1) "+$gained  x${combo.multiplier}" else "+$gained"
+        floaters = floaters + Floater(x, y - 0.04f, text, frameNanos, big = points >= BLOCK_POINTS)
+    }
 
     // אחרי שגודל המסך ידוע: בונים את הסצנה (מחבואים לפי ניתוח התמונה) ויוצרים אויבים
     LaunchedEffect(sizeKnown) {
@@ -183,7 +195,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         val out = fire.update(dt, enemies, director)
                         AttackPose.ids = fire.telegraphViews.map { it.enemyId }.toSet()
                         for (spot in out.stopped) {
-                            score += STOP_POINTS
+                            award(STOP_POINTS, spot.x, spot.y)
                             blasts = blasts + Blast(
                                 x = spot.x,
                                 y = spot.y,
@@ -195,10 +207,16 @@ fun GameScreen(modifier: Modifier = Modifier) {
                         }
                         for (i in 0 until out.playerHits) {
                             if (director.hitPlayer()) {
+                                combo.reset()
                                 flash = FLASH_START
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         }
+                    }
+                    combo.update(dt)
+                    if (floaters.isNotEmpty()) {
+                        val live = floaters.filter { (now - it.bornNanos) / 1e9f <= FLOATER_SECONDS }
+                        if (live.size != floaters.size) floaters = live
                     }
                     if (flash > 0f) flash = (flash - FLASH_DECAY_PER_SECOND * dt).coerceAtLeast(0f)
                 }
@@ -231,7 +249,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
     fun onIntercept(result: com.arsniper.game.engine.Intercept) {
         val shot = result.shot
         if (result.destroyed) {
-            score += BLOCK_POINTS
+            award(BLOCK_POINTS, shot.x, shot.y)
             blasts = blasts + Blast(
                 x = shot.x,
                 y = shot.y,
@@ -241,7 +259,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 bornNanos = frameNanos
             )
         } else {
-            score += CRACK_POINTS
+            award(CRACK_POINTS, shot.x, shot.y)
             blasts = blasts + Blast(
                 x = shot.x,
                 y = shot.y,
@@ -258,6 +276,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
         blasts = emptyList()
         score = 0
         flash = 0f
+        floaters = emptyList()
+        combo.reset()
         fire.reset()
         AttackPose.ids = emptySet()
         director.restart()
@@ -314,6 +334,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 shotRadius = { fire.currentRadius(it) }
             )
             EffectsLayer(blasts = blasts, nowNanos = frameNanos)
+            FloatingTextLayer(floaters = floaters, nowNanos = frameNanos)
         }
 
         // הכוונת מצוירת במיקום המסך שלה
@@ -324,6 +345,14 @@ fun GameScreen(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
+        )
+
+        ComboBadge(
+            count = combo.count,
+            multiplier = combo.multiplier,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 84.dp)
         )
 
         HitIndicator(
@@ -385,7 +414,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 if (accessoryHit != null) {
                     // פגיעה בנקודת תורפה: פיצוץ, ניקוד גדול, ואולי עוד מפלצות נופלות
                     val outcome = Accessories.explode(accessoryHit, enemies, aspect)
-                    score += outcome.points
+                    award(outcome.points, outcome.anchor.x, outcome.anchor.y)
                     val now = nowSeconds()
                     enemies = enemies.map {
                         if (outcome.killedIds.contains(it.id)) {
@@ -419,13 +448,14 @@ fun GameScreen(modifier: Modifier = Modifier) {
                             }
                             if (remaining > 1) {
                                 // נפגעה ולא מתה: מאבדת חיים, מבהבהת ורצה
-                                score += HURT_POINTS
+                                award(HURT_POINTS, target?.position?.x ?: result.enemy.position.x, target?.position?.y ?: result.enemy.position.y, register = false)
                                 val now = nowSeconds()
                                 enemies = enemies.map {
                                     if (it.id == result.enemy.id) hurt(it, 1, now) else it
                                 }
                             } else {
-                                score = scoreManager.apply(score, result)
+                                val base = scoreManager.apply(score, result) - score
+                                award(base, result.enemy.position.x, result.enemy.position.y)
                                 enemies = enemies.map {
                                     if (it.id == result.enemy.id) it.copy(isAlive = false) else it
                                 }
@@ -433,7 +463,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
                             }
                         }
                         is FireResult.Miss -> {
-                            // פספוס: רק צליל, בלי שינוי נוסף
+                            // פספוס: שובר את הקומבו
+                            combo.reset()
                         }
                     }
                 }
