@@ -432,6 +432,8 @@ fun GameScreen(modifier: Modifier = Modifier) {
             } else if (e.id == ArenaDirector.BOSS_ID) {
                 val cut = kotlin.math.ceil(e.maxHp * Shockwave.BOSS_DAMAGE_FRACTION).toInt()
                 e.copy(hp = (e.hp - cut).coerceAtLeast(1), hurtAt = now)
+            } else if (e.hp > 1) {
+                e.copy(hp = e.hp - 1, hurtAt = now)
             } else {
                 kills++
                 sfxMemo.lootSeen.add(e.id)

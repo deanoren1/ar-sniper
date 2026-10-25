@@ -39,8 +39,8 @@ class Shockwave(var chargeSeconds: Float = DEFAULT_CHARGE_SECONDS) {
     }
 
     companion object {
-        const val DEFAULT_CHARGE_SECONDS = 20f
-        const val KILL_REWARD_SECONDS = 1f
+        const val DEFAULT_CHARGE_SECONDS = 25f
+        const val KILL_REWARD_SECONDS = 0f
 
         /** כמה מחיי הבוס ההלם מוריד */
         const val BOSS_DAMAGE_FRACTION = 0.15f
