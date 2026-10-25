@@ -340,9 +340,9 @@ private fun DrawScope.drawMonster(
     val sprite: MonsterSprite = if (dead) {
         sheet.hit
     } else if (walking) {
-        // פריים הליכה אחד (מבט צדדי): התנועה נוצרת בקפיצות, הטיות ולחיצות של אותו ציור.
-        // הציורים הם תנוחות שונות (קדימה, צד, גב) ולכן החלפה ביניהן בהליכה נראתה קופצנית
-        sheet.walk[0]
+        // המבט נקבע לפי כיוון ההליכה: אל המצלמה = מבט קדמי, מתרחקת = גב, לרוחב = צד.
+        // התנועה עצמה נוצרת בקפיצות, הטיות ולחיצות של אותו ציור (החלפת תנוחות בהליכה נראתה קופצנית)
+        if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
     } else if (AttackPose.ids.contains(enemy.id)) {
         sheet.peek
     } else {
@@ -370,7 +370,8 @@ private fun DrawScope.drawMonster(
         sx = 1f - 0.035f * (bounce - 0.5f) * swing
         // הטיה קדימה בכיוון ההליכה, וטלטול לצדדים עם כל צעד
         val forward = if (enemy.direction < 0f) -1f else 1f
-        tilt = forward * 3.5f * swing + sin(gait.phase) * 3f * swing
+        val sideways = abs(enemy.dirY) <= 0.5f
+        tilt = (if (sideways) forward * 3.5f * swing else 0f) + sin(gait.phase) * 3f * swing
     } else if (!dead) {
         val breath = sin(anim * 3.2f + enemy.id)
         sy = 1f + 0.025f * breath
@@ -416,7 +417,7 @@ private fun DrawScope.drawMonster(
     val padPx = sprite.pad * k * sy
     val left = cx - width / 2f + shakeX
     val top = feetY + padPx - height - hop
-    val flip = (walking || dead) && enemy.direction < 0f
+    val flip = (walking || dead) && enemy.direction < 0f && (dead || abs(enemy.dirY) <= 0.5f)
 
     val drawSprite: DrawScope.() -> Unit = {
         drawImage(

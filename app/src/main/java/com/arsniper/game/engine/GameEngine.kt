@@ -280,7 +280,7 @@ class GameEngine(
         if (feetPhoto > 0.85f) return -1f
         if (feetPhoto - ground.horizon < 0.12f) return 1f
         val roll = random.nextFloat()
-        return if (roll < 0.45f) 1f else if (roll < 0.65f) -1f else 0f
+        return if (roll < 0.65f) 1f else if (roll < 0.72f) -1f else 0f
     }
 
     /**
