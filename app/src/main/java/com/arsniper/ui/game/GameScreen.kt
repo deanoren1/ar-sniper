@@ -37,6 +37,7 @@ import com.arsniper.game.engine.EnemyFire
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
 import com.arsniper.game.engine.Hover
+import com.arsniper.game.engine.WeakZones
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.ScoreManager
 import com.arsniper.game.model.Enemy
@@ -421,30 +422,39 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     onIntercept(blocked)
                     return@FireButton
                 }
-                val accessoryHit = Accessories.hit(crosshair, AccessoryRegistry.snapshot(), enemies, aspect)
-                if (accessoryHit != null) {
-                    // פגיעה בנקודת תורפה: פיצוץ, ניקוד גדול, ואולי עוד מפלצות נופלות
-                    val outcome = Accessories.explode(accessoryHit, enemies, aspect)
-                    award(outcome.points, outcome.anchor.x, outcome.anchor.y)
-                    val now = nowSeconds()
-                    enemies = enemies.map {
-                        if (outcome.killedIds.contains(it.id)) {
-                            it.copy(isAlive = false)
-                        } else if (outcome.damagedIds.contains(it.id)) {
-                            hurt(it, if (outcome.kind == AccessoryKind.Balloon) 1 else Accessories.BOMB_SPLASH_DAMAGE, now)
-                        } else {
-                            it
+                val zoneHit = WeakZones.hit(crosshair, ZoneRegistry.snapshot(), enemies, aspect)
+                if (zoneHit != null) {
+                    // פגיעה בנקודת תורפה: ההשפעה של הנקודה (השבתה, בלבול, נזק מוגבר...) וניקוד
+                    val zone = zoneHit.zone
+                    val target = enemies.firstOrNull { it.id == zoneHit.enemy.id }
+                    if (target != null) {
+                        val now = nowSeconds()
+                        val remaining = if (target.maxHp > 0) target.hp else hpFor(target.id)
+                        val killed = zone.damage > 0 && zone.damage >= remaining
+                        enemies = enemies.map {
+                            if (it.id != target.id) {
+                                it
+                            } else if (killed) {
+                                it.copy(isAlive = false)
+                            } else if (zone.damage > 0) {
+                                hurt(it, zone.damage, now)
+                            } else {
+                                it
+                            }
                         }
+                        fire.applyZone(target.id, zone)
+                        val balloons = zone.id == WeakZones.BALLOONS.id
+                        award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y)
+                        blasts = blasts + Blast(
+                            x = zoneHit.anchor.x,
+                            y = zoneHit.anchor.y,
+                            kind = if (balloons) AccessoryKind.Balloon else if (zone.damage >= 2) AccessoryKind.Bomb else AccessoryKind.Gem,
+                            label = zone.label,
+                            radius = zoneHit.hitRadius * 1.6f,
+                            bornNanos = frameNanos
+                        )
+                        if (killed) hitCount += 1
                     }
-                    blasts = blasts + Blast(
-                        x = outcome.anchor.x,
-                        y = outcome.anchor.y,
-                        kind = outcome.kind,
-                        label = outcome.label,
-                        radius = outcome.blastRadius,
-                        bornNanos = frameNanos
-                    )
-                    hitCount += 1
                 } else {
                     val result = engine.fire(crosshair, Hover.lifted(enemies, nowSeconds()), aspect)
                     when (result) {

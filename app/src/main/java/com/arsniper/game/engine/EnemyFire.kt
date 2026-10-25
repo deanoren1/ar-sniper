@@ -22,7 +22,9 @@ class Shot(
     val flight: Float,
     val baseRadius: Float,
     val maxHp: Int,
-    var hp: Int
+    var hp: Int,
+    /** ירייה "מטעה": המפלצת הייתה מבולבלת, והקליע לא פוגע בשחקן כשהוא מגיע */
+    val harmless: Boolean = false
 )
 
 /** הכנה לירייה: המפלצת מהבהבת באדום זמן קצר לפני שהיא יורה. אפשר להרוג אותה בזמן הזה */
@@ -53,11 +55,21 @@ class EnemyFire(private val random: Random = Random.Default) {
     private val nextAttack = HashMap<Int, Float>()
     private var nextShotId = 1
 
+    /** השפעות נקודות תורפה לכל מפלצת: עד מתי היא לא תוקפת, עד מתי הירייה שלה מטעה, וכמה היא מוחלשת */
+    private val disabledUntil = HashMap<Int, Float>()
+    private val confusedUntil = HashMap<Int, Float>()
+    private val weakened = HashMap<Int, Int>()
+    private val groupHits = HashMap<Int, HashSet<String>>()
+
     fun reset() {
         shots.clear()
         telegraphs.clear()
         telegraphViews.clear()
         nextAttack.clear()
+        disabledUntil.clear()
+        confusedUntil.clear()
+        weakened.clear()
+        groupHits.clear()
         time = 0f
     }
 
@@ -93,6 +105,9 @@ class EnemyFire(private val random: Random = Random.Default) {
             } else if (!enemy.isAlive) {
                 stopped.add(enemy.position)
                 tIterator.remove()
+            } else if (time < (disabledUntil[enemy.id] ?: 0f)) {
+                // הושבתה באמצע ההכנה (פגיעה בנקודת תורפה)
+                tIterator.remove()
             } else if (!canAttack(enemy)) {
                 // התחבאה באמצע ההכנה: לא יורה
                 tIterator.remove()
@@ -108,6 +123,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         for (e in enemies) {
             if (director.foeOf(e.id) == null) continue
             if (!canAttack(e)) continue
+            if (time < (disabledUntil[e.id] ?: 0f)) continue
             val due = nextAttack.getOrPut(e.id) { time + randomBetween(1.2f, 2.4f) }
             if (time < due) continue
             if (telegraphs.any { it.enemyId == e.id }) continue
@@ -121,7 +137,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         while (sIterator.hasNext()) {
             val s = sIterator.next()
             if (time - s.born >= s.flight) {
-                hits++
+                if (!s.harmless) hits++
                 sIterator.remove()
             }
         }
@@ -152,12 +168,41 @@ class EnemyFire(private val random: Random = Random.Default) {
                 y = enemy.position.y,
                 kind = foe.shot,
                 born = time,
-                flight = foe.flightSeconds * wave.flightScale,
+                flight = foe.flightSeconds * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)),
                 baseRadius = baseRadiusOf(foe.shot),
                 maxHp = foe.shotHp,
-                hp = foe.shotHp
+                hp = foe.shotHp,
+                harmless = time < (confusedUntil[enemy.id] ?: 0f)
             )
         )
+    }
+
+    /** פגיעה בנקודת תורפה: מפעילה את ההשפעה שלה על המפלצת */
+    fun applyZone(enemyId: Int, zone: Zone) {
+        if (zone.cancel) cancelTelegraph(enemyId)
+        if (zone.disable > 0f) {
+            disabledUntil[enemyId] = max(disabledUntil[enemyId] ?: 0f, time + zone.disable)
+            cancelTelegraph(enemyId)
+        }
+        if (zone.confuse > 0f) confusedUntil[enemyId] = time + zone.confuse
+        if (zone.slow > 0) weakened[enemyId] = ((weakened[enemyId] ?: 0) + zone.slow).coerceAtMost(3)
+        val group = zone.group
+        if (group != null) {
+            val hit = groupHits.getOrPut(enemyId) { HashSet() }
+            hit.add(zone.id)
+            // שתי העיניים: המפלצת עיוורת לגמרי ולא תוקפת
+            if (hit.size >= 2) {
+                disabledUntil[enemyId] = max(disabledUntil[enemyId] ?: 0f, time + 6f)
+                cancelTelegraph(enemyId)
+                hit.clear()
+            }
+        }
+    }
+
+    /** קוטע הכנה לירייה של מפלצת (בלי למות) */
+    private fun cancelTelegraph(enemyId: Int) {
+        telegraphs.removeAll { it.enemyId == enemyId }
+        nextAttack[enemyId] = time + 1.5f
     }
 
     /** הרדיוס הנוכחי של קליע (ביחידות גובה מסך): גדל מ-35% ל-100% מהרדיוס הסופי */

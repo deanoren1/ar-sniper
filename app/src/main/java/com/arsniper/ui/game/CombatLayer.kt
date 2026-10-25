@@ -138,6 +138,11 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float) {
         }
     }
 
+    // ירייה מטעה (המפלצת מבולבלת): מוחשכת באפור, וגם לא פוגעת כשמגיעה
+    if (s.harmless) {
+        drawCircle(Color(0xCC7F8A93), r * 1.45f, center)
+    }
+
     // טבעת אזהרה: מתחילה גדולה ומתכווצת עד שהיא פוגשת את הקליע, ברגע הפגיעה. בסוף מהבהבת באדום
     val ringRadius = full * (1f + 1.4f * (1f - p))
     val urgent = p > 0.7f && (time * 10f).toInt() % 2 == 0

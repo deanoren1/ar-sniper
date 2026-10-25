@@ -30,6 +30,8 @@ import com.arsniper.game.engine.Accessories
 import com.arsniper.game.engine.AccessoryKind
 import com.arsniper.game.engine.AccessoryTarget
 import com.arsniper.game.engine.Hover
+import com.arsniper.game.engine.WeakZones
+import com.arsniper.game.engine.ZoneTarget
 import com.arsniper.game.engine.Occlusion
 import com.arsniper.game.engine.SceneContext
 import com.arsniper.game.engine.WINDOW_HIDE_OFFSET
@@ -103,6 +105,7 @@ fun EnemyLayer(
     Canvas(modifier = modifier.fillMaxSize()) {
         // האביזרים נרשמים מחדש בכל ציור, כדי שהפגיעה תתאים למה שרואים עכשיו
         AccessoryRegistry.clear()
+        ZoneRegistry.clear()
 
         // הספרייטים עוד נטענים: לא מציירים כלום (כדי לא להבהב דמות אדם לרגע)
         if (spritesAvailable && sprites == null) return@Canvas
@@ -234,30 +237,34 @@ fun EnemyLayer(
                 fun covered(px: Float, py: Float): Boolean =
                     scene != null && blockers.isNotEmpty() &&
                         Occlusion.covered(scene, blockers, px / size.width, py / size.height)
-                // נקודת תורפה: בלון, פצצה או יהלום ליד המפלצת
-                if (!item.dead && sprites != null && Accessories.isActive(enemy)) {
+                // נקודות תורפה: מפלצת הבלונים (הבלונים), ולשאר לפי "חידת הירי" שלהן (WeakZones).
+                // רק כשהמפלצת חופשית ומוצגת מלפנים (עומדת, מתכוננת לירות, או מתקרבת אל המצלמה)
+                val free = (enemy.kind == EnemyKind.Open && enemy.spot == null) || enemy.kind == EnemyKind.Static
+                if (!item.dead && sprites != null && enemy.isAlive && free) {
                     val box = monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius)
-                    // מפלצת הבלונים: הבלונים שבציור עצמם הם נקודת התורפה (בלי אביזר נפרד)
-                    val ownBalloons = Hover.isBalloonMonster(enemy)
-                    val kind = if (ownBalloons) AccessoryKind.Balloon else Accessories.kindOf(enemy)
-                    val accessory = if (ownBalloons) {
+                    val telegraphing = AttackPose.ids.contains(enemy.id)
+                    if (Hover.isBalloonMonster(enemy)) {
                         // פחות בלונים: אזור הפגיעה קטן יותר
                         val share = if (enemy.maxHp > 0) enemy.hp.coerceIn(1, 3) else 3
-                        AccessorySpot(box.cx, box.headY + box.height * 0.2f, box.halfWidth * (0.45f + 0.15f * share))
-                    } else {
-                        accessorySpot(kind, box, size.height)
+                        val px = box.cx
+                        val py = box.headY + box.height * 0.2f
+                        val rr = box.halfWidth * (0.45f + 0.15f * share)
+                        if (!covered(px, py)) {
+                            ZoneRegistry.add(
+                                ZoneTarget(enemy, WeakZones.BALLOONS, Vec2(px / size.width, py / size.height), rr * 1.15f / size.height)
+                            )
+                        }
+                    } else if (gait.swing <= 0f || enemy.dirY > 0.5f) {
+                        for (zone in WeakZones.zonesOf(WeakZones.foeByRow(enemy.id))) {
+                            if (zone.onlyTelegraph && !telegraphing) continue
+                            val px = box.cx + zone.x * box.halfWidth
+                            val py = box.headY + zone.y * box.height
+                            val rr = max(zone.radius * box.height, size.height * 0.035f)
+                            if (covered(px, py)) continue
+                            drawZoneHint(px, py, rr, zone.onlyTelegraph, anim)
+                            ZoneRegistry.add(ZoneTarget(enemy, zone, Vec2(px / size.width, py / size.height), rr / size.height))
+                        }
                     }
-                    val accessoryCovered = covered(accessory.x, accessory.y)
-                    if (!accessoryCovered && !ownBalloons) drawAccessory(kind, enemy, box, accessory, anim)
-                    if (!accessoryCovered) AccessoryRegistry.add(
-                        AccessoryTarget(
-                            enemy = enemy,
-                            kind = kind,
-                            anchor = Vec2(accessory.x / size.width, accessory.y / size.height),
-                            hitRadius = accessory.radius * ACCESSORY_HIT_SCALE / size.height,
-                            bodyHeight = box.height / size.height
-                        )
-                    )
                 }
                 // מד חיים מתחת לרגליים, למפלצת עם יותר מפגיעה אחת (לא כשעצם מכסה אותה)
                 if (!item.dead && sprites != null && enemy.maxHp > 1 && blockers.isEmpty()) {
@@ -475,6 +482,18 @@ private fun DrawScope.drawMonster(
             )
         }
     }
+}
+
+/** רמז לנקודת תורפה: טבעת דקה שפועמת; אדומה ובולטת כשהיא נחשפת רק בזמן ההכנה לירייה */
+private fun DrawScope.drawZoneHint(x: Float, y: Float, radius: Float, hot: Boolean, anim: Float) {
+    val pulse = 0.5f + 0.5f * sin(anim * 6f)
+    val color = if (hot) Color(1f, 0.2f, 0.2f, 0.55f + 0.4f * pulse) else Color(1f, 1f, 1f, 0.16f + 0.14f * pulse)
+    drawCircle(
+        color = color,
+        radius = radius * (0.92f + 0.08f * pulse),
+        center = Offset(x, y),
+        style = Stroke(width = if (hot) 4f else 2.5f)
+    )
 }
 
 /** כמה בלונים נשארו למפלצת הבלונים (1..2 = פחות מהמלא), או 0 אם היא מלאה או לא מפלצת בלונים */

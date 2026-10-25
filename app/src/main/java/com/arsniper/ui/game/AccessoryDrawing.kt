@@ -295,3 +295,20 @@ fun EffectsLayer(blasts: List<Blast>, nowNanos: Long, modifier: Modifier = Modif
         }
     }
 }
+/**
+ * נקודות התורפה שצוירו בפריים האחרון (ראו AccessoryRegistry): GameScreen בודק בהן פגיעה,
+ * כך שמה שרואים הוא בדיוק מה שאפשר לפגוע בו. נכתב ונקרא רק מה-UI thread.
+ */
+object ZoneRegistry {
+    private val current = ArrayList<com.arsniper.game.engine.ZoneTarget>()
+
+    fun clear() {
+        current.clear()
+    }
+
+    fun add(target: com.arsniper.game.engine.ZoneTarget) {
+        current.add(target)
+    }
+
+    fun snapshot(): List<com.arsniper.game.engine.ZoneTarget> = ArrayList(current)
+}
