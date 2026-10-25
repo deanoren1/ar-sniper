@@ -363,11 +363,11 @@ fun GameScreen(modifier: Modifier = Modifier) {
                     }
                     if (flash > 0f) flash = (flash - FLASH_DECAY_PER_SECOND * dt).coerceAtLeast(0f)
                     if (director.bossDying) shake = max(shake, 0.55f)
-                }
-                if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
-                    shake = 0f
-                } else if (shake > 0f) {
-                    shake = (shake - 2.0f * dt).coerceAtLeast(0f)
+                    if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
+                        shake = 0f
+                    } else if (shake > 0f) {
+                        shake = (shake - 2.0f * dt).coerceAtLeast(0f)
+                    }
                 }
                 lastFrameNanos = now
                 frameNanos = now
