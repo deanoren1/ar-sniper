@@ -158,18 +158,19 @@ fun EndOverlay(
                 } else {
                     OutlinedText("You reached wave $wave", fontSize = 18.sp, outline = null)
                 }
+                OutlinedText("EARNED THIS GAME", fontSize = 12.sp, color = GameColors.Ice, outline = null)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CurrencyPill(amount = score, isGems = false)
-                    if (diamondsGained > 0) CurrencyPill(amount = diamondsGained, isGems = true)
+                    CurrencyPill(amount = score, isGems = false, prefix = "+")
+                    if (diamondsGained > 0) CurrencyPill(amount = diamondsGained, isGems = true, prefix = "+")
                 }
                 if (bonusText != null) {
                     OutlinedText(bonusText, fontSize = 14.sp, color = GameColors.Yellow, outline = null)
                 }
                 OutlinedText(
-                    "Total: $totalCoins coins" + (if (difficultyTitle != null) "  \u00B7  $difficultyTitle" else ""),
+                    "Total: $totalCoins coins  \u00B7  $diamonds gems" + (if (difficultyTitle != null) "  \u00B7  $difficultyTitle" else ""),
                     fontSize = 14.sp, color = GameColors.Ice, outline = null
                 )
                 if (!won && reviveCost > 0) {

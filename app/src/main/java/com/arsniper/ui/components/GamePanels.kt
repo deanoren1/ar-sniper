@@ -68,7 +68,8 @@ fun CurrencyPill(
     amount: Int,
     isGems: Boolean,
     modifier: Modifier = Modifier,
-    onPlus: (() -> Unit)? = null
+    onPlus: (() -> Unit)? = null,
+    prefix: String = ""
 ) {
     val shape = RoundedCornerShape(50)
     Row(
@@ -82,7 +83,7 @@ fun CurrencyPill(
     ) {
         if (isGems) DiamondIcon(size = 28.dp) else CoinIcon(size = 28.dp)
         Spacer(Modifier.width(8.dp))
-        OutlinedText("$amount", fontSize = 18.sp, outline = null)
+        OutlinedText("$prefix$amount", fontSize = 18.sp, outline = null)
         if (onPlus != null) {
             Spacer(Modifier.width(8.dp))
             PlusSquare(onPlus)
