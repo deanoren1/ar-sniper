@@ -3,6 +3,7 @@ package com.arsniper.ui.game
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -24,7 +25,7 @@ import kotlin.math.sin
  */
 @Composable
 fun LootLayer(loot: Loot, nowNanos: Long, modifier: Modifier = Modifier) {
-    val gem = androidx.compose.ui.res.imageResource(com.arsniper.R.drawable.icon_gem)
+    val gem = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.icon_gem)
     Canvas(modifier = modifier.fillMaxSize()) {
         @Suppress("UNUSED_VARIABLE") val tick = nowNanos
         for (drop in loot.drops) drawDrop(drop, loot.ageOf(drop), loot.time, gem)
