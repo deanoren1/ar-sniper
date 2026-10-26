@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,10 +68,22 @@ fun ArenaSelectScreen(
             ScreenHeader(title = "SELECT ARENA", onBack = onBack) {
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(ui.dp(8f)),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = ui.dp(6f)),
+            ) {
+                Spacer(Modifier.weight(1f))
+                OutlinedText("DIFFICULTY", fontSize = (ui.factor * 13f).sp, color = GameColors.Ice, outline = null)
+                for (d in com.arsniper.game.progress.Difficulty.values()) {
+                    DifficultyPill(d, PlayerProfile.difficulty == d) { PlayerProfile.difficulty = d }
+                }
+                Spacer(Modifier.weight(1f))
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = ui.dp(10f)),
+                    .padding(top = ui.dp(6f)),
                 verticalArrangement = Arrangement.spacedBy(ui.dp(10f))
             ) {
                 for (rowStyles in styles.chunked(4)) {
@@ -163,5 +176,27 @@ private fun ArenaCard(
             OutlinedText(style.title, fontSize = 13.sp, outlineWidth = 5f)
             StarRow(stars = stars, size = 18.dp)
         }
+    }
+}
+
+
+@Composable
+private fun DifficultyPill(d: com.arsniper.game.progress.Difficulty, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    val top = when (d) {
+        com.arsniper.game.progress.Difficulty.EASY -> Color(0xFF45DB55)
+        com.arsniper.game.progress.Difficulty.NORMAL -> Color(0xFF2F8BFF)
+        com.arsniper.game.progress.Difficulty.HARD -> Color(0xFFFF5A52)
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) top else Color(0xFF1C2A55))
+            .border(2.dp, if (selected) Color.White else GameColors.Outline, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 5.dp)
+    ) {
+        OutlinedText(d.title, fontSize = 13.sp, outline = null, color = if (selected) Color.White else GameColors.Ice)
     }
 }

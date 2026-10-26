@@ -135,7 +135,7 @@ fun PlayScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedText(
-                        "Quick game: a random saved photo and arena",
+                        "Quick game: a random saved photo and arena.\nShoot a NEW photo for a coin bonus!",
                         fontSize = (ui.factor * 11f).sp,
                         color = Color(0xFFB8C4E0),
                         outline = null

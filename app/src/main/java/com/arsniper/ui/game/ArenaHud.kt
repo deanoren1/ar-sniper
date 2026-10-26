@@ -131,6 +131,8 @@ fun EndOverlay(
     onRevive: () -> Unit,
     onRetry: () -> Unit,
     onMenu: () -> Unit = {},
+    bonusText: String? = null,
+    difficultyTitle: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -163,7 +165,13 @@ fun EndOverlay(
                     CurrencyPill(amount = score, isGems = false)
                     if (diamondsGained > 0) CurrencyPill(amount = diamondsGained, isGems = true)
                 }
-                OutlinedText("Total: $totalCoins coins", fontSize = 14.sp, color = GameColors.Ice, outline = null)
+                if (bonusText != null) {
+                    OutlinedText(bonusText, fontSize = 14.sp, color = GameColors.Yellow, outline = null)
+                }
+                OutlinedText(
+                    "Total: $totalCoins coins" + (if (difficultyTitle != null) "  \u00B7  $difficultyTitle" else ""),
+                    fontSize = 14.sp, color = GameColors.Ice, outline = null
+                )
                 if (!won && reviveCost > 0) {
                     GameButton(
                         text = "REVIVE  $reviveCost GEMS",

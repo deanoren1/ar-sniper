@@ -40,7 +40,9 @@ fun StatsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 "VICTORIES" to "${PlayerProfile.wins}",
                 "BEST WAVE" to "${PlayerProfile.bestWave}",
                 "BEST RUN (COINS)" to "${PlayerProfile.bestRunCoins}",
-                "ARENA STARS" to "${PlayerProfile.totalStars}/$maxStars"
+                "ARENA STARS" to "${PlayerProfile.totalStars}/$maxStars",
+                "ARENAS PHOTOGRAPHED" to "${PlayerProfile.photoCount}",
+                "WIN RATE" to (if (PlayerProfile.gamesPlayed > 0) "${PlayerProfile.wins * 100 / PlayerProfile.gamesPlayed}%" else "-")
             )
             Column(verticalArrangement = Arrangement.spacedBy(ui.dp(12f))) {
                 for (row in tiles.chunked(3)) {

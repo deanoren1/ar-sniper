@@ -68,6 +68,28 @@ object PlayerProfile {
 
     val playerName: String get() = "Player"
 
+    /** רמת הקושי הנבחרת */
+    var difficulty: com.arsniper.game.progress.Difficulty
+        get() = com.arsniper.game.progress.Difficulty.fromName(prefs?.getString("difficulty", null))
+        set(value) {
+            prefs?.edit()?.putString("difficulty", value.name)?.apply()
+            revision++
+        }
+
+    /** כמה תמונות שונות כבר שוחק בהן קרב (לבונוס "זירה חדשה") */
+    val photoCount: Int get() = (prefs?.getStringSet("played_photos", emptySet()) ?: emptySet()).size.also { revision.hashCode() }
+
+    /** רושם תמונה שבה הסתיים קרב. מחזיר true אם זו תמונה חדשה (פעם ראשונה) */
+    fun registerPhoto(key: String): Boolean {
+        val p = prefs ?: return false
+        val set = HashSet(p.getStringSet("played_photos", emptySet()) ?: emptySet())
+        if (!set.add(key)) return false
+        p.edit().putStringSet("played_photos", set).apply()
+        revision++
+        return true
+    }
+
+
     // סטטיסטיקות
     val gamesPlayed: Int get() = getInt("stat_games").also { revision.hashCode() }
     val wins: Int get() = getInt("stat_wins").also { revision.hashCode() }

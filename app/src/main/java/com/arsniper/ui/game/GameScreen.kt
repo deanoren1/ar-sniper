@@ -1,5 +1,6 @@
 package com.arsniper.ui.game
 
+import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,9 @@ import kotlinx.coroutines.delay
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
 /** הניקוד הפנימי מחולק בעשר: כך מטבעות הם מספרים קטנים ונוחים */
 private const val COINS_DIVISOR = 10
+private const val NEW_ARENA_COINS = 60
+private const val NEW_ARENA_MILESTONE_GEMS = 3
+private val NEW_ARENA_MILESTONES = setOf(5, 10, 25, 50)
 private const val BLOCK_POINTS = 50
 private const val CRACK_POINTS = 10
 private const val STOP_POINTS = 100
@@ -163,7 +167,28 @@ fun GameScreen(
     var ammoShown by remember { mutableStateOf(weapon.ammo) }
     var reloadingShown by remember { mutableStateOf(false) }
     var tracerTarget by remember { mutableStateOf<Offset?>(null) }
-    val director = remember { ArenaDirector() }
+    val difficulty = remember { PlayerProfile.difficulty }
+    val director = remember { ArenaDirector(difficulty.apply(ArenaDirector.DEFAULT_WAVES)) }
+    // התגמול בהתאם לקושי; כל מקום שמצטבר בו ניקוד עובר דרך זה, כדי שהמספרים יהיו עקביים
+    fun scaled(points: Int): Int = (points * difficulty.rewardScale).roundToInt()
+    val context0 = LocalContext.current
+    var photoBonus by remember { mutableStateOf<String?>(null) }
+
+    // בונוס "זירה חדשה": פעם אחת לכל תמונה, בסיום הקרב הראשון עליה
+    fun photoBonusOnEnd() {
+        if (photoBonus != null) return
+        val file = PhotoRepository.currentFile(context0) ?: return
+        val key = try { com.arsniper.ml.AnalysisCache.keyFor(file) } catch (_: Exception) { return }
+        if (!PlayerProfile.registerPhoto(key)) return
+        PlayerProfile.addCoins(NEW_ARENA_COINS)
+        val count = PlayerProfile.photoCount
+        if (count in NEW_ARENA_MILESTONES) {
+            PlayerProfile.addDiamonds(NEW_ARENA_MILESTONE_GEMS)
+            photoBonus = "NEW ARENA  +$NEW_ARENA_COINS COINS  +$NEW_ARENA_MILESTONE_GEMS GEMS ($count arenas)"
+        } else {
+            photoBonus = "NEW ARENA  +$NEW_ARENA_COINS COINS"
+        }
+    }
     val fire = remember { EnemyFire() }
     val combo = remember { ComboTracker() }
     val haptic = LocalHapticFeedback.current
@@ -206,7 +231,7 @@ fun GameScreen(
         val multiplierBefore = combo.multiplier
         if (register) combo.register()
         if (combo.multiplier > multiplierBefore) soundPlayer.play(Sfx.Combo, 0.9f + 0.1f * combo.multiplier)
-        val gained = points * combo.multiplier
+        val gained = scaled(points * combo.multiplier)
         score += gained
         val shown = maxOf(1, gained / COINS_DIVISOR)
         val text = if (combo.multiplier > 1) "+$shown  x${combo.multiplier}" else "+$shown"
@@ -279,7 +304,7 @@ fun GameScreen(
                         }
                         loot.update(dt)
                         enemies = director.step(dt, enemies, engine, aspect)
-                        score += director.takeBonus()
+                        score += scaled(director.takeBonus())
                         for (jump in director.takeTeleports()) {
                             poofs = poofs + Poof(jump.from.x, jump.from.y, now) + Poof(jump.to.x, jump.to.y, now)
                         }
@@ -340,11 +365,13 @@ fun GameScreen(
                                     PlayerProfile.recordStars(style, director.stars)
                                     PlayerProfile.recordRun(true, director.waveIndex + 1, score / COINS_DIVISOR)
                                     bankRun()
+                                    photoBonusOnEnd()
                                 }
                                 ArenaPhase.Lost -> {
                                     soundPlayer.play(Sfx.Lose)
                                     PlayerProfile.recordRun(false, director.waveIndex + 1, score / COINS_DIVISOR)
                                     bankRun()
+                                    photoBonusOnEnd()
                                 }
                                 else -> Unit
                             }
@@ -458,7 +485,7 @@ fun GameScreen(
         }
         fire.stun(ArenaDirector.BOSS_ID, Shockwave.BOSS_STUN_SECONDS)
         if (kills > 0) {
-            score += kills * SHOCK_KILL_POINTS
+            score += scaled(kills * SHOCK_KILL_POINTS)
             floaters = floaters + Floater(0.5f, 0.35f, "SHOCKWAVE  +${kills * SHOCK_KILL_POINTS / COINS_DIVISOR}", frameNanos, big = true)
         }
     }
@@ -473,7 +500,7 @@ fun GameScreen(
                     label = "+1 HEART"
                     flash = 0f
                 } else {
-                    score += 150
+                    score += scaled(150)
                     label = "+15"
                 }
             }
@@ -943,7 +970,9 @@ fun GameScreen(
                 diamonds = PlayerProfile.diamonds,
                 onRevive = { reviveRun() },
                 onRetry = { retry() },
-                onMenu = { onExit() }
+                onMenu = { onExit() },
+                bonusText = photoBonus,
+                difficultyTitle = difficulty.title
             )
         }
     }
