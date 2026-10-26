@@ -35,6 +35,15 @@ import com.arsniper.data.PhotoRepository
 import com.arsniper.data.PlayerProfile
 import com.arsniper.game.progress.ArenaStyle
 import com.arsniper.ui.game.ArenaStyleLayer
+import com.arsniper.ui.components.CurrencyPill
+import com.arsniper.ui.components.GameIcon
+import com.arsniper.ui.components.IconGlyph
+import com.arsniper.ui.components.OutlinedText
+import com.arsniper.ui.components.ScreenHeader
+import com.arsniper.ui.components.StarRow
+import com.arsniper.ui.theme.GameColors
+import com.arsniper.ui.theme.ResponsiveBox
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.withFrameNanos
 
 /** בחירת ארנה: אותה תמונה בשמונה סגנונות. ארנה נפתחת כשמנצחים את הקודמת בכוכב אחד לפחות */
@@ -53,58 +62,36 @@ fun ArenaSelectScreen(
     PlayerProfile.revision.hashCode()
     val styles = ArenaStyle.values().toList()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B0F14))
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "CHOOSE YOUR ARENA",
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 3.sp,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                text = "BACK",
-                color = Color(0xFFB0BEC5),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+    ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
+            ScreenHeader(title = "SELECT ARENA", onBack = onBack) {
+                CurrencyPill(PlayerProfile.coins, isGems = false)
+                CurrencyPill(PlayerProfile.diamonds, isGems = true)
+            }
+            Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onBack() }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            )
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            for (rowStyles in styles.chunked(4)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    for (style in rowStyles) {
-                        ArenaCard(
-                            style = style,
-                            photo = photo,
-                            now = now,
-                            onPick = onPick,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxSize()
-                        )
+                    .fillMaxSize()
+                    .padding(top = ui.dp(10f)),
+                verticalArrangement = Arrangement.spacedBy(ui.dp(10f))
+            ) {
+                for (rowStyles in styles.chunked(4)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(ui.dp(10f))
+                    ) {
+                        for (style in rowStyles) {
+                            ArenaCard(
+                                style = style,
+                                photo = photo,
+                                now = now,
+                                onPick = onPick,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
@@ -122,12 +109,12 @@ private fun ArenaCard(
 ) {
     val unlocked = PlayerProfile.isUnlocked(style)
     val stars = PlayerProfile.starsOf(style)
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
             .clip(shape)
-            .background(Color(0xFF151B22))
-            .border(2.dp, if (unlocked) Color(style.tint.toInt()) else Color(0xFF37424D), shape)
+            .background(GameColors.Navy800)
+            .border(3.dp, if (unlocked) GameColors.Yellow else GameColors.Outline, shape)
             .clickable(enabled = unlocked) { onPick(style) }
     ) {
         if (photo != null) {
@@ -143,17 +130,25 @@ private fun ArenaCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xCC0B0F14)),
+                    .background(Color(0xCC081028)),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("LOCKED", color = Color(0xFFB0BEC5), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text(
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(GameColors.Navy700)
+                            .border(3.dp, GameColors.Outline, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) { IconGlyph(GameIcon.Lock, size = 26.dp, tint = GameColors.Ice) }
+                    OutlinedText(
                         text = "Beat ${style.previous?.title ?: ""}",
-                        color = Color(0xFF78909C),
                         fontSize = 11.sp,
+                        color = GameColors.Ice,
+                        outline = null,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp, start = 6.dp, end = 6.dp)
                     )
                 }
             }
@@ -162,20 +157,12 @@ private fun ArenaCard(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color(0x99000000))
+                .background(Color(0xB3081028))
                 .padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(style.title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Row {
-                for (i in 1..3) {
-                    Text(
-                        text = "★",
-                        color = if (i <= stars) Color(0xFFFFD54F) else Color(0xFF546E7A),
-                        fontSize = 16.sp
-                    )
-                }
-            }
+            OutlinedText(style.title, fontSize = 13.sp, outlineWidth = 5f)
+            StarRow(stars = stars, size = 18.dp)
         }
     }
 }

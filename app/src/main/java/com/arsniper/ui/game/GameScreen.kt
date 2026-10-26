@@ -310,7 +310,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
                                 shake = max(shake, 0.7f)
                                 combo.reset()
                                 flash = FLASH_START
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         }
                         // מעברי שלב: גל חדש, גל נגמר, ניצחון, הפסד
@@ -330,10 +330,12 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
                                     val bonus = (if (director.isBossWave) 5 else 0) + (if (director.stars == 3) 2 else 0)
                                     gainDiamonds(bonus, "VICTORY  +$bonus DIAMONDS")
                                     PlayerProfile.recordStars(style, director.stars)
+                                    PlayerProfile.recordRun(true, director.waveIndex + 1, score / COINS_DIVISOR)
                                     bankRun()
                                 }
                                 ArenaPhase.Lost -> {
                                     soundPlayer.play(Sfx.Lose)
+                                    PlayerProfile.recordRun(false, director.waveIndex + 1, score / COINS_DIVISOR)
                                     bankRun()
                                 }
                                 else -> Unit
@@ -390,7 +392,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
         if (director.bossDying) {
             soundPlayer.play(Sfx.BossRoar)
             soundPlayer.play(Sfx.EnemyDie, 0.7f)
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         }
     }
 
@@ -426,7 +428,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
         if (director.phase != ArenaPhase.Fighting || director.bossDying) return
         if (!shock.trigger()) return
         soundPlayer.play(Sfx.Boom)
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         shake = max(shake, 1.3f)
         shockStart = frameNanos
         fire.clearAll()

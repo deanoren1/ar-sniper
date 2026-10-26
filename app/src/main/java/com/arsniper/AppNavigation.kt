@@ -13,9 +13,11 @@ import com.arsniper.ui.game.GameScreen
 import com.arsniper.ui.review.ReviewScreen
 import com.arsniper.ui.scene.SceneScreen
 import com.arsniper.ui.shop.ShopScreen
-import com.arsniper.ui.start.StartScreen
+import com.arsniper.ui.menu.MainMenuScreen
+import com.arsniper.ui.menu.SettingsScreen
+import com.arsniper.ui.menu.StatsScreen
 
-enum class Screen { Start, Capture, Review, Scene, Arena, Game, Shop }
+enum class Screen { Start, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats }
 
 @Composable
 fun AppNavigation() {
@@ -29,10 +31,12 @@ fun AppNavigation() {
     }
 
     when (screen) {
-        Screen.Start -> StartScreen(
+        Screen.Start -> MainMenuScreen(
             onStart = { screen = Screen.Capture },
             onPhotoPicked = { screen = Screen.Review },
-            onShop = { screen = Screen.Shop }
+            onShop = { screen = Screen.Shop },
+            onSettings = { screen = Screen.Settings },
+            onStats = { screen = Screen.Stats }
         )
         Screen.Capture -> CaptureScreen(onPhotoCaptured = { screen = Screen.Review })
         Screen.Review -> ReviewScreen(
@@ -46,5 +50,7 @@ fun AppNavigation() {
         )
         Screen.Game -> GameScreen(style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)])
         Screen.Shop -> ShopScreen(onBack = { screen = Screen.Start })
+        Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start })
+        Screen.Stats -> StatsScreen(onBack = { screen = Screen.Start })
     }
 }

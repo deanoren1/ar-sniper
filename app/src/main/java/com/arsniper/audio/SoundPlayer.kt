@@ -91,6 +91,7 @@ class SoundPlayer(context: Context) {
 
     /** מנגן אפקט. rate = גובה הצליל (1 = רגיל), כדי לגוון חזרות */
     fun play(sfx: Sfx, rate: Float = 1f) {
+        if (!com.arsniper.data.PlayerProfile.soundOn) return
         val id = ids[sfx] ?: return
         val loaded = synchronized(ready) { ready.contains(id) }
         if (loaded) soundPool.play(id, sfx.volume, sfx.volume, 1, 0, rate)

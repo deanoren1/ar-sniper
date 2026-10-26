@@ -45,8 +45,59 @@ object PlayerProfile {
     val diamonds: Int get() = getInt("diamonds").also { revision.hashCode() }
 
     fun addCoins(amount: Int) {
-        if (amount > 0) putInt("coins", coins + amount)
+        if (amount > 0) {
+            putInt("lifetime_coins", getInt("lifetime_coins") + amount)
+            putInt("coins", coins + amount)
+        }
     }
+
+    // הגדרות
+    var soundOn: Boolean
+        get() = prefs?.getBoolean("sound_on", true) ?: true
+        set(value) {
+            prefs?.edit()?.putBoolean("sound_on", value)?.apply()
+            revision++
+        }
+
+    var vibrationOn: Boolean
+        get() = prefs?.getBoolean("vibration_on", true) ?: true
+        set(value) {
+            prefs?.edit()?.putBoolean("vibration_on", value)?.apply()
+            revision++
+        }
+
+    val playerName: String get() = "Player"
+
+    // סטטיסטיקות
+    val gamesPlayed: Int get() = getInt("stat_games").also { revision.hashCode() }
+    val wins: Int get() = getInt("stat_wins").also { revision.hashCode() }
+    val bestWave: Int get() = getInt("stat_best_wave").also { revision.hashCode() }
+    val bestRunCoins: Int get() = getInt("stat_best_run").also { revision.hashCode() }
+    val lifetimeCoins: Int get() = getInt("lifetime_coins").also { revision.hashCode() }
+
+    /** מתעד סיום ריצה (ניצחון או הפסד) */
+    fun recordRun(won: Boolean, wave: Int, runCoins: Int) {
+        putInt("stat_games", gamesPlayed + 1)
+        if (won) putInt("stat_wins", wins + 1)
+        if (wave > bestWave) putInt("stat_best_wave", wave)
+        if (runCoins > bestRunCoins) putInt("stat_best_run", runCoins)
+    }
+
+    /** רמת שחקן לפי כל המטבעות שהרוויח אי פעם */
+    val level: Int get() = kotlin.math.sqrt(lifetimeCoins / 40f).toInt() + 1
+
+    /** התקדמות (0..1) לרמה הבאה */
+    val levelProgress: Float
+        get() {
+            val l = level - 1
+            val lo = 40f * l * l
+            val hi = 40f * (l + 1) * (l + 1)
+            return ((lifetimeCoins - lo) / (hi - lo)).coerceIn(0f, 1f)
+        }
+
+    /** סך הכוכבים בכל הארנות */
+    val totalStars: Int
+        get() = com.arsniper.game.progress.ArenaStyle.values().sumOf { starsOf(it) }
 
     fun addDiamonds(amount: Int) {
         if (amount > 0) putInt("diamonds", diamonds + amount)
