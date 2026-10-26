@@ -3,6 +3,7 @@ package com.arsniper.ui.game
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -30,11 +31,15 @@ fun CombatLayer(
     telegraphs: List<TelegraphView>,
     time: Float,
     shotRadius: (Shot) -> Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** true: גרסת הצבעים השנייה של הקליעים (ארנות קרות/עתידניות) */
+    altShots: Boolean = false
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sprites = remember(altShots) { ShotSprites.load(context, altShots) }
     Canvas(modifier = modifier.fillMaxSize()) {
         for (t in telegraphs) drawTelegraph(t, time)
-        for (s in shots) drawShot(s, time, shotRadius(s))
+        for (s in shots) drawShot(s, time, shotRadius(s), sprites)
     }
 }
 
@@ -73,7 +78,7 @@ private fun DrawScope.drawTelegraph(t: TelegraphView, time: Float) {
     }
 }
 
-private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float) {
+private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float, sprites: ShotSprites) {
     val cx = s.x * size.width
     val cy = s.y * size.height
     val r = radiusUnits * size.height
@@ -81,7 +86,10 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float) {
     val p = ((time - s.born) / s.flight).coerceIn(0f, 1f)
     val center = Offset(cx, cy)
 
-    when (s.kind) {
+    val pair = sprites.get(s.kind)
+    if (pair != null) {
+        drawShotSprite(s, pair, center, r, p, time)
+    } else when (s.kind) {
         ShotKind.Orb -> {
             drawCircle(
                 brush = Brush.radialGradient(
@@ -175,5 +183,67 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float) {
         radius = ringRadius,
         center = center,
         style = Stroke(width = full * 0.07f + 3f)
+    )
+}
+
+
+/** צבע הזוהר של כל סוג קליע (נוסף בקוד, כדי שהקליע יזהר על כל תמונה ולא ייחתך) */
+private fun glowOf(kind: ShotKind): Color = when (kind) {
+    ShotKind.Orb -> Color(0xFFB388FF)
+    ShotKind.Bomb -> Color(0xFFFF5722)
+    ShotKind.Gas -> Color(0xFF9CFF3A)
+    ShotKind.Rock -> Color(0xFFFFB74D)
+    ShotKind.Spike -> Color(0xFF80D8FF)
+    ShotKind.Fire -> Color(0xFFFF9800)
+}
+
+/**
+ * קליע מציור: מרחוק הגרסה הקטנה והפשוטה, ובהתקרבות הגרסה המפותחת (מתמזגות באמצע הדרך).
+ * סביבו זוהר בצבע הסוג, ושובל קצר שנמשך אחריו. קליעים כבדים מסתובבים לאט.
+ */
+private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, center: Offset, r: Float, p: Float, time: Float) {
+    val color = glowOf(s.kind)
+    val pulse = 0.85f + 0.15f * sin(time * 9f + s.id)
+    // זוהר
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(color.copy(alpha = 0.55f * pulse), color.copy(alpha = 0f)),
+            center = center,
+            radius = r * 2.3f
+        ),
+        radius = r * 2.3f,
+        center = center
+    )
+    // שובל: עיגולים דועכים מאחורי הקליע (הוא מגיע מהמפלצת אל השחקן, כלומר מגדיל ומתקרב)
+    for (i in 1..3) {
+        val back = r * 0.35f * i
+        drawCircle(color.copy(alpha = 0.22f - 0.06f * i), r * (1.05f - 0.12f * i), Offset(center.x, center.y - back))
+    }
+    val spin = when (s.kind) {
+        ShotKind.Rock, ShotKind.Bomb, ShotKind.Spike -> time * 40f + s.id * 37f
+        else -> 0f
+    }
+    val mix = ((p - 0.35f) / 0.3f).coerceIn(0f, 1f)
+    val diameter = r * 2.3f
+    androidx.compose.ui.graphics.drawscope.rotate(spin, center) {
+        drawSprite(pair.small, center, diameter, 1f - mix)
+        drawSprite(pair.big, center, diameter, mix)
+        // סדק (פגיעה ראשונה בקליע בעל שני חיים)
+        if (s.hp < s.maxHp) {
+            drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
+        }
+    }
+}
+
+private fun DrawScope.drawSprite(image: androidx.compose.ui.graphics.ImageBitmap?, center: Offset, diameter: Float, alpha: Float) {
+    if (image == null || alpha <= 0.01f || diameter < 1f) return
+    val k = diameter / maxOf(image.width, image.height)
+    val w = (image.width * k).toInt().coerceAtLeast(1)
+    val h = (image.height * k).toInt().coerceAtLeast(1)
+    drawImage(
+        image,
+        dstOffset = androidx.compose.ui.unit.IntOffset((center.x - w / 2f).toInt(), (center.y - h / 2f).toInt()),
+        dstSize = androidx.compose.ui.unit.IntSize(w, h),
+        alpha = alpha
     )
 }

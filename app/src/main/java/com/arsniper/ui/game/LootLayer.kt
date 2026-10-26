@@ -24,13 +24,14 @@ import kotlin.math.sin
  */
 @Composable
 fun LootLayer(loot: Loot, nowNanos: Long, modifier: Modifier = Modifier) {
+    val gem = androidx.compose.ui.res.imageResource(com.arsniper.R.drawable.icon_gem)
     Canvas(modifier = modifier.fillMaxSize()) {
         @Suppress("UNUSED_VARIABLE") val tick = nowNanos
-        for (drop in loot.drops) drawDrop(drop, loot.ageOf(drop), loot.time)
+        for (drop in loot.drops) drawDrop(drop, loot.ageOf(drop), loot.time, gem)
     }
 }
 
-private fun DrawScope.drawDrop(drop: LootDrop, age: Float, time: Float) {
+private fun DrawScope.drawDrop(drop: LootDrop, age: Float, time: Float, gem: androidx.compose.ui.graphics.ImageBitmap) {
     val left = Loot.LIFETIME_SECONDS - age
     // מהבהב בסוף
     if (left < 2f && ((left * 6f).toInt() % 2 == 0)) return
@@ -67,7 +68,12 @@ private fun DrawScope.drawDrop(drop: LootDrop, age: Float, time: Float) {
     )
 
     if (drop.kind == LootKind.Diamond) {
-        drawGem(cx, cy, r * 1.15f)
+        val side = (r * 2.5f).toInt()
+        drawImage(
+            gem,
+            dstOffset = androidx.compose.ui.unit.IntOffset((cx - side / 2f).toInt(), (cy - side / 2f).toInt()),
+            dstSize = androidx.compose.ui.unit.IntSize(side, side)
+        )
     } else if (drop.kind == LootKind.Heart) {
         val w = r * 2f
         val h = r * 1.8f
