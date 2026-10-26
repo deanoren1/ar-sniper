@@ -106,7 +106,8 @@ private class SpotsUpdate(val overlay: ImageBitmap, val legend: List<String>)
 @Composable
 fun SceneScreen(
     onContinue: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    auto: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -371,6 +372,48 @@ fun SceneScreen(
         }
         val list = (userObjects + listOf(logits)).takeLast(UserObjects.MAX_OBJECTS)
         applyObjects(view, list, "Added. Objects marked: ${list.size}")
+    }
+
+    // מצב שחקן (auto): ניתוח, זיהוי עצמים אוטומטי, וממשיכים למשחק בלי לגעת בכלום
+    var autoStage by remember { mutableStateOf(0) }
+    if (auto) {
+        LaunchedEffect(current, samState, samBusy, samStatus) {
+            val view = current ?: return@LaunchedEffect
+            when {
+                autoStage == 0 -> {
+                    if (view.samMasks.isNotEmpty()) {
+                        autoStage = 9
+                        onContinue()
+                    } else {
+                        autoStage = 1
+                        startSam(view)
+                    }
+                }
+                autoStage == 1 && samState == 2 && !samBusy -> {
+                    autoStage = 2
+                    runAuto(view)
+                }
+                // מודל העצמים נכשל: ממשיכים עם הזיהוי הרגיל לפי סוגים
+                autoStage == 1 && samState == 0 && samStatus.startsWith("Object model failed") -> {
+                    autoStage = 9
+                    onContinue()
+                }
+                autoStage == 2 && !samBusy && samStatus.startsWith("Auto") -> {
+                    autoStage = 9
+                    onContinue()
+                }
+            }
+        }
+        AutoScanOverlay(
+            photo = current?.photo,
+            status = when {
+                errorText != null -> "Scan failed: $errorText\nPress back and try another photo."
+                current == null -> statusText
+                else -> samStatus
+            },
+            failed = errorText != null
+        )
+        return
     }
 
     Box(
@@ -746,4 +789,45 @@ private fun buildSpotsLegend(spots: List<HidingSpot>): List<String> {
         lines.add("${Ade20kClasses.name(spot.classIndex)}  $depthText")
     }
     return lines
+}
+
+/** מסך הסריקה לשחקן: התמונה מוחשכת, כותרת, וסטטוס. אין כפתורים: הסריקה ממשיכה למשחק לבד */
+@Composable
+private fun AutoScanOverlay(photo: ImageBitmap?, status: String, failed: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(com.arsniper.ui.theme.GameColors.Navy900),
+        contentAlignment = Alignment.Center
+    ) {
+        if (photo != null) {
+            Image(
+                bitmap = photo,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Box(Modifier.fillMaxSize().background(Color(0xB3081028)))
+        com.arsniper.ui.components.NavyPanel(modifier = Modifier.padding(24.dp)) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(24.dp)
+            ) {
+                com.arsniper.ui.components.OutlinedText(
+                    if (failed) "SCAN FAILED" else "SCANNING YOUR ARENA",
+                    fontSize = 26.sp
+                )
+                if (!failed) CircularProgressIndicator()
+                com.arsniper.ui.components.OutlinedText(
+                    status,
+                    fontSize = 14.sp,
+                    color = com.arsniper.ui.theme.GameColors.Ice,
+                    outline = null,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
 }

@@ -27,7 +27,7 @@ import com.arsniper.ui.theme.ResponsiveBox
 
 /** הגדרות: צלילים ורטט. נשמרות בפרופיל ופועלות מיד */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Unit, onSceneDebug: () -> Unit, modifier: Modifier = Modifier) {
     PlayerProfile.revision.hashCode()
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         Column(modifier = Modifier.padding(ui.dp(14f))) {
@@ -44,6 +44,14 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
                         GameButton(
                             text = "ART LAB (TEST)",
                             onClick = onArtLab,
+                            style = GameButtonStyle.Secondary,
+                            height = 44.dp,
+                            fontSize = 16.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        GameButton(
+                            text = "SCENE ANALYSIS (DEBUG)",
+                            onClick = onSceneDebug,
                             style = GameButtonStyle.Secondary,
                             height = 44.dp,
                             fontSize = 16.sp,
