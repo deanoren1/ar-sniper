@@ -63,7 +63,7 @@ fun MainMenuScreen(
             contentDescription = null,
             contentScale = ContentScale.Crop,
             // מיושר לחלק העליון: החיתוך נלקח מהתחתית, כדי שהלוגו לא ייחתך
-            alignment = Alignment(0f, -1f),
+            alignment = androidx.compose.ui.BiasAlignment(0f, -1f),
             modifier = Modifier.fillMaxSize()
         )
         // הצללה עדינה בתחתית, כדי שהכפתורים ייקראו על התמונה
