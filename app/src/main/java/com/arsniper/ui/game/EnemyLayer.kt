@@ -589,7 +589,7 @@ private fun DrawScope.drawHealthBar(box: MonsterBox, enemy: Enemy, r: Float, abo
     }
     for (i in 0 until total) {
         drawRoundRect(
-            color = if (i < enemy.hp) fill else Color.White.copy(alpha = 0.22f),
+            color = if (i < enemy.hp) fill else Color(0xFF3A0E0E).copy(alpha = 0.6f),
             topLeft = Offset(left + i * (segmentWidth + gap), top),
             size = Size(segmentWidth, barHeight),
             cornerRadius = CornerRadius(barHeight * 0.5f)
