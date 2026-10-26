@@ -6,6 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.arsniper.ui.components.CurrencyPill
+import com.arsniper.ui.components.GameButton
+import com.arsniper.ui.components.GameIcon
+import com.arsniper.ui.components.GameIconButton
+import com.arsniper.ui.components.NavyPanel
+import com.arsniper.ui.components.OutlinedText
+import com.arsniper.ui.components.StarRow
+import com.arsniper.ui.theme.GameButtonStyle
+import com.arsniper.ui.theme.GameColors
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -107,7 +117,7 @@ fun DamageFlash(alpha: Float, modifier: Modifier = Modifier) {
     }
 }
 
-/** מסך סיום: ניצחון (עם כוכבים) או הפסד, וכפתור לנסות שוב */
+/** מסך סיום: ניצחון (עם כוכבים) או הפסד. REVIVE ביהלומים, PLAY AGAIN, ויציאה לתפריט */
 @Composable
 fun EndOverlay(
     won: Boolean,
@@ -120,92 +130,70 @@ fun EndOverlay(
     diamonds: Int,
     onRevive: () -> Unit,
     onRetry: () -> Unit,
+    onMenu: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
+            .background(Color(0xB3081028))
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = if (won) "ARENA CLEAR!" else "GAME OVER",
-                color = if (won) Color(0xFFFFEB3B) else Color(0xFFFF5252),
-                fontSize = 52.sp,
-                fontWeight = FontWeight.Bold
-            )
-            if (won) {
-                Text(
-                    text = "★".repeat(stars) + "☆".repeat(3 - stars),
-                    color = Color(0xFFFFD600),
-                    fontSize = 44.sp
-                )
-            } else {
-                Text(
-                    text = "You reached wave $wave",
-                    color = Color.White,
-                    fontSize = 20.sp
-                )
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 6.dp)
+        NavyPanel(modifier = Modifier.width(380.dp)) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(16.dp)
             ) {
-                CoinIcon(size = 28.dp)
-                Text(
-                    text = "  +$score",
-                    color = Color(0xFFFFD54F),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
+                OutlinedText(
+                    text = if (won) "ARENA CLEAR!" else "GAME OVER",
+                    fontSize = 36.sp,
+                    color = if (won) GameColors.Yellow else Color(0xFFFF6E6E),
+                    outlineWidth = 10f
                 )
-                if (diamondsGained > 0) {
-                    Text(text = "     ", fontSize = 28.sp)
-                    DiamondIcon(size = 28.dp)
-                    Text(
-                        text = "  +$diamondsGained",
-                        color = Color(0xFF84FFFF),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                if (won) {
+                    StarRow(stars = stars, size = 40.dp)
+                } else {
+                    OutlinedText("You reached wave $wave", fontSize = 18.sp, outline = null)
                 }
-            }
-            Text(
-                text = "Total: $totalCoins coins",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 16.sp,
-                modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
-            )
-            if (!won && reviveCost > 0) {
-                Button(
-                    onClick = onRevive,
-                    enabled = diamonds >= reviveCost,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00ACC1)),
-                    modifier = Modifier.padding(bottom = 10.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "REVIVE   ", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    DiamondIcon(size = 22.dp)
-                    Text(text = " $reviveCost", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    CurrencyPill(amount = score, isGems = false)
+                    if (diamondsGained > 0) CurrencyPill(amount = diamondsGained, isGems = true)
                 }
-                if (diamonds < reviveCost) {
-                    Text(
-                        text = "Need $reviveCost diamonds (you have $diamonds)",
-                        color = Color(0xFF84FFFF),
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                OutlinedText("Total: $totalCoins coins", fontSize = 14.sp, color = GameColors.Ice, outline = null)
+                if (!won && reviveCost > 0) {
+                    GameButton(
+                        text = "REVIVE  $reviveCost GEMS",
+                        onClick = onRevive,
+                        enabled = diamonds >= reviveCost,
+                        style = GameButtonStyle.Secondary,
+                        height = 46.dp,
+                        fontSize = 18.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (diamonds < reviveCost) {
+                        OutlinedText("Need $reviveCost gems (you have $diamonds)", fontSize = 12.sp, color = GameColors.Sky, outline = null)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    GameIconButton(GameIcon.Home, onClick = onMenu, style = GameButtonStyle.Secondary, size = 50.dp)
+                    GameButton(
+                        text = "PLAY AGAIN",
+                        onClick = onRetry,
+                        icon = GameIcon.Restart,
+                        style = GameButtonStyle.Success,
+                        height = 50.dp,
+                        fontSize = 20.sp,
+                        modifier = Modifier.width(220.dp)
                     )
                 }
-            }
-            Button(
-                onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
-            ) {
-                Text(text = "PLAY AGAIN", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
-
 
 /** קו החיים של הבוס: פס רחב עם שם, שנהיה אדום ורועד קלות כשהוא כועס. fraction = החיים שנשארו (0..1) */
 @Composable

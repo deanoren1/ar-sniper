@@ -55,6 +55,9 @@ import com.arsniper.game.model.GameCamera
 import com.arsniper.game.model.Vec2
 import com.arsniper.game.model.WorldMapper
 import com.arsniper.game.progress.ArenaStyle
+import androidx.activity.compose.BackHandler
+import com.arsniper.ui.components.GameIcon
+import com.arsniper.ui.components.GameIconButton
 import com.arsniper.ml.SceneSession
 import kotlin.math.cos
 import kotlin.math.max
@@ -135,7 +138,11 @@ private fun hurt(enemy: Enemy, damage: Int, now: Double): Enemy {
 }
 
 @Composable
-fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modifier) {
+fun GameScreen(
+    style: ArenaStyle = ArenaStyle.Tundra,
+    onExit: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
     val engine = remember { GameEngine() }
@@ -183,6 +190,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
     // מספר ההחייאות בריצה (מותר אחת)
     var revives by remember { mutableStateOf(0) }
     var started by remember { mutableStateOf(false) }
+    var paused by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(0f) }
     // רעידת מסך (0..1): פגיעה בשחקן, שאגת בוס, מוות הבוס. דועכת מהר
     var shake by remember { mutableStateOf(0f) }
@@ -257,7 +265,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
         while (true) {
             withFrameNanos { now ->
                 if (lastFrameNanos != 0L) {
-                    val dt = (now - lastFrameNanos) / 1_000_000_000f
+                    val dt = if (paused) 0f else (now - lastFrameNanos) / 1_000_000_000f
                     crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom / BASE_ZOOM)
                     if (started && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
                         enemies = withHp(engine.update(enemies, dt))
@@ -677,6 +685,16 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
         director.restart()
     }
 
+    // כפתור "אחורה": פותח את תפריט ההשהיה, ובתפריט פתוח חוזר למשחק
+    BackHandler(enabled = true) {
+        if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
+            onExit()
+        } else {
+            sfxMemo.holding = false
+            paused = !paused
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -881,8 +899,37 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
 
         ShockwaveEffect(startNanos = shockStart, nowNanos = frameNanos)
 
+        // כפתור השהיה (רק בזמן קרב)
+        if (director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost && !paused) {
+            GameIconButton(
+                icon = GameIcon.Pause,
+                onClick = {
+                    sfxMemo.holding = false
+                    paused = true
+                },
+                size = 44.dp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 62.dp, end = 16.dp)
+            )
+        }
+
         // הבהוב אדום כשנפגעים
         DamageFlash(alpha = flash)
+
+        if (paused) {
+            PauseMenu(
+                onResume = { paused = false },
+                onRestart = {
+                    paused = false
+                    retry()
+                },
+                onMainMenu = {
+                    paused = false
+                    onExit()
+                }
+            )
+        }
 
         if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
             EndOverlay(
@@ -895,7 +942,8 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
                 reviveCost = if (revives < 1) REVIVE_COST else 0,
                 diamonds = PlayerProfile.diamonds,
                 onRevive = { reviveRun() },
-                onRetry = { retry() }
+                onRetry = { retry() },
+                onMenu = { onExit() }
             )
         }
     }

@@ -48,7 +48,10 @@ fun AppNavigation() {
             onPick = { arenaIndex = it.ordinal; screen = Screen.Game },
             onBack = { screen = Screen.Start }
         )
-        Screen.Game -> GameScreen(style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)])
+        Screen.Game -> GameScreen(
+            style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
+            onExit = { screen = Screen.Start }
+        )
         Screen.Shop -> ShopScreen(onBack = { screen = Screen.Start })
         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start })
         Screen.Stats -> StatsScreen(onBack = { screen = Screen.Start })
