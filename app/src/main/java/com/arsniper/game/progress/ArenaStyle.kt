@@ -29,6 +29,32 @@ enum class ArenaStyle(
     Forest("ENCHANTED FOREST", 0xFF3FBF8F, 0.24f, 0.45f, ParticleKind.Rise, 0xFFB9FFE6, 30),
     Industrial("INDUSTRIAL", 0xFF8A5A3A, 0.28f, 0.50f, ParticleKind.Rise, 0xFFFF9A3C, 32);
 
-    /** הארנה שצריך לנצח לפניה, או null לראשונה */
+    /** הארנה שצריך לנצח לפניה, או null לראשונה (נשאר לתאימות; הפתיחה בפועל לפי שכנים במפה) */
     val previous: ArenaStyle? get() = values().getOrNull(ordinal - 1)
+
+    /** השכנים במפה (הדרכים בין האיים): ארנה נפתחת כשמנצחים באחד מהשכנים בכוכב אחד לפחות */
+    val neighbors: List<ArenaStyle>
+        get() = when (this) {
+            Classic -> listOf(Tundra, Cyber)
+            Tundra -> listOf(Classic, Jungle)
+            Jungle -> listOf(Tundra, Military, Cyber)
+            Military -> listOf(Jungle, Ruins)
+            Ruins -> listOf(Military, Market)
+            Market -> listOf(Ruins, Industrial)
+            Cyber -> listOf(Classic, Jungle, Forest)
+            Forest -> listOf(Cyber, Industrial)
+            Industrial -> listOf(Forest, Market)
+        }
+
+    /** מיקום האי במפה, כשבר מרוחב וגובה התמונה (0..1) */
+    val mapX: Float
+        get() = when (this) {
+            Classic -> 0.15f; Tundra -> 0.16f; Jungle -> 0.37f; Military -> 0.56f; Ruins -> 0.83f
+            Market -> 0.88f; Cyber -> 0.48f; Forest -> 0.68f; Industrial -> 0.88f
+        }
+    val mapY: Float
+        get() = when (this) {
+            Classic -> 0.74f; Tundra -> 0.30f; Jungle -> 0.40f; Military -> 0.27f; Ruins -> 0.20f
+            Market -> 0.50f; Cyber -> 0.74f; Forest -> 0.72f; Industrial -> 0.82f
+        }
 }

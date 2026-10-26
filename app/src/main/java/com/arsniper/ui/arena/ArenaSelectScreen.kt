@@ -7,6 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,138 +50,101 @@ import com.arsniper.ui.theme.ResponsiveBox
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.withFrameNanos
 
-/** בחירת ארנה: אותה תמונה בשמונה סגנונות. ארנה נפתחת כשמנצחים את הקודמת בכוכב אחד לפחות */
+/** בחירת ארנה: מפת איים עם דרכים. ארנה נפתחת כשמנצחים באחד משכניה במפה בכוכב אחד לפחות */
 @Composable
 fun ArenaSelectScreen(
     onPick: (ArenaStyle) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
-    var now by remember { mutableStateOf(0L) }
-    LaunchedEffect(Unit) {
-        while (true) withFrameNanos { now = it }
-    }
     PlayerProfile.revision.hashCode()
-    val styles = ArenaStyle.values().toList()
-
-    ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
-        Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
+    var hint by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(hint) {
+        if (hint != null) {
+            kotlinx.coroutines.delay(2500)
+            hint = null
+        }
+    }
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900)) {
+        val boxWidth = constraints.maxWidth
+        val boxHeight = constraints.maxHeight
+        Image(
+            painter = painterResource(com.arsniper.R.drawable.arena_map),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
+        )
+        for (style in ArenaStyle.values()) {
+            ArenaNode(
+                style = style,
+                modifier = Modifier.layout { measurable, c ->
+                    val placeable = measurable.measure(c.copy(minWidth = 0, minHeight = 0))
+                    layout(placeable.width, placeable.height) {
+                        placeable.place(
+                            (style.mapX * boxWidth - placeable.width / 2f).toInt(),
+                            (style.mapY * boxHeight - placeable.height / 2f).toInt()
+                        )
+                    }
+                },
+                onClick = {
+                    if (PlayerProfile.isUnlocked(style)) onPick(style)
+                    else hint = "Win a neighboring arena with at least 1 star to open ${style.title}"
+                }
+            )
+        }
+        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
             ScreenHeader(title = "SELECT ARENA", onBack = onBack) {
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(ui.dp(8f)),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(top = ui.dp(6f)),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             ) {
                 Spacer(Modifier.weight(1f))
-                OutlinedText("DIFFICULTY", fontSize = (ui.factor * 13f).sp, color = GameColors.Ice, outline = null)
                 for (d in com.arsniper.game.progress.Difficulty.values()) {
                     DifficultyPill(d, PlayerProfile.difficulty == d) { PlayerProfile.difficulty = d }
                 }
                 Spacer(Modifier.weight(1f))
             }
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = ui.dp(6f)),
-                verticalArrangement = Arrangement.spacedBy(ui.dp(10f))
-            ) {
-                for (rowStyles in styles.chunked(4)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(ui.dp(10f))
-                    ) {
-                        for (style in rowStyles) {
-                            ArenaCard(
-                                style = style,
-                                photo = photo,
-                                now = now,
-                                onPick = onPick,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxSize()
-                            )
-                        }
-                    }
-                }
-            }
         }
-    }
-}
-
-@Composable
-private fun ArenaCard(
-    style: ArenaStyle,
-    photo: androidx.compose.ui.graphics.ImageBitmap?,
-    now: Long,
-    onPick: (ArenaStyle) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val unlocked = PlayerProfile.isUnlocked(style)
-    val stars = PlayerProfile.starsOf(style)
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(GameColors.Navy800)
-            .border(3.dp, if (unlocked) GameColors.Yellow else GameColors.Outline, shape)
-            .clickable(enabled = unlocked) { onPick(style) }
-    ) {
-        if (photo != null) {
-            Image(
-                bitmap = photo,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+        hint?.let {
+            OutlinedText(
+                text = it,
+                fontSize = 14.sp,
+                outline = null,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xE6081028))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
             )
         }
-        ArenaStyleLayer(style = style, nowNanos = now, particleScale = 0.5f)
-        if (!unlocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xCC081028)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(GameColors.Navy700)
-                            .border(3.dp, GameColors.Outline, RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) { IconGlyph(GameIcon.Lock, size = 26.dp, tint = GameColors.Ice) }
-                    OutlinedText(
-                        text = "Beat ${style.previous?.title ?: ""}",
-                        fontSize = 11.sp,
-                        color = GameColors.Ice,
-                        outline = null,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp, start = 6.dp, end = 6.dp)
-                    )
-                }
-            }
-        }
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(Color(0xB3081028))
-                .padding(vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            OutlinedText(style.title, fontSize = 13.sp, outlineWidth = 5f)
-            StarRow(stars = stars, size = 18.dp)
-        }
     }
 }
 
+/** שלט של אי במפה: שם, כוכבים, ומנעול כשהארנה סגורה */
+@Composable
+private fun ArenaNode(style: ArenaStyle, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val unlocked = PlayerProfile.isUnlocked(style)
+    val stars = PlayerProfile.starsOf(style)
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(shape)
+            .background(if (unlocked) Color(0xE6102050) else Color(0xCC0A1230))
+            .border(2.dp, if (unlocked) GameColors.Yellow else GameColors.Outline, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        if (!unlocked) IconGlyph(GameIcon.Lock, size = 18.dp, tint = GameColors.Ice)
+        OutlinedText(style.title, fontSize = 12.sp, outline = null, color = if (unlocked) Color.White else GameColors.Ice)
+        StarRow(stars = stars, size = 15.dp)
+    }
+}
 
 @Composable
 private fun DifficultyPill(d: com.arsniper.game.progress.Difficulty, selected: Boolean, onClick: () -> Unit) {

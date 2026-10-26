@@ -234,9 +234,9 @@ object PlayerProfile {
         if (value > starsOf(style)) putInt("arena_stars_${style.name}", value)
     }
 
-    /** ארנה פתוחה אם היא הראשונה, או שהקודמת לה נוצחה לפחות בכוכב אחד */
+    /** ארנה פתוחה אם היא הראשונה, או שאחד השכנים שלה במפה נוצח לפחות בכוכב אחד */
     fun isUnlocked(style: ArenaStyle): Boolean {
-        val before = style.previous ?: return true
-        return starsOf(before) >= 1
+        if (style == ArenaStyle.Classic) return true
+        return style.neighbors.any { starsOf(it) >= 1 }
     }
 }
