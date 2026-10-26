@@ -150,6 +150,7 @@ private fun frac(v: Float): Float = v - floor(v)
 
 private fun DrawScope.drawParticles(style: ArenaStyle, t: Float, scale: Float) {
     val color = Color(style.particleColor.toInt())
+    if (style.particleCount <= 0) return
     val count = (style.particleCount * scale).toInt().coerceAtLeast(6)
     val unit = size.minDimension * 0.004f
     for (i in 0 until count) {

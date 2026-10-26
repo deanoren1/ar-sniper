@@ -143,7 +143,7 @@ private fun hurt(enemy: Enemy, damage: Int, now: Double): Enemy {
 
 @Composable
 fun GameScreen(
-    style: ArenaStyle = ArenaStyle.Tundra,
+    style: ArenaStyle = ArenaStyle.Classic,
     onExit: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {

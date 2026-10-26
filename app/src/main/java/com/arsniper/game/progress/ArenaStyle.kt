@@ -18,6 +18,8 @@ enum class ArenaStyle(
     /** עוצמת הערפל לאורך האופק (0 = בלי) */
     val fog: Float = 0.12f
 ) {
+    /** הארנה הראשונה: בלי קונספט, התמונה של השחקן כמו שהיא עם המפלצות הרגילות */
+    Classic("CLASSIC", 0xFF000000, 0f, 0f, ParticleKind.Drift, 0xFFFFFFFF, 0, fog = 0f),
     Tundra("FROZEN TUNDRA", 0xFF9FD8FF, 0.22f, 0.35f, ParticleKind.Snow, 0xFFFFFFFF, 46, fog = 0.22f),
     Jungle("JUNGLE", 0xFF1E7A3A, 0.26f, 0.45f, ParticleKind.Rise, 0xFFC8FF5A, 26, fog = 0.16f),
     Military("MILITARY BASE", 0xFF6B7A3A, 0.24f, 0.40f, ParticleKind.Drift, 0xFFD8D2B0, 30),
