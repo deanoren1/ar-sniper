@@ -92,12 +92,12 @@ fun ArenaSelectScreen(
                 }
             )
         }
-        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 2.dp)) {
             com.arsniper.ui.components.GameIconButton(
                 icon = GameIcon.Back,
                 onClick = onBack,
                 style = com.arsniper.ui.theme.GameButtonStyle.Primary,
-                size = 40.dp,
+                size = 32.dp,
                 modifier = Modifier.align(Alignment.TopStart)
             )
             Row(modifier = Modifier.align(Alignment.TopEnd)) {
