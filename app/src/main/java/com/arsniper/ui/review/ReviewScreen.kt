@@ -9,6 +9,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
@@ -237,8 +239,8 @@ fun ReviewScreen(
             samBusy = false
             val region = outcome.getOrNull()
             when {
-                outcome.isFailure -> hint = "Selection failed. Use the gear menu: Fine brush"
-                region == null -> hint = "Object picker is not available. Use the gear menu: Fine brush"
+                outcome.isFailure -> { fineTune = true; hint = "Paint over what you want to remove" }
+                region == null -> { fineTune = true; hint = "Paint over what you want to remove" }
                 region.count { it } > region.size * MAX_TAP_FRACTION ->
                     hint = "That is too big. Tap closer to the object"
                 else -> {
@@ -371,9 +373,9 @@ fun ReviewScreen(
             current == null -> "Scanning photo..."
             removing -> progressText
             cleanedBitmap != null ->
-                "${removeInfo ?: "People removed"}\nOK: continue with this photo \u00B7 Menu > Undo: restore"
+                "${removeInfo ?: "People removed"}\nOK: continue \u00B7 undo arrow: restore"
             hint != null -> hint!!
-            fineTune -> "Fine brush: paint to add, erase to remove marks"
+            fineTune -> if (mode == BrushMode.Add) "Paint over what you want to remove" else "Paint to un-mark"
             current.mask.coverage() == 0f -> "No people found. Tap anything to remove it"
             else -> "Tap anything else to remove it too \u00B7 tap a red area to keep it"
         }
@@ -397,91 +399,40 @@ fun ReviewScreen(
         val ready = current != null && !removing
         val editing = ready && cleanedBitmap == null
 
-        // תפריט (גלגל שיניים) בפינה
-        Box(
+        // מסגרת המצלמה, כמו בצילום (לא תופסת מגע)
+        com.arsniper.ui.capture.CameraFrame(brackets = false)
+
+        // כפתורי עריכה בצורת אייקונים: צילום מחדש, מכחול, ביטול, סיבוב
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 24.dp, bottom = 24.dp)
+                .padding(start = 40.dp, bottom = 40.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xCC263238))
-                    .clickable(enabled = ready) { menuOpen = true },
-                contentAlignment = Alignment.Center
-            ) {
-                Canvas(modifier = Modifier.size(28.dp)) {
-                    val c = center
-                    val r = size.minDimension / 2f
-                    for (i in 0 until 8) {
-                        val ang = i * (Math.PI.toFloat() / 4f)
-                        drawLine(
-                            Color.White,
-                            Offset(c.x + cos(ang) * r * 0.7f, c.y + sin(ang) * r * 0.7f),
-                            Offset(c.x + cos(ang) * r, c.y + sin(ang) * r),
-                            strokeWidth = r * 0.35f,
-                            cap = StrokeCap.Butt
-                        )
-                    }
-                    drawCircle(Color.White, r * 0.72f, c, style = androidx.compose.ui.graphics.drawscope.Stroke(r * 0.3f))
-                }
+            ReviewRoundButton(enabled = !removing, onClick = onRetake) { RetakeIcon() }
+            ReviewRoundButton(
+                enabled = editing,
+                active = fineTune,
+                onClick = { fineTune = !fineTune }
+            ) { BrushIcon() }
+            if (fineTune && editing) {
+                ReviewRoundButton(
+                    enabled = true,
+                    active = mode == BrushMode.Erase,
+                    activeColor = Color(0xFF1565C0),
+                    onClick = { mode = if (mode == BrushMode.Add) BrushMode.Erase else BrushMode.Add }
+                ) { EraserIcon() }
+                ReviewRoundButton(
+                    enabled = true,
+                    onClick = { brushIndex = (brushIndex + 1) % BRUSH_RADII_DP.size }
+                ) { SizeDotIcon(brushIndex) }
             }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text("Undo") },
-                    enabled = ready && (cleanedBitmap != null || undoStack.isNotEmpty()),
-                    onClick = { menuOpen = false; undoLast() }
-                )
-                DropdownMenuItem(
-                    text = { Text("Remove now (preview)") },
-                    enabled = editing && current!!.mask.coverage() > 0f,
-                    onClick = { menuOpen = false; startRemoval() }
-                )
-                DropdownMenuItem(
-                    text = { Text(if (fineTune) "Fine brush: off" else "Fine brush") },
-                    enabled = editing,
-                    onClick = { menuOpen = false; fineTune = !fineTune }
-                )
-                DropdownMenuItem(
-                    text = { Text("Rotate") },
-                    enabled = editing,
-                    onClick = { menuOpen = false; rotatePhoto() }
-                )
-                DropdownMenuItem(
-                    text = { Text("Retake photo") },
-                    enabled = !removing,
-                    onClick = { menuOpen = false; onRetake() }
-                )
-            }
-        }
-
-        // מברשת עדינה: רק כשהופעלה מהתפריט
-        if (fineTune && editing) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp)
-            ) {
-                Button(
-                    onClick = { mode = BrushMode.Add },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (mode == BrushMode.Add) Color(0xFFC62828) else Color(0xFF616161)
-                    )
-                ) { Text("ADD") }
-                Button(
-                    onClick = { mode = BrushMode.Erase },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (mode == BrushMode.Erase) Color(0xFF1565C0) else Color(0xFF616161)
-                    )
-                ) { Text("ERASE") }
-                Button(
-                    onClick = { brushIndex = (brushIndex + 1) % BRUSH_RADII_DP.size },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF616161))
-                ) { Text("BRUSH ${BRUSH_LABELS[brushIndex]}") }
-                Button(onClick = { fineTune = false }) { Text("DONE") }
-            }
+            ReviewRoundButton(
+                enabled = ready && (cleanedBitmap != null || undoStack.isNotEmpty()),
+                onClick = { undoLast() }
+            ) { UndoIcon() }
+            ReviewRoundButton(enabled = editing, onClick = { rotatePhoto() }) { RotateIcon() }
         }
 
         // הכפתור היחיד שהשחקן צריך: אישור (מסיר את המסומן ממשיך)
@@ -499,7 +450,7 @@ fun ReviewScreen(
             enabled = ready && !samBusy,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 24.dp, bottom = 24.dp)
+                .padding(end = 40.dp, bottom = 40.dp)
         ) { Text("OK", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
     }
 }
@@ -611,4 +562,120 @@ private fun refreshOverlay(overlay: Bitmap, mask: PersonMask, rect: Rect) {
         }
     }
     overlay.setPixels(pixels, 0, rectWidth, rect.left, rect.top, rectWidth, rectHeight)
+}
+
+
+@Composable
+private fun ReviewRoundButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    active: Boolean = false,
+    activeColor: Color = Color(0xFFFFB300),
+    content: @Composable () -> Unit
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(52.dp)
+            .androidx_alpha(if (enabled) 1f else 0.4f)
+            .clip(CircleShape)
+            .background(if (active) activeColor else Color(0xFF14295E))
+            .androidx_border()
+            .clickable(enabled = enabled, onClick = onClick)
+    ) { content() }
+}
+
+private fun Modifier.androidx_alpha(a: Float): Modifier = this.then(Modifier.alpha(a))
+private fun Modifier.androidx_border(): Modifier =
+    this.then(Modifier.border(3.dp, Color(0xFF050B1C), CircleShape))
+
+private val ICON = Color.White
+
+@Composable
+private fun BrushIcon() {
+    Canvas(Modifier.size(28.dp)) {
+        val w = size.width
+        drawLine(ICON, Offset(w * 0.85f, w * 0.15f), Offset(w * 0.42f, w * 0.58f), strokeWidth = w * 0.2f, cap = StrokeCap.Round)
+        drawCircle(ICON, w * 0.18f, Offset(w * 0.28f, w * 0.72f))
+    }
+}
+
+@Composable
+private fun EraserIcon() {
+    Canvas(Modifier.size(28.dp)) {
+        val w = size.width
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.15f, w * 0.65f)
+            lineTo(w * 0.55f, w * 0.2f)
+            lineTo(w * 0.88f, w * 0.5f)
+            lineTo(w * 0.5f, w * 0.88f)
+            lineTo(w * 0.3f, w * 0.88f)
+            close()
+        }
+        drawPath(path, ICON)
+        drawLine(Color(0xFF14295E), Offset(w * 0.34f, w * 0.43f), Offset(w * 0.68f, w * 0.7f), strokeWidth = w * 0.06f)
+    }
+}
+
+@Composable
+private fun SizeDotIcon(index: Int) {
+    Canvas(Modifier.size(28.dp)) {
+        val r = size.width * (0.14f + 0.12f * index)
+        drawCircle(ICON, r, center)
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.refreshArrow(c: Offset, r: Float, sw: Float) {
+    drawArc(
+        ICON, 40f, 280f, false,
+        topLeft = Offset(c.x - r, c.y - r),
+        size = androidx.compose.ui.geometry.Size(r * 2, r * 2),
+        style = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = StrokeCap.Round)
+    )
+    val a = Math.toRadians(320.0)
+    val tip = Offset(c.x + cos(a).toFloat() * r, c.y + sin(a).toFloat() * r)
+    val head = androidx.compose.ui.graphics.Path().apply {
+        moveTo(tip.x + sw * 1.8f, tip.y - sw * 0.2f)
+        lineTo(tip.x - sw * 0.2f, tip.y - sw * 1.8f)
+        lineTo(tip.x - sw * 1.2f, tip.y + sw * 1.6f)
+        close()
+    }
+    drawPath(head, ICON)
+}
+
+@Composable
+private fun RotateIcon() {
+    Canvas(Modifier.size(28.dp)) { refreshArrow(center, size.width * 0.34f, size.width * 0.11f) }
+}
+
+@Composable
+private fun UndoIcon() {
+    Canvas(Modifier.size(28.dp)) {
+        val w = size.width
+        drawArc(
+            ICON, 200f, 220f, false,
+            topLeft = Offset(w * 0.2f, w * 0.3f),
+            size = androidx.compose.ui.geometry.Size(w * 0.62f, w * 0.5f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(w * 0.11f, cap = StrokeCap.Round)
+        )
+        val head = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.1f, w * 0.2f)
+            lineTo(w * 0.1f, w * 0.52f)
+            lineTo(w * 0.4f, w * 0.38f)
+            close()
+        }
+        drawPath(head, ICON)
+    }
+}
+
+@Composable
+private fun RetakeIcon() {
+    Canvas(Modifier.size(30.dp)) {
+        val w = size.width
+        drawRoundRect(ICON, Offset(w * 0.05f, w * 0.3f), androidx.compose.ui.geometry.Size(w * 0.9f, w * 0.6f), androidx.compose.ui.geometry.CornerRadius(w * 0.1f))
+        drawRoundRect(ICON, Offset(w * 0.3f, w * 0.15f), androidx.compose.ui.geometry.Size(w * 0.3f, w * 0.2f), androidx.compose.ui.geometry.CornerRadius(w * 0.05f))
+        drawCircle(Color(0xFF14295E), w * 0.22f, Offset(w * 0.5f, w * 0.6f))
+        refreshArrow(Offset(w * 0.5f, w * 0.6f), w * 0.13f, w * 0.05f)
+    }
 }

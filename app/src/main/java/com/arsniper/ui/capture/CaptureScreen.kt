@@ -508,7 +508,7 @@ private fun takePhoto(
 
 /** מסגרת עתידנית: מסגרת כחולה כהה, פינות כתומות וסוגריים של מיקוד באמצע */
 @Composable
-private fun CameraFrame() {
+internal fun CameraFrame(brackets: Boolean = true) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         val t = 12.dp.toPx()
         val navy = Color(0xFF14295E)
@@ -544,6 +544,7 @@ private fun CameraFrame() {
             drawPath(path, edge, style = Stroke(2.5.dp.toPx()))
         }
         corner(true, true); corner(false, true); corner(true, false); corner(false, false)
+        if (!brackets) return@Canvas
         // סוגריים באמצע
         val bw = size.width * 0.28f
         val bh = size.height * 0.5f
