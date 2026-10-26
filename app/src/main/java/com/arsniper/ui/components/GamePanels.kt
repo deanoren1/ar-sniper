@@ -62,7 +62,7 @@ fun NavyPanel(
     )
 }
 
-/** מסגרת למטבע: אייקון, מספר, וכפתור + אופציונלי */
+/** מסגרת למטבע בסגנון העיצוב: אייקון גדול שבולט מימין לפס כחול כהה, מספר מודגש וכפתור + ירוק */
 @Composable
 fun CurrencyPill(
     amount: Int,
@@ -71,21 +71,33 @@ fun CurrencyPill(
     onPlus: (() -> Unit)? = null
 ) {
     val shape = RoundedCornerShape(50)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .clip(shape)
-            .background(GameColors.Navy900.copy(alpha = 0.85f))
-            .border(2.dp, GameColors.Outline, shape)
-            .padding(start = 8.dp, end = if (onPlus != null) 4.dp else 12.dp, top = 4.dp, bottom = 4.dp)
-    ) {
-        if (isGems) DiamondIcon(size = 24.dp) else CoinIcon(size = 24.dp)
-        Spacer(Modifier.width(6.dp))
-        OutlinedText("$amount", fontSize = 18.sp, outline = null)
-        if (onPlus != null) {
-            Spacer(Modifier.width(8.dp))
-            GameIconButton(GameIcon.Plus, onClick = onPlus, style = com.arsniper.ui.theme.GameButtonStyle.Success, size = 30.dp)
+    Box(modifier = modifier.height(38.dp), contentAlignment = Alignment.CenterStart) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .height(30.dp)
+                .clip(shape)
+                .background(Brush.verticalGradient(listOf(GameColors.Navy700, GameColors.Navy900)))
+                .border(2.dp, GameColors.Outline, shape)
+                .padding(start = 26.dp, end = if (onPlus != null) 3.dp else 14.dp)
+        ) {
+            OutlinedText("$amount", fontSize = 18.sp, outline = null)
+            if (onPlus != null) {
+                Spacer(Modifier.width(10.dp))
+                val plusShape = RoundedCornerShape(8.dp)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(plusShape)
+                        .background(Brush.verticalGradient(listOf(Color(0xFF7BE04A), Color(0xFF2FA21F))))
+                        .border(2.dp, GameColors.Outline, plusShape)
+                        .clickable(onClick = onPlus)
+                ) { IconGlyph(GameIcon.Plus, size = 14.dp, tint = Color.White) }
+            }
         }
+        if (isGems) DiamondIcon(size = 34.dp) else CoinIcon(size = 34.dp)
     }
 }
 

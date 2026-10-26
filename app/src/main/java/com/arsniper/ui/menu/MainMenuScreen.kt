@@ -31,7 +31,11 @@ import com.arsniper.data.PhotoImport
 import com.arsniper.ui.components.GameButton
 import com.arsniper.ui.components.GameIcon
 import com.arsniper.ui.components.GameIconButton
+import com.arsniper.ui.components.CurrencyPill
 import com.arsniper.ui.components.OutlinedText
+import com.arsniper.ui.components.PlayerBadge
+import com.arsniper.data.PlayerProfile
+import com.arsniper.ui.game.MonsterSprites
 import com.arsniper.ui.theme.GameButtonStyle
 import com.arsniper.ui.theme.GameColors
 import com.arsniper.ui.theme.ResponsiveBox
@@ -88,6 +92,22 @@ fun MainMenuScreen(
                     )
                 )
         )
+
+        val portrait = remember { MonsterSprites.load(context)?.forEnemy(3)?.idle }
+        PlayerBadge(
+            name = PlayerProfile.playerName,
+            level = PlayerProfile.level,
+            progress = PlayerProfile.levelProgress,
+            portrait = portrait,
+            modifier = Modifier.align(Alignment.TopStart).padding(start = ui.dp(10f), top = ui.dp(8f))
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(ui.dp(6f)),
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = ui.dp(10f), top = ui.dp(8f))
+        ) {
+            CurrencyPill(PlayerProfile.coins, isGems = false, onPlus = onShop)
+            CurrencyPill(PlayerProfile.diamonds, isGems = true, onPlus = onShop)
+        }
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
