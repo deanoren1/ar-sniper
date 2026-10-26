@@ -115,6 +115,8 @@ fun SceneScreen(
     var statusText by remember { mutableStateOf("Preparing...") }
     var busy by remember { mutableStateOf(true) }
     var sceneView by remember { mutableStateOf<SceneView?>(null) }
+    // התקדמות הסריקה לשחקן (0..1): ניתוח 0-0.6, הכנת מודל העצמים עד 0.7, זיהוי עצמים עד 1
+    var scanProgress by remember { mutableStateOf(0f) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var viewMode by remember { mutableStateOf(ViewMode.Segmentation) }
 
@@ -171,11 +173,13 @@ fun SceneScreen(
                 runCatching {
                     analyzeScene(context, modelFile, savedAnalysis) { done, total ->
                         statusText = "Analyzing scene: part $done of $total"
+                        scanProgress = 0.6f * done / maxOf(total, 1)
                     }
                 }
             }
             outcome
                 .onSuccess {
+                    scanProgress = 0.6f
                     sceneView = it
                     userObjects = it.objects
                     autoMasks = it.samMasks
@@ -198,6 +202,7 @@ fun SceneScreen(
     fun startSam(view: SceneView) {
         if (samState != 0) return
         samState = 1
+        scanProgress = maxOf(scanProgress, 0.62f)
         scope.launch {
             try {
                 samStatus = "Preparing object model..."
@@ -217,6 +222,7 @@ fun SceneScreen(
                 }
                 val acc = samHolder[0]?.encoderAccelerator ?: "?"
                 samStatus = "Tap an object (photo read in ${ms} ms, $acc)"
+                scanProgress = maxOf(scanProgress, 0.7f)
                 samState = 2
             } catch (e: CancellationException) {
                 throw e
@@ -329,6 +335,7 @@ fun SceneScreen(
                         { done, total ->
                             val seconds = (System.currentTimeMillis() - startMs) / 1000
                             samStatus = "Finding objects: $done / $total (${seconds}s)"
+                            scanProgress = 0.7f + 0.3f * done / maxOf(total, 1)
                         }
                     )
                 }
@@ -405,7 +412,7 @@ fun SceneScreen(
             }
         }
         AutoScanOverlay(
-            photo = current?.photo,
+            progress = scanProgress,
             status = when {
                 errorText != null -> "Scan failed: $errorText\nPress back and try another photo."
                 current == null -> statusText
@@ -791,43 +798,44 @@ private fun buildSpotsLegend(spots: List<HidingSpot>): List<String> {
     return lines
 }
 
-/** מסך הסריקה לשחקן: התמונה מוחשכת, כותרת, וסטטוס. אין כפתורים: הסריקה ממשיכה למשחק לבד */
+/** מסך הסריקה לשחקן: תמונת טעינה, פס התקדמות וסטטוס. אין כפתורים: הסריקה ממשיכה למשחק לבד */
 @Composable
-private fun AutoScanOverlay(photo: ImageBitmap?, status: String, failed: Boolean) {
+private fun AutoScanOverlay(progress: Float, status: String, failed: Boolean) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(com.arsniper.ui.theme.GameColors.Navy900),
         contentAlignment = Alignment.Center
     ) {
-        if (photo != null) {
-            Image(
-                bitmap = photo,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-        Box(Modifier.fillMaxSize().background(Color(0xB3081028)))
-        com.arsniper.ui.components.NavyPanel(modifier = Modifier.padding(24.dp)) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(24.dp)
-            ) {
-                com.arsniper.ui.components.OutlinedText(
-                    if (failed) "SCAN FAILED" else "SCANNING YOUR ARENA",
-                    fontSize = 26.sp
-                )
-                if (!failed) CircularProgressIndicator()
-                com.arsniper.ui.components.OutlinedText(
-                    status,
-                    fontSize = 14.sp,
-                    color = com.arsniper.ui.theme.GameColors.Ice,
-                    outline = null,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+        Image(
+            painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.loading_bg),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 56.dp)
+                .fillMaxWidth(0.42f)
+        ) {
+            if (!failed) {
+                com.arsniper.ui.components.LoadingBar(progress = progress)
+                Box(Modifier.size(8.dp))
             }
+            com.arsniper.ui.components.OutlinedText(
+                if (failed) "SCAN FAILED" else "LOADING...",
+                fontSize = 22.sp,
+                outlineWidth = 8f
+            )
+            com.arsniper.ui.components.OutlinedText(
+                status,
+                fontSize = 12.sp,
+                color = Color.White,
+                outlineWidth = 5f,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
