@@ -16,7 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.data.PlayerProfile
+import com.arsniper.ui.components.GameButton
 import com.arsniper.ui.components.GameToggle
+import com.arsniper.ui.theme.GameButtonStyle
 import com.arsniper.ui.components.NavyPanel
 import com.arsniper.ui.components.OutlinedText
 import com.arsniper.ui.components.ScreenHeader
@@ -25,7 +27,7 @@ import com.arsniper.ui.theme.ResponsiveBox
 
 /** הגדרות: צלילים ורטט. נשמרות בפרופיל ופועלות מיד */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, modifier: Modifier = Modifier) {
     PlayerProfile.revision.hashCode()
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         Column(modifier = Modifier.padding(ui.dp(14f))) {
@@ -39,6 +41,14 @@ fun SettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     ) {
                         SettingRow("SOUND EFFECTS", PlayerProfile.soundOn) { PlayerProfile.soundOn = it }
                         SettingRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
+                        GameButton(
+                            text = "ART LAB (TEST)",
+                            onClick = onArtLab,
+                            style = GameButtonStyle.Secondary,
+                            height = 44.dp,
+                            fontSize = 16.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
