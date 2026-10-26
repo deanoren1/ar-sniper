@@ -27,6 +27,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -141,7 +145,11 @@ fun EndOverlay(
             .fillMaxSize()
             .background(Color(0xB3081028))
     ) {
-        NavyPanel(modifier = Modifier.width(380.dp)) {
+        if (!won) GameOverPanel(
+            wave = wave, score = score, totalCoins = totalCoins, diamonds = diamonds,
+            reviveCost = reviveCost, difficultyTitle = difficultyTitle,
+            onRevive = onRevive, onRetry = onRetry, onMenu = onMenu
+        ) else NavyPanel(modifier = Modifier.width(380.dp)) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -245,6 +253,97 @@ fun BossBar(fraction: Float, enraged: Boolean, modifier: Modifier = Modifier) {
                     .width(2.dp)
                     .height(12.dp)
                     .background(Color(0xCCFFFFFF))
+            )
+        }
+    }
+}
+
+
+/**
+ * מסך GAME OVER מהעיצוב החדש: התמונה היא המסגרת, והמספרים והכפתורים מצוירים עליה.
+ * עם revive: התמונה המלאה. בלי revive: גרסה בלי שורת ההחייאה.
+ * הקואורדינטות בפיקסלים של התמונה (950 רוחב).
+ */
+@Composable
+private fun GameOverPanel(
+    wave: Int,
+    score: Int,
+    totalCoins: Int,
+    diamonds: Int,
+    reviveCost: Int,
+    difficultyTitle: String?,
+    onRevive: () -> Unit,
+    onRetry: () -> Unit,
+    onMenu: () -> Unit
+) {
+    val canRevive = reviveCost > 0
+    val imgH = if (canRevive) 925f else 798f
+    val shift = if (canRevive) 0f else -127f
+    androidx.compose.foundation.layout.BoxWithConstraints(contentAlignment = Alignment.Center) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val hPx = constraints.maxHeight * 0.97f
+        val wPx = minOf(hPx * 950f / imgH, constraints.maxWidth * 0.86f)
+        val k = wPx / 950f
+        fun u(px: Float) = with(density) { (px * k).toDp() }
+        fun f(px: Float) = with(density) { (px * k).toSp() }
+        Box(modifier = Modifier.width(u(950f)).height(u(imgH))) {
+            Image(
+                painter = androidx.compose.ui.res.painterResource(
+                    if (canRevive) com.arsniper.R.drawable.gameover_panel_revive else com.arsniper.R.drawable.gameover_panel
+                ),
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.FillBounds,
+                modifier = Modifier.fillMaxSize()
+            )
+            // You reached wave N
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.offset(x = u(130f), y = u(296f)).width(u(690f)).height(u(60f))
+            ) {
+                OutlinedText("You reached wave ", fontSize = f(40f), outline = null)
+                OutlinedText("$wave", fontSize = f(40f), color = Color(0xFFFFD43B), outline = null)
+            }
+            // מטבעות שהרווחת
+            OutlinedText(
+                "$score", fontSize = f(52f), outline = null,
+                modifier = Modifier.offset(x = u(592f), y = u(447f))
+            )
+            // סה"כ
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.offset(x = u(415f), y = u(536f)).width(u(385f)).height(u(40f))
+            ) {
+                OutlinedText(
+                    "Total: $totalCoins coins" + (if (difficultyTitle != null) "  \u00B7  " else ""),
+                    fontSize = f(28f), color = Color(0xFFE3E9FF), outline = null
+                )
+                if (difficultyTitle != null) {
+                    OutlinedText(difficultyTitle, fontSize = f(28f), color = Color(0xFF2AA8FF), outline = null)
+                }
+            }
+            if (canRevive) {
+                val enabled = diamonds >= reviveCost
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .offset(x = u(68f), y = u(613f)).size(width = u(817f), height = u(109f))
+                        .clip(RoundedCornerShape(u(40f)))
+                        .then(if (enabled) Modifier else Modifier.background(Color(0xCC0A1230)))
+                        .clickable(enabled = enabled, onClick = onRevive)
+                ) {
+                    if (!enabled) OutlinedText("Need $reviveCost gems (you have $diamonds)", fontSize = f(34f), color = GameColors.Sky, outline = null)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .offset(x = u(70f), y = u(745f + shift)).size(width = u(175f), height = u(123f))
+                    .clip(RoundedCornerShape(u(30f))).clickable(onClick = onMenu)
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = u(275f), y = u(745f + shift)).size(width = u(608f), height = u(127f))
+                    .clip(RoundedCornerShape(u(40f))).clickable(onClick = onRetry)
             )
         }
     }
