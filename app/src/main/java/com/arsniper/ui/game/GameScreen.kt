@@ -522,7 +522,7 @@ fun GameScreen(
         soundPlayer.play(if (result.destroyed) Sfx.Deflect else Sfx.Crack)
         if (result.destroyed) shock.reward()
         if (result.destroyed) {
-            award(BLOCK_POINTS, shot.x, shot.y)
+            award(BLOCK_POINTS, shot.x, shot.y, register = false)
             blasts = blasts + Blast(
                 x = shot.x,
                 y = shot.y,
@@ -532,7 +532,7 @@ fun GameScreen(
                 bornNanos = frameNanos
             )
         } else {
-            award(CRACK_POINTS, shot.x, shot.y)
+            award(CRACK_POINTS, shot.x, shot.y, register = false)
             blasts = blasts + Blast(
                 x = shot.x,
                 y = shot.y,
