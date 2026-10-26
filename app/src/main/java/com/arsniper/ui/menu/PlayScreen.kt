@@ -120,6 +120,12 @@ fun PlayScreen(
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
             )
         }
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.play_deco_camera),
+            contentDescription = null,
+            contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(0.2f)
+        )
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(40f))
@@ -184,6 +190,12 @@ fun PlayScreen(
                         )
                         .border(2.5.dp, Color(0xFF2AA8FF), RoundedCornerShape(22.dp))
                 ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.play_deco_photos),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                        modifier = Modifier.align(Alignment.BottomEnd).fillMaxWidth(0.34f)
+                    )
                     Column(modifier = Modifier.padding(ui.dp(14f))) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedText("MY PHOTOS", fontSize = (ui.factor * 24f).sp)
