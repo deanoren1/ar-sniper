@@ -39,6 +39,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.imageResource
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -380,18 +384,6 @@ fun ReviewScreen(
             else -> "Red areas will be removed from your arena\nTap anything else to remove it too \u00B7 tap red to keep it \u00B7 OK to continue"
         }
 
-        Text(
-            text = statusText,
-            color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp)
-                .background(Color.Black.copy(alpha = 0.6f))
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-
         if ((current == null && errorText == null) || removing || samBusy) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
@@ -399,58 +391,96 @@ fun ReviewScreen(
         val ready = current != null && !removing
         val editing = ready && cleanedBitmap == null
 
-        // מסגרת המצלמה, כמו בצילום (לא תופסת מגע)
-        com.arsniper.ui.capture.CameraFrame(brackets = false)
-
-        // כפתורי עריכה בצורת אייקונים: צילום מחדש, מכחול, ביטול, סיבוב
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 40.dp, bottom = 40.dp)
-        ) {
-            ReviewRoundButton(enabled = !removing, onClick = onRetake) { RetakeIcon() }
-            ReviewRoundButton(
-                enabled = editing,
-                active = fineTune,
-                onClick = { fineTune = !fineTune }
-            ) { BrushIcon() }
-            if (fineTune && editing) {
-                ReviewRoundButton(
-                    enabled = true,
-                    active = mode == BrushMode.Erase,
-                    activeColor = Color(0xFF1565C0),
-                    onClick = { mode = if (mode == BrushMode.Add) BrushMode.Erase else BrushMode.Add }
-                ) { EraserIcon() }
-                ReviewRoundButton(
-                    enabled = true,
-                    onClick = { brushIndex = (brushIndex + 1) % BRUSH_RADII_DP.size }
-                ) { SizeDotIcon(brushIndex) }
+        val frameImg = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.review_frame)
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val sc = constraints.maxHeight / 941f
+            fun u(px: Float) = with(density) { (px * sc).toDp() }
+            // המסגרת מצוירת לפי הגובה; רק הפס האמצעי נמתח לרוחב, כך שהכפתורים והפינות לא מתעוותים
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val h = size.height.toInt()
+                val w = size.width.toInt()
+                val ls = (660 * sc).toInt()
+                val rs = (662 * sc).toInt()
+                drawImage(frameImg, androidx.compose.ui.unit.IntOffset(0, 0), androidx.compose.ui.unit.IntSize(660, 941),
+                    androidx.compose.ui.unit.IntOffset(0, 0), androidx.compose.ui.unit.IntSize(ls, h))
+                drawImage(frameImg, androidx.compose.ui.unit.IntOffset(660, 0), androidx.compose.ui.unit.IntSize(350, 941),
+                    androidx.compose.ui.unit.IntOffset(ls, 0), androidx.compose.ui.unit.IntSize(w - ls - rs, h))
+                drawImage(frameImg, androidx.compose.ui.unit.IntOffset(1010, 0), androidx.compose.ui.unit.IntSize(662, 941),
+                    androidx.compose.ui.unit.IntOffset(w - rs, 0), androidx.compose.ui.unit.IntSize(rs, h))
             }
-            ReviewRoundButton(
-                enabled = ready && (cleanedBitmap != null || undoStack.isNotEmpty()),
-                onClick = { undoLast() }
-            ) { UndoIcon() }
-        }
-
-        // הכפתור היחיד שהשחקן צריך: אישור (מסיר את המסומן ממשיך)
-        Button(
-            onClick = {
-                when {
-                    cleanedBitmap != null -> {
-                        PhotoRepository.save(context, cleanedBitmap)
-                        onContinue()
-                    }
-                    current != null && current.mask.coverage() > 0f -> startRemoval(autoContinue = true)
-                    else -> onContinue()
+            // לוח ההוראות העליון: מכסה את הכיתוב הצבוע במסגרת ומציג את הטקסט הנוכחי
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = u(300f), end = u(300f), top = u(33f))
+                    .fillMaxWidth()
+                    .height(u(138f))
+                    .clip(RoundedCornerShape(u(38f)))
+                    .background(Color(0xFF0A1535))
+                    .border(u(4f), Color(0xFF2FB4FF), RoundedCornerShape(u(38f)))
+            ) {
+                Text(
+                    text = statusText,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+            // אזורי מגע שקופים מעל הכפתורים שבמסגרת
+            @Composable
+            fun Hit(cx: Float, cy: Float, r: Float, enabled: Boolean, onClick: () -> Unit) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = u(cx - r), top = u(cy - r))
+                        .size(u(2 * r))
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .clickable(enabled = enabled, onClick = onClick)
+                )
+            }
+            Hit(151f, 762f, 75f, !removing, onRetake)
+            Hit(330f, 762f, 75f, editing) { fineTune = !fineTune }
+            Hit(508f, 762f, 75f, ready && (cleanedBitmap != null || undoStack.isNotEmpty())) { undoLast() }
+            if (fineTune && editing) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = u(620f), top = u(690f))
+                ) {
+                    ReviewRoundButton(
+                        enabled = true,
+                        active = mode == BrushMode.Erase,
+                        activeColor = Color(0xFF1565C0),
+                        onClick = { mode = if (mode == BrushMode.Add) BrushMode.Erase else BrushMode.Add }
+                    ) { EraserIcon() }
+                    ReviewRoundButton(
+                        enabled = true,
+                        onClick = { brushIndex = (brushIndex + 1) % BRUSH_RADII_DP.size }
+                    ) { SizeDotIcon(brushIndex) }
                 }
-            },
-            enabled = ready && !samBusy,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 40.dp, bottom = 40.dp)
-        ) { Text("OK", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+            }
+            // אישור
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = u(47f), top = u(720f))
+                    .size(width = u(360f), height = u(150f))
+                    .clip(RoundedCornerShape(u(70f)))
+                    .clickable(enabled = ready && !samBusy) {
+                        when {
+                            cleanedBitmap != null -> {
+                                PhotoRepository.save(context, cleanedBitmap)
+                                onContinue()
+                            }
+                            current != null && current.mask.coverage() > 0f -> startRemoval(autoContinue = true)
+                            else -> onContinue()
+                        }
+                    }
+            )
+        }
     }
 }
 
