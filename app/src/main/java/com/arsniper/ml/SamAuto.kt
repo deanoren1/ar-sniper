@@ -42,8 +42,19 @@ object SamAuto {
     private const val BACKGROUND_MIN_AREA = 0.04f
 
     /** מסכה גדולה שרובה רצפה היא הרצפה עצמה (מסכה קטנה על "רצפה" יכולה להיות קורקינט שהמודל לא מכיר) */
-    private const val FLOOR_FRACTION = 0.6f
-    private const val FLOOR_MAX_AREA = 0.12f
+    private const val FLOOR_FRACTION = 0.45f
+    private const val FLOOR_MAX_AREA = 0.06f
+
+    /**
+     * רצפה גם כשהמודל תייג אותה לא נכון: מסכה גדולה שהעומק בה משתנה מאוד (מהקרוב לרחוק, כמו כביש או מדרכה)
+     * היא משטח ולא עצם. עצם עומד (רכב, עץ, ארגז) כמעט באותו עומק בכל שטחו.
+     */
+    private const val GROUND_MIN_AREA = 0.04f
+    private const val GROUND_DEPTH_SPREAD = 3f
+
+    /** מסכה שרוב שטחה בחמישית התחתונה של התמונה היא הקדמה (למשל לוח מחוונים של הרכב), לא מחבוא */
+    private const val FOREGROUND_ROWS = 0.8f
+    private const val FOREGROUND_FRACTION = 0.5f
 
     private val WALLISH = listOf("wall", "ceiling", "sky", "building", "house")
     private val FLOORISH = listOf("floor", "rug", "road", "sidewalk", "grass", "earth", "path", "field", "sand")
@@ -265,18 +276,31 @@ object SamAuto {
         var cells = 0
         var wall = 0
         var floor = 0
+        var low = 0
+        val depths = FloatArray(grid.size)
+        val lowStart = (analysis.height * FOREGROUND_ROWS).toInt() * analysis.width
         for (i in grid.indices) {
             if (!grid[i]) continue
+            depths[cells] = analysis.depth[i]
             cells++
             val label = analysis.labelIndex(i) and 0xFF
             if (wallLabels[label]) wall++
             if (floorLabels[label]) floor++
+            if (i >= lowStart) low++
         }
         val total = grid.size
         val fraction = cells.toFloat() / total
         if (fraction < MIN_AREA || fraction > MAX_AREA) return R_AREA
         if (fraction >= BACKGROUND_MIN_AREA && wall >= BACKGROUND_FRACTION * cells) return R_WALL
         if (fraction > FLOOR_MAX_AREA && floor >= FLOOR_FRACTION * cells) return R_FLOOR
+        if (cells > 0 && low >= FOREGROUND_FRACTION * cells) return R_FLOOR
+        if (fraction >= GROUND_MIN_AREA && cells >= 10) {
+            val sorted = depths.copyOf(cells)
+            sorted.sort()
+            val near = sorted[(cells * 0.1f).toInt()]
+            val far = sorted[(cells * 0.9f).toInt().coerceAtMost(cells - 1)]
+            if (near > 0.1f && far / near > GROUND_DEPTH_SPREAD) return R_FLOOR
+        }
 
         // יציבות: כמה משטח המסכה הוא מעל חלק מהערך הגבוה האופייני שלה (אחוזון 90)
         var positive = 0
