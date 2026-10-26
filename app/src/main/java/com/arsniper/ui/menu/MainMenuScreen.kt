@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -61,7 +62,8 @@ private class MenuMonsters(
     val dragon: MonsterSprite?,
     val alien: MonsterSprite?,
     val hedgehog: MonsterSprite?,
-    val octopus: MonsterSprite?
+    val octopus: MonsterSprite?,
+    val balloon: MonsterSprite?
 )
 
 private fun loadMenuMonsters(context: Context): MenuMonsters? {
@@ -71,7 +73,8 @@ private fun loadMenuMonsters(context: Context): MenuMonsters? {
         dragon = sprites.forEnemy(ArenaDirector.BOSS_ID).idle,
         alien = sprites.forEnemy(4).idle,
         hedgehog = sprites.forEnemy(2).idle,
-        octopus = sprites.forEnemy(1).idle
+        octopus = sprites.forEnemy(1).idle,
+        balloon = sprites.forEnemy(3).idle
     )
 }
 
@@ -120,34 +123,54 @@ fun MainMenuScreen(
     )
 
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
-        // רקע: התמונה של השחקן (אם יש) מוחשכת בכחול
+        // רקע: התמונה של השחקן בצבעים מלאים. בלי תמונה: שמיים כחולים
         if (photo != null) {
             Image(
                 bitmap = photo, contentDescription = null, contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+        } else {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Brush.verticalGradient(listOf(GameColors.Sky, GameColors.Blue)))
+            )
         }
+        // הצללה עדינה למעלה ולמטה, רק כדי שהכותרת והכפתורים ייקראו
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(GameColors.Navy900.copy(alpha = 0.55f), GameColors.Navy800.copy(alpha = 0.85f))
+                        0f to Color(0x66081028),
+                        0.3f to Color.Transparent,
+                        0.7f to Color.Transparent,
+                        1f to Color(0x88081028)
                     )
                 )
         )
 
-        // מפלצות: כולן מהספרייטים הקיימים
+        // המפלצות: כולן מהספרייטים הקיימים, גדולות ומתנודדות סביב הכותרת
         val m = monsters
         if (m != null) {
+            m.dragon?.let {
+                Image(
+                    bitmap = it.image, contentDescription = null, contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = ui.dp(10f), top = ui.dp(60f))
+                        .size(ui.dp(170f))
+                        .graphicsLayer { translationY = bobY }
+                )
+            }
             m.alien?.let {
                 Image(
                     bitmap = it.image, contentDescription = null, contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = ui.dp(20f), top = ui.dp(40f))
-                        .size(ui.dp(130f))
-                        .graphicsLayer { translationY = bobY * 1.3f }
+                        .align(Alignment.TopEnd)
+                        .padding(end = ui.dp(40f), top = ui.dp(90f))
+                        .size(ui.dp(105f))
+                        .graphicsLayer { translationY = -bobY * 1.2f }
                 )
             }
             m.hedgehog?.let {
@@ -155,19 +178,9 @@ fun MainMenuScreen(
                     bitmap = it.image, contentDescription = null, contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = ui.dp(90f), bottom = ui.dp(20f))
-                        .size(ui.dp(90f))
+                        .padding(start = ui.dp(40f), bottom = ui.dp(60f))
+                        .size(ui.dp(115f))
                         .graphicsLayer { translationY = -bobY }
-                )
-            }
-            m.dragon?.let {
-                Image(
-                    bitmap = it.image, contentDescription = null, contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = ui.dp(20f), top = ui.dp(30f))
-                        .size(ui.dp(190f))
-                        .graphicsLayer { translationY = bobY }
                 )
             }
             m.octopus?.let {
@@ -175,59 +188,61 @@ fun MainMenuScreen(
                     bitmap = it.image, contentDescription = null, contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = ui.dp(150f), bottom = ui.dp(14f))
-                        .size(ui.dp(90f))
+                        .padding(end = ui.dp(50f), bottom = ui.dp(70f))
+                        .size(ui.dp(105f))
                         .graphicsLayer { translationY = bobY * 0.8f }
+                )
+            }
+            // הדמות המרכזית, מאחורי כפתור PLAY
+            m.balloon?.let {
+                Image(
+                    bitmap = it.image, contentDescription = null, contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(top = ui.dp(30f))
+                        .size(ui.dp(190f))
+                        .graphicsLayer { translationY = bobY * 0.6f }
                 )
             }
         }
 
-        // פינה שמאלית עליונה: תג שחקן
-        PlayerBadge(
-            name = PlayerProfile.playerName,
-            level = PlayerProfile.level,
-            progress = PlayerProfile.levelProgress,
-            portrait = m?.octopus,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(ui.dp(12f))
-        )
-        // פינה ימנית עליונה: מטבעות ויהלומים
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(ui.dp(12f))
-        ) {
-            CurrencyPill(PlayerProfile.coins, isGems = false)
-            CurrencyPill(PlayerProfile.diamonds, isGems = true, onPlus = onShop)
-        }
-
-        // כותרת ופעולות במרכז
+        // כותרת: SNIPER בזהב ומתחתיה AR בתכלת, מעט מוטות, עם מתאר עבה
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = ui.dp(6f))
+                .rotate(-3f)
         ) {
-            Row(modifier = Modifier.rotate(-3f), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedText("AR ", fontSize = (ui.factor * 52f).sp, color = GameColors.Sky, outlineWidth = 14f)
-                OutlinedText("SNIPER", fontSize = (ui.factor * 52f).sp, color = GameColors.Yellow, outlineWidth = 14f)
-            }
-            Box(Modifier.size(ui.dp(14f)))
+            OutlinedText("SNIPER", fontSize = (ui.factor * 62f).sp, color = GameColors.Yellow, outlineWidth = 18f, letterSpacing = 2.sp)
+            OutlinedText(
+                "AR", fontSize = (ui.factor * 52f).sp, color = Color(0xFF6FD3FF), outlineWidth = 18f,
+                modifier = Modifier.offset(y = -ui.dp(14f))
+            )
+        }
+
+        // PLAY גדול ומתחתיו שורת כפתורים
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = ui.dp(10f))
+        ) {
             GameButton(
                 text = "PLAY",
                 onClick = onStart,
                 icon = GameIcon.Play,
                 enabled = !busy,
                 height = ui.dp(64f),
-                fontSize = (ui.factor * 30f).sp,
-                modifier = Modifier.width(ui.dp(230f))
+                fontSize = (ui.factor * 32f).sp,
+                modifier = Modifier.width(ui.dp(240f))
             )
-            Box(Modifier.size(ui.dp(12f)))
-            Row(horizontalArrangement = Arrangement.spacedBy(ui.dp(14f))) {
-                MenuIcon(GameIcon.Gear, "SETTINGS", onSettings, ui.dp(48f))
-                MenuIcon(GameIcon.Stats, "STATS", onStats, ui.dp(48f))
-                MenuIcon(GameIcon.Cart, "SHOP", onShop, ui.dp(48f), GameButtonStyle.Success)
-                MenuIcon(GameIcon.Photo, if (busy) "LOADING" else "PHOTO", { picker.launch(arrayOf("image/*")) }, ui.dp(48f), enabled = !busy)
+            Box(Modifier.size(ui.dp(8f)))
+            Row(horizontalArrangement = Arrangement.spacedBy(ui.dp(12f))) {
+                MenuIcon(GameIcon.Gear, "SETTINGS", onSettings, ui.dp(44f))
+                MenuIcon(GameIcon.Stats, "STATS", onStats, ui.dp(44f))
+                MenuIcon(GameIcon.Cart, "SHOP", onShop, ui.dp(44f))
+                MenuIcon(GameIcon.Photo, if (busy) "LOADING" else "PHOTO", { picker.launch(arrayOf("image/*")) }, ui.dp(44f), enabled = !busy)
             }
             if (failed) {
                 OutlinedText("Could not open that photo", fontSize = 14.sp, color = Color(0xFFFF8A80))
