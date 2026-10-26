@@ -376,8 +376,8 @@ fun ReviewScreen(
                 "${removeInfo ?: "People removed"}\nOK: continue \u00B7 undo arrow: restore"
             hint != null -> hint!!
             fineTune -> if (mode == BrushMode.Add) "Paint over what you want to remove" else "Paint to un-mark"
-            current.mask.coverage() == 0f -> "No people found. Tap anything to remove it"
-            else -> "Tap anything else to remove it too \u00B7 tap a red area to keep it"
+            current.mask.coverage() == 0f -> "Remove people or objects from your arena\nTap anything to remove it \u00B7 OK to continue"
+            else -> "Red areas will be removed from your arena\nTap anything else to remove it too \u00B7 tap red to keep it \u00B7 OK to continue"
         }
 
         Text(
@@ -432,7 +432,6 @@ fun ReviewScreen(
                 enabled = ready && (cleanedBitmap != null || undoStack.isNotEmpty()),
                 onClick = { undoLast() }
             ) { UndoIcon() }
-            ReviewRoundButton(enabled = editing, onClick = { rotatePhoto() }) { RotateIcon() }
         }
 
         // הכפתור היחיד שהשחקן צריך: אישור (מסיר את המסומן ממשיך)
