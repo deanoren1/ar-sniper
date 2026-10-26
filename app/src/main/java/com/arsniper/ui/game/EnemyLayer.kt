@@ -92,13 +92,15 @@ private class DrawItem(val enemy: Enemy, val dead: Boolean, val progress: Float)
 fun EnemyLayer(
     enemies: List<Enemy>,
     scene: SceneContext?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** מפתח גיליון מפלצות של הארנה (למשל "tundra"); null או גיליון חסר = הגיליון הרגיל */
+    monsterSet: String? = null
 ) {
     val context = LocalContext.current
     val spritesAvailable = remember { MonsterSprites.isAvailable(context) }
-    val spritesState = produceState<MonsterSprites?>(null, context) {
+    val spritesState = produceState<MonsterSprites?>(null, context, monsterSet) {
         if (spritesAvailable) {
-            value = withContext(Dispatchers.Default) { MonsterSprites.load(context) }
+            value = withContext(Dispatchers.Default) { MonsterSprites.load(context, monsterSet) }
         }
     }
     val sprites = spritesState.value

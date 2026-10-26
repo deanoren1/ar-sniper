@@ -774,7 +774,7 @@ fun GameScreen(
         ) {
             BackgroundLayer(photo = photo)
             ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true)
-            EnemyLayer(enemies = enemies, scene = scene)
+            EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             CombatLayer(
                 shots = fire.shots.toList(),
                 telegraphs = fire.telegraphViews.toList(),

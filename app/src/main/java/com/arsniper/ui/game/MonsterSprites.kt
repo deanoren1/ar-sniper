@@ -114,13 +114,25 @@ class MonsterSprites private constructor(
         /** גודל יחסי לכל מפלצת, לפי סדר השורות בגיליון */
         private val SIZE_SCALES = floatArrayOf(1.05f, 1.0f, 0.8f, 0.88f, 1.15f)
 
-        private fun atlasId(context: Context): Int =
-            context.resources.getIdentifier(ATLAS_NAME, "drawable", context.packageName)
+        private fun atlasId(context: Context, variant: String? = null): Int =
+            context.resources.getIdentifier(
+                if (variant == null) ATLAS_NAME else "${ATLAS_NAME}_$variant", "drawable", context.packageName
+            )
+
+        /** גיליון ארנה (monsters_atlas_<סגנון>): 7 עמודות, כל תא 320 על 256, מספר שורות חופשי */
+        private const val VARIANT_CELL_HEIGHT = 256
+
+        /** גודל יחסי לגיליון טונדרה: בלון, תמנון, חייזר, ענק, קיפוד, רוח, שלג-אדם, יטי */
+        private val VARIANT_SCALES = mapOf(
+            "tundra" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.95f, 1.0f, 1.15f)
+        )
 
         /** בדיקה זולה: האם גיליון המפלצות הועלה לפרויקט */
         fun isAvailable(context: Context): Boolean = atlasId(context) != 0
 
-        fun load(context: Context): MonsterSprites? {
+        fun load(context: Context, variant: String? = null): MonsterSprites? {
+            val variantId = if (variant != null) atlasId(context, variant) else 0
+            if (variantId != 0) loadVariant(context, variant!!, variantId)?.let { return it }
             val id = atlasId(context)
             if (id == 0) return null
             val options = BitmapFactory.Options().apply {
@@ -142,6 +154,25 @@ class MonsterSprites private constructor(
                 }
                 val sheet = loadSheet(atlas, row, loadWalk(context, row, "walk_$row"), fewer) ?: continue
                 sheets.add(sheet)
+            }
+            return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context))
+        }
+
+        /** גיליון מפלצות של ארנה: אין הליכה אמיתית (מדומה), הבוס נשאר הרגיל */
+        private fun loadVariant(context: Context, variant: String, id: Int): MonsterSprites? {
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val decoded = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            decoded.density = Bitmap.DENSITY_NONE
+            val rows = decoded.height / VARIANT_CELL_HEIGHT
+            if (rows < 1) return null
+            val scales = VARIANT_SCALES[variant]
+            val sheets = ArrayList<MonsterSheet>()
+            for (row in 0 until rows) {
+                val scale = scales?.getOrNull(row) ?: 1.0f
+                loadSheet(decoded, row, null, emptyMap(), rows, scale)?.let { sheets.add(it) }
             }
             return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context))
         }
