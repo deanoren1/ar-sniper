@@ -68,7 +68,11 @@ fun AppNavigation() {
                 }
             }
         )
-        Screen.Capture -> CaptureScreen(onPhotoCaptured = { screen = Screen.Review })
+        Screen.Capture -> CaptureScreen(
+            onPhotoCaptured = { screen = Screen.Review },
+            onBack = { screen = Screen.Play },
+            onGalleryPicked = { screen = Screen.Review }
+        )
         Screen.Review -> ReviewScreen(
             onContinue = { PhotoLibrary.addCurrent(context); screen = Screen.Scene },
             onRetake = { screen = Screen.Capture }
