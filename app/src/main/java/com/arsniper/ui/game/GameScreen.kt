@@ -773,7 +773,7 @@ fun GameScreen(
                 }
         ) {
             BackgroundLayer(photo = photo)
-            ArenaStyleLayer(style = style, nowNanos = frameNanos)
+            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true)
             EnemyLayer(enemies = enemies, scene = scene)
             CombatLayer(
                 shots = fire.shots.toList(),
