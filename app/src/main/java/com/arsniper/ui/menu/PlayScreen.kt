@@ -93,11 +93,42 @@ fun PlayScreen(
     }
 
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        // רקע: מעבר כחול עם הילה, ופס כותרת עם מדרגה וקו תכלת זוהר
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            drawRect(
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF071A4A), Color(0xFF0A2A74), Color(0xFF061540)))
+            )
+            drawRect(
+                androidx.compose.ui.graphics.Brush.radialGradient(
+                    listOf(Color(0x552A8CFF), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(size.width * 0.55f, size.height * 0.55f),
+                    radius = size.width * 0.6f
+                )
+            )
+            val w = size.width
+            val low = size.height * 0.15f
+            val high = size.height * 0.125f
+            val bar = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, 0f); lineTo(w, 0f); lineTo(w, low)
+                lineTo(w * 0.74f, low); lineTo(w * 0.69f, high)
+                lineTo(w * 0.31f, high); lineTo(w * 0.26f, low)
+                lineTo(0f, low); close()
+            }
+            drawPath(bar, Color(0xFF06143C))
+            drawPath(
+                bar, Color(0xFF2AA8FF),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
+            )
+        }
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
-            ScreenHeader(title = "PLAY", onBack = onBack) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(40f))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    OutlinedText("PLAY", fontSize = (ui.factor * 38f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
+                }
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
-            Spacer(Modifier.height(ui.dp(10f)))
+            Spacer(Modifier.height(ui.dp(14f)))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(ui.dp(14f)),
                 modifier = Modifier.fillMaxSize()
@@ -119,9 +150,10 @@ fun PlayScreen(
                         text = if (busy) "LOADING..." else "FROM GALLERY",
                         onClick = { picker.launch(arrayOf("image/*")) },
                         style = GameButtonStyle.Secondary,
+                        icon = GameIcon.Photo,
                         enabled = !busy,
-                        height = ui.dp(48f),
-                        fontSize = (ui.factor * 18f).sp,
+                        height = ui.dp(54f),
+                        fontSize = (ui.factor * 22f).sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     GameButton(
@@ -142,10 +174,19 @@ fun PlayScreen(
                     )
                     if (failed) OutlinedText("Could not open that photo", fontSize = 13.sp, color = Color(0xFFFF8A80))
                 }
-                NavyPanel(modifier = Modifier.weight(1f).fillMaxSize()) {
-                    Column(modifier = Modifier.padding(ui.dp(10f))) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF0C3A92), Color(0xFF082A6E)))
+                        )
+                        .border(2.5.dp, Color(0xFF2AA8FF), RoundedCornerShape(22.dp))
+                ) {
+                    Column(modifier = Modifier.padding(ui.dp(14f))) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedText("MY PHOTOS", fontSize = (ui.factor * 18f).sp, outline = null)
+                            OutlinedText("MY PHOTOS", fontSize = (ui.factor * 24f).sp)
                             if (saved.isNotEmpty()) {
                                 Spacer(Modifier.width(ui.dp(10f)))
                                 OutlinedText("Long-press a photo to delete it", fontSize = (ui.factor * 11f).sp, color = Color(0xFFB8C4E0), outline = null)
