@@ -16,6 +16,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TransformOrigin
@@ -898,7 +900,7 @@ fun GameScreen(
                 enraged = director.bossEnraged,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 86.dp)
+                    .padding(top = 96.dp)
             )
         }
         if (rageBanner) {
@@ -929,16 +931,16 @@ fun GameScreen(
 
         // כפתור השהיה (רק בזמן קרב)
         if (director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost && !paused) {
-            GameIconButton(
-                icon = GameIcon.Pause,
-                onClick = {
-                    sfxMemo.holding = false
-                    paused = true
-                },
-                size = 44.dp,
-                modifier = Modifier
+            HudImage(
+                com.arsniper.R.drawable.hud_pause,
+                Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 62.dp, end = 16.dp)
+                    .padding(top = 68.dp, end = 16.dp)
+                    .size(width = 52.dp, height = 46.dp)
+                    .clickable {
+                        sfxMemo.holding = false
+                        paused = true
+                    }
             )
         }
 

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
@@ -39,21 +40,31 @@ fun DiamondIcon(size: Dp = 22.dp, modifier: Modifier = Modifier) {
     )
 }
 
-/** מונה מטבעות וגם יהלומים, בפינה של המסך */
+/** מונה מטבעות וגם יהלומים בעיצוב ה-HUD החדש: שני תאים עם האייקון שבתמונה והמספר מצויר עליהם */
 @Composable
 fun CurrencyBar(coins: Int, diamonds: Int, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.5f))
-            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        CoinIcon()
-        Spacer(Modifier.width(6.dp))
-        Text(text = "$coins", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.width(16.dp))
-        DiamondIcon()
-        Spacer(Modifier.width(4.dp))
-        Text(text = "$diamonds", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        HudCurrencyPill(com.arsniper.R.drawable.hud_pill_coin, coins)
+        HudCurrencyPill(com.arsniper.R.drawable.hud_pill_gem, diamonds)
+    }
+}
+
+@Composable
+private fun HudCurrencyPill(res: Int, value: Int) {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.size(width = 100.dp, height = 46.dp)) {
+        HudImage(res, Modifier.fillMaxSize())
+        Text(
+            text = "$value",
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 49.dp)
+        )
     }
 }

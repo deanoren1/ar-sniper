@@ -1,6 +1,7 @@
 package com.arsniper.ui.game
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.res.imageResource
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -27,16 +28,18 @@ import com.arsniper.game.model.Vec2
 fun Joystick(
     onMove: (Vec2) -> Unit,
     modifier: Modifier = Modifier,
-    baseSize: Dp = 120.dp
+    baseSize: Dp = 130.dp
 ) {
     var knob by remember { mutableStateOf(Offset.Zero) }
+    val baseImg = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_joy_base)
+    val knobImg = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_joy_knob)
     val currentOnMove by rememberUpdatedState(onMove)
 
     Canvas(
         modifier = modifier
             .size(baseSize)
             .pointerInput(Unit) {
-                val knobRadius = 24.dp.toPx()
+                val knobRadius = 26.dp.toPx()
                 val travel = size.width / 2f - knobRadius
                 val center = Offset(size.width / 2f, size.height / 2f)
 
@@ -67,23 +70,15 @@ fun Joystick(
             }
     ) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val baseRadius = size.minDimension / 2f
-
-        drawCircle(
-            color = Color.White.copy(alpha = 0.07f),
-            radius = baseRadius,
-            center = center
-        )
-        drawCircle(
-            color = Color.White.copy(alpha = 0.45f),
-            radius = baseRadius,
-            center = center,
-            style = Stroke(width = 2.dp.toPx())
-        )
-        drawCircle(
-            color = Color.White.copy(alpha = 0.5f),
-            radius = 24.dp.toPx(),
-            center = center + knob
+        val w = size.width.toInt()
+        drawImage(baseImg, dstOffset = androidx.compose.ui.unit.IntOffset(0, 0), dstSize = androidx.compose.ui.unit.IntSize(w, w))
+        val k = (size.width / 385f) * 170f
+        val kd = k.toInt()
+        val kc = center + knob
+        drawImage(
+            knobImg,
+            dstOffset = androidx.compose.ui.unit.IntOffset((kc.x - kd / 2f).toInt(), (kc.y - kd / 2f).toInt()),
+            dstSize = androidx.compose.ui.unit.IntSize(kd, kd)
         )
     }
 }

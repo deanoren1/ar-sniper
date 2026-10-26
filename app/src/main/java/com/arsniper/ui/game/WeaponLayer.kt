@@ -4,6 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -238,7 +241,7 @@ fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
     }
 }
 
-/** מד הכדורים: פסים קטנים (אחד לכל כדור), ובטעינה כתוב RELOADING. לחיצה עליו טוענת ידנית */
+/** מד הכדורים בעיצוב ה-HUD החדש: 11 תאים; לחיצה עליו טוענת ידנית */
 @Composable
 fun AmmoBar(
     ammo: Int,
@@ -247,55 +250,28 @@ fun AmmoBar(
     onReload: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val k = 200f / 372f
+    val slots = 11
+    val lit = if (reloading || ammo <= 0 || magSize <= 0) 0
+        else kotlin.math.ceil(slots * ammo.toFloat() / magSize).toInt().coerceIn(1, slots)
     Box(
         modifier = modifier
+            .size(width = 200.dp, height = (90f * k).dp)
             .clickable(onClick = onReload)
-            .padding(8.dp)
     ) {
-        if (magSize > 14) {
-            // מחסנית גדולה: פס אחד וספירה, במקום פס לכל כדור
-            val frac = if (reloading) 0f else ammo.toFloat() / magSize
-            Box(
-                modifier = Modifier
-                    .width(190.dp)
-                    .height(16.dp)
-                    .background(Color(0x55FFFFFF), RoundedCornerShape(4.dp))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width((190f * frac).dp)
-                        .height(16.dp)
-                        .background(Color(0xFF40C4FF), RoundedCornerShape(4.dp))
-                )
-            }
-        } else Row {
-            for (i in 0 until magSize) {
-                val lit = !reloading && i < ammo
-                Box(
-                    modifier = Modifier
-                        .width(9.dp)
-                        .height(22.dp)
-                        .background(
-                            if (lit) Color(0xFF40C4FF) else Color(0x55FFFFFF),
-                            RoundedCornerShape(3.dp)
-                        )
-                )
-                if (i < magSize - 1) Spacer(Modifier.width(3.dp))
-            }
-        }
-        if (!reloading && ammo > 0 && magSize > 14) {
-            Text(text = "$ammo / $magSize", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp))
+        HudImage(com.arsniper.R.drawable.hud_ammo_bar, Modifier.fillMaxSize())
+        for (i in 0 until lit) {
+            HudImage(
+                com.arsniper.R.drawable.hud_ammo_seg,
+                Modifier
+                    .size(width = (27f * k).dp, height = (70f * k).dp)
+                    .offset(x = ((17f + 32f * i) * k).dp, y = (12f * k).dp)
+            )
         }
         if (reloading) {
-            Text(
-                text = "RELOADING",
-                color = Color(0xFFFFEB3B),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 26.dp)
-            )
+            Text("RELOADING", color = Color(0xFFFFEB3B), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         } else if (ammo == 0) {
-            Text("EMPTY", color = Color(0xFFFF5252), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 26.dp))
+            Text("EMPTY", color = Color(0xFFFF5252), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
     }
 }

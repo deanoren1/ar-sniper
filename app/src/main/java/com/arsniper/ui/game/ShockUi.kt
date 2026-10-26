@@ -1,10 +1,13 @@
 package com.arsniper.ui.game
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.res.imageResource
+import com.arsniper.ui.components.OutlinedText
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,41 +35,44 @@ fun ShockButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val empty = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_ring_empty)
+    val full = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_ring_full)
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(76.dp)
-            .clip(CircleShape)
+            .size(width = 84.dp, height = 77.dp)
             .clickable(enabled = ready, onClick = onClick)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val pulse = if (ready) 0.5f + 0.5f * sin(nowNanos / 1e9f * 9f) else 0f
-            val stroke = 8.dp.toPx()
-            drawCircle(Color(0xAA000000))
+            val dst = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt())
+            val center = Offset(size.width * (114f / 230f), size.height * (112f / 210f))
             if (ready) {
-                drawCircle(Color(0xFFFFEA00).copy(alpha = 0.25f + 0.35f * pulse), radius = size.minDimension / 2f)
+                drawCircle(Color(0xFFFFEA00).copy(alpha = 0.18f + 0.3f * pulse), radius = size.minDimension * 0.62f, center = center)
             }
-            drawArc(
-                color = Color.White.copy(alpha = 0.25f),
-                startAngle = -90f, sweepAngle = 360f, useCenter = false,
-                topLeft = Offset(stroke / 2f, stroke / 2f),
-                size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
-                style = Stroke(width = stroke)
-            )
-            drawArc(
-                color = if (ready) Color(0xFFFFEA00) else Color(0xFF40C4FF),
-                startAngle = -90f, sweepAngle = 360f * fraction, useCenter = false,
-                topLeft = Offset(stroke / 2f, stroke / 2f),
-                size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
-                style = Stroke(width = stroke)
-            )
+            drawImage(empty, dstSize = dst)
+            val f = if (ready) 1f else fraction.coerceIn(0f, 1f)
+            if (f > 0.001f) {
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    if (f >= 0.999f) {
+                        addRect(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height))
+                    } else {
+                        moveTo(center.x, center.y)
+                        arcTo(
+                            androidx.compose.ui.geometry.Rect(center.x - size.width, center.y - size.width, center.x + size.width, center.y + size.width),
+                            -90f, -360f * f, false
+                        )
+                        close()
+                    }
+                }
+                androidx.compose.ui.graphics.drawscope.clipPath(path) {
+                    drawImage(full, dstSize = dst)
+                }
+            }
         }
-        Text(
-            text = if (ready) "SHOCK" else "${(fraction * 100).toInt()}%",
-            color = if (ready) Color(0xFFFFEA00) else Color.White,
-            fontSize = if (ready) 13.sp else 14.sp,
-            fontWeight = FontWeight.Bold
-        )
+        if (!ready) {
+            OutlinedText("${(fraction * 100).toInt()}%", fontSize = 11.sp, outline = null, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp))
+        }
     }
 }
 

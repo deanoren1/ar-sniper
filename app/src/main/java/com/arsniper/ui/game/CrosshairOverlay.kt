@@ -5,68 +5,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 
 /**
- * ציור הכוונת. המיקום מנורמל (0..1) ביחס למסך:
- * (0.5, 0.5) = מרכז המסך.
+ * ציור הכוונת (תמונה מהגיליון החדש). המיקום מנורמל (0..1) ביחס למסך:
+ * (0.5, 0.5) = מרכז המסך. מרכז התמונה הוא נקודת הפגיעה.
  */
 @Composable
 fun CrosshairOverlay(
     modifier: Modifier = Modifier,
     position: Offset = Offset(0.5f, 0.5f)
 ) {
+    val image = ImageBitmap.imageResource(com.arsniper.R.drawable.hud_crosshair)
     Canvas(modifier = modifier.fillMaxSize()) {
-        val center = Offset(size.width * position.x, size.height * position.y)
-        val radius = 36.dp.toPx()
-        val gap = 10.dp.toPx()
-        val tick = 18.dp.toPx()
-        val stroke = 2.dp.toPx()
-        val color = Color.Red
-
-        drawCircle(
-            color = color,
-            radius = radius,
-            center = center,
-            style = Stroke(width = stroke)
-        )
-
-        // שמאל
-        drawLine(
-            color = color,
-            start = Offset(center.x - radius - tick, center.y),
-            end = Offset(center.x - gap, center.y),
-            strokeWidth = stroke
-        )
-        // ימין
-        drawLine(
-            color = color,
-            start = Offset(center.x + gap, center.y),
-            end = Offset(center.x + radius + tick, center.y),
-            strokeWidth = stroke
-        )
-        // למעלה
-        drawLine(
-            color = color,
-            start = Offset(center.x, center.y - radius - tick),
-            end = Offset(center.x, center.y - gap),
-            strokeWidth = stroke
-        )
-        // למטה
-        drawLine(
-            color = color,
-            start = Offset(center.x, center.y + gap),
-            end = Offset(center.x, center.y + radius + tick),
-            strokeWidth = stroke
-        )
-
-        // נקודה במרכז
-        drawCircle(
-            color = color,
-            radius = 2.dp.toPx(),
-            center = center
-        )
+        val d = 96.dp.toPx().toInt()
+        val cx = (size.width * position.x).toInt()
+        val cy = (size.height * position.y).toInt()
+        drawImage(image, dstOffset = IntOffset(cx - d / 2, cy - d / 2), dstSize = IntSize(d, d))
     }
 }
