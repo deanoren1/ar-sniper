@@ -565,6 +565,8 @@ private fun movesFor(sheet: MonsterSheet, enemy: Enemy): WalkSet? =
  * above = false: מתחת לרגליים (מפלצת שהולכת). above = true: מעל הראש (מציץ או חלון, כשהרגליים מוסתרות).
  */
 private fun DrawScope.drawHealthBar(box: MonsterBox, enemy: Enemy, r: Float, above: Boolean) {
+    // לבוס יש פס חיים גדול למעלה; לא מציירים לו פס נוסף על הגוף
+    if (enemy.id == ArenaDirector.BOSS_ID) return
     val total = enemy.maxHp
     val segmentWidth = max(r * 0.28f, 6f)
     val gap = max(r * 0.04f, 1.5f)
