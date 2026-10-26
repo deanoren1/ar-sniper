@@ -117,6 +117,37 @@ object PlayerProfile {
             return ((lifetimeCoins - lo) / (hi - lo)).coerceIn(0f, 1f)
         }
 
+    /** ערך נוכחי של מדד יעד */
+    fun metricValue(metric: com.arsniper.game.progress.GoalMetric): Int = when (metric) {
+        com.arsniper.game.progress.GoalMetric.Games -> gamesPlayed
+        com.arsniper.game.progress.GoalMetric.Wins -> wins
+        com.arsniper.game.progress.GoalMetric.BestWave -> bestWave
+        com.arsniper.game.progress.GoalMetric.Stars -> totalStars
+        com.arsniper.game.progress.GoalMetric.Photos -> photoCount
+    }
+
+    fun isClaimed(goal: com.arsniper.game.progress.Goal): Boolean =
+        (prefs?.getStringSet("claimed_goals", emptySet()) ?: emptySet()).contains(goal.id).also { revision.hashCode() }
+
+    fun canClaim(goal: com.arsniper.game.progress.Goal): Boolean =
+        !isClaimed(goal) && metricValue(goal.metric) >= goal.target
+
+    /** מקבל את הפרס פעם אחת. מחזיר true אם הצליח */
+    fun claim(goal: com.arsniper.game.progress.Goal): Boolean {
+        if (!canClaim(goal)) return false
+        val set = HashSet(prefs?.getStringSet("claimed_goals", emptySet()) ?: emptySet())
+        set.add(goal.id)
+        prefs?.edit()?.putStringSet("claimed_goals", set)?.apply()
+        if (goal.reward.coins > 0) addCoins(goal.reward.coins)
+        if (goal.reward.gems > 0) addDiamonds(goal.reward.gems)
+        revision++
+        return true
+    }
+
+    /** כמה פרסים מחכים לאיסוף (לנקודה על הכפתור) */
+    val claimableCount: Int
+        get() = com.arsniper.game.progress.Goals.all.count { canClaim(it) }
+
     /** סך הכוכבים בכל הארנות */
     val totalStars: Int
         get() = com.arsniper.game.progress.ArenaStyle.values().sumOf { starsOf(it) }
