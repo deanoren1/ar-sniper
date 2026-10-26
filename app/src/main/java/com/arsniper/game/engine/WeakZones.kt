@@ -48,10 +48,10 @@ object WeakZones {
     )
 
     private val ALIEN = listOf(
-        Zone("eyeL", "BLINDED!", -0.48f, 0.1f, 0.10f, damage = 0, points = 120, confuse = 3f, group = "eyes"),
-        Zone("eyeR", "BLINDED!", 0.48f, 0.1f, 0.10f, damage = 0, points = 120, confuse = 3f, group = "eyes"),
-        Zone("gasL", "GAS OFF!", -0.62f, 0.52f, 0.14f, damage = 0, points = 200, disable = 5f),
-        Zone("gasR", "GAS OFF!", 0.62f, 0.52f, 0.14f, damage = 0, points = 200, disable = 5f),
+        Zone("eyeL", "BLINDED!", -0.48f, 0.1f, 0.10f, damage = 1, points = 120, confuse = 3f, group = "eyes"),
+        Zone("eyeR", "BLINDED!", 0.48f, 0.1f, 0.10f, damage = 1, points = 120, confuse = 3f, group = "eyes"),
+        Zone("gasL", "GAS OFF!", -0.62f, 0.52f, 0.14f, damage = 1, points = 200, disable = 5f),
+        Zone("gasR", "GAS OFF!", 0.62f, 0.52f, 0.14f, damage = 1, points = 200, disable = 5f),
         Zone("pipeL", "LEAK!", -0.9f, 0.72f, 0.09f, damage = 0, points = 150, cancel = true, disable = 3f),
         Zone("pipeR", "LEAK!", 0.9f, 0.72f, 0.09f, damage = 0, points = 150, cancel = true, disable = 3f)
     )

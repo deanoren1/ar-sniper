@@ -47,12 +47,12 @@ object Catalog {
         ),
         WeaponSpec(
             WeaponId.Auto, "AUTO GUN", "Hold to fire",
-            price = 150, diamondPrice = 0, baseDamage = 1f, baseMagazine = 30, baseReloadSeconds = 1.6f,
+            price = 400, diamondPrice = 0, baseDamage = 1f, baseMagazine = 30, baseReloadSeconds = 1.6f,
             autoRate = 4.5f
         ),
         WeaponSpec(
             WeaponId.Spread, "SPREAD GUN", "3 pellets, wide shot",
-            price = 300, diamondPrice = 0, baseDamage = 1f, baseMagazine = 9, baseReloadSeconds = 1.4f,
+            price = 800, diamondPrice = 0, baseDamage = 1f, baseMagazine = 9, baseReloadSeconds = 1.4f,
             pellets = 3
         ),
         WeaponSpec(
@@ -70,7 +70,8 @@ object Catalog {
             UpgradeKind.Magazine -> 35
             UpgradeKind.Reload -> 45
         }
-        return base * (currentLevel + 1)
+        // עלות משולשת: 1, 3, 6, 10, 15 מהבסיס, כך שרמות גבוהות יקרות בהרבה
+        return base * (currentLevel + 1) * (currentLevel + 2) / 2
     }
 
     fun upgradeTitle(kind: UpgradeKind): String = when (kind) {
