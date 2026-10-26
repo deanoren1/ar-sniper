@@ -102,7 +102,6 @@ fun MainMenuScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(ui.dp(12f))) {
                 MenuIcon(GameIcon.Gear, "SETTINGS", onSettings, ui.dp(38f))
                 MenuIcon(GameIcon.Stats, "STATS", onStats, ui.dp(38f))
-                MenuIcon(GameIcon.Cart, "SHOP", onShop, ui.dp(38f))
             }
         }
     }
