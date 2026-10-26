@@ -54,7 +54,7 @@ enum class ArenaStyle(
         }
     val mapY: Float
         get() = when (this) {
-            Classic -> 0.74f; Tundra -> 0.30f; Jungle -> 0.40f; Military -> 0.27f; Ruins -> 0.20f
-            Market -> 0.50f; Cyber -> 0.74f; Forest -> 0.72f; Industrial -> 0.82f
+            Classic -> 0.79f; Tundra -> 0.34f; Jungle -> 0.44f; Military -> 0.31f; Ruins -> 0.24f
+            Market -> 0.54f; Cyber -> 0.80f; Forest -> 0.78f; Industrial -> 0.87f
         }
 }

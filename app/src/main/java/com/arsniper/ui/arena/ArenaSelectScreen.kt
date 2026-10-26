@@ -92,20 +92,34 @@ fun ArenaSelectScreen(
                 }
             )
         }
-        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            ScreenHeader(title = "SELECT ARENA", onBack = onBack) {
+        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
+            com.arsniper.ui.components.GameIconButton(
+                icon = GameIcon.Back,
+                onClick = onBack,
+                style = com.arsniper.ui.components.GameButtonStyle.Primary,
+                size = 40.dp,
+                modifier = Modifier.align(Alignment.TopStart)
+            )
+            Row(modifier = Modifier.align(Alignment.TopEnd)) {
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.align(Alignment.TopCenter)
             ) {
-                Spacer(Modifier.weight(1f))
-                for (d in com.arsniper.game.progress.Difficulty.values()) {
-                    DifficultyPill(d, PlayerProfile.difficulty == d) { PlayerProfile.difficulty = d }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedText("SELECT", fontSize = 26.sp, color = Color.White)
+                    OutlinedText("ARENA", fontSize = 26.sp, color = GameColors.Yellow)
                 }
-                Spacer(Modifier.weight(1f))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 2.dp),
+                ) {
+                    for (d in com.arsniper.game.progress.Difficulty.values()) {
+                        DifficultyPill(d, PlayerProfile.difficulty == d) { PlayerProfile.difficulty = d }
+                    }
+                }
             }
         }
         hint?.let {
@@ -130,19 +144,20 @@ fun ArenaSelectScreen(
 private fun ArenaNode(style: ArenaStyle, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val unlocked = PlayerProfile.isUnlocked(style)
     val stars = PlayerProfile.starsOf(style)
-    val shape = RoundedCornerShape(12.dp)
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clip(shape)
-            .background(if (unlocked) Color(0xE6102050) else Color(0xCC0A1230))
-            .border(2.dp, if (unlocked) GameColors.Yellow else GameColors.Outline, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-    ) {
-        if (!unlocked) IconGlyph(GameIcon.Lock, size = 18.dp, tint = GameColors.Ice)
-        OutlinedText(style.title, fontSize = 12.sp, outline = null, color = if (unlocked) Color.White else GameColors.Ice)
-        StarRow(stars = stars, size = 15.dp)
+    val shape = RoundedCornerShape(9.dp)
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.clickable(onClick = onClick)) {
+        if (!unlocked) IconGlyph(GameIcon.Lock, size = 20.dp, tint = GameColors.Ice)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clip(shape)
+                .background(if (unlocked) Color(0xE6102050) else Color(0xCC0A1230))
+                .border(1.5.dp, if (unlocked) GameColors.Yellow else GameColors.Outline, shape)
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            OutlinedText(style.title, fontSize = 10.sp, outline = null, color = if (unlocked) Color.White else GameColors.Ice)
+            StarRow(stars = stars, size = 11.dp)
+        }
     }
 }
 
@@ -161,8 +176,8 @@ private fun DifficultyPill(d: com.arsniper.game.progress.Difficulty, selected: B
             .background(if (selected) top else Color(0xFF1C2A55))
             .border(2.dp, if (selected) Color.White else GameColors.Outline, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 5.dp)
+            .padding(horizontal = 12.dp, vertical = 2.dp)
     ) {
-        OutlinedText(d.title, fontSize = 13.sp, outline = null, color = if (selected) Color.White else GameColors.Ice)
+        OutlinedText(d.title, fontSize = 11.sp, outline = null, color = if (selected) Color.White else GameColors.Ice)
     }
 }
