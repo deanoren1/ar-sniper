@@ -1,6 +1,7 @@
 package com.arsniper.ui.shop
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,9 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,8 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.data.PlayerProfile
@@ -38,14 +35,22 @@ import com.arsniper.game.progress.Catalog
 import com.arsniper.game.progress.UpgradeKind
 import com.arsniper.game.progress.WeaponId
 import com.arsniper.game.progress.WeaponSpec
+import com.arsniper.ui.components.CurrencyPill
+import com.arsniper.ui.components.GameButton
+import com.arsniper.ui.components.NavyPanel
+import com.arsniper.ui.components.OutlinedText
+import com.arsniper.ui.components.ScreenHeader
 import com.arsniper.ui.game.CoinIcon
-import com.arsniper.ui.game.CurrencyBar
 import com.arsniper.ui.game.DiamondIcon
 import com.arsniper.ui.game.WeaponPreview
+import com.arsniper.ui.theme.GameButtonStyle
+import com.arsniper.ui.theme.GameColors
+import com.arsniper.ui.theme.ResponsiveBox
 
 /**
  * החנות: רשימת נשקים (נקנים במטבעות, או ביהלומים לנשקי פרימיום), ובצד הנשק הנבחר עם שדרוגים.
  * כל נשק משודרג בנפרד: נזק, גודל מחסנית ומהירות טעינה, עד רמה 5.
+ * בסגנון המשחק: אותם רכיבים כמו התפריט הראשי. הלוגיקה (קנייה, שדרוג) לא השתנתה.
  */
 @Composable
 fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -54,42 +59,34 @@ fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val coins = PlayerProfile.coins
     val diamonds = PlayerProfile.diamonds
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B0F14))
-            .padding(16.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF424242))) {
-                Text("BACK", fontWeight = FontWeight.Bold)
+    ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
+            ScreenHeader(title = "SHOP", onBack = onBack) {
+                CurrencyPill(coins, isGems = false)
+                CurrencyPill(diamonds, isGems = true)
             }
-            Spacer(Modifier.width(16.dp))
-            Text("SHOP", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            CurrencyBar(coins = coins, diamonds = diamonds)
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            ) {
-                items(Catalog.weapons) { spec ->
-                    WeaponCard(spec, spec.id == selected) { selected = spec.id }
+            Spacer(Modifier.height(ui.dp(10f)))
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(ui.dp(8f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    items(Catalog.weapons) { spec ->
+                        WeaponCard(spec, spec.id == selected) { selected = spec.id }
+                    }
                 }
+                Spacer(Modifier.width(ui.dp(12f)))
+                WeaponDetail(
+                    spec = Catalog.spec(selected),
+                    coins = coins,
+                    diamonds = diamonds,
+                    modifier = Modifier
+                        .weight(1.4f)
+                        .fillMaxHeight()
+                )
             }
-            Spacer(Modifier.width(16.dp))
-            WeaponDetail(
-                spec = Catalog.spec(selected),
-                coins = coins,
-                diamonds = diamonds,
-                modifier = Modifier
-                    .weight(1.4f)
-                    .fillMaxHeight()
-            )
         }
     }
 }
@@ -98,26 +95,26 @@ fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 private fun WeaponCard(spec: WeaponSpec, isSelected: Boolean, onClick: () -> Unit) {
     val owned = PlayerProfile.owns(spec.id)
     val equipped = PlayerProfile.equipped == spec.id
+    val shape = RoundedCornerShape(14.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                if (isSelected) Color(0xFF1E3A5F) else Color(0xFF161C24),
-                RoundedCornerShape(10.dp)
-            )
+            .clip(shape)
+            .background(if (isSelected) GameColors.Navy600 else GameColors.Navy800)
+            .border(3.dp, if (isSelected) GameColors.Yellow else GameColors.Outline, shape)
             .clickable(onClick = onClick)
-            .padding(10.dp)
+            .padding(8.dp)
     ) {
         WeaponPreview(spec.id, Modifier.size(width = 84.dp, height = 56.dp))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(spec.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(spec.tagline, color = Color(0xFF9AA5B1), fontSize = 12.sp)
+            OutlinedText(spec.title, fontSize = 16.sp, outline = null)
+            OutlinedText(spec.tagline, fontSize = 11.sp, color = GameColors.Ice, outline = null)
         }
         when {
-            equipped -> Text("EQUIPPED", color = Color(0xFF69F0AE), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            owned -> Text("OWNED", color = Color(0xFF9AA5B1), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            equipped -> OutlinedText("EQUIPPED", fontSize = 12.sp, color = GameColors.Green, outline = null)
+            owned -> OutlinedText("OWNED", fontSize = 12.sp, color = GameColors.Ice, outline = null)
             else -> PriceTag(spec)
         }
     }
@@ -128,10 +125,10 @@ private fun PriceTag(spec: WeaponSpec) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (spec.price > 0) {
             CoinIcon(18.dp)
-            Text(" ${spec.price}", color = Color(0xFFFFD54F), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            OutlinedText(" ${spec.price}", fontSize = 14.sp, color = GameColors.Yellow, outline = null)
         } else {
             DiamondIcon(18.dp)
-            Text(" ${spec.diamondPrice}", color = Color(0xFF84FFFF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            OutlinedText(" ${spec.diamondPrice}", fontSize = 14.sp, color = GameColors.Sky, outline = null)
         }
     }
 }
@@ -145,62 +142,63 @@ private fun WeaponDetail(spec: WeaponSpec, coins: Int, diamonds: Int, modifier: 
     val reloadLevel = PlayerProfile.levelOf(spec.id, UpgradeKind.Reload)
     val stats = Catalog.stats(spec, damageLevel, magLevel, reloadLevel)
 
-    Column(
-        modifier = modifier
-            .background(Color(0xFF161C24), RoundedCornerShape(12.dp))
-            .padding(14.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            WeaponPreview(spec.id, Modifier.size(width = 150.dp, height = 96.dp))
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(spec.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    "DAMAGE ${"%.1f".format(stats.damage)}   MAG ${stats.magazine}   RELOAD ${"%.2f".format(stats.reloadSeconds)}s",
-                    color = Color(0xFFB0BEC5), fontSize = 13.sp
-                )
-                if (stats.autoRate > 0f) Text("Hold to fire: ${stats.autoRate}/s", color = Color(0xFFB0BEC5), fontSize = 13.sp)
-                if (stats.pellets > 1) Text("${stats.pellets} pellets per shot", color = Color(0xFFB0BEC5), fontSize = 13.sp)
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        if (!owned) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (spec.price > 0) {
-                    Button(
-                        onClick = { PlayerProfile.buyWithCoins(spec.id) },
-                        enabled = coins >= spec.price,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF9A825))
-                    ) {
-                        Text("BUY  ", fontWeight = FontWeight.Bold)
-                        CoinIcon(18.dp)
-                        Text(" ${spec.price}", fontWeight = FontWeight.Bold)
-                    }
+    NavyPanel(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WeaponPreview(spec.id, Modifier.size(width = 150.dp, height = 96.dp))
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    OutlinedText(spec.title, fontSize = 24.sp)
+                    OutlinedText(
+                        "DAMAGE ${"%.1f".format(stats.damage)}   MAG ${stats.magazine}   RELOAD ${"%.2f".format(stats.reloadSeconds)}s",
+                        fontSize = 12.sp, color = GameColors.Ice, outline = null
+                    )
+                    if (stats.autoRate > 0f) OutlinedText("Hold to fire: ${stats.autoRate}/s", fontSize = 12.sp, color = GameColors.Ice, outline = null)
+                    if (stats.pellets > 1) OutlinedText("${stats.pellets} pellets per shot", fontSize = 12.sp, color = GameColors.Ice, outline = null)
                 }
-                if (spec.diamondPrice > 0) {
-                    Button(
-                        onClick = { PlayerProfile.buyWithDiamonds(spec.id) },
-                        enabled = diamonds >= spec.diamondPrice,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00ACC1))
-                    ) {
-                        Text("BUY  ", fontWeight = FontWeight.Bold)
-                        DiamondIcon(18.dp)
-                        Text(" ${spec.diamondPrice}", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        } else {
-            Button(
-                onClick = { PlayerProfile.equip(spec.id) },
-                enabled = !equipped,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
-            ) {
-                Text(if (equipped) "EQUIPPED" else "EQUIP", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            for (kind in UpgradeKind.values()) {
-                UpgradeRow(spec.id, kind, coins)
+            if (!owned) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (spec.price > 0) {
+                        GameButton(
+                            text = "BUY ${spec.price} COINS",
+                            onClick = { PlayerProfile.buyWithCoins(spec.id) },
+                            enabled = coins >= spec.price,
+                            style = GameButtonStyle.Primary,
+                            height = 46.dp,
+                            fontSize = 17.sp
+                        )
+                    }
+                    if (spec.diamondPrice > 0) {
+                        GameButton(
+                            text = "BUY ${spec.diamondPrice} GEMS",
+                            onClick = { PlayerProfile.buyWithDiamonds(spec.id) },
+                            enabled = diamonds >= spec.diamondPrice,
+                            style = GameButtonStyle.Secondary,
+                            height = 46.dp,
+                            fontSize = 17.sp
+                        )
+                    }
+                }
+            } else {
+                GameButton(
+                    text = if (equipped) "EQUIPPED" else "EQUIP",
+                    onClick = { PlayerProfile.equip(spec.id) },
+                    enabled = !equipped,
+                    style = GameButtonStyle.Success,
+                    height = 46.dp,
+                    fontSize = 17.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                for (kind in UpgradeKind.values()) {
+                    UpgradeRow(spec.id, kind, coins)
+                }
             }
         }
     }
@@ -217,27 +215,24 @@ private fun UpgradeRow(id: WeaponId, kind: UpgradeKind, coins: Int) {
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
-        Text(Catalog.upgradeTitle(kind), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(96.dp))
+        OutlinedText(Catalog.upgradeTitle(kind), fontSize = 14.sp, outline = null, modifier = Modifier.width(96.dp))
         for (i in 0 until Catalog.MAX_LEVEL) {
             Box(
                 modifier = Modifier
                     .padding(end = 4.dp)
                     .size(width = 18.dp, height = 12.dp)
-                    .background(if (i < level) Color(0xFF40C4FF) else Color(0x33FFFFFF), RoundedCornerShape(3.dp))
+                    .border(1.5.dp, GameColors.Outline, RoundedCornerShape(3.dp))
+                    .background(if (i < level) GameColors.Sky else GameColors.Navy900, RoundedCornerShape(3.dp))
             )
         }
         Spacer(Modifier.weight(1f))
-        Button(
+        GameButton(
+            text = if (maxed) "MAX" else "$cost",
             onClick = { PlayerProfile.upgrade(id, kind) },
             enabled = !maxed && coins >= cost,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF9A825))
-        ) {
-            if (maxed) {
-                Text("MAX", fontWeight = FontWeight.Bold)
-            } else {
-                CoinIcon(16.dp)
-                Text(" $cost", fontWeight = FontWeight.Bold)
-            }
-        }
+            style = if (maxed) GameButtonStyle.Locked else GameButtonStyle.Primary,
+            height = 36.dp,
+            fontSize = 15.sp
+        )
     }
 }
