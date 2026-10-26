@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
@@ -35,7 +36,18 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.arsniper.data.PhotoImport
+import com.arsniper.pano.HeadingTracker
+import com.arsniper.pano.PanoFrame
+import com.arsniper.pano.PanoramaStitcher
+import com.arsniper.pano.PanoramaStore
+import com.arsniper.pano.horizontalFov
+import com.arsniper.pano.targetAngles
+import com.arsniper.pano.wrapAngle
+import com.arsniper.ui.components.OutlinedText
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.DisposableEffect
 import com.arsniper.ui.components.GameIcon
 import com.arsniper.ui.components.IconGlyph
 import com.arsniper.ui.theme.GameColors
@@ -59,6 +71,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,7 +90,8 @@ fun CaptureScreen(
     onPhotoCaptured: () -> Unit,
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
-    onGalleryPicked: () -> Unit = {}
+    onGalleryPicked: () -> Unit = {},
+    onPanorama: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -100,7 +114,7 @@ fun CaptureScreen(
     }
 
     if (hasPermission) {
-        CameraContent(onPhotoCaptured = onPhotoCaptured, onBack = onBack, onGalleryPicked = onGalleryPicked, modifier = modifier)
+        CameraContent(onPhotoCaptured = onPhotoCaptured, onBack = onBack, onGalleryPicked = onGalleryPicked, onPanorama = onPanorama, modifier = modifier)
     } else {
         PermissionContent(
             onRequest = { launcher.launch(Manifest.permission.CAMERA) },
@@ -139,6 +153,7 @@ private fun CameraContent(
     onPhotoCaptured: () -> Unit,
     onBack: () -> Unit,
     onGalleryPicked: () -> Unit,
+    onPanorama: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -161,12 +176,31 @@ private fun CameraContent(
             .build()
     }
 
+    // תמונות לפנורמה: מנתח התמונה מוסר פריים רק כשמבקשים (wantFrame)
+    val wantFrame = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val frameSink = remember { arrayOfNulls<(Bitmap) -> Unit>(1) }
+    val analysis = remember {
+        ImageAnalysis.Builder()
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER)
+                    )
+                    .build()
+            )
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+            .build()
+    }
+    var panoAvailable by remember { mutableStateOf(true) }
+
     var isCapturing by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
         var provider: ProcessCameraProvider? = null
+        val executor = ContextCompat.getMainExecutor(context)
 
         providerFuture.addListener({
             try {
@@ -178,17 +212,41 @@ private fun CameraContent(
                 }
 
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    imageCapture
-                )
+                try {
+                    analysis.setAnalyzer(java.util.concurrent.Executors.newSingleThreadExecutor()) { proxy ->
+                        try {
+                            if (wantFrame.getAndSet(false)) {
+                                val raw = proxy.toBitmap()
+                                val matrix = Matrix().apply { postRotate(proxy.imageInfo.rotationDegrees.toFloat()) }
+                                val rotated = Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
+                                val targetW = 960
+                                val scaled = if (rotated.width > targetW)
+                                    Bitmap.createScaledBitmap(rotated, targetW, rotated.height * targetW / rotated.width, true)
+                                else rotated
+                                executor.execute { frameSink[0]?.invoke(scaled) }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Frame grab failed", e)
+                        } finally {
+                            proxy.close()
+                        }
+                    }
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture, analysis
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Bind with analysis failed, panorama disabled", e)
+                    panoAvailable = false
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture
+                    )
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Camera bind failed", e)
                 cameraError = true
             }
-        }, ContextCompat.getMainExecutor(context))
+        }, executor)
 
         onDispose { provider?.unbindAll() }
     }
@@ -217,6 +275,15 @@ private fun CameraContent(
         val scope = rememberCoroutineScope()
         var importing by remember { mutableStateOf(false) }
         var flashOn by remember { mutableStateOf(false) }
+        // 0 = תמונה, 1 = פנורמה 180, 2 = פנורמה 360
+        var mode by remember { mutableStateOf(0) }
+        val tracker = remember { HeadingTracker(context) }
+        val fov = remember { horizontalFov(context) }
+        var panoRunning by remember { mutableStateOf(false) }
+        var panoStitching by remember { mutableStateOf(false) }
+        var panoAngle by remember { mutableStateOf(0f) }
+        var panoTotal by remember { mutableStateOf(1f) }
+        var panoMessage by remember { mutableStateOf<String?>(null) }
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 importing = true
@@ -228,15 +295,127 @@ private fun CameraContent(
             }
         }
 
+        DisposableEffect(Unit) { onDispose { tracker.stop(); wantFrame.set(false); frameSink[0] = null } }
+
+        fun startPanorama() {
+            if (!tracker.available) { panoMessage = "No rotation sensor on this phone"; return }
+            val is360 = mode == 2
+            val targets = targetAngles(fov, is360)
+            val frames = ArrayList<PanoFrame>()
+            panoTotal = if (is360) (2 * Math.PI).toFloat() else Math.PI.toFloat()
+            panoAngle = 0f
+            panoMessage = null
+            panoRunning = true
+            tracker.start()
+            scope.launch {
+                // ממתינים לקריאה ראשונה מהחיישן
+                var waited = 0
+                while (!tracker.ready && waited < 100) { delay(20); waited++ }
+                var lastYaw = tracker.yaw
+                var unwrapped = 0f
+                var index = 0
+                var pending = false
+                var pendingPhi = 0f
+                var pendingPitch = 0f
+                frameSink[0] = { bmp ->
+                    val px = IntArray(bmp.width * bmp.height)
+                    bmp.getPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+                    frames.add(PanoFrame(px, bmp.width, bmp.height, pendingPhi, pendingPitch))
+                    index++
+                    pending = false
+                }
+                while (panoRunning && index < targets.size) {
+                    withFrameNanos { }
+                    val y = tracker.yaw
+                    unwrapped += wrapAngle(y - lastYaw)
+                    lastYaw = y
+                    panoAngle = unwrapped.coerceIn(0f, panoTotal)
+                    if (!pending && unwrapped >= targets[index]) {
+                        pending = true
+                        pendingPhi = unwrapped
+                        pendingPitch = tracker.pitch
+                        wantFrame.set(true)
+                    }
+                }
+                frameSink[0] = null
+                wantFrame.set(false)
+                tracker.stop()
+                if (!panoRunning || frames.isEmpty()) {
+                    panoRunning = false
+                    return@launch
+                }
+                panoRunning = false
+                panoStitching = true
+                val result = withContext(Dispatchers.Default) {
+                    try { PanoramaStitcher.stitch(frames, fov, is360) } catch (e: Throwable) { Log.e(TAG, "stitch failed", e); null }
+                }
+                if (result != null) {
+                    withContext(Dispatchers.IO) { PanoramaStore.save(context, result, is360) }
+                    panoStitching = false
+                    onPanorama()
+                } else {
+                    panoStitching = false
+                    panoMessage = "Could not build the panorama"
+                }
+            }
+        }
+
         // חזרה (שמאל למעלה) ופלאש (ימין למעלה)
         RoundCamButton(
-            onClick = onBack, blue = true,
+            onClick = { if (panoRunning) panoRunning = false else onBack() }, blue = true,
             modifier = Modifier.align(Alignment.TopStart).padding(start = 22.dp, top = 18.dp)
-        ) { IconGlyph(GameIcon.Back, size = 26.dp, tint = Color.White) }
-        RoundCamButton(
-            onClick = { flashOn = !flashOn; imageCapture.flashMode = if (flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF },
-            modifier = Modifier.align(Alignment.TopEnd).padding(end = 22.dp, top = 18.dp)
-        ) { BoltIcon(on = flashOn) }
+        ) { IconGlyph(if (panoRunning) GameIcon.Close else GameIcon.Back, size = 26.dp, tint = Color.White) }
+        if (mode == 0) {
+            RoundCamButton(
+                onClick = { flashOn = !flashOn; imageCapture.flashMode = if (flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF },
+                modifier = Modifier.align(Alignment.TopEnd).padding(end = 22.dp, top = 18.dp)
+            ) { BoltIcon(on = flashOn) }
+        }
+
+        // בורר מצב: PHOTO / 180 / 360
+        if (!panoRunning && !panoStitching && panoAvailable) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 22.dp)
+            ) {
+                ModePill("PHOTO", mode == 0) { mode = 0 }
+                ModePill("180\u00B0", mode == 1) { mode = 1 }
+                ModePill("360\u00B0", mode == 2) { mode = 2 }
+            }
+        }
+
+        // הנחיה והתקדמות בזמן סריקת פנורמה
+        if (panoRunning || panoStitching || panoMessage != null) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 22.dp)
+            ) {
+                val text = when {
+                    panoStitching -> "Building panorama..."
+                    panoRunning -> "Turn slowly to the right  ${Math.toDegrees(panoAngle.toDouble()).toInt()}\u00B0 / ${Math.toDegrees(panoTotal.toDouble()).toInt()}\u00B0"
+                    else -> panoMessage ?: ""
+                }
+                OutlinedText(text, fontSize = 16.sp)
+                if (panoRunning) {
+                    Spacer(Modifier.size(6.dp))
+                    Box(
+                        Modifier
+                            .fillMaxWidth(0.4f)
+                            .height(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF050B1C))
+                            .border(2.dp, Color(0xFF050B1C), CircleShape)
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth((panoAngle / panoTotal).coerceIn(0.02f, 1f))
+                                .height(10.dp)
+                                .background(Color(0xFFFFC21F))
+                        )
+                    }
+                }
+            }
+        }
 
         // שורת תחתונה: גלריה, צילום, (מקום ריק לאיזון)
         Row(
@@ -244,22 +423,44 @@ private fun CameraContent(
             horizontalArrangement = Arrangement.spacedBy(36.dp),
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp)
         ) {
-            RoundCamButton(onClick = { if (!importing) picker.launch(arrayOf("image/*")) }) {
+            RoundCamButton(onClick = { if (!importing && !panoRunning) picker.launch(arrayOf("image/*")) }) {
                 IconGlyph(GameIcon.Photo, size = 28.dp, tint = Color.White)
             }
-            ShutterButton(enabled = !isCapturing && !cameraError && !importing) {
-                if (!isCapturing) {
-                    isCapturing = true
-                    takePhoto(
-                        context = context,
-                        imageCapture = imageCapture,
-                        onSaved = onPhotoCaptured,
-                        onFailure = { isCapturing = false }
-                    )
+            ShutterButton(enabled = !isCapturing && !cameraError && !importing && !panoStitching) {
+                if (mode == 0) {
+                    if (!isCapturing) {
+                        isCapturing = true
+                        takePhoto(
+                            context = context,
+                            imageCapture = imageCapture,
+                            onSaved = onPhotoCaptured,
+                            onFailure = { isCapturing = false }
+                        )
+                    }
+                } else if (panoRunning) {
+                    panoRunning = false
+                } else {
+                    startPanorama()
                 }
             }
             Spacer(Modifier.size(52.dp))
         }
+    }
+}
+
+@Composable
+private fun ModePill(label: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) Brush.verticalGradient(listOf(Color(0xFFFFE04A), Color(0xFFFFA800))) else Brush.verticalGradient(listOf(Color(0xFF262F4A), Color(0xFF111729))))
+            .border(2.dp, Color(0xFF050B1C), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp)
+    ) {
+        Text(label, color = if (selected) Color(0xFF2B1A00) else Color.White, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
     }
 }
 

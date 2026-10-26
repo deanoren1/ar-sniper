@@ -23,7 +23,7 @@ import com.arsniper.ui.menu.ScanLabScreen
 import com.arsniper.ui.menu.SettingsScreen
 import com.arsniper.ui.menu.StatsScreen
 
-enum class Screen { Start, Play, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats, ArtLab, ScanLab, SceneDebug }
+enum class Screen { Start, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats, ArtLab, ScanLab, SceneDebug }
 
 @Composable
 fun AppNavigation() {
@@ -37,7 +37,7 @@ fun AppNavigation() {
     BackHandler(enabled = screen != Screen.Start) {
         screen = when (screen) {
             Screen.Game -> if (quick) Screen.Play else Screen.Arena
-            Screen.Capture, Screen.Review, Screen.Scene, Screen.Arena -> Screen.Play
+            Screen.Capture, Screen.Review, Screen.Scene, Screen.Arena, Screen.PanoView -> Screen.Play
             else -> Screen.Start
         }
     }
@@ -71,8 +71,10 @@ fun AppNavigation() {
         Screen.Capture -> CaptureScreen(
             onPhotoCaptured = { screen = Screen.Review },
             onBack = { screen = Screen.Play },
-            onGalleryPicked = { screen = Screen.Review }
+            onGalleryPicked = { screen = Screen.Review },
+            onPanorama = { screen = Screen.PanoView }
         )
+        Screen.PanoView -> com.arsniper.ui.capture.PanoViewScreen(onBack = { screen = Screen.Play })
         Screen.Review -> ReviewScreen(
             onContinue = { PhotoLibrary.addCurrent(context); screen = Screen.Scene },
             onRetake = { screen = Screen.Capture }
