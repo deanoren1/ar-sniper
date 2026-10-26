@@ -29,7 +29,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -315,11 +314,11 @@ private fun CameraFrame() {
         val cyan = Color(0xFF39B6FF)
         val orange = Color(0xFFFF9A1F)
         // מסגרת
-        drawRect(navy, Offset.Zero, Size(size.width, t))
-        drawRect(navy, Offset(0f, size.height - t), Size(size.width, t))
-        drawRect(navy, Offset.Zero, Size(t, size.height))
-        drawRect(navy, Offset(size.width - t, 0f), Size(t, size.height))
-        drawRect(cyan, Offset(t, t), Size(size.width - 2 * t, size.height - 2 * t), style = Stroke(2.dp.toPx()))
+        drawRect(navy, Offset.Zero, androidx.compose.ui.geometry.Size(size.width, t))
+        drawRect(navy, Offset(0f, size.height - t), androidx.compose.ui.geometry.Size(size.width, t))
+        drawRect(navy, Offset.Zero, androidx.compose.ui.geometry.Size(t, size.height))
+        drawRect(navy, Offset(size.width - t, 0f), androidx.compose.ui.geometry.Size(t, size.height))
+        drawRect(cyan, Offset(t, t), androidx.compose.ui.geometry.Size(size.width - 2 * t, size.height - 2 * t), style = Stroke(2.dp.toPx()))
         drawRect(edge, Offset.Zero, size, style = Stroke(3.dp.toPx()))
         // פינות כתומות חתוכות
         val cw = 86.dp.toPx()
