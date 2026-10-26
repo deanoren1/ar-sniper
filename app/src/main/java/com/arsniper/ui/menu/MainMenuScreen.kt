@@ -62,6 +62,8 @@ fun MainMenuScreen(
             painter = painterResource(R.drawable.title_art),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            // מיושר לחלק העליון: החיתוך נלקח מהתחתית, כדי שהלוגו לא ייחתך
+            alignment = Alignment(0f, -1f),
             modifier = Modifier.fillMaxSize()
         )
         // הצללה עדינה בתחתית, כדי שהכפתורים ייקראו על התמונה
@@ -77,14 +79,6 @@ fun MainMenuScreen(
                 )
         )
 
-        val portrait = remember { MonsterSprites.load(context)?.forEnemy(3)?.idle }
-        PlayerBadge(
-            name = PlayerProfile.playerName,
-            level = PlayerProfile.level,
-            progress = PlayerProfile.levelProgress,
-            portrait = portrait,
-            modifier = Modifier.align(Alignment.TopStart).padding(start = ui.dp(10f), top = ui.dp(8f))
-        )
         CurrencyBar(
             PlayerProfile.coins, PlayerProfile.diamonds, onPlus = onShop,
             modifier = Modifier.align(Alignment.TopEnd).padding(end = ui.dp(10f), top = ui.dp(8f))
