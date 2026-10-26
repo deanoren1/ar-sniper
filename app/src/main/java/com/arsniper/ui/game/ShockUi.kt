@@ -1,6 +1,7 @@
 package com.arsniper.ui.game
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.res.imageResource
 import com.arsniper.ui.components.OutlinedText
 import androidx.compose.foundation.clickable
@@ -65,7 +66,7 @@ fun ShockButton(
                         close()
                     }
                 }
-                androidx.compose.ui.graphics.drawscope.clipPath(path) {
+                clipPath(path) {
                     drawImage(full, dstSize = dst)
                 }
             }
