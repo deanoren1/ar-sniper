@@ -176,7 +176,7 @@ class MonsterSprites private constructor(
                 val scale = scales?.getOrNull(row) ?: 1.0f
                 loadSheet(decoded, row, null, emptyMap(), rows, scale)?.let { sheets.add(it) }
             }
-            return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context))
+            return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context, variant) ?: loadBoss(context))
         }
 
         /**
@@ -296,8 +296,9 @@ class MonsterSprites private constructor(
          * גיליון הבוס (boss_anim.png): 6 עמודות על 5 שורות: עמידה (6 פריימים), הכנה (5), ירייה (2), פגיעה (4), מוות (6).
          * אין קובץ: null והבוס יצויר כמפלצת רגילה.
          */
-        private fun loadBoss(context: Context): MonsterSheet? {
-            val id = context.resources.getIdentifier("boss_anim", "drawable", context.packageName)
+        private fun loadBoss(context: Context, variant: String? = null): MonsterSheet? {
+            val bossName = if (variant == null) "boss_anim" else "boss_anim_$variant"
+            val id = context.resources.getIdentifier(bossName, "drawable", context.packageName)
             if (id == 0) return null
             val options = BitmapFactory.Options().apply {
                 inScaled = false
