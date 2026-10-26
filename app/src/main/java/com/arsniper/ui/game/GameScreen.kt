@@ -62,6 +62,8 @@ import kotlin.math.sin
 import kotlinx.coroutines.delay
 
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
+/** הניקוד הפנימי מחולק בעשר: כך מטבעות הם מספרים קטנים ונוחים */
+private const val COINS_DIVISOR = 10
 private const val BLOCK_POINTS = 50
 private const val CRACK_POINTS = 10
 private const val STOP_POINTS = 100
@@ -198,7 +200,8 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
         if (combo.multiplier > multiplierBefore) soundPlayer.play(Sfx.Combo, 0.9f + 0.1f * combo.multiplier)
         val gained = points * combo.multiplier
         score += gained
-        val text = if (combo.multiplier > 1) "+$gained  x${combo.multiplier}" else "+$gained"
+        val shown = maxOf(1, gained / COINS_DIVISOR)
+        val text = if (combo.multiplier > 1) "+$shown  x${combo.multiplier}" else "+$shown"
         floaters = floaters + Floater(x, y - 0.04f, text, frameNanos, big = points >= BLOCK_POINTS)
     }
 
@@ -213,10 +216,11 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
 
     // מעביר את הניקוד שנצבר (מטבעות) לפרופיל השמור. בטוח לקריאה חוזרת: מעביר רק את ההפרש
     fun bankRun() {
-        val delta = score - sfxMemo.banked
+        val total = score / COINS_DIVISOR
+        val delta = total - sfxMemo.banked
         if (delta > 0) {
             PlayerProfile.addCoins(delta)
-            sfxMemo.banked = score
+            sfxMemo.banked = total
         }
     }
     DisposableEffect(Unit) {
@@ -445,7 +449,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
         fire.stun(ArenaDirector.BOSS_ID, Shockwave.BOSS_STUN_SECONDS)
         if (kills > 0) {
             score += kills * SHOCK_KILL_POINTS
-            floaters = floaters + Floater(0.5f, 0.35f, "SHOCKWAVE  +${kills * SHOCK_KILL_POINTS}", frameNanos, big = true)
+            floaters = floaters + Floater(0.5f, 0.35f, "SHOCKWAVE  +${kills * SHOCK_KILL_POINTS / COINS_DIVISOR}", frameNanos, big = true)
         }
     }
 
@@ -460,7 +464,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
                     flash = 0f
                 } else {
                     score += 150
-                    label = "+150"
+                    label = "+15"
                 }
             }
             LootKind.Ammo -> {
@@ -740,7 +744,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
 
         CurrencyBar(
-            coins = score,
+            coins = score / COINS_DIVISOR,
             diamonds = PlayerProfile.diamonds,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -882,7 +886,7 @@ fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modif
             EndOverlay(
                 won = director.phase == ArenaPhase.Won,
                 stars = director.stars,
-                score = score,
+                score = score / COINS_DIVISOR,
                 wave = director.waveIndex + 1,
                 diamondsGained = diamondsGained,
                 totalCoins = PlayerProfile.coins,

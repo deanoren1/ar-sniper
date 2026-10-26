@@ -47,12 +47,12 @@ object Catalog {
         ),
         WeaponSpec(
             WeaponId.Auto, "AUTO GUN", "Hold to fire",
-            price = 1500, diamondPrice = 0, baseDamage = 1f, baseMagazine = 30, baseReloadSeconds = 1.6f,
+            price = 150, diamondPrice = 0, baseDamage = 1f, baseMagazine = 30, baseReloadSeconds = 1.6f,
             autoRate = 4.5f
         ),
         WeaponSpec(
             WeaponId.Spread, "SPREAD GUN", "3 pellets, wide shot",
-            price = 3000, diamondPrice = 0, baseDamage = 1f, baseMagazine = 9, baseReloadSeconds = 1.4f,
+            price = 300, diamondPrice = 0, baseDamage = 1f, baseMagazine = 9, baseReloadSeconds = 1.4f,
             pellets = 3
         ),
         WeaponSpec(
@@ -66,9 +66,9 @@ object Catalog {
     /** מחיר שדרוג מהרמה הנוכחית לבאה (במטבעות) */
     fun upgradeCost(kind: UpgradeKind, currentLevel: Int): Int {
         val base = when (kind) {
-            UpgradeKind.Damage -> 600
-            UpgradeKind.Magazine -> 350
-            UpgradeKind.Reload -> 450
+            UpgradeKind.Damage -> 60
+            UpgradeKind.Magazine -> 35
+            UpgradeKind.Reload -> 45
         }
         return base * (currentLevel + 1)
     }

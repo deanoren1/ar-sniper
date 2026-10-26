@@ -25,6 +25,12 @@ object PlayerProfile {
 
     fun init(context: Context) {
         if (prefs == null) prefs = context.applicationContext.getSharedPreferences("profile", Context.MODE_PRIVATE)
+        // מעבר חד פעמי לסקאלת מטבעות קטנה פי עשרה
+        prefs?.let { p ->
+            if (!p.getBoolean("coins_scaled", false)) {
+                p.edit().putInt("coins", p.getInt("coins", 0) / 10).putBoolean("coins_scaled", true).apply()
+            }
+        }
         revision++
     }
 
