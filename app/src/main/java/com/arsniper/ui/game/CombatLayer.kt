@@ -203,29 +203,26 @@ private fun glowOf(kind: ShotKind): Color = when (kind) {
  * סביבו זוהר בצבע הסוג, ושובל קצר שנמשך אחריו. קליעים כבדים מסתובבים לאט.
  */
 private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, center: Offset, r: Float, p: Float, time: Float) {
-    val color = glowOf(s.kind)
+    val color = pair.glow
     val pulse = 0.85f + 0.15f * sin(time * 9f + s.id)
-    // זוהר
+    val diameter = r * 2.3f
+    // צל רך מתחת: מפריד את הקליע מרקע עמוס בתמונה
+    drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
+    // זוהר בצבע הציור עצמו, מצומצם כדי לא ליצור כתם
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(color.copy(alpha = 0.55f * pulse), color.copy(alpha = 0f)),
+            colors = listOf(color.copy(alpha = 0.38f * pulse), color.copy(alpha = 0f)),
             center = center,
-            radius = r * 2.3f
+            radius = r * 1.9f
         ),
-        radius = r * 2.3f,
+        radius = r * 1.9f,
         center = center
     )
-    // שובל: עיגולים דועכים מאחורי הקליע (הוא מגיע מהמפלצת אל השחקן, כלומר מגדיל ומתקרב)
-    for (i in 1..3) {
-        val back = r * 0.35f * i
-        drawCircle(color.copy(alpha = 0.22f - 0.06f * i), r * (1.05f - 0.12f * i), Offset(center.x, center.y - back))
-    }
     val spin = when (s.kind) {
-        ShotKind.Rock, ShotKind.Bomb, ShotKind.Spike -> time * 40f + s.id * 37f
+        ShotKind.Rock, ShotKind.Bomb, ShotKind.Spike -> time * 24f + s.id * 37f
         else -> 0f
     }
-    val mix = ((p - 0.35f) / 0.3f).coerceIn(0f, 1f)
-    val diameter = r * 2.3f
+    val mix = ((p - 0.42f) / 0.16f).coerceIn(0f, 1f)
     rotate(spin, center) {
         drawSprite(pair.small, center, diameter, 1f - mix)
         drawSprite(pair.big, center, diameter, mix)
