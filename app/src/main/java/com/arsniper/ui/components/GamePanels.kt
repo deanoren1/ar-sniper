@@ -202,12 +202,17 @@ fun MonsterPortraitFrame(
 /** שלושה כוכבים: מלאים עד stars, והשאר כהים */
 @Composable
 fun StarRow(stars: Int, modifier: Modifier = Modifier, size: Dp = 20.dp) {
+    val gray = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+        androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
+    )
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (i in 1..3) {
-            IconGlyph(
-                GameIcon.Star,
-                size = size,
-                tint = if (i <= stars) GameColors.Yellow else Color(0xFF2A3A66)
+            Image(
+                painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.icon_star),
+                contentDescription = null,
+                colorFilter = if (i <= stars) null else gray,
+                alpha = if (i <= stars) 1f else 0.35f,
+                modifier = Modifier.size(size)
             )
         }
     }

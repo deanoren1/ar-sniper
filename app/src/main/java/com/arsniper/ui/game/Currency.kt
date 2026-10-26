@@ -22,22 +22,21 @@ import androidx.compose.ui.unit.sp
 /** מטבע זהב מצויר ידנית (לא אימוג'י, שמוצג שונה בכל מכשיר) */
 @Composable
 fun CoinIcon(size: Dp = 22.dp, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(size)) {
-        val r = this.size.minDimension / 2f
-        val c = Offset(this.size.width / 2f, this.size.height / 2f)
-        drawCircle(Color(0xFFFFB300), r, c)
-        drawCircle(Color(0xFFFFE082), r * 0.78f, c)
-        drawCircle(Color(0xFFFFB300), r * 0.58f, c, style = Stroke(width = r * 0.14f))
-        drawCircle(Color.White.copy(alpha = 0.7f), r * 0.14f, Offset(c.x - r * 0.35f, c.y - r * 0.35f))
-    }
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.icon_coin),
+        contentDescription = null,
+        modifier = modifier.size(size)
+    )
 }
 
-/** יהלום קטן מצויר ידנית */
+/** יהלום: האיור של המשחק */
 @Composable
 fun DiamondIcon(size: Dp = 22.dp, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(size)) {
-        drawGem(this.size.width / 2f, this.size.height * 0.42f, this.size.minDimension * 0.42f)
-    }
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.icon_gem),
+        contentDescription = null,
+        modifier = modifier.size(size)
+    )
 }
 
 /** מונה מטבעות וגם יהלומים, בפינה של המסך */
