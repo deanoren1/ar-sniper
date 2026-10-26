@@ -124,7 +124,9 @@ class MonsterSprites private constructor(
 
         /** גודל יחסי לגיליון טונדרה: בלון, תמנון, חייזר, ענק, קיפוד, רוח, שלג-אדם, יטי */
         private val VARIANT_SCALES = mapOf(
-            "tundra" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.95f, 1.0f, 1.15f)
+            "tundra" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.95f, 1.0f, 1.15f),
+            "jungle" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.9f, 1.1f, 1.05f),
+            "cyber" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.95f, 0.8f, 0.95f)
         )
 
         /** בדיקה זולה: האם גיליון המפלצות הועלה לפרויקט */
