@@ -46,4 +46,20 @@ class PersonMask(
         }
         return Rect(left, top, right + 1, bottom + 1)
     }
+
+    /** מחזיר את המסכה למצב שמור (לביטול פעולה אחרונה) */
+    fun restore(source: BooleanArray) {
+        System.arraycopy(source, 0, data, 0, data.size)
+        count = data.count { it }
+    }
+
+    /** מוסיף (value=true) או מוריד (value=false) את כל האזור שמסומן ב-region. region באותו גודל כמו המסכה */
+    fun applyRegion(region: BooleanArray, value: Boolean) {
+        for (i in data.indices) {
+            if (region[i] && data[i] != value) {
+                data[i] = value
+                count += if (value) 1 else -1
+            }
+        }
+    }
 }

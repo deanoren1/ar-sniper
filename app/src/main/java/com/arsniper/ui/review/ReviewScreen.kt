@@ -5,7 +5,18 @@ import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.graphics.Matrix
 import android.graphics.Rect
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.DisposableEffect
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -104,12 +115,30 @@ fun ReviewScreen(
     // עולה בכל סיבוב של התמונה, כדי שהניתוח ירוץ מחדש על התמונה המסובבת
     var reloadKey by remember { mutableStateOf(0) }
 
+    // בחירה בנגיעה (SAM), ביטול, תפריט ותיקון עדין
+    val samHolder = remember { arrayOfNulls<Sam2Segmenter>(1) }
+    val undoStack = remember { mutableListOf<BooleanArray>() }
+    var samBusy by remember { mutableStateOf(false) }
+    var hint by remember { mutableStateOf<String?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var fineTune by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try { samHolder[0]?.close() } catch (e: Throwable) { }
+            samHolder[0] = null
+        }
+    }
+
     LaunchedEffect(reloadKey) {
         val outcome = withContext(Dispatchers.Default) {
-            runCatching { analyze(context) }
+            runCatching { analyze(context, samHolder) }
         }
         outcome
-            .onSuccess { result = it }
+            .onSuccess {
+                undoStack.clear()
+                result = it
+            }
             .onFailure { errorText = it.message ?: it.toString() }
     }
 
@@ -163,13 +192,88 @@ fun ReviewScreen(
         }
     }
 
-    // הסרת האנשים המסומנים, ברקע
-    fun startRemoval() {
+    fun pushUndo() {
+        val current = result ?: return
+        undoStack.add(current.mask.data.copyOf())
+        if (undoStack.size > 12) undoStack.removeAt(0)
+    }
+
+    fun fullRefresh(current: ReviewResult) {
+        refreshOverlay(current.overlay, current.mask, Rect(0, 0, current.mask.width, current.mask.height))
+        overlayVersion += 1
+    }
+
+    // נגיעה: אם הנקודה כבר אדומה מורידים את העצם מהסימון, אחרת מוסיפים אותו (SAM)
+    fun samTap(position: Offset) {
+        val current = result ?: return
+        if (removing || cleaned != null || samBusy) return
+        if (boxWidth == 0 || boxHeight == 0) return
+        val imageWidth = current.mask.width
+        val imageHeight = current.mask.height
+        val scale = maxOf(boxWidth.toFloat() / imageWidth, boxHeight.toFloat() / imageHeight)
+        val offsetX = (boxWidth - imageWidth * scale) / 2f
+        val offsetY = (boxHeight - imageHeight * scale) / 2f
+        val px = (position.x - offsetX) / scale
+        val py = (position.y - offsetY) / scale
+        if (px < 0f || py < 0f || px >= imageWidth || py >= imageHeight) return
+        val wasMarked = current.mask.data[py.toInt() * imageWidth + px.toInt()]
+        samBusy = true
+        hint = "Selecting..."
+        scope.launch {
+            val outcome = withContext(Dispatchers.Default) {
+                runCatching {
+                    var sam = samHolder[0]
+                    if (sam == null) {
+                        sam = openSam(context, current.bitmap, samHolder)
+                    }
+                    if (sam == null) {
+                        null
+                    } else {
+                        val masks = sam.segment(px / imageWidth, py / imageHeight)
+                        logitsToRegion(masks[0], imageWidth, imageHeight)
+                    }
+                }
+            }
+            samBusy = false
+            val region = outcome.getOrNull()
+            when {
+                outcome.isFailure -> hint = "Selection failed. Use the gear menu: Fine brush"
+                region == null -> hint = "Object picker is not available. Use the gear menu: Fine brush"
+                region.count { it } > region.size * MAX_TAP_FRACTION ->
+                    hint = "That is too big. Tap closer to the object"
+                else -> {
+                    pushUndo()
+                    current.mask.applyRegion(region, !wasMarked)
+                    fullRefresh(current)
+                    hint = null
+                }
+            }
+        }
+    }
+
+    fun undoLast() {
+        val current = result ?: return
+        if (removing) return
+        if (cleaned != null) {
+            cleaned = null
+            removeInfo = null
+            return
+        }
+        val last = undoStack.removeLastOrNull() ?: return
+        current.mask.restore(last)
+        fullRefresh(current)
+    }
+
+    // הסרת האנשים המסומנים, ברקע. autoContinue: אחרי ההסרה שומרים וממשיכים ישר
+    fun startRemoval(autoContinue: Boolean = false) {
         val current = result ?: return
         if (removing) return
         removing = true
         removeInfo = null
+        hint = null
         progressText = "Loading model..."
+        try { samHolder[0]?.close() } catch (e: Throwable) { }
+        samHolder[0] = null
 
         scope.launch {
             val startNanos = System.nanoTime()
@@ -193,6 +297,10 @@ fun ReviewScreen(
                     cleaned = bitmap
                     removeInfo = "People removed in ${formatNumber(seconds)}s " +
                         "(${if (gpu) "GPU" else "CPU"})"
+                    if (autoContinue) {
+                        PhotoRepository.save(context, bitmap)
+                        onContinue()
+                    }
                 }
                 .onFailure {
                     removeInfo = "Removal failed: ${it.message ?: it}"
@@ -216,17 +324,29 @@ fun ReviewScreen(
                 boxWidth = size.width
                 boxHeight = size.height
             }
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { paintAt(it) })
+            .pointerInput(fineTune) {
+                if (fineTune) {
+                    detectTapGestures(onTap = {
+                        pushUndo()
+                        paintAt(it)
+                    })
+                } else {
+                    detectTapGestures(onTap = { samTap(it) })
+                }
             }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { paintAt(it) },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        paintAt(change.position)
-                    }
-                )
+            .pointerInput(fineTune) {
+                if (fineTune) {
+                    detectDragGestures(
+                        onDragStart = {
+                            pushUndo()
+                            paintAt(it)
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            paintAt(change.position)
+                        }
+                    )
+                }
             }
     ) {
         if (current != null && overlayImage != null) {
@@ -248,23 +368,14 @@ fun ReviewScreen(
 
         val statusText = when {
             errorText != null -> "Analysis failed: $errorText"
-            current == null -> "Analyzing photo..."
+            current == null -> "Scanning photo..."
             removing -> progressText
             cleanedBitmap != null ->
-                "${removeInfo ?: "People removed"}\n" +
-                    "UNDO: restore the original · CONTINUE: play with this photo"
-            else -> {
-                val percent = current.mask.coverage() * 100f
-                val marked = if (percent == 0f) {
-                    "No people marked"
-                } else {
-                    "People marked: ${formatNumber(percent)}% of the photo"
-                }
-                val extra = removeInfo?.let { "\n$it" } ?: ""
-                "$marked (${formatNumber(current.seconds)}s${current.refineNote})\n" +
-                    "ADD: paint missed people · ERASE: remove wrong marks · REMOVE: erase people" +
-                    extra
-            }
+                "${removeInfo ?: "People removed"}\nOK: continue with this photo \u00B7 Menu > Undo: restore"
+            hint != null -> hint!!
+            fineTune -> "Fine brush: paint to add, erase to remove marks"
+            current.mask.coverage() == 0f -> "No people found. Tap anything to remove it"
+            else -> "Tap anything else to remove it too \u00B7 tap a red area to keep it"
         }
 
         Text(
@@ -279,92 +390,176 @@ fun ReviewScreen(
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         )
 
-        if ((current == null && errorText == null) || removing) {
+        if ((current == null && errorText == null) || removing || samBusy) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
 
-        // סיבוב תמונה: בצד, כדי שלא יתפוס מקום בשורת הכפתורים
-        if (current != null && !removing && cleanedBitmap == null) {
-            Button(
-                onClick = { rotatePhoto() },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF616161)),
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 16.dp)
-            ) { Text("ROTATE") }
-        }
+        val ready = current != null && !removing
+        val editing = ready && cleanedBitmap == null
 
-        val editingEnabled = current != null && !removing && cleanedBitmap == null
-        val removeEnabled = current != null && !removing &&
-            (cleanedBitmap != null || current.mask.coverage() > 0f)
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        // תפריט (גלגל שיניים) בפינה
+        Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
+                .align(Alignment.BottomStart)
+                .padding(start = 24.dp, bottom = 24.dp)
         ) {
-            Button(onClick = onRetake, enabled = !removing) { Text("RETAKE") }
-
-            Button(
-                onClick = { mode = BrushMode.Add },
-                enabled = editingEnabled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (mode == BrushMode.Add) {
-                        Color(0xFFC62828)
-                    } else {
-                        Color(0xFF616161)
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xCC263238))
+                    .clickable(enabled = ready) { menuOpen = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.size(28.dp)) {
+                    val c = center
+                    val r = size.minDimension / 2f
+                    for (i in 0 until 8) {
+                        val ang = i * (Math.PI.toFloat() / 4f)
+                        drawLine(
+                            Color.White,
+                            Offset(c.x + cos(ang) * r * 0.7f, c.y + sin(ang) * r * 0.7f),
+                            Offset(c.x + cos(ang) * r, c.y + sin(ang) * r),
+                            strokeWidth = r * 0.35f,
+                            cap = StrokeCap.Butt
+                        )
                     }
+                    drawCircle(Color.White, r * 0.72f, c, style = androidx.compose.ui.graphics.drawscope.Stroke(r * 0.3f))
+                }
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Undo") },
+                    enabled = ready && (cleanedBitmap != null || undoStack.isNotEmpty()),
+                    onClick = { menuOpen = false; undoLast() }
                 )
-            ) { Text("ADD") }
-
-            Button(
-                onClick = { mode = BrushMode.Erase },
-                enabled = editingEnabled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (mode == BrushMode.Erase) {
-                        Color(0xFF1565C0)
-                    } else {
-                        Color(0xFF616161)
-                    }
+                DropdownMenuItem(
+                    text = { Text("Remove now (preview)") },
+                    enabled = editing && current!!.mask.coverage() > 0f,
+                    onClick = { menuOpen = false; startRemoval() }
                 )
-            ) { Text("ERASE") }
-
-            Button(
-                onClick = { brushIndex = (brushIndex + 1) % BRUSH_RADII_DP.size },
-                enabled = editingEnabled,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF616161))
-            ) { Text("BRUSH ${BRUSH_LABELS[brushIndex]}") }
-
-            Button(
-                onClick = {
-                    if (cleanedBitmap != null) {
-                        cleaned = null
-                        removeInfo = null
-                    } else {
-                        startRemoval()
-                    }
-                },
-                enabled = removeEnabled,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
-            ) { Text(if (cleanedBitmap != null) "UNDO" else "REMOVE") }
-
-            Button(
-                onClick = {
-                    if (cleanedBitmap != null) {
-                        PhotoRepository.save(context, cleanedBitmap)
-                    }
-                    onContinue()
-                },
-                enabled = !removing
-            ) { Text("CONTINUE") }
+                DropdownMenuItem(
+                    text = { Text(if (fineTune) "Fine brush: off" else "Fine brush") },
+                    enabled = editing,
+                    onClick = { menuOpen = false; fineTune = !fineTune }
+                )
+                DropdownMenuItem(
+                    text = { Text("Rotate") },
+                    enabled = editing,
+                    onClick = { menuOpen = false; rotatePhoto() }
+                )
+                DropdownMenuItem(
+                    text = { Text("Retake photo") },
+                    enabled = !removing,
+                    onClick = { menuOpen = false; onRetake() }
+                )
+            }
         }
+
+        // מברשת עדינה: רק כשהופעלה מהתפריט
+        if (fineTune && editing) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+            ) {
+                Button(
+                    onClick = { mode = BrushMode.Add },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (mode == BrushMode.Add) Color(0xFFC62828) else Color(0xFF616161)
+                    )
+                ) { Text("ADD") }
+                Button(
+                    onClick = { mode = BrushMode.Erase },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (mode == BrushMode.Erase) Color(0xFF1565C0) else Color(0xFF616161)
+                    )
+                ) { Text("ERASE") }
+                Button(
+                    onClick = { brushIndex = (brushIndex + 1) % BRUSH_RADII_DP.size },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF616161))
+                ) { Text("BRUSH ${BRUSH_LABELS[brushIndex]}") }
+                Button(onClick = { fineTune = false }) { Text("DONE") }
+            }
+        }
+
+        // הכפתור היחיד שהשחקן צריך: אישור (מסיר את המסומן ממשיך)
+        Button(
+            onClick = {
+                when {
+                    cleanedBitmap != null -> {
+                        PhotoRepository.save(context, cleanedBitmap)
+                        onContinue()
+                    }
+                    current != null && current.mask.coverage() > 0f -> startRemoval(autoContinue = true)
+                    else -> onContinue()
+                }
+            },
+            enabled = ready && !samBusy,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 24.dp, bottom = 24.dp)
+        ) { Text("OK", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
 private fun formatNumber(value: Float): String = String.format(Locale.US, "%.1f", value)
 
-private fun analyze(context: Context): ReviewResult {
+/** נגיעה שמסמנת יותר מזה מהתמונה נראית כטעות (למשל קיר או רצפה) */
+private const val MAX_TAP_FRACTION = 0.5f
+
+/** פותח את SAM ומקודד את התמונה (כמה שניות). null אם המודל לא הורד או נכשל */
+private fun openSam(context: Context, bitmap: Bitmap, holder: Array<Sam2Segmenter?>): Sam2Segmenter? {
+    if (!ModelStore.samReady(context)) return null
+    try { holder[0]?.close() } catch (e: Throwable) { }
+    holder[0] = null
+    val files = ModelStore.SamFiles(
+        File(context.filesDir, ModelStore.SAM_ENCODER_NAME),
+        File(context.filesDir, ModelStore.SAM_DECODER_NAME),
+        File(context.filesDir, ModelStore.SAM_PROMPT_NAME)
+    )
+    var sam: Sam2Segmenter? = null
+    return try {
+        sam = Sam2Segmenter(files)
+        sam.encode(bitmap)
+        holder[0] = sam
+        sam
+    } catch (e: Throwable) {
+        try { sam?.close() } catch (ignored: Throwable) { }
+        null
+    }
+}
+
+/** ממיר מסכת SAM (256x256 לוגיטים על כל התמונה) למסכה בגודל מסכת האנשים, עם החלקה */
+private fun logitsToRegion(logits: FloatArray, width: Int, height: Int): BooleanArray {
+    val grid = 256
+    val out = BooleanArray(width * height)
+    val x0 = IntArray(width)
+    val x1 = IntArray(width)
+    val fx = FloatArray(width)
+    for (x in 0 until width) {
+        val g = ((x + 0.5f) / width * grid - 0.5f).coerceIn(0f, grid - 1f)
+        x0[x] = g.toInt()
+        x1[x] = minOf(grid - 1, x0[x] + 1)
+        fx[x] = g - x0[x]
+    }
+    for (y in 0 until height) {
+        val g = ((y + 0.5f) / height * grid - 0.5f).coerceIn(0f, grid - 1f)
+        val y0 = g.toInt()
+        val y1 = minOf(grid - 1, y0 + 1)
+        val fy = g - y0
+        val row = y * width
+        for (x in 0 until width) {
+            val top = logits[y0 * grid + x0[x]] * (1f - fx[x]) + logits[y0 * grid + x1[x]] * fx[x]
+            val bottom = logits[y1 * grid + x0[x]] * (1f - fx[x]) + logits[y1 * grid + x1[x]] * fx[x]
+            out[row + x] = top * (1f - fy) + bottom * fy > 0f
+        }
+    }
+    return out
+}
+
+private fun analyze(context: Context, samHolder: Array<Sam2Segmenter?>): ReviewResult {
     val startNanos = System.nanoTime()
     val bitmap = PhotoRepository.load(context) ?: error("No photo found")
     val segmenter = PersonSegmenter(context)
@@ -372,27 +567,17 @@ private fun analyze(context: Context): ReviewResult {
         val rough = segmenter.detectPeople(bitmap)
         var mask = rough
         var refineNote = ""
-        if (rough.coverage() > 0f && ModelStore.samReady(context)) {
-            // מדייקים את הקצוות בעזרת SAM; כל כשל משאיר את המסכה כמו שזוהתה
-            val files = ModelStore.SamFiles(
-                File(context.filesDir, ModelStore.SAM_ENCODER_NAME),
-                File(context.filesDir, ModelStore.SAM_DECODER_NAME),
-                File(context.filesDir, ModelStore.SAM_PROMPT_NAME)
-            )
-            var sam: Sam2Segmenter? = null
+        // SAM נשאר פתוח אחרי הניתוח, כדי שנגיעות יהיו מהירות
+        val sam = openSam(context, bitmap, samHolder)
+        if (sam != null && rough.coverage() > 0f) {
             try {
-                sam = Sam2Segmenter(files)
-                sam.encode(bitmap)
-                val active = sam
-                val refined = PersonRefiner.refine(rough) { x, y -> active.segment(x, y) }
+                val refined = PersonRefiner.refine(rough) { x, y -> sam.segment(x, y) }
                 if (refined.refined > 0) {
                     mask = refined.mask
-                    refineNote = " · refined ${refined.refined}/${refined.people}"
+                    refineNote = " \u00B7 refined ${refined.refined}/${refined.people}"
                 }
             } catch (e: Throwable) {
                 refineNote = ""
-            } finally {
-                try { sam?.close() } catch (e: Throwable) { }
             }
         }
         val overlay = Bitmap.createBitmap(mask.width, mask.height, Bitmap.Config.ARGB_8888)
