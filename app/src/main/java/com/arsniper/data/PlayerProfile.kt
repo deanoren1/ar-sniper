@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.arsniper.game.progress.ArenaStyle
 import com.arsniper.game.progress.Catalog
 import com.arsniper.game.progress.UpgradeKind
 import com.arsniper.game.progress.WeaponId
@@ -112,5 +113,20 @@ object PlayerProfile {
             levelOf(id, UpgradeKind.Magazine),
             levelOf(id, UpgradeKind.Reload)
         )
+    }
+
+    /** הכוכבים הטובים ביותר שהושגו בארנה (0..3) */
+    fun starsOf(style: ArenaStyle): Int = getInt("arena_stars_${style.name}").also { revision.hashCode() }
+
+    /** שומר רק אם התוצאה טובה מהקודמת */
+    fun recordStars(style: ArenaStyle, stars: Int) {
+        val value = stars.coerceIn(0, 3)
+        if (value > starsOf(style)) putInt("arena_stars_${style.name}", value)
+    }
+
+    /** ארנה פתוחה אם היא הראשונה, או שהקודמת לה נוצחה לפחות בכוכב אחד */
+    fun isUnlocked(style: ArenaStyle): Boolean {
+        val before = style.previous ?: return true
+        return starsOf(before) >= 1
     }
 }

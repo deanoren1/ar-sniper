@@ -54,6 +54,7 @@ import com.arsniper.game.model.EnemyState
 import com.arsniper.game.model.GameCamera
 import com.arsniper.game.model.Vec2
 import com.arsniper.game.model.WorldMapper
+import com.arsniper.game.progress.ArenaStyle
 import com.arsniper.ml.SceneSession
 import kotlin.math.cos
 import kotlin.math.max
@@ -132,7 +133,7 @@ private fun hurt(enemy: Enemy, damage: Int, now: Double): Enemy {
 }
 
 @Composable
-fun GameScreen(modifier: Modifier = Modifier) {
+fun GameScreen(style: ArenaStyle = ArenaStyle.Tundra, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
     val engine = remember { GameEngine() }
@@ -324,6 +325,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                                     soundPlayer.play(Sfx.Win)
                                     val bonus = (if (director.isBossWave) 5 else 0) + (if (director.stars == 3) 2 else 0)
                                     gainDiamonds(bonus, "VICTORY  +$bonus DIAMONDS")
+                                    PlayerProfile.recordStars(style, director.stars)
                                     bankRun()
                                 }
                                 ArenaPhase.Lost -> {
@@ -720,6 +722,7 @@ fun GameScreen(modifier: Modifier = Modifier) {
                 }
         ) {
             BackgroundLayer(photo = photo)
+            ArenaStyleLayer(style = style, nowNanos = frameNanos)
             EnemyLayer(enemies = enemies, scene = scene)
             CombatLayer(
                 shots = fire.shots.toList(),
