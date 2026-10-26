@@ -100,11 +100,12 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
                 n++
             }
             if (frame == null && decals.isEmpty()) return null
-            return ArenaAssets(frame, decals, if (decals.isEmpty()) emptyList() else placeDecals(decals.size))
+            return ArenaAssets(frame, decals, if (decals.isEmpty()) emptyList() else placeDecals(decals))
         }
 
         /** בוחר מקומות לכתמים: רק על רצפה לפי ניתוח התמונה, גדולים יותר ככל שקרוב למצלמה */
-        private fun placeDecals(available: Int): List<Placed> {
+        private fun placeDecals(decals: List<ImageBitmap>): List<Placed> {
+            val available = decals.size
             val analysis = SceneSession.analysis
             val rnd = Random()
             val out = ArrayList<Placed>()
@@ -116,7 +117,7 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
                 if (analysis != null && analysis.labelAt(x, y) !in FLOOR_LABELS) continue
                 if (out.any { abs(it.x - x) < 0.18f && abs(it.y - y) < 0.12f }) continue
                 val index = rnd.nextInt(available)
-                val base = if (index >= 6) 0.07f else 0.2f
+                val base = 0.2f * decals[index].width / 384f
                 out.add(Placed(x, y, base * (0.7f + 0.8f * (y - 0.55f)), index))
             }
             return out
