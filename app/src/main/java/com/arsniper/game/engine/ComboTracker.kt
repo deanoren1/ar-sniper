@@ -12,7 +12,7 @@ class ComboTracker {
 
     private var idle: Float = 0f
 
-    /** מכפיל הניקוד הנוכחי: x1 עד x5 */
+    /** מכפיל הניקוד הנוכחי: x1 עד x3 */
     val multiplier: Int get() = (1 + count / STEP).coerceAtMost(MAX_MULTIPLIER)
 
     /** הצלחה: מאריכה את הרצף ומאפסת את שעון חוסר הפעילות */
@@ -36,8 +36,8 @@ class ComboTracker {
 
     companion object {
         /** כל כמה הצלחות המכפיל עולה */
-        const val STEP = 4
-        const val MAX_MULTIPLIER = 5
+        const val STEP = 6
+        const val MAX_MULTIPLIER = 3
         const val TIMEOUT_SECONDS = 7f
     }
 }
