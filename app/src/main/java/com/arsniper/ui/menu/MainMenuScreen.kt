@@ -214,9 +214,9 @@ fun MainMenuScreen(
                 .padding(top = ui.dp(6f))
                 .rotate(-3f)
         ) {
-            OutlinedText("SNIPER", fontSize = (ui.factor * 62f).sp, color = GameColors.Yellow, outlineWidth = 18f, letterSpacing = 2.sp)
+            OutlinedText("SNAP", fontSize = (ui.factor * 62f).sp, color = GameColors.Yellow, outlineWidth = 18f, letterSpacing = 2.sp)
             OutlinedText(
-                "AR", fontSize = (ui.factor * 52f).sp, color = Color(0xFF6FD3FF), outlineWidth = 18f,
+                "BOO!", fontSize = (ui.factor * 56f).sp, color = Color(0xFF6FD3FF), outlineWidth = 18f,
                 modifier = Modifier.offset(y = -ui.dp(14f))
             )
         }

@@ -9,7 +9,7 @@
         android:required="false" />
 
     <application
-        android:label="AR Sniper"
+        android:label="SnapBoo"
         android:theme="@style/Theme.ARSniper">
 
         <uses-native-library
