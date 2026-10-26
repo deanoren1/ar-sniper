@@ -54,6 +54,6 @@ fun CurrencyBar(coins: Int, diamonds: Int, modifier: Modifier = Modifier) {
         Spacer(Modifier.width(16.dp))
         DiamondIcon()
         Spacer(Modifier.width(4.dp))
-        Text(text = "$diamonds", color = Color(0xFF84FFFF), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(text = "$diamonds", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     }
 }
