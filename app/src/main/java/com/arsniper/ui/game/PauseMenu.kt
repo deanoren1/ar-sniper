@@ -42,6 +42,8 @@ fun PauseMenu(
     modifier: Modifier = Modifier
 ) {
     var showSettings by remember { mutableStateOf(false) }
+    // "restart" / "menu" כשמחכים לאישור, אחרת null
+    var confirm by remember { mutableStateOf<String?>(null) }
     PlayerProfile.revision.hashCode()
     Box(
         contentAlignment = Alignment.Center,
@@ -59,21 +61,32 @@ fun PauseMenu(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     OutlinedText(
-                        if (showSettings) "SETTINGS" else "PAUSED",
+                        if (confirm != null) "SURE?" else if (showSettings) "SETTINGS" else "PAUSED",
                         fontSize = 26.sp,
                         modifier = Modifier.weight(1f)
                     )
                     GameIconButton(GameIcon.Close, onClick = onResume, style = GameButtonStyle.Danger, size = 36.dp)
                 }
-                if (showSettings) {
+                if (confirm != null) {
+                    OutlinedText(
+                        if (confirm == "restart") "Restart this battle? Your progress in it will be lost."
+                        else "Leave to the main menu? Your progress in this battle will be lost.",
+                        fontSize = 14.sp, outline = null, textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    GameButton(
+                        "YES", { val c = confirm; confirm = null; if (c == "restart") onRestart() else onMainMenu() },
+                        style = GameButtonStyle.Danger, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth()
+                    )
+                    GameButton("CANCEL", { confirm = null }, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
+                } else if (showSettings) {
                     ToggleRow("SOUND", PlayerProfile.soundOn) { PlayerProfile.soundOn = it }
                     ToggleRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
                     GameButton("BACK", { showSettings = false }, icon = GameIcon.Back, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
                 } else {
                     GameButton("RESUME", onResume, icon = GameIcon.Play, style = GameButtonStyle.Success, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
-                    GameButton("RESTART", onRestart, icon = GameIcon.Restart, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
+                    GameButton("RESTART", { confirm = "restart" }, icon = GameIcon.Restart, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
                     GameButton("SETTINGS", { showSettings = true }, icon = GameIcon.Gear, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
-                    GameButton("MAIN MENU", onMainMenu, icon = GameIcon.Home, style = GameButtonStyle.Danger, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
+                    GameButton("MAIN MENU", { confirm = "menu" }, icon = GameIcon.Home, style = GameButtonStyle.Danger, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
                 }
             }
         }

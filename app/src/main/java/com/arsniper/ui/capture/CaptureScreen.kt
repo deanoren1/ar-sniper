@@ -381,6 +381,7 @@ private fun CameraContent(
                 ModePill("PHOTO", mode == 0) { mode = 0 }
                 ModePill("180\u00B0", mode == 1) { mode = 1 }
                 ModePill("360\u00B0", mode == 2) { mode = 2 }
+                if (mode != 0) BetaTag()
             }
         }
 
@@ -611,5 +612,21 @@ private fun BoltIcon(on: Boolean) {
             lineTo(w * 0.36f, h); lineTo(w * 0.84f, h * 0.38f); lineTo(w * 0.54f, h * 0.38f); close()
         }
         drawPath(p, if (on) Color(0xFFFFD84A) else Color.White)
+    }
+}
+
+
+@Composable
+private fun BetaTag() {
+    val shape = RoundedCornerShape(6.dp)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .clip(shape)
+            .background(Color(0xFFFF8A1F))
+            .border(2.dp, Color(0xFF050B1C), shape)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text("BETA", color = Color.White, fontSize = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Black)
     }
 }

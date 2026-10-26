@@ -36,6 +36,8 @@ object PhotoLibrary {
             ?.sortedByDescending { it.lastModified() }
             ?: emptyList()
 
+    fun delete(file: File) { try { file.delete() } catch (_: Exception) { } }
+
     /** הופך תמונה שמורה לתמונה הנוכחית של המשחק */
     fun select(context: Context, file: File) {
         file.copyTo(File(context.filesDir, "arena_photo.jpg"), overwrite = true)

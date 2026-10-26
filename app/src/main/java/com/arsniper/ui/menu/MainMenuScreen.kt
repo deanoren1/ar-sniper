@@ -57,22 +57,6 @@ fun MainMenuScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
-
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            busy = true
-            failed = false
-            scope.launch {
-                val ok = withContext(Dispatchers.IO) { PhotoImport.importFromUri(context, uri) }
-                busy = false
-                if (ok) onPhotoPicked() else failed = true
-            }
-        }
-    }
-
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         Image(
             painter = painterResource(R.drawable.title_art),
@@ -116,7 +100,6 @@ fun MainMenuScreen(
                 text = "PLAY",
                 onClick = onStart,
                 icon = GameIcon.Play,
-                enabled = !busy,
                 height = ui.dp(48f),
                 fontSize = (ui.factor * 26f).sp,
                 modifier = Modifier.width(ui.dp(190f))
@@ -126,13 +109,6 @@ fun MainMenuScreen(
                 MenuIcon(GameIcon.Gear, "SETTINGS", onSettings, ui.dp(38f))
                 MenuIcon(GameIcon.Stats, "STATS", onStats, ui.dp(38f))
                 MenuIcon(GameIcon.Cart, "SHOP", onShop, ui.dp(38f))
-                MenuIcon(
-                    GameIcon.Photo, if (busy) "LOADING" else "PHOTO",
-                    { picker.launch(arrayOf("image/*")) }, ui.dp(38f), enabled = !busy
-                )
-            }
-            if (failed) {
-                OutlinedText("Could not open that photo", fontSize = 14.sp, color = Color(0xFFFF8A80))
             }
         }
     }

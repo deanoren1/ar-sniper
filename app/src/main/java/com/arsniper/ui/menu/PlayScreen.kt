@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,8 +71,10 @@ fun PlayScreen(
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     PlayerProfile.revision.hashCode()
+    var refresh by remember { mutableStateOf(0) }
+    var pendingDelete by remember { mutableStateOf<Pair<File, ImageBitmap?>?>(null) }
 
-    val saved by produceState<List<Pair<File, ImageBitmap?>>>(emptyList()) {
+    val saved by produceState<List<Pair<File, ImageBitmap?>>>(emptyList(), refresh) {
         value = withContext(Dispatchers.IO) {
             PhotoLibrary.list(context).map { it to PhotoLibrary.thumbnail(it)?.asImageBitmap() }
         }
@@ -141,7 +144,13 @@ fun PlayScreen(
                 }
                 NavyPanel(modifier = Modifier.weight(1f).fillMaxSize()) {
                     Column(modifier = Modifier.padding(ui.dp(10f))) {
-                        OutlinedText("MY PHOTOS", fontSize = (ui.factor * 18f).sp, outline = null)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedText("MY PHOTOS", fontSize = (ui.factor * 18f).sp, outline = null)
+                            if (saved.isNotEmpty()) {
+                                Spacer(Modifier.width(ui.dp(10f)))
+                                OutlinedText("Long-press a photo to delete it", fontSize = (ui.factor * 11f).sp, color = Color(0xFFB8C4E0), outline = null)
+                            }
+                        }
                         Spacer(Modifier.height(ui.dp(8f)))
                         if (saved.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -159,7 +168,7 @@ fun PlayScreen(
                                     modifier = Modifier.fillMaxWidth().padding(bottom = ui.dp(8f))
                                 ) {
                                     for ((file, thumb) in rowItems) {
-                                        Thumb(thumb, Modifier.weight(1f)) { onPickSaved(file) }
+                                        Thumb(thumb, Modifier.weight(1f), onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
                                     }
                                     repeat(5 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                                 }
@@ -169,11 +178,49 @@ fun PlayScreen(
                 }
             }
         }
+        pendingDelete?.let { (file, thumb) ->
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xB3081028))
+                    .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { pendingDelete = null }
+            ) {
+                NavyPanel(modifier = Modifier.width(ui.dp(300f))) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(ui.dp(8f)),
+                        modifier = Modifier.padding(ui.dp(14f))
+                    ) {
+                        OutlinedText("DELETE PHOTO?", fontSize = (ui.factor * 22f).sp)
+                        if (thumb != null) {
+                            Image(
+                                bitmap = thumb, contentDescription = null, contentScale = ContentScale.Crop,
+                                modifier = Modifier.width(ui.dp(120f)).aspectRatio(1.4f).clip(RoundedCornerShape(10.dp))
+                            )
+                        }
+                        OutlinedText("It will be removed from your saved photos.", fontSize = (ui.factor * 12f).sp, color = Color(0xFFB8C4E0), outline = null)
+                        GameButton(
+                            "DELETE",
+                            { PhotoLibrary.delete(file); pendingDelete = null; refresh++ },
+                            style = GameButtonStyle.Danger, height = ui.dp(42f), fontSize = (ui.factor * 18f).sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        GameButton(
+                            "CANCEL", { pendingDelete = null },
+                            style = GameButtonStyle.Secondary, height = ui.dp(42f), fontSize = (ui.factor * 18f).sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun Thumb(image: ImageBitmap?, modifier: Modifier, onClick: () -> Unit) {
+private fun Thumb(image: ImageBitmap?, modifier: Modifier, onLong: () -> Unit, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = modifier
@@ -181,7 +228,7 @@ private fun Thumb(image: ImageBitmap?, modifier: Modifier, onClick: () -> Unit) 
             .clip(shape)
             .background(GameColors.Navy800)
             .border(2.dp, GameColors.Yellow, shape)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLong)
     ) {
         if (image != null) {
             Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
