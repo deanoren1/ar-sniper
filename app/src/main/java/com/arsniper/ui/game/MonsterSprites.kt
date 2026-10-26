@@ -128,6 +128,7 @@ class MonsterSprites private constructor(
             "jungle" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.9f, 1.1f, 1.05f),
             "military" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 1.05f, 1.0f, 0.95f, 0.95f),
             "market" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 1.0f, 0.95f, 0.95f),
+            "ruins" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 1.0f, 0.95f, 1.1f),
             "cyber" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.95f, 0.8f, 0.95f)
         )
 
@@ -178,6 +179,8 @@ class MonsterSprites private constructor(
                 val scale = scales?.getOrNull(row) ?: 1.0f
                 loadSheet(decoded, row, null, emptyMap(), rows, scale)?.let { sheets.add(it) }
             }
+            // בכל ארנה מתערבבות גם המפלצות המקוריות, לא רק המחופשות
+            load(context, null)?.let { sheets.addAll(it.sheets) }
             return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context, variant) ?: loadBoss(context))
         }
 
