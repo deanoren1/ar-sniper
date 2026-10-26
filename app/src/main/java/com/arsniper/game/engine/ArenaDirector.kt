@@ -447,9 +447,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         const val BOSS_END_Y = 0.56f
         const val BOSS_APPROACH_SECONDS = 6f
         val DEFAULT_WAVES: List<WaveSpec> = listOf(
-            // גל 1: בלונים, ובסוף התמנון הראשון
+            // גל 1: תמנונים (קלים לפגיעה), ובסוף הבלון הראשון
             WaveSpec(
-                foes = listOf(Foe.Balloon, Foe.Balloon, Foe.Balloon, Foe.Octopus),
+                foes = listOf(Foe.Octopus, Foe.Octopus, Foe.Octopus, Foe.Balloon),
                 maxThreat = 3, maxAttacks = 1, cooldownMin = 3.85f, cooldownMax = 6.05f, flightScale = 1.27f
             ),
             // גל 2: מופיע החייזר

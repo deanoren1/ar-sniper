@@ -93,12 +93,17 @@ class WalkSet(
  * אם הקובץ לא קיים, load מחזיר null והמשחק חוזר לדמות הפשוטה.
  */
 class MonsterSprites private constructor(
-    private val sheets: List<MonsterSheet>,
+    /** לכל סוג התנהגות (id % 5 = שורת Foe) מאגר של מראות אפשריים */
+    private val pools: List<List<MonsterSheet>>,
     private val boss: MonsterSheet? = null
 ) {
 
-    /** המפלצת של אויב מסוים: קבועה לפי מספר האויב */
-    fun forEnemy(id: Int): MonsterSheet = if (id == ArenaDirector.BOSS_ID && boss != null) boss else sheets[((id % sheets.size) + sheets.size) % sheets.size]
+    /** המפלצת של אויב מסוים: הסוג לפי id % 5 (כדי שהמראה יתאים להתנהגות), והמראה בתוך הסוג קבוע לפי המספר */
+    fun forEnemy(id: Int): MonsterSheet {
+        if (id == ArenaDirector.BOSS_ID && boss != null) return boss
+        val pool = pools[((id % 5) + 5) % 5]
+        return pool[(((id / 5) % pool.size) + pool.size) % pool.size]
+    }
 
     companion object {
         private const val ATLAS_NAME = "monsters_atlas"
@@ -162,7 +167,7 @@ class MonsterSprites private constructor(
                 val sheet = loadSheet(atlas, row, loadWalk(context, row, "walk_$row"), fewer) ?: continue
                 sheets.add(sheet)
             }
-            return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context))
+            return if (sheets.isEmpty()) null else MonsterSprites(List(5) { listOf(sheets[minOf(it, sheets.size - 1)]) }, loadBoss(context))
         }
 
         /** גיליון מפלצות של ארנה: אין הליכה אמיתית (מדומה), הבוס נשאר הרגיל */
@@ -181,9 +186,18 @@ class MonsterSprites private constructor(
                 val scale = scales?.getOrNull(row) ?: 1.0f
                 loadSheet(decoded, row, null, emptyMap(), rows, scale)?.let { sheets.add(it) }
             }
+            if (sheets.size < 5) return null
+            // שורות Foe (ענק 0, תמנון 1, קיפוד 2, בלון 3, חייזר 4) מול סדר הגיליון (בלון, תמנון, חייזר, ענק, קיפוד)
+            val themedIndexForRow = intArrayOf(3, 1, 4, 0, 2)
+            val pools = List(5) { row -> mutableListOf(sheets[themedIndexForRow[row]]) }
+            // מפלצות נוספות בגיליון (רוח, שלג-אדם...): מצטרפות לסוגי ההתנהגות בסבב
+            val extraRows = intArrayOf(1, 0, 3, 2, 4)
+            for (i in 5 until sheets.size) pools[extraRows[(i - 5) % extraRows.size]].add(sheets[i])
             // בכל ארנה מתערבבות גם המפלצות המקוריות, לא רק המחופשות
-            load(context, null)?.let { sheets.addAll(it.sheets) }
-            return if (sheets.isEmpty()) null else MonsterSprites(sheets, loadBoss(context, variant) ?: loadBoss(context))
+            load(context, null)?.let { original ->
+                for (row in 0 until 5) pools[row].addAll(original.pools[row])
+            }
+            return MonsterSprites(pools, loadBoss(context, variant) ?: loadBoss(context))
         }
 
         /**

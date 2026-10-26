@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.arsniper.game.engine.Shot
@@ -225,7 +226,7 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, center: Offset, r:
     }
     val mix = ((p - 0.35f) / 0.3f).coerceIn(0f, 1f)
     val diameter = r * 2.3f
-    androidx.compose.ui.graphics.drawscope.rotate(spin, center) {
+    rotate(spin, center) {
         drawSprite(pair.small, center, diameter, 1f - mix)
         drawSprite(pair.big, center, diameter, mix)
         // סדק (פגיעה ראשונה בקליע בעל שני חיים)
