@@ -35,7 +35,7 @@ import com.arsniper.data.PhotoRepository
 import com.arsniper.data.PlayerProfile
 import com.arsniper.game.progress.ArenaStyle
 import com.arsniper.ui.game.ArenaStyleLayer
-import com.arsniper.ui.components.CurrencyPill
+import com.arsniper.ui.components.CurrencyBar
 import com.arsniper.ui.components.GameIcon
 import com.arsniper.ui.components.IconGlyph
 import com.arsniper.ui.components.OutlinedText
@@ -65,8 +65,7 @@ fun ArenaSelectScreen(
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             ScreenHeader(title = "SELECT ARENA", onBack = onBack) {
-                CurrencyPill(PlayerProfile.coins, isGems = false)
-                CurrencyPill(PlayerProfile.diamonds, isGems = true)
+                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
             Column(
                 modifier = Modifier

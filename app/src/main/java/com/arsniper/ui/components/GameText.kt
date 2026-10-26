@@ -1,6 +1,7 @@
 package com.arsniper.ui.components
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -40,11 +41,11 @@ fun OutlinedText(
                 fontWeight = GameType.Heavy,
                 letterSpacing = letterSpacing,
                 textAlign = textAlign,
-                style = TextStyle(
+                style = LocalTextStyle.current.merge(TextStyle(
                     color = outline,
                     drawStyle = Stroke(width = outlineWidth, join = StrokeJoin.Round),
                     shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 4f), 4f)
-                )
+                ))
             )
         }
         Text(

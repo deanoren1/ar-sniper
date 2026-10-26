@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,7 +35,10 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
         Column(modifier = Modifier.padding(ui.dp(14f))) {
             ScreenHeader(title = "SETTINGS", onBack = onBack)
             Spacer(Modifier.height(ui.dp(16f)))
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 NavyPanel(modifier = Modifier.widthIn(max = ui.dp(460f))) {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(ui.dp(14f)),

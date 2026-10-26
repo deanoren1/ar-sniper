@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.data.PlayerProfile
 import com.arsniper.game.progress.ArenaStyle
-import com.arsniper.ui.components.CurrencyPill
+import com.arsniper.ui.components.CurrencyBar
 import com.arsniper.ui.components.NavyPanel
 import com.arsniper.ui.components.OutlinedText
 import com.arsniper.ui.components.ScreenHeader
@@ -31,8 +31,7 @@ fun StatsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         Column(modifier = Modifier.padding(ui.dp(14f))) {
             ScreenHeader(title = "STATISTICS", onBack = onBack) {
-                CurrencyPill(PlayerProfile.coins, isGems = false)
-                CurrencyPill(PlayerProfile.diamonds, isGems = true)
+                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
             Spacer(Modifier.height(ui.dp(14f)))
             val tiles = listOf(

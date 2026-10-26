@@ -31,7 +31,7 @@ import com.arsniper.data.PhotoImport
 import com.arsniper.ui.components.GameButton
 import com.arsniper.ui.components.GameIcon
 import com.arsniper.ui.components.GameIconButton
-import com.arsniper.ui.components.CurrencyPill
+import com.arsniper.ui.components.CurrencyBar
 import com.arsniper.ui.components.OutlinedText
 import com.arsniper.ui.components.PlayerBadge
 import com.arsniper.data.PlayerProfile
@@ -101,37 +101,34 @@ fun MainMenuScreen(
             portrait = portrait,
             modifier = Modifier.align(Alignment.TopStart).padding(start = ui.dp(10f), top = ui.dp(8f))
         )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(ui.dp(6f)),
+        CurrencyBar(
+            PlayerProfile.coins, PlayerProfile.diamonds, onPlus = onShop,
             modifier = Modifier.align(Alignment.TopEnd).padding(end = ui.dp(10f), top = ui.dp(8f))
-        ) {
-            CurrencyPill(PlayerProfile.coins, isGems = false, onPlus = onShop)
-            CurrencyPill(PlayerProfile.diamonds, isGems = true, onPlus = onShop)
-        }
+        )
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = ui.dp(10f))
+                .padding(bottom = ui.dp(6f))
         ) {
             GameButton(
                 text = "PLAY",
                 onClick = onStart,
                 icon = GameIcon.Play,
                 enabled = !busy,
-                height = ui.dp(64f),
-                fontSize = (ui.factor * 32f).sp,
-                modifier = Modifier.width(ui.dp(240f))
+                height = ui.dp(48f),
+                fontSize = (ui.factor * 26f).sp,
+                modifier = Modifier.width(ui.dp(190f))
             )
-            Box(Modifier.size(ui.dp(8f)))
+            Box(Modifier.size(ui.dp(5f)))
             Row(horizontalArrangement = Arrangement.spacedBy(ui.dp(12f))) {
-                MenuIcon(GameIcon.Gear, "SETTINGS", onSettings, ui.dp(44f))
-                MenuIcon(GameIcon.Stats, "STATS", onStats, ui.dp(44f))
-                MenuIcon(GameIcon.Cart, "SHOP", onShop, ui.dp(44f))
+                MenuIcon(GameIcon.Gear, "SETTINGS", onSettings, ui.dp(38f))
+                MenuIcon(GameIcon.Stats, "STATS", onStats, ui.dp(38f))
+                MenuIcon(GameIcon.Cart, "SHOP", onShop, ui.dp(38f))
                 MenuIcon(
                     GameIcon.Photo, if (busy) "LOADING" else "PHOTO",
-                    { picker.launch(arrayOf("image/*")) }, ui.dp(44f), enabled = !busy
+                    { picker.launch(arrayOf("image/*")) }, ui.dp(38f), enabled = !busy
                 )
             }
             if (failed) {
@@ -151,6 +148,5 @@ private fun MenuIcon(
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         GameIconButton(icon, onClick = onClick, style = GameButtonStyle.Secondary, enabled = enabled, size = size)
-        OutlinedText(label, fontSize = 11.sp, outlineWidth = 4f)
     }
 }

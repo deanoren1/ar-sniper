@@ -62,7 +62,7 @@ fun NavyPanel(
     )
 }
 
-/** מסגרת למטבע בסגנון העיצוב: אייקון גדול שבולט מימין לפס כחול כהה, מספר מודגש וכפתור + ירוק */
+/** מסגרת למטבע כמו בעיצוב: פס כחול כהה עם אייקון בתוכו ומספר מודגש */
 @Composable
 fun CurrencyPill(
     amount: Int,
@@ -71,33 +71,50 @@ fun CurrencyPill(
     onPlus: (() -> Unit)? = null
 ) {
     val shape = RoundedCornerShape(50)
-    Box(modifier = modifier.height(38.dp), contentAlignment = Alignment.CenterStart) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(start = 14.dp)
-                .height(30.dp)
-                .clip(shape)
-                .background(Brush.verticalGradient(listOf(GameColors.Navy700, GameColors.Navy900)))
-                .border(2.dp, GameColors.Outline, shape)
-                .padding(start = 26.dp, end = if (onPlus != null) 3.dp else 14.dp)
-        ) {
-            OutlinedText("$amount", fontSize = 18.sp, outline = null)
-            if (onPlus != null) {
-                Spacer(Modifier.width(10.dp))
-                val plusShape = RoundedCornerShape(8.dp)
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(plusShape)
-                        .background(Brush.verticalGradient(listOf(Color(0xFF7BE04A), Color(0xFF2FA21F))))
-                        .border(2.dp, GameColors.Outline, plusShape)
-                        .clickable(onClick = onPlus)
-                ) { IconGlyph(GameIcon.Plus, size = 14.dp, tint = Color.White) }
-            }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .height(34.dp)
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(GameColors.Navy700, GameColors.Navy900)))
+            .border(2.dp, GameColors.Outline, shape)
+            .padding(start = 3.dp, end = 14.dp)
+    ) {
+        if (isGems) DiamondIcon(size = 28.dp) else CoinIcon(size = 28.dp)
+        Spacer(Modifier.width(8.dp))
+        OutlinedText("$amount", fontSize = 18.sp, outline = null)
+        if (onPlus != null) {
+            Spacer(Modifier.width(8.dp))
+            PlusSquare(onPlus)
         }
-        if (isGems) DiamondIcon(size = 34.dp) else CoinIcon(size = 34.dp)
+    }
+}
+
+@Composable
+fun PlusSquare(onClick: () -> Unit, modifier: Modifier = Modifier, size: Dp = 34.dp) {
+    val shape = RoundedCornerShape(9.dp)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(size)
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(Color(0xFF7BE04A), Color(0xFF2FA21F))))
+            .border(2.dp, GameColors.Outline, shape)
+            .clickable(onClick = onClick)
+    ) { IconGlyph(GameIcon.Plus, size = size * 0.55f, tint = Color.White) }
+}
+
+/** מטבעות + יהלומים + כפתור + ירוק אחד בסוף, כמו בלוח העיצוב */
+@Composable
+fun CurrencyBar(coins: Int, diamonds: Int, modifier: Modifier = Modifier, onPlus: (() -> Unit)? = null) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier
+    ) {
+        CurrencyPill(coins, isGems = false)
+        CurrencyPill(diamonds, isGems = true)
+        if (onPlus != null) PlusSquare(onPlus)
     }
 }
 

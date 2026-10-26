@@ -819,25 +819,20 @@ private fun AutoScanOverlay(progress: Float, status: String, failed: Boolean) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 56.dp)
-                .fillMaxWidth(0.42f)
+                .padding(bottom = 22.dp)
+                .fillMaxWidth(0.5f)
         ) {
-            if (!failed) {
-                com.arsniper.ui.components.LoadingBar(progress = progress)
-                Box(Modifier.size(8.dp))
-            }
             com.arsniper.ui.components.OutlinedText(
-                if (failed) "SCAN FAILED" else "LOADING...",
-                fontSize = 22.sp,
-                outlineWidth = 8f
-            )
-            com.arsniper.ui.components.OutlinedText(
-                status,
+                if (failed) "SCAN FAILED" else status,
                 fontSize = 12.sp,
                 color = Color.White,
                 outlineWidth = 5f,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+            if (!failed) {
+                Box(Modifier.size(4.dp))
+                com.arsniper.ui.components.LoadingBar(progress = progress, height = 26.dp)
+            }
         }
     }
 }

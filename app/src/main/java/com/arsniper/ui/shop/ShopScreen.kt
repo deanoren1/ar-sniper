@@ -35,7 +35,7 @@ import com.arsniper.game.progress.Catalog
 import com.arsniper.game.progress.UpgradeKind
 import com.arsniper.game.progress.WeaponId
 import com.arsniper.game.progress.WeaponSpec
-import com.arsniper.ui.components.CurrencyPill
+import com.arsniper.ui.components.CurrencyBar
 import com.arsniper.ui.components.GameButton
 import com.arsniper.ui.components.NavyPanel
 import com.arsniper.ui.components.OutlinedText
@@ -62,8 +62,7 @@ fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             ScreenHeader(title = "SHOP", onBack = onBack) {
-                CurrencyPill(coins, isGems = false)
-                CurrencyPill(diamonds, isGems = true)
+                CurrencyBar(coins, diamonds)
             }
             Spacer(Modifier.height(ui.dp(10f)))
             Row(modifier = Modifier.fillMaxSize()) {

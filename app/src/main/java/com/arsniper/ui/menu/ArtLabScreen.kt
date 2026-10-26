@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -90,14 +91,16 @@ fun ArtLabScreen(onBack: () -> Unit, onUsePhoto: () -> Unit, modifier: Modifier 
                         label = { Text("Gemini API key") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = fieldColors()
                     )
                     OutlinedTextField(
                         value = model,
                         onValueChange = { model = it; prefs.edit().putString("model", it).apply() },
                         label = { Text("Model") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = fieldColors()
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for ((label, text) in PRESETS) {
@@ -110,7 +113,8 @@ fun ArtLabScreen(onBack: () -> Unit, onUsePhoto: () -> Unit, modifier: Modifier 
                         label = { Text("Prompt") },
                         minLines = 3,
                         maxLines = 5,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = fieldColors()
                     )
                     GameButton(
                         text = if (busy) "WORKING..." else "GENERATE",
@@ -207,3 +211,15 @@ private fun Preview(label: String, bitmap: Bitmap?, modifier: Modifier, busy: Bo
         }
     }
 }
+
+
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color.White,
+    focusedLabelColor = Color(0xFF9CC4FF),
+    unfocusedLabelColor = Color(0xFFB8C4E0),
+    focusedBorderColor = Color(0xFF4DA3FF),
+    unfocusedBorderColor = Color(0xFF6B7BA8),
+    cursorColor = Color.White
+)
