@@ -129,6 +129,7 @@ class MonsterSprites private constructor(
             "military" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 1.05f, 1.0f, 0.95f, 0.95f),
             "market" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 1.0f, 0.95f, 0.95f),
             "ruins" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 1.0f, 0.95f, 1.1f),
+            "forest" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 1.1f, 0.9f, 0.95f),
             "cyber" to floatArrayOf(0.95f, 1.0f, 0.8f, 1.1f, 0.85f, 0.95f, 0.8f, 0.95f)
         )
 
