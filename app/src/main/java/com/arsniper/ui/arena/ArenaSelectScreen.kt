@@ -96,7 +96,7 @@ fun ArenaSelectScreen(
             com.arsniper.ui.components.GameIconButton(
                 icon = GameIcon.Back,
                 onClick = onBack,
-                style = com.arsniper.ui.components.GameButtonStyle.Primary,
+                style = com.arsniper.ui.theme.GameButtonStyle.Primary,
                 size = 40.dp,
                 modifier = Modifier.align(Alignment.TopStart)
             )
