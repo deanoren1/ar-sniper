@@ -3,6 +3,8 @@ package com.arsniper.ui.components
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
+import android.provider.MediaStore
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,16 +36,29 @@ private fun Context.findActivity(): Activity? {
 fun rememberGalleryPicker(onPicked: (Uri) -> Unit): GalleryPicker {
     val callback = rememberUpdatedState(onPicked)
     val activity = LocalContext.current.findActivity()
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        val uri = if (result.resultCode == Activity.RESULT_OK) result.data?.data else null
         if (uri != null) callback.value(uri)
     }
     return GalleryPicker {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-        try {
-            launcher.launch(arrayOf("image/*"))
-        } catch (e: Exception) {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        // אפליקציית הגלריה עצמה (סמסונג קודם), ולא בורר המסמכים שמציג את גוגל תמונות/דרייב
+        fun pick() = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply { type = "image/*" }
+        val attempts = listOf(
+            pick().setPackage("com.sec.android.gallery3d"),
+            pick()
+        )
+        var started = false
+        for (intent in attempts) {
+            try {
+                launcher.launch(intent)
+                started = true
+                break
+            } catch (e: Exception) {
+                // מנסים את הבא
+            }
         }
+        if (!started) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
     }
 }
