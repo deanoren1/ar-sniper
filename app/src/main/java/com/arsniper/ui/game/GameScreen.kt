@@ -226,6 +226,11 @@ fun GameScreen(
     var blasts by remember { mutableStateOf(emptyList<Blast>()) }
     var frameNanos by remember { mutableStateOf(0L) }
     var floaters by remember { mutableStateOf(emptyList<Floater>()) }
+    // הודעת בונוס אחת במקום קבוע בראש המסך (החדשה מחליפה את הקודמת)
+    var toast by remember { mutableStateOf<BonusToastData?>(null) }
+    fun showToast(text: String) {
+        if (text.isNotEmpty()) toast = BonusToastData(text, frameNanos)
+    }
     var poofs by remember { mutableStateOf(emptyList<Poof>()) }
 
     // ניקוד עם מכפיל הקומבו, וניקוד צף במקום ההצלחה. register=false: לא מאריך את הרצף
@@ -246,7 +251,7 @@ fun GameScreen(
         PlayerProfile.addDiamonds(n)
         diamondsGained += n
         soundPlayer.play(Sfx.Gem)
-        floaters = floaters + Floater(0.5f, 0.42f, label, frameNanos, big = true)
+        showToast(label)
     }
 
     // מעביר את הניקוד שנצבר (מטבעות) לפרופיל השמור. בטוח לקריאה חוזרת: מעביר רק את ההפרש
@@ -329,6 +334,7 @@ fun GameScreen(
                         AttackPose.bossEnraged = director.bossEnraged
                         for (spot in out.stopped) {
                             award(STOP_POINTS, spot.x, spot.y)
+                            showToast("STOPPED!")
                             blasts = blasts + Blast(
                                 x = spot.x,
                                 y = spot.y,
@@ -488,7 +494,7 @@ fun GameScreen(
         fire.stun(ArenaDirector.BOSS_ID, Shockwave.BOSS_STUN_SECONDS)
         if (kills > 0) {
             score += scaled(kills * SHOCK_KILL_POINTS)
-            floaters = floaters + Floater(0.5f, 0.35f, "SHOCKWAVE  +${kills * SHOCK_KILL_POINTS / COINS_DIVISOR}", frameNanos, big = true)
+            showToast("SHOCKWAVE  +${kills * SHOCK_KILL_POINTS / COINS_DIVISOR}")
         }
     }
 
@@ -515,7 +521,7 @@ fun GameScreen(
                 return
             }
         }
-        floaters = floaters + Floater(drop.x, drop.y - 0.1f, label, frameNanos, big = true)
+        showToast(label)
     }
 
     // ניקוד ואפקט על קליע שנפגע (בלחיצה או בירי)
@@ -583,6 +589,7 @@ fun GameScreen(
                 )
                 if (!killed && !balloons && zone.damage > 0) soundPlayer.play(Sfx.EnemyHurt)
                 award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y)
+                showToast(zone.label)
                 blasts = blasts + Blast(
                     x = zoneHit.anchor.x,
                     y = zoneHit.anchor.y,
@@ -800,6 +807,14 @@ fun GameScreen(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
+        )
+
+        BonusToast(
+            data = toast,
+            nowNanos = frameNanos,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 128.dp)
         )
 
         ComboBadge(

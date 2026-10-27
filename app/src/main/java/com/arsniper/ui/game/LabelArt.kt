@@ -19,6 +19,9 @@ object LabelArt {
         "NO DAMAGE  +1 DIAMOND" to com.arsniper.R.drawable.lbl_nodamage
     )
 
+    /** מזהה התמונה של הודעה, או null אם אין לה תמונה */
+    fun resFor(text: String): Int? = RES[text]
+
     /** רוחב התמונה ביחידות גובה מסך */
     fun widthFor(text: String): Float = when (text) {
         "BLOCK!" -> 0.42f
