@@ -35,29 +35,46 @@ import com.arsniper.ui.game.MonsterSprite
 import com.arsniper.ui.theme.GameColors
 import com.arsniper.ui.theme.GameDims
 
-/** פאנל כחול כהה עם מסגרת עבה, פינות מעוגלות וברק עדין בחלק העליון */
+/** פאנל בסגנון מסך GAME OVER: כחול כהה עמוק, מסגרת כחולה זוהרת עם הילה פנימית וברק עדין למעלה */
 @Composable
 fun NavyPanel(
     modifier: Modifier = Modifier,
     corner: Dp = GameDims.CornerLarge,
-    borderColor: Color = GameColors.Outline,
+    borderColor: Color = Color(0xFF2F8BFF),
     content: @Composable BoxScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(corner)
     Box(
         modifier = modifier
             .clip(shape)
-            .background(GameColors.PanelGradient)
+            .background(Brush.verticalGradient(listOf(Color(0xFF0E2358), Color(0xFF071236))))
             .drawBehind {
+                val c = corner.toPx()
+                // ברק עדין בחלק העליון
                 drawRoundRect(
                     Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.14f), Color.Transparent),
-                        endY = size.height * 0.35f
+                        listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
+                        endY = size.height * 0.30f
                     ),
-                    cornerRadius = CornerRadius(corner.toPx())
+                    cornerRadius = CornerRadius(c)
                 )
+                // הילה פנימית: פסים רחבים ועדינים שמתחזקים לכיוון המסגרת
+                val widths = listOf(14.dp.toPx(), 9.dp.toPx(), 5.dp.toPx())
+                val alphas = listOf(0.07f, 0.12f, 0.2f)
+                for (i in widths.indices) {
+                    val w = widths[i]
+                    drawRoundRect(
+                        color = borderColor.copy(alpha = alphas[i]),
+                        topLeft = androidx.compose.ui.geometry.Offset(w / 2f, w / 2f),
+                        size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
+                        cornerRadius = CornerRadius(maxOf(c - w / 2f, 0f)),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = w)
+                    )
+                }
             }
-            .border(GameDims.Border, borderColor, shape),
+            .border(3.dp, borderColor, shape)
+            .padding(3.dp)
+            .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(maxOf(corner - 3.dp, 0.dp))),
         content = content
     )
 }
