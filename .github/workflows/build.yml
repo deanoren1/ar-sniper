@@ -25,6 +25,12 @@ jobs:
           gradle-version: 8.14.3
           cache-disabled: true
 
+      - name: Fetch UI font (Oxanium, OFL)
+        run: |
+          mkdir -p app/src/main/res/font
+          curl -fsSL --retry 3 -o app/src/main/res/font/oxanium.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/oxanium/Oxanium%5Bwght%5D.ttf"
+          ls -l app/src/main/res/font
+
       - name: Build debug APK
         shell: bash
         run: |

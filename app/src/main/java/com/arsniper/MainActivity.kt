@@ -57,6 +57,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
+              androidx.compose.material3.ProvideTextStyle(
+                androidx.compose.ui.text.TextStyle(fontFamily = com.arsniper.ui.theme.GameType.Family)
+              ) {
                 AppNavigation()
                 var crashText by androidx.compose.runtime.remember { mutableStateOf(lastCrash) }
                 if (crashText != null) {
@@ -78,6 +81,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+              }
             }
         }
     }

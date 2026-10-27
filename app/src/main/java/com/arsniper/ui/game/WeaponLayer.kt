@@ -250,13 +250,13 @@ fun AmmoBar(
     onReload: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val k = 200f / 372f
+    val k = 140f / 372f
     val slots = 11
     val lit = if (reloading || ammo <= 0 || magSize <= 0) 0
         else kotlin.math.ceil(slots * ammo.toFloat() / magSize).toInt().coerceIn(1, slots)
     Box(
         modifier = modifier
-            .size(width = 200.dp, height = (90f * k).dp)
+            .size(width = 140.dp, height = (90f * k).dp)
             .clickable(onClick = onReload)
     ) {
         GlowPill(Modifier.fillMaxSize(), corner = 0.22f)
@@ -268,9 +268,9 @@ fun AmmoBar(
                 .size(width = (338f * k).dp, height = (66f * k).dp)
         )
         if (reloading) {
-            Text("RELOADING", color = Color(0xFFFFEB3B), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text("RELOADING", color = Color(0xFFFFEB3B), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         } else if (ammo == 0) {
-            Text("EMPTY", color = Color(0xFFFF5252), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text("EMPTY", color = Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
     }
 }

@@ -868,7 +868,7 @@ fun GameScreen(
             onClick = { triggerShock() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 76.dp, bottom = 196.dp)
+                .padding(end = 28.dp, bottom = 196.dp)
         )
 
         AmmoBar(

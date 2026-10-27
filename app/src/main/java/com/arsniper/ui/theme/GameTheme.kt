@@ -53,7 +53,19 @@ enum class GameButtonStyle(
 }
 
 object GameType {
-    val Family = FontFamily.SansSerif
+    /** Oxanium (variable font, res/font/oxanium.ttf) - the game's single UI font */
+    @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+    val Family: FontFamily = FontFamily(
+        *listOf(400, 500, 600, 700, 800).map { w ->
+            androidx.compose.ui.text.font.Font(
+                resId = com.arsniper.R.font.oxanium,
+                weight = FontWeight(w),
+                variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(
+                    androidx.compose.ui.text.font.FontVariation.weight(w)
+                )
+            )
+        }.toTypedArray()
+    )
     val Heavy = FontWeight.Black
 }
 
