@@ -766,9 +766,11 @@ class GameEngine(
             }
             if (!clear) return@repeat
             if (tooClose(Vec2(wx, feetY - r), r, existing, aspect, 0.1f)) return@repeat
+            // לא מתחילים מאחורי עצם קרוב יותר (אז רואים רק חלק מהדמות דרך חורים)
+            if (behindNearerObject(ctx, wx, feetY, r, ctx.depthAt(wx, feetY))) return@repeat
 
-            return Enemy(
-                id = nextEnemyId++,
+            val candidate = Enemy(
+                id = nextEnemyId,
                 position = Vec2(wx, feetY - r),
                 radius = r,
                 kind = EnemyKind.Open,
@@ -777,8 +779,32 @@ class GameEngine(
                 direction = if (random.nextBoolean()) 1f else -1f,
                 dirY = 1f
             )
+            // חור קטן בין צמחים: הדמות לא יכולה ללכת, הייתה נתקעת ונעלמת מיד
+            if (!canRoam(candidate, existing)) return@repeat
+            nextEnemyId++
+            return candidate
         }
         return null
+    }
+
+    /**
+     * מדמה שתי שניות הליכה של דמות שעומדת להיווצר, באותם כללי תנועה כמו במשחק.
+     * דמות שנתקעת (כל צעד חסום) הייתה מוסרת תוך פחות משנייה, אז לא יוצרים אותה בכלל.
+     */
+    private fun canRoam(candidate: Enemy, existing: List<Enemy>): Boolean {
+        var e = candidate
+        var still = 0f
+        repeat(ROAM_STEPS) {
+            val next = moveAlongGround(e, WALK_SPEED, ROAM_DT, existing) ?: return true // יצאה מהעולם: עברה בדרך
+            if (next.position == e.position && next.radius == e.radius) {
+                still += ROAM_DT
+                if (still >= ROAM_STUCK_SECONDS) return false
+            } else {
+                still = 0f
+            }
+            e = next
+        }
+        return true
     }
 
     /**
@@ -819,8 +845,8 @@ class GameEngine(
             // מתחילים כולה מחוץ לעולם, כך שאי אפשר לראות אותה "צצה"
             val startX = if (fromLeft) -(FIGURE_HALF_WIDTH * r / aspect) - 0.01f
             else 1f + (FIGURE_HALF_WIDTH * r / aspect) + 0.01f
-            return Enemy(
-                id = nextEnemyId++,
+            val candidate = Enemy(
+                id = nextEnemyId,
                 position = Vec2(startX, feetY - r),
                 radius = r,
                 kind = EnemyKind.Open,
@@ -828,6 +854,9 @@ class GameEngine(
                 timer = randomBetween(3f, 5f),
                 direction = inward
             )
+            if (!canRoam(candidate, existing)) return@repeat
+            nextEnemyId++
+            return candidate
         }
         return null
     }
@@ -965,6 +994,11 @@ class GameEngine(
 
         /** דמות הולכת שלא מתקדמת כל כך הרבה זמן (שניות) נחשבת תקועה */
         private const val STUCK_SECONDS = 0.7f
+
+        /** סימולציית הליכה לפני יצירת דמות: כמה צעדים, אורך צעד (שניות), ואחרי כמה זמן בלי תזוזה פוסלים */
+        private const val ROAM_STEPS = 40
+        private const val ROAM_DT = 0.05f
+        private const val ROAM_STUCK_SECONDS = 0.3f
 
         /** עצם מסתיר אדם אם הבסיס שלו נמוך מרגלי האדם ביותר מזה (יחידות עולם) */
         private const val OCCLUDER_MARGIN = 0.005f
