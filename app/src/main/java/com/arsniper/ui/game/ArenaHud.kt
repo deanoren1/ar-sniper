@@ -88,27 +88,65 @@ fun WaveStatus(wave: Int, waves: Int, left: Int, modifier: Modifier = Modifier) 
     }
 }
 
-/** כרזה גדולה באמצע המסך (תחילת גל, סוף גל) */
+/** כרזה גדולה באמצע המסך (תחילת גל, סוף גל). משתמשת בתמונות הבאנר; כותרת לא מוכרת חוזרת לטקסט */
 @Composable
 fun ArenaBanner(title: String, subtitle: String?, modifier: Modifier = Modifier) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .background(Color.Black.copy(alpha = 0.55f))
-            .padding(horizontal = 36.dp, vertical = 14.dp)
-    ) {
-        Text(
-            text = title,
-            color = Color(0xFFFFEB3B),
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold
-        )
-        if (subtitle != null) {
+    val waveNumber = if (title.startsWith("WAVE ") && title != "WAVE CLEAR!") title.removePrefix("WAVE ").trim().toIntOrNull() else null
+    val bannerRes = when {
+        waveNumber != null -> com.arsniper.R.drawable.banner_wave
+        title == "BOSS!" -> com.arsniper.R.drawable.banner_boss
+        title == "WAVE CLEAR!" -> com.arsniper.R.drawable.banner_clear
+        title == "ENRAGED!" -> com.arsniper.R.drawable.banner_enraged
+        else -> null
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        if (bannerRes != null) {
+            val bannerW = 300.dp
+            val k = bannerW.value / 481f   // סקאלה לפי באנר ה-WAVE (481 פיקסלים רוחב)
+            Box(modifier = Modifier.width(bannerW)) {
+                Image(
+                    painter = androidx.compose.ui.res.painterResource(bannerRes),
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (waveNumber != null) {
+                    // החלון הריק של הבאנר: x 315-416, y 61-141 (בפיקסלים של התמונה)
+                    val digits = waveNumber.toString().map { it - '0' }
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .offset(x = (315 * k).dp, y = (61 * k).dp)
+                            .width((101 * k).dp)
+                            .height((80 * k).dp)
+                    ) {
+                        for (d in digits) {
+                            Image(
+                                painter = androidx.compose.ui.res.painterResource(LabelArt.goldRes(d)),
+                                contentDescription = null,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                                modifier = Modifier
+                                    .height((70 * k).dp)
+                                    .width((if (digits.size > 1) 44 * k else 60 * k).dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
             Text(
-                text = subtitle,
-                color = Color.White,
-                fontSize = 20.sp,
+                text = title,
+                color = Color(0xFFFFEB3B),
+                fontSize = 48.sp,
                 fontWeight = FontWeight.Bold
+            )
+        }
+        if (subtitle != null) {
+            OutlinedText(
+                text = subtitle,
+                fontSize = 14.sp,
+                color = Color.White
             )
         }
     }

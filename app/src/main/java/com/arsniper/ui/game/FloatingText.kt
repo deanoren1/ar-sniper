@@ -31,6 +31,7 @@ class Floater(
 @Composable
 fun FloatingTextLayer(floaters: List<Floater>, nowNanos: Long, modifier: Modifier = Modifier) {
     val labelImages = LabelArt.load()
+    val digitImages = LabelArt.loadDigits()
     Canvas(modifier = modifier.fillMaxSize()) {
         for (f in floaters) {
             val age = (nowNanos - f.bornNanos) / 1e9f
@@ -48,6 +49,27 @@ fun FloatingTextLayer(floaters: List<Floater>, nowNanos: Long, modifier: Modifie
                     dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()),
                     alpha = (1f - p * p).coerceIn(0f, 1f)
                 )
+                continue
+            }
+            val keys = LabelArt.scoreKeys(f.text)
+            if (keys != null) {
+                val gh = size.height * (if (f.big) 0.085f else 0.06f)
+                val imgs = keys.mapNotNull { digitImages[it] }
+                val gap = gh * 0.04f
+                var total = -gap
+                for (im2 in imgs) total += gh * im2.width / im2.height + gap
+                var gx = cx - total / 2f
+                val fade = (1f - p * p).coerceIn(0f, 1f)
+                for (im2 in imgs) {
+                    val gw = gh * im2.width / im2.height
+                    drawImage(
+                        im2,
+                        dstOffset = androidx.compose.ui.unit.IntOffset(gx.toInt(), (cy - gh / 2f).toInt()),
+                        dstSize = androidx.compose.ui.unit.IntSize(gw.toInt(), gh.toInt()),
+                        alpha = fade
+                    )
+                    gx += gw + gap
+                }
                 continue
             }
             val textSize = size.height * (if (f.big) 0.075f else 0.05f)

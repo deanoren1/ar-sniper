@@ -80,7 +80,7 @@ fun PlayScreen(
         }
     }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             busy = true
             failed = false
@@ -154,7 +154,7 @@ fun PlayScreen(
                     )
                     GameButton(
                         text = if (busy) "LOADING..." else "FROM GALLERY",
-                        onClick = { picker.launch(arrayOf("image/*")) },
+                        onClick = { picker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                         style = GameButtonStyle.Secondary,
                         icon = GameIcon.Photo,
                         enabled = !busy,
