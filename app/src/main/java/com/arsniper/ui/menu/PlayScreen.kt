@@ -103,11 +103,11 @@ fun PlayScreen(
         )
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                OutlinedText("PLAY", fontSize = (ui.factor * 50f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
+                com.arsniper.ui.components.GradientTitle("PLAY", fontSize = (ui.factor * 50f).sp)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(54f))
                 Spacer(Modifier.weight(1f))
-                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
+                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds, modifier = Modifier.offset(y = ui.dp(10f)))
             }
             }
             Spacer(Modifier.height(ui.dp(14f)))

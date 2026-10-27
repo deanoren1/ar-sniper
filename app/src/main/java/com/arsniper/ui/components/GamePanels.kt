@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -146,7 +148,7 @@ fun ScreenHeader(
     trailing: @Composable () -> Unit = {}
 ) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        OutlinedText(title, fontSize = 38.sp, color = GameColors.Yellow, letterSpacing = 1.sp)
+        GradientTitle(title, fontSize = 38.sp)
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             if (onBack != null) {
                 GameIconButton(GameIcon.Back, onClick = onBack, style = com.arsniper.ui.theme.GameButtonStyle.Primary, size = 56.dp)
@@ -154,7 +156,7 @@ fun ScreenHeader(
                 Spacer(Modifier.width(56.dp))
             }
             Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.offset(y = 10.dp)) {
                 trailing()
             }
         }
@@ -342,6 +344,23 @@ fun MenuBackdrop() {
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw, pathEffect = round)
                 )
             }
+            // זוהר רך מתחת לקו, לכל אורכו, וחזק יותר מתחת לכותרת
+            for ((dy, sw, a) in listOf(Triple(5f, 18f, 0.10f), Triple(11f, 30f, 0.06f))) {
+                translate(0f, dy) {
+                    drawPath(
+                        line, Color(0xFF2AA8FF).copy(alpha = a),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw, pathEffect = round)
+                    )
+                }
+            }
+            drawRect(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(Color(0x662AA8FF), Color.Transparent),
+                    startY = yy(0.131f), endY = yy(0.131f) + hgt * 0.05f
+                ),
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.345f, yy(0.131f)),
+                size = androidx.compose.ui.geometry.Size(w * 0.31f, hgt * 0.05f)
+            )
             drawPath(
                 line, Color(0xFF6FD3FF),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f, pathEffect = round)

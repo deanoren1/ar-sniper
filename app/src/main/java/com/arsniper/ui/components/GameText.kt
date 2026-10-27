@@ -59,3 +59,37 @@ fun OutlinedText(
         )
     }
 }
+
+
+/** כותרת מסך: מילוי מדורג (צהוב בהיר למעלה, כתום למטה), מתאר כהה עבה וזוהר זהוב מתחת */
+@Composable
+fun GradientTitle(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 40.sp, letterSpacing: TextUnit = 1.sp) {
+    Box(modifier = modifier) {
+        // זוהר רך מאחור
+        Text(
+            text = text, fontSize = fontSize, fontFamily = GameType.Family, fontWeight = GameType.Heavy, letterSpacing = letterSpacing,
+            style = LocalTextStyle.current.merge(TextStyle(
+                color = Color(0xFFFFB300),
+                shadow = Shadow(Color(0xFFFFA000).copy(alpha = 0.85f), Offset(0f, 6f), 28f)
+            ))
+        )
+        // מתאר כהה
+        Text(
+            text = text, fontSize = fontSize, fontFamily = GameType.Family, fontWeight = GameType.Heavy, letterSpacing = letterSpacing,
+            style = LocalTextStyle.current.merge(TextStyle(
+                color = Color(0xFF3A1A00),
+                drawStyle = Stroke(width = 9f, join = StrokeJoin.Round),
+                shadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 6f), 5f)
+            ))
+        )
+        // מילוי מדורג
+        Text(
+            text = text, fontSize = fontSize, fontFamily = GameType.Family, fontWeight = GameType.Heavy, letterSpacing = letterSpacing,
+            style = LocalTextStyle.current.merge(TextStyle(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(Color(0xFFFFF3A0), Color(0xFFFFD21F), Color(0xFFFF9A00))
+                )
+            ))
+        )
+    }
+}
