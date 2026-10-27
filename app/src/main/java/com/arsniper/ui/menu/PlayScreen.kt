@@ -111,13 +111,13 @@ fun PlayScreen(
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds, modifier = Modifier.offset(y = ui.dp(10f)))
             }
             }
-            Spacer(Modifier.height(ui.dp(14f)))
+            Spacer(Modifier.height(ui.dp(22f)))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(ui.dp(14f)),
                 modifier = Modifier.fillMaxSize()
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(ui.dp(12f)),
+                    verticalArrangement = Arrangement.spacedBy(ui.dp(8f)),
                     modifier = Modifier.width(ui.dp(290f))
                 ) {
                     GameButton(
@@ -125,8 +125,8 @@ fun PlayScreen(
                         onClick = onTakePhoto,
                         icon = GameIcon.Photo,
                         enabled = !busy,
-                        height = ui.dp(68f),
-                        fontSize = (ui.factor * 29f).sp,
+                        height = ui.dp(58f),
+                        fontSize = (ui.factor * 24f).sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     GameButton(
@@ -135,8 +135,8 @@ fun PlayScreen(
                         style = GameButtonStyle.Secondary,
                         icon = GameIcon.Gallery,
                         enabled = !busy,
-                        height = ui.dp(68f),
-                        fontSize = (ui.factor * 29f).sp,
+                        height = ui.dp(58f),
+                        fontSize = (ui.factor * 24f).sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     GameButton(
@@ -145,13 +145,13 @@ fun PlayScreen(
                         icon = GameIcon.Play,
                         style = GameButtonStyle.Success,
                         enabled = saved.isNotEmpty() && !busy,
-                        height = ui.dp(68f),
-                        fontSize = (ui.factor * 29f).sp,
+                        height = ui.dp(58f),
+                        fontSize = (ui.factor * 24f).sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedText(
                         "Quick game: a random saved photo and arena.\nShoot a NEW photo for a coin bonus!",
-                        fontSize = (ui.factor * 14f).sp,
+                        fontSize = (ui.factor * 12f).sp,
                         color = Color(0xFFC8D4F0),
                         outline = null
                     )
@@ -223,7 +223,7 @@ fun PlayScreen(
                         verticalArrangement = Arrangement.spacedBy(ui.dp(8f)),
                         modifier = Modifier.padding(ui.dp(14f))
                     ) {
-                        OutlinedText("DELETE PHOTO?", fontSize = (ui.factor * 29f).sp)
+                        OutlinedText("DELETE PHOTO?", fontSize = (ui.factor * 24f).sp)
                         if (thumb != null) {
                             Image(
                                 bitmap = thumb, contentDescription = null, contentScale = ContentScale.Crop,

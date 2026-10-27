@@ -321,16 +321,16 @@ fun MenuBackdrop() {
             // קו מפריד עם שתי מדרגות וקו נמוך זוהר מתחת לכותרת (כמו בדוגמה)
             fun yy(f: Float) = hgt * f
             val line = androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f, yy(0.117f))
-                lineTo(w * 0.245f, yy(0.117f))
-                lineTo(w * 0.268f, yy(0.092f))
-                lineTo(w * 0.320f, yy(0.092f))
-                lineTo(w * 0.345f, yy(0.131f))
-                lineTo(w * 0.655f, yy(0.131f))
-                lineTo(w * 0.680f, yy(0.092f))
-                lineTo(w * 0.725f, yy(0.092f))
-                lineTo(w * 0.742f, yy(0.115f))
-                lineTo(w, yy(0.115f))
+                moveTo(0f, yy(0.185f))
+                lineTo(w * 0.245f, yy(0.185f))
+                lineTo(w * 0.268f, yy(0.152f))
+                lineTo(w * 0.320f, yy(0.152f))
+                lineTo(w * 0.345f, yy(0.205f))
+                lineTo(w * 0.655f, yy(0.205f))
+                lineTo(w * 0.680f, yy(0.152f))
+                lineTo(w * 0.725f, yy(0.152f))
+                lineTo(w * 0.742f, yy(0.182f))
+                lineTo(w, yy(0.182f))
             }
             val above = androidx.compose.ui.graphics.Path().apply {
                 addPath(line)
@@ -356,9 +356,9 @@ fun MenuBackdrop() {
             drawRect(
                 brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                     listOf(Color(0x662AA8FF), Color.Transparent),
-                    startY = yy(0.131f), endY = yy(0.131f) + hgt * 0.05f
+                    startY = yy(0.205f), endY = yy(0.205f) + hgt * 0.05f
                 ),
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.345f, yy(0.131f)),
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.345f, yy(0.205f)),
                 size = androidx.compose.ui.geometry.Size(w * 0.31f, hgt * 0.05f)
             )
             drawPath(
