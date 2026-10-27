@@ -108,6 +108,8 @@ object PanoramaStitcher {
         if (rawFrames.isEmpty()) return null
         // תיקון קטן של הזוויות לפי התמונות עצמן (החיישן סוטה קצת ואין עין מושלמת)
         val frames = try { refine(rawFrames, hFov) } catch (e: Throwable) { rawFrames }
+        // איזון חשיפה בין תמונות סמוכות: מסיר קפיצות בהירות/צבע בתפרים
+        val gains = try { exposureGains(frames, hFov) } catch (e: Throwable) { FloatArray(frames.size * 3) { 1f } }
         val w = frames[0].w
         val h = frames[0].h
         val radius = (w / 2f) / tan(hFov / 2f)
@@ -129,7 +131,8 @@ object PanoramaStitcher {
             java.util.Arrays.fill(accR, 0f); java.util.Arrays.fill(accG, 0f)
             java.util.Arrays.fill(accB, 0f); java.util.Arrays.fill(accW, 0f)
             val theta = thetaMin + x / radius
-            for (f in frames) {
+            for ((fi, f) in frames.withIndex()) {
+                val gR = gains[fi * 3]; val gG = gains[fi * 3 + 1]; val gB = gains[fi * 3 + 2]
                 val d = wrapAngle(theta - f.phi)
                 if (abs(d) >= half) continue
                 val xs = w / 2f + radius * tan(d)
@@ -157,7 +160,7 @@ object PanoramaStitcher {
                     val r = ch(p00, 16) * a + ch(p10, 16) * b + ch(p01, 16) * c + ch(p11, 16) * e
                     val g = ch(p00, 8) * a + ch(p10, 8) * b + ch(p01, 8) * c + ch(p11, 8) * e
                     val bl = ch(p00, 0) * a + ch(p10, 0) * b + ch(p01, 0) * c + ch(p11, 0) * e
-                    accR[y] += r * weight; accG[y] += g * weight; accB[y] += bl * weight; accW[y] += weight
+                    accR[y] += r * gR * weight; accG[y] += g * gG * weight; accB[y] += bl * gB * weight; accW[y] += weight
                 }
             }
             for (y in 0 until hp) {
@@ -187,6 +190,57 @@ object PanoramaStitcher {
         return Result(bmp, radius)
     }
 
+
+    /**
+     * מקדמי חשיפה לכל תמונה (R,G,B): משווים את הבהירות הממוצעת באזור החפיפה עם התמונה הקודמת
+     * ומכפילים בהתאם, ואז מנרמלים כך שהממוצע הכללי נשאר כמו בצילום.
+     */
+    private fun exposureGains(frames: List<PanoFrame>, hFov: Float): FloatArray {
+        val n = frames.size
+        val g = FloatArray(n * 3) { 1f }
+        if (n < 2) return g
+        val w = frames[0].w
+        val h = frames[0].h
+        val half = hFov / 2f
+        val radius = (w / 2f) / tan(half)
+        for (i in 1 until n) {
+            val a = frames[i - 1]; val b = frames[i]
+            val d0 = wrapAngle(b.phi - a.phi)
+            if (abs(d0) >= half * 1.7f) { for (c in 0..2) g[i * 3 + c] = g[(i - 1) * 3 + c]; continue }
+            val t0 = if (d0 > 0f) b.phi - half * 0.85f else a.phi - half * 0.85f
+            val t1 = if (d0 > 0f) a.phi + half * 0.85f else b.phi + half * 0.85f
+            val lo = minOf(t0, t1); val hi = maxOf(t0, t1)
+            if (hi - lo < 0.05f) { for (c in 0..2) g[i * 3 + c] = g[(i - 1) * 3 + c]; continue }
+            val sa = DoubleArray(3); val sb = DoubleArray(3)
+            var cnt = 0
+            val steps = 40
+            for (si in 0 until steps) {
+                val theta = a.phi + (lo - a.phi) + (hi - lo) * si / steps
+                val xa = (w / 2f + radius * tan(wrapAngle(theta - a.phi))).toInt()
+                val xb = (w / 2f + radius * tan(wrapAngle(theta - b.phi))).toInt()
+                if (xa !in 0 until w || xb !in 0 until w) continue
+                var row = (h * 0.25f).toInt()
+                while (row < (h * 0.75f).toInt()) {
+                    val pa = a.pixels[row * w + xa]; val pb = b.pixels[row * w + xb]
+                    sa[0] += ((pa shr 16) and 0xFF).toDouble(); sa[1] += ((pa shr 8) and 0xFF).toDouble(); sa[2] += (pa and 0xFF).toDouble()
+                    sb[0] += ((pb shr 16) and 0xFF).toDouble(); sb[1] += ((pb shr 8) and 0xFF).toDouble(); sb[2] += (pb and 0xFF).toDouble()
+                    cnt++
+                    row += 3
+                }
+            }
+            for (c in 0..2) {
+                val ratio = if (cnt > 50 && sb[c] > 1.0) (sa[c] * g[(i - 1) * 3 + c] / sb[c]).toFloat() else g[(i - 1) * 3 + c]
+                g[i * 3 + c] = ratio.coerceIn(0.6f, 1.6f)
+            }
+        }
+        for (c in 0..2) {
+            var mean = 0f
+            for (i in 0 until n) mean += g[i * 3 + c]
+            mean /= n
+            if (mean > 0.01f) for (i in 0 until n) g[i * 3 + c] = (g[i * 3 + c] / mean).coerceIn(0.5f, 2f)
+        }
+        return g
+    }
 
     /**
      * מתקן את הזווית והגובה של כל תמונה לפי התמונה הקודמת: משווים את אזור החפיפה (בגודל מוקטן, בגווני אפור)
