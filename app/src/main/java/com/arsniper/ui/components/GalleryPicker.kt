@@ -9,12 +9,14 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 
 /** מצב אחרון של הבורר (לאבחון על המסך): מה חזר מהגלריה */
 object PickerDebug {
-    var text by androidx.compose.runtime.mutableStateOf("")
+    var text: String by androidx.compose.runtime.mutableStateOf("")
 }
 
 /** בחירת תמונה מהטלפון */
