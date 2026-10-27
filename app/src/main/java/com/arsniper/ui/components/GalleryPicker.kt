@@ -1,26 +1,49 @@
 package com.arsniper.ui.components
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalContext
 
-/** בחירת תמונה מהגלריה של הטלפון */
+/** בחירת תמונה מהטלפון */
 class GalleryPicker(private val start: () -> Unit) {
     fun launch() = start()
 }
 
+private fun Context.findActivity(): Activity? {
+    var c: Context? = this
+    while (c is ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
+}
+
 /**
- * בורר הקבצים של המערכת (OpenDocument), שמסתובב עם הטלפון.
- * ניסינו את בורר התמונות המודרני ואת אפליקציית הגלריה (ACTION_PICK), ושניהם לא הסתובבו
- * כשהמשחק נעול לרוחב. onPicked מקבל את ה-Uri שנבחר.
+ * בורר התמונות של המערכת. מסך הבחירה לא מגדיר כיוון משלו, ולכן הוא מקבל את הכיוון של המשחק (רוחב בלבד).
+ * כדי שיסתובב עם הטלפון משחררים את הנעילה בזמן הבחירה, ומחזירים אותה כשחוזרים (גם בביטול).
+ * onPicked מקבל את ה-Uri שנבחר.
  */
 @Composable
 fun rememberGalleryPicker(onPicked: (Uri) -> Unit): GalleryPicker {
     val callback = rememberUpdatedState(onPicked)
-    val fallback = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val activity = LocalContext.current.findActivity()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         if (uri != null) callback.value(uri)
     }
-    return GalleryPicker { fallback.launch(arrayOf("image/*")) }
+    return GalleryPicker {
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        try {
+            launcher.launch(arrayOf("image/*"))
+        } catch (e: Exception) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+    }
 }
