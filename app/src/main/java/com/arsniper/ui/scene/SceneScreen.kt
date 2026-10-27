@@ -803,6 +803,15 @@ private fun buildSpotsLegend(spots: List<HidingSpot>): List<String> {
 /** מסך הסריקה לשחקן: תמונת טעינה, פס התקדמות וסטטוס. אין כפתורים: הסריקה ממשיכה למשחק לבד */
 @Composable
 private fun AutoScanOverlay(progress: Float, status: String, failed: Boolean) {
+    // זמני שלבים: מתי התחיל כל שלב (לפי תחילת הסטטוס), כדי לראות מה לוקח הכי הרבה זמן
+    val startMs = androidx.compose.runtime.remember { System.currentTimeMillis() }
+    val stages = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateListOf<String>() }
+    androidx.compose.runtime.LaunchedEffect(status) {
+        val name = status.substringBefore(':').substringBefore('\n').take(28)
+        val secs = (System.currentTimeMillis() - startMs) / 1000
+        val last = stages.lastOrNull()
+        if (last == null || !last.endsWith(" $name")) stages.add("${secs}s  $name")
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -815,6 +824,11 @@ private fun AutoScanOverlay(progress: Float, status: String, failed: Boolean) {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+        Column(modifier = Modifier.align(Alignment.TopStart).padding(12.dp)) {
+            for (line in stages) {
+                com.arsniper.ui.components.OutlinedText(line, fontSize = 10.sp, color = Color.White, outlineWidth = 4f)
+            }
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
