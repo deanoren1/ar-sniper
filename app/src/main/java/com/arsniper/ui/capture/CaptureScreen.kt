@@ -86,6 +86,10 @@ import com.arsniper.data.PhotoRepository
 
 private const val TAG = "CaptureScreen"
 
+/** הטיה (מעלות) שמעליה מתריעים, והטיה שמעליה לא מצלמים פריים */
+private const val PANO_WARN_TILT_DEG = 10f
+private const val PANO_MAX_TILT_DEG = 20f
+
 @Composable
 fun CaptureScreen(
     onPhotoCaptured: () -> Unit,
@@ -285,6 +289,8 @@ private fun CameraContent(
         var panoAngle by remember { mutableStateOf(0f) }
         var panoTotal by remember { mutableStateOf(1f) }
         var panoMessage by remember { mutableStateOf<String?>(null) }
+        // הטיית המצלמה למעלה/למטה (מעלות) בזמן סריקה: אם גדולה, מבקשים ליישר
+        var panoPitchDeg by remember { mutableStateOf(0f) }
         val picker = rememberGalleryPicker { uri ->
             run {
                 importing = true
@@ -333,7 +339,9 @@ private fun CameraContent(
                     unwrapped += wrapAngle(y - lastYaw)
                     lastYaw = y
                     panoAngle = unwrapped.coerceIn(0f, panoTotal)
-                    if (!pending && unwrapped >= targets[index]) {
+                    panoPitchDeg = Math.toDegrees(tracker.pitch.toDouble()).toFloat()
+                    // לא מצלמים כשהטלפון מוטה חזק: מחכים שיישרו, כדי שהתפרים יהיו נקיים
+                    if (!pending && unwrapped >= targets[index] && kotlin.math.abs(panoPitchDeg) < PANO_MAX_TILT_DEG) {
                         pending = true
                         pendingPhi = unwrapped
                         pendingPitch = tracker.pitch
@@ -396,10 +404,12 @@ private fun CameraContent(
             ) {
                 val text = when {
                     panoStitching -> "Building panorama..."
+                    panoRunning && kotlin.math.abs(panoPitchDeg) >= PANO_WARN_TILT_DEG ->
+                        if (panoPitchDeg > 0f) "Tilt down: hold the phone level (${panoPitchDeg.toInt()}\u00B0 up)" else "Tilt up: hold the phone level (${(-panoPitchDeg).toInt()}\u00B0 down)"
                     panoRunning -> "Turn slowly to the right  ${Math.toDegrees(panoAngle.toDouble()).toInt()}\u00B0 / ${Math.toDegrees(panoTotal.toDouble()).toInt()}\u00B0"
                     else -> panoMessage ?: ""
                 }
-                OutlinedText(text, fontSize = 16.sp)
+                OutlinedText(text, fontSize = 16.sp, color = if (panoRunning && kotlin.math.abs(panoPitchDeg) >= PANO_WARN_TILT_DEG) Color(0xFFFFB74D) else Color.White)
                 if (panoRunning) {
                     Spacer(Modifier.size(6.dp))
                     Box(
