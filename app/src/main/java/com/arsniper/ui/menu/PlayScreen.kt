@@ -87,7 +87,11 @@ fun PlayScreen(
             busy = true
             failed = false
             scope.launch {
-                val ok = withContext(Dispatchers.IO) { PhotoImport.importFromUri(context, uri) }
+                val ok = withContext(Dispatchers.IO) {
+                    // נשמרת מיד לספרייה (כך היא מופיעה ב-MY PHOTOS גם אם יוצאים ממסך הסקירה)
+                    PhotoImport.importFromUri(context, uri).also { if (it) PhotoLibrary.addCurrent(context) }
+                }
+                refresh++
                 busy = false
                 if (ok) onGalleryPicked() else failed = true
             }
