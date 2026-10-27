@@ -13,6 +13,7 @@ import java.io.File
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.asin
+import kotlin.math.atan
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.floor
@@ -103,8 +104,10 @@ object PanoramaStitcher {
     class Result(val bitmap: Bitmap, val radius: Float)
 
     /** מחבר את התמונות על גליל לפי הזווית שנמדדה בחיישן, עם מיזוג רך בחפיפות */
-    fun stitch(frames: List<PanoFrame>, hFov: Float, is360: Boolean): Result? {
-        if (frames.isEmpty()) return null
+    fun stitch(rawFrames: List<PanoFrame>, hFov: Float, is360: Boolean): Result? {
+        if (rawFrames.isEmpty()) return null
+        // תיקון קטן של הזוויות לפי התמונות עצמן (החיישן סוטה קצת ואין עין מושלמת)
+        val frames = try { refine(rawFrames, hFov) } catch (e: Throwable) { rawFrames }
         val w = frames[0].w
         val h = frames[0].h
         val radius = (w / 2f) / tan(hFov / 2f)
@@ -132,7 +135,9 @@ object PanoramaStitcher {
                 val xs = w / 2f + radius * tan(d)
                 if (xs < 0f || xs >= w - 1) continue
                 val cosD = cos(d)
-                val weight = 1f - abs(d) / half
+                // משקל חד: כמעט תמיד התמונה הקרובה ביותר לאמצע, כדי שלא יהיו רוחות רפאים בחפיפה
+                val lin = 1f - abs(d) / half
+                val weight = lin * lin * lin * lin * lin * lin * lin * lin + 1e-6f
                 val cy = hp / 2f - radius * tan(f.pitch)
                 val x0 = floor(xs).toInt()
                 val fx = xs - x0
@@ -180,6 +185,106 @@ object PanoramaStitcher {
         val bmp = Bitmap.createBitmap(panoW, outH, Bitmap.Config.ARGB_8888)
         bmp.setPixels(out, top * panoW, panoW, 0, 0, panoW, outH)
         return Result(bmp, radius)
+    }
+
+
+    /**
+     * מתקן את הזווית והגובה של כל תמונה לפי התמונה הקודמת: משווים את אזור החפיפה (בגודל מוקטן, בגווני אפור)
+     * ובוחרים את ההזזה הקטנה שמתאימה הכי טוב. כך הסטיות הקטנות של החיישן לא יוצרות כפילויות.
+     */
+    private fun refine(frames: List<PanoFrame>, hFov: Float): List<PanoFrame> {
+        if (frames.size < 2) return frames
+        val w = frames[0].w
+        val h = frames[0].h
+        val gw = 200
+        val sc = gw.toFloat() / w
+        val gh = (h * sc).toInt().coerceAtLeast(8)
+        val rs = (gw / 2f) / tan(hFov / 2f)
+        val half = hFov / 2f
+        // תמונות אפור מוקטנות (ממוצע בלוקים)
+        val grays = frames.map { f ->
+            val g = FloatArray(gw * gh)
+            val bx = (w.toFloat() / gw)
+            val by = (h.toFloat() / gh)
+            for (gy in 0 until gh) for (gx in 0 until gw) {
+                val x0 = (gx * bx).toInt(); val x1 = ((gx + 1) * bx).toInt().coerceAtLeast(x0 + 1).coerceAtMost(w)
+                val y0 = (gy * by).toInt(); val y1 = ((gy + 1) * by).toInt().coerceAtLeast(y0 + 1).coerceAtMost(h)
+                var sum = 0f; var n = 0
+                var yy = y0
+                while (yy < y1) {
+                    var xx = x0
+                    while (xx < x1) {
+                        val p = f.pixels[yy * w + xx]
+                        sum += 0.299f * ((p shr 16) and 0xFF) + 0.587f * ((p shr 8) and 0xFF) + 0.114f * (p and 0xFF)
+                        n++; xx++
+                    }
+                    yy++
+                }
+                g[gy * gw + gx] = if (n > 0) sum / n else 0f
+            }
+            g
+        }
+        val phis = FloatArray(frames.size) { frames[it].phi }
+        val pitches = FloatArray(frames.size) { frames[it].pitch }
+
+        fun sample(g: FloatArray, theta: Float, phi: Float, cyRow: Float, y: Float): Float {
+            val d = wrapAngle(theta - phi)
+            if (abs(d) >= half * 0.98f) return Float.NaN
+            val xs = gw / 2f + rs * tan(d)
+            val ys = gh / 2f + (y - cyRow) / cos(d)
+            if (xs < 0f || xs >= gw - 1 || ys < 0f || ys >= gh - 1) return Float.NaN
+            val x0 = floor(xs).toInt(); val y0 = floor(ys).toInt()
+            val fx = xs - x0; val fy = ys - y0
+            val a = g[y0 * gw + x0]; val b = g[y0 * gw + x0 + 1]
+            val c = g[(y0 + 1) * gw + x0]; val e = g[(y0 + 1) * gw + x0 + 1]
+            return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + e * fx) * fy
+        }
+
+        for (i in 1 until frames.size) {
+            val d0 = wrapAngle(phis[i] - phis[i - 1])
+            if (abs(d0) >= half * 1.7f) continue
+            val tStart = phis[i - 1] + (if (d0 > 0f) d0 - half * 0.85f else -half * 0.85f)
+            val tEnd = phis[i - 1] + (if (d0 > 0f) half * 0.85f else d0 + half * 0.85f)
+            if (tEnd - tStart < 0.1f) continue
+            val steps = ((tEnd - tStart) * rs).toInt().coerceIn(10, 160)
+            val rowsFrom = (gh * 0.25f).toInt()
+            val rowsTo = (gh * 0.75f).toInt()
+            val cyPrev = gh / 2f - rs * tan(pitches[i - 1])
+            val cyCur = gh / 2f - rs * tan(pitches[i])
+            var bestCost = Float.MAX_VALUE
+            var bestDx = 0; var bestDy = 0
+            var cost0 = Float.MAX_VALUE
+            for (dy in -14..14) for (dx in -14..14) {
+                var sum = 0f; var n = 0
+                val phiTry = phis[i] + dx / rs
+                val cyTry = cyCur + dy
+                var si = 0
+                while (si < steps) {
+                    val theta = tStart + (tEnd - tStart) * si / steps
+                    var row = rowsFrom
+                    while (row < rowsTo) {
+                        val y = row.toFloat()
+                        val a = sample(grays[i - 1], theta, phis[i - 1], cyPrev, y)
+                        val b = sample(grays[i], theta, phiTry, cyTry, y)
+                        if (!a.isNaN() && !b.isNaN()) {
+                            val diff = a - b
+                            sum += diff * diff; n++
+                        }
+                        row += 2
+                    }
+                    si += 2
+                }
+                if (n < 150) continue
+                val cost = sum / n
+                if (dx == 0 && dy == 0) cost0 = cost
+                if (cost < bestCost) { bestCost = cost; bestDx = dx; bestDy = dy }
+            }
+            if (cost0 < Float.MAX_VALUE && bestCost < cost0 * 0.92f && (bestDx != 0 || bestDy != 0)) {
+                phis[i] += bestDx / rs
+                pitches[i] = atan(tan(pitches[i]) - bestDy / rs)
+            }
+        }
+        return frames.mapIndexed { i, f -> PanoFrame(f.pixels, f.w, f.h, phis[i], pitches[i]) }
     }
 
     private fun ch(p: Int, shift: Int): Float = ((p shr shift) and 0xFF).toFloat()
