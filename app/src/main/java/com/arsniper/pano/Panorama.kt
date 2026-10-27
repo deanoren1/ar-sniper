@@ -30,6 +30,8 @@ class HeadingTracker(context: Context) : SensorEventListener {
 
     @Volatile var yaw = 0f
     @Volatile var pitch = 0f
+    /** הטיית האופק (גלגול) של הטלפון ברדיאנים: רכיב ה"למעלה" של ציר ה-y של המכשיר */
+    @Volatile var roll = 0f
     @Volatile var ready = false
 
     val available: Boolean get() = sensor != null
@@ -53,6 +55,7 @@ class HeadingTracker(context: Context) : SensorEventListener {
         val up = -rotation[8]
         yaw = atan2(east, north)
         pitch = asin(up.coerceIn(-1f, 1f))
+        roll = asin(rotation[7].coerceIn(-1f, 1f))
         ready = true
     }
 

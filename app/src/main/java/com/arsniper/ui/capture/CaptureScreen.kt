@@ -90,6 +90,10 @@ private const val TAG = "CaptureScreen"
 private const val PANO_WARN_TILT_DEG = 10f
 private const val PANO_MAX_TILT_DEG = 20f
 
+/** הטיית אופק (גלגול): מעל הסף הראשון מציגים הנחיה, ומעל השני לא מצלמים */
+private const val PANO_WARN_ROLL_DEG = 4f
+private const val PANO_MAX_ROLL_DEG = 12f
+
 @Composable
 fun CaptureScreen(
     onPhotoCaptured: () -> Unit,
@@ -291,6 +295,8 @@ private fun CameraContent(
         var panoMessage by remember { mutableStateOf<String?>(null) }
         // הטיית המצלמה למעלה/למטה (מעלות) בזמן סריקה: אם גדולה, מבקשים ליישר
         var panoPitchDeg by remember { mutableStateOf(0f) }
+        var panoRollDeg by remember { mutableStateOf(0f) }
+        val displayRotation = androidx.compose.ui.platform.LocalView.current.display?.rotation ?: android.view.Surface.ROTATION_90
         val picker = rememberGalleryPicker { uri ->
             run {
                 importing = true
@@ -340,8 +346,9 @@ private fun CameraContent(
                     lastYaw = y
                     panoAngle = unwrapped.coerceIn(0f, panoTotal)
                     panoPitchDeg = Math.toDegrees(tracker.pitch.toDouble()).toFloat()
+                    panoRollDeg = Math.toDegrees(tracker.roll.toDouble()).toFloat()
                     // לא מצלמים כשהטלפון מוטה חזק: מחכים שיישרו, כדי שהתפרים יהיו נקיים
-                    if (!pending && unwrapped >= targets[index] && kotlin.math.abs(panoPitchDeg) < PANO_MAX_TILT_DEG) {
+                    if (!pending && unwrapped >= targets[index] && kotlin.math.abs(panoPitchDeg) < PANO_MAX_TILT_DEG && kotlin.math.abs(panoRollDeg) < PANO_MAX_ROLL_DEG) {
                         pending = true
                         pendingPhi = unwrapped
                         pendingPitch = tracker.pitch
@@ -428,6 +435,25 @@ private fun CameraContent(
                         )
                     }
                 }
+            }
+        }
+
+        // מדריך יישור בזמן סריקה: V ירוק כשהטלפון ישר, X עם חץ כשהוא מוטה לצד
+        if (panoRunning) {
+            val rollSigned = if (displayRotation == android.view.Surface.ROTATION_270) -panoRollDeg else panoRollDeg
+            val level = kotlin.math.abs(panoRollDeg) < PANO_WARN_ROLL_DEG && kotlin.math.abs(panoPitchDeg) < PANO_WARN_TILT_DEG
+            val res = when {
+                kotlin.math.abs(panoRollDeg) >= PANO_WARN_ROLL_DEG ->
+                    if (rollSigned > 0f) com.arsniper.R.drawable.lvl_left else com.arsniper.R.drawable.lvl_right
+                level -> com.arsniper.R.drawable.lvl_ok
+                else -> null
+            }
+            if (res != null) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(res),
+                    contentDescription = null,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp).height(96.dp)
+                )
             }
         }
 
