@@ -418,8 +418,8 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     companion object {
         const val MAX_HEARTS = 3
         const val REVIVE_HEARTS = 2
-        const val INTRO_SECONDS = 2.2f
-        const val CLEAR_SECONDS = 3.0f
+        const val INTRO_SECONDS = 1.4f
+        const val CLEAR_SECONDS = 1.8f
 
         /** מרווח מינימלי בין יצירת מפלצות, כדי שלא ייכנסו כולן בבת אחת */
         const val SPAWN_GAP_SECONDS = 0.8f

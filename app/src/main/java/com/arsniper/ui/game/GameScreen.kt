@@ -536,7 +536,7 @@ fun GameScreen(
                 x = shotPos.x,
                 y = shotPos.y,
                 kind = AccessoryKind.Gem,
-                label = "BLOCK!",
+                label = "",
                 radius = fire.currentRadius(shot) * 1.5f,
                 bornNanos = frameNanos
             )

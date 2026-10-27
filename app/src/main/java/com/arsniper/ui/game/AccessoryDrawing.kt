@@ -276,7 +276,7 @@ fun EffectsLayer(blasts: List<Blast>, nowNanos: Long, modifier: Modifier = Modif
             val textY = cy - maxR * 0.3f - p * size.height * 0.12f
             val alpha = (255f * (1f - p * p)).toInt().coerceIn(0, 255)
             val art = labelImages[blast.label]
-            if (blast.label != "BLOCK!") continue
+            if (blast.label.isEmpty()) continue
             if (art != null) {
                 val w = size.height * LabelArt.widthFor(blast.label) * (0.85f + 0.3f * min(1f, p * 6f))
                 val h = w * art.height / art.width

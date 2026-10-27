@@ -10,7 +10,7 @@ import com.arsniper.game.engine.ShotKind
 
 /** שתי גרסאות לאותו קליע: קטנה ופשוטה (מרחוק) ומפותחת (מקרוב) */
 /** ירייה עם שובל אלכסוני (השובל לימין-למעלה). cx,cy = מרכז הכדור בתמונה, dia = קוטרו, בפיקסלים של התמונה */
-class SideSprite(val image: ImageBitmap, val cx: Float, val cy: Float, val dia: Float)
+class SideSprite(val image: ImageBitmap, val cx: Float, val cy: Float, val dia: Float, val trailDeg: Float)
 
 class ShotPair(val small: ImageBitmap?, val big: ImageBitmap?, val side: SideSprite? = null) {
     /** צבע הזוהר: ממוצע הפיקסלים הרוויים בציור עצמו, כך שהזוהר תמיד תואם את הגרסה (כחול, זהוב, ירוק...) */
@@ -57,12 +57,12 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
 
         /** מרכז הכדור (x, y) וקוטרו בתמונות shot_<סוג>_side */
         private val SIDE_ANCHORS = mapOf(
-            "bomb" to floatArrayOf(69.2f, 57.3f, 88.7f),
-            "orb" to floatArrayOf(74.1f, 72.1f, 114.8f),
-            "gas" to floatArrayOf(81.0f, 72.5f, 112.0f),
-            "rock" to floatArrayOf(95.2f, 72.0f, 113.9f),
-            "spike" to floatArrayOf(92.1f, 71.4f, 140.3f),
-            "fire" to floatArrayOf(85.8f, 75.0f, 134.2f)
+            "bomb" to floatArrayOf(69.2f, 57.3f, 88.7f, -12.7f),
+            "orb" to floatArrayOf(74.1f, 72.1f, 114.8f, -36.2f),
+            "gas" to floatArrayOf(81.0f, 72.5f, 112.0f, -31.3f),
+            "rock" to floatArrayOf(95.2f, 72.0f, 113.9f, -37.8f),
+            "spike" to floatArrayOf(92.1f, 71.4f, 140.3f, -24.7f),
+            "fire" to floatArrayOf(85.8f, 75.0f, 134.2f, -24.0f)
         )
 
         private fun decode(context: Context, name: String): ImageBitmap? {
@@ -84,7 +84,7 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
                 val small = decode(context, "shot_${name}_${variant}_small")
                 val big = decode(context, "shot_${name}_${variant}_big")
                 val side = if (alt) null else SIDE_ANCHORS[name]?.let { a ->
-                    decode(context, "shot_${name}_side")?.let { SideSprite(it, a[0], a[1], a[2]) }
+                    decode(context, "shot_${name}_side")?.let { SideSprite(it, a[0], a[1], a[2], a[3]) }
                 }
                 if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side)
             }

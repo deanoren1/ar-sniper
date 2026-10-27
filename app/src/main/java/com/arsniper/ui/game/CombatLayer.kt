@@ -180,7 +180,8 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float, sprites
     }
 
     // טבעת אזהרה: מתחילה גדולה ומתכווצת עד שהיא פוגשת את הקליע, ברגע הפגיעה. בסוף מהבהבת באדום
-    val ringRadius = full * (1f + 1.4f * (1f - p))
+    // לקליע מציור: הטבעת צמודה לציור (רק קצת גדולה בתחילת הדרך), כדי שהגודל יתאים
+    val ringRadius = if (pair != null) r * 1.15f * (1f + 0.5f * (1f - p)) else full * (1f + 1.4f * (1f - p))
     val urgent = p > 0.7f && (time * 10f).toInt() % 2 == 0
     drawCircle(
         color = if (urgent) Color(0xFFFF1744) else Color.White.copy(alpha = 0.9f),
@@ -272,12 +273,23 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         val w = (sp.image.width * k).toInt().coerceAtLeast(1)
         val h = (sp.image.height * k).toInt().coerceAtLeast(1)
         val flip = if (side < 0f) -1f else 1f
-        withTransform({ scale(flip, 1f, center) }) {
-            drawImage(
-                sp.image,
-                dstOffset = androidx.compose.ui.unit.IntOffset((center.x - sp.cx * k).toInt(), (center.y - sp.cy * k).toInt()),
-                dstSize = androidx.compose.ui.unit.IntSize(w, h)
-            )
+        // השובל מצביע אחורה, לכיוון שממנו הגיע הקליע בפועל (לפי קו הטיסה על המסך)
+        val backX = (s.x - Shot.TARGET_X) * size.width
+        val backY = (s.y - Shot.TARGET_Y) * size.height
+        val wanted = Math.toDegrees(kotlin.math.atan2(backY, backX).toDouble()).toFloat()
+        val native = if (flip < 0f) 180f - sp.trailDeg else sp.trailDeg
+        var turn = wanted - native
+        while (turn > 180f) turn -= 360f
+        while (turn < -180f) turn += 360f
+        turn = turn.coerceIn(-60f, 60f)
+        rotate(turn, center) {
+            withTransform({ scale(flip, 1f, center) }) {
+                drawImage(
+                    sp.image,
+                    dstOffset = androidx.compose.ui.unit.IntOffset((center.x - sp.cx * k).toInt(), (center.y - sp.cy * k).toInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(w, h)
+                )
+            }
         }
         if (s.hp < s.maxHp) {
             drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
