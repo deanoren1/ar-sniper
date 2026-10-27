@@ -41,6 +41,15 @@ private fun Modifier.buttonSurface(style: GameButtonStyle, corner: Dp, ledge: Dp
         val ledgePx = ledge.toPx()
         val drop = if (pressed) ledgePx * 0.7f else 0f
         val bodyHeight = size.height - ledgePx
+        // הילה רכה בצבע הכפתור סביב הגוף
+        if (!pressed) {
+            for ((sw, a) in listOf(9f to 0.10f, 5f to 0.16f, 2.5f to 0.24f)) {
+                drawRoundRect(
+                    style.top.copy(alpha = a), Offset(0f, 0f), Size(size.width, bodyHeight), CornerRadius(radius),
+                    style = Stroke(width = sw.dp.toPx())
+                )
+            }
+        }
         // צל תחתון
         drawRoundRect(
             style.ledge, Offset(0f, ledgePx), Size(size.width, bodyHeight), CornerRadius(radius)
@@ -60,10 +69,17 @@ private fun Modifier.buttonSurface(style: GameButtonStyle, corner: Dp, ledge: Dp
             Size(size.width * 0.92f, bodyHeight * 0.44f),
             CornerRadius(radius * 0.8f)
         )
-        // קו מתאר
+        // קו פנימי בהיר דק (ברק על הקצה)
+        val rim = 1.5.dp.toPx()
         drawRoundRect(
-            GameColors.Outline, Offset(0f, drop), Size(size.width, bodyHeight), CornerRadius(radius),
-            style = Stroke(width = 3.dp.toPx())
+            Color.White.copy(alpha = 0.35f), Offset(rim, drop + rim), Size(size.width - 2 * rim, bodyHeight - 2 * rim),
+            CornerRadius((radius - rim).coerceAtLeast(1f)), style = Stroke(width = 1.dp.toPx())
+        )
+        // קו מתאר דק בגוון כהה של צבע הכפתור (במקום מתאר שחור עבה)
+        drawRoundRect(
+            androidx.compose.ui.graphics.lerp(style.ledge, Color.Black, 0.55f),
+            Offset(0f, drop), Size(size.width, bodyHeight), CornerRadius(radius),
+            style = Stroke(width = 1.6.dp.toPx())
         )
     }
 
