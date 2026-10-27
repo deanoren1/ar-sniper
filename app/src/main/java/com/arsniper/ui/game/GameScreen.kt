@@ -606,7 +606,10 @@ fun GameScreen(
         } else {
             val result = engine.fire(p, Hover.lifted(enemies, nowSeconds()), aspect)
             when (result) {
-                is FireResult.Hit -> {
+                is FireResult.Hit -> if (Hover.isBalloonMonster(result.enemy)) {
+                    // מפלצת בלונים: הגוף חסין, רק פיצוץ בלונים פוגע בה (אזור הבלונים מטופל למעלה)
+                    combo.reset()
+                } else {
                     val target = enemies.firstOrNull { it.id == result.enemy.id }
                     val remaining = if (target == null) {
                         1
