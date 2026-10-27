@@ -19,6 +19,7 @@ import com.arsniper.game.engine.TelegraphView
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.abs
 
 /**
  * שכבת הקרב (בתוך שכבת העולם, ולכן עוברת זום ותזוזה יחד עם התמונה):
@@ -202,10 +203,48 @@ private fun glowOf(kind: ShotKind): Color = when (kind) {
  * קליע מציור: מרחוק הגרסה הקטנה והפשוטה, ובהתקרבות הגרסה המפותחת (מתמזגות באמצע הדרך).
  * סביבו זוהר בצבע הסוג, ושובל קצר שנמשך אחריו. קליעים כבדים מסתובבים לאט.
  */
-private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, center: Offset, r: Float, p: Float, time: Float) {
+private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: Float, p: Float, time: Float) {
     val color = pair.glow
     val pulse = 0.85f + 0.15f * sin(time * 9f + s.id)
     val diameter = r * 2.3f
+    // תנועה בציור בלבד (המיקום הלוגי נשאר, כדי שהקשה על הקליע תמשיך לעבוד): הסטייה קטנה מרדיוס הקליע.
+    // סלע: מסתובב במעגל קטן. כדור הקסם: ספירלה שנפתחת. האש: ריצוד צדדי. השאר ישרים.
+    val off = when (s.kind) {
+        ShotKind.Rock -> {
+            val ang = time * 4.5f + s.id
+            Offset(cos(ang), sin(ang)) * (r * 0.4f * (0.35f + 0.65f * p))
+        }
+        ShotKind.Orb -> {
+            val ang = p * 13f + s.id
+            Offset(cos(ang), sin(ang)) * (r * (0.1f + 0.45f * p))
+        }
+        ShotKind.Fire -> Offset(sin(p * 18f + s.id) * r * 0.2f, 0f)
+        else -> Offset.Zero
+    }
+    val center = base + off
+    // היורה בצד המסך: שובל זוהר מהצד שממנו הגיע. יורה מהחזית (באמצע): רק הילה וטבעת מסביב.
+    val side = ((s.x - 0.5f) * 2f).coerceIn(-1f, 1f)
+    if (abs(side) > 0.2f) {
+        val dir = if (side < 0f) -1f else 1f
+        val len = diameter * (0.9f + 1.1f * abs(side)) * (0.5f + 0.5f * p)
+        val tail = Offset(center.x + dir * len, center.y - r * 0.15f * p)
+        drawLine(
+            brush = Brush.linearGradient(
+                colors = listOf(color.copy(alpha = 0.55f), color.copy(alpha = 0f)),
+                start = center, end = tail
+            ),
+            start = center, end = tail,
+            strokeWidth = r * 1.15f,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round
+        )
+    } else {
+        drawCircle(
+            color = color.copy(alpha = 0.4f * pulse),
+            radius = diameter * (0.62f + 0.06f * pulse),
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = r * 0.14f + 1.5f)
+        )
+    }
     // צל רך מתחת: מפריד את הקליע מרקע עמוס בתמונה
     drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
     // זוהר בצבע הציור עצמו, מצומצם כדי לא ליצור כתם
