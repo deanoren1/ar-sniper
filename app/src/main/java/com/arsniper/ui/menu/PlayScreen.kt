@@ -156,7 +156,6 @@ fun PlayScreen(
                         outline = null
                     )
                     if (failed) OutlinedText("Could not open that photo\n" + com.arsniper.data.PhotoImport.lastError, fontSize = 12.sp, color = Color(0xFFFF8A80))
-                    if (com.arsniper.ui.components.PickerDebug.text.isNotEmpty()) OutlinedText(com.arsniper.ui.components.PickerDebug.text, fontSize = 9.sp, color = Color(0xFF9FB4E8), outline = null)
                 }
                 Box(
                     modifier = Modifier
@@ -168,6 +167,11 @@ fun PlayScreen(
                         )
                         .border(3.5.dp, Color(0xFF3CB4FF), RoundedCornerShape(22.dp))
                 ) {
+                    OutlinedText(
+                        com.arsniper.ui.components.PickerDebug.text + (if (failed) "  | import failed: " + com.arsniper.data.PhotoImport.lastError else ""),
+                        fontSize = 12.sp, color = Color(0xFFFFE08A), outline = null,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
+                    )
                     androidx.compose.foundation.Image(
                         painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.play_deco_photos),
                         contentDescription = null,
