@@ -9,6 +9,7 @@ import android.util.Log
 import android.util.Size
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.arsniper.ui.components.rememberGalleryPicker
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -284,8 +285,8 @@ private fun CameraContent(
         var panoAngle by remember { mutableStateOf(0f) }
         var panoTotal by remember { mutableStateOf(1f) }
         var panoMessage by remember { mutableStateOf<String?>(null) }
-        val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) {
+        val picker = rememberGalleryPicker { uri ->
+            run {
                 importing = true
                 scope.launch {
                     val ok = withContext(Dispatchers.IO) { PhotoImport.importFromUri(context, uri) }
@@ -424,7 +425,7 @@ private fun CameraContent(
             horizontalArrangement = Arrangement.spacedBy(36.dp),
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp)
         ) {
-            RoundCamButton(onClick = { if (!importing && !panoRunning) picker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+            RoundCamButton(onClick = { if (!importing && !panoRunning) picker.launch() }) {
                 IconGlyph(GameIcon.Photo, size = 28.dp, tint = Color.White)
             }
             ShutterButton(enabled = !isCapturing && !cameraError && !importing && !panoStitching) {

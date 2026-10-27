@@ -1,6 +1,7 @@
 package com.arsniper.ui.menu
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.arsniper.ui.components.rememberGalleryPicker
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -80,8 +81,8 @@ fun PlayScreen(
         }
     }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
+    val picker = rememberGalleryPicker { uri ->
+        run {
             busy = true
             failed = false
             scope.launch {
@@ -154,7 +155,7 @@ fun PlayScreen(
                     )
                     GameButton(
                         text = if (busy) "LOADING..." else "FROM GALLERY",
-                        onClick = { picker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        onClick = { picker.launch() },
                         style = GameButtonStyle.Secondary,
                         icon = GameIcon.Photo,
                         enabled = !busy,
