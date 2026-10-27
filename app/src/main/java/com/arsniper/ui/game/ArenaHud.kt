@@ -59,13 +59,12 @@ fun HeartIcon(filled: Boolean, modifier: Modifier = Modifier) {
 fun HeartsRow(hearts: Int, max: Int, modifier: Modifier = Modifier) {
     val k = 190f / 400f
     Box(modifier = modifier.size(width = 190.dp, height = 46.dp)) {
-        HudImage(com.arsniper.R.drawable.hud_hearts_pill, Modifier.fillMaxSize())
+        GlowPill(Modifier.fillMaxSize())
         for (i in 0 until max) {
             val fx = if (max <= 1) 0.5f else 0.225f + i * (0.545f / (max - 1))
-            val res = if (i < hearts) com.arsniper.R.drawable.hud_heart_red else com.arsniper.R.drawable.hud_heart_gray
-            HudImage(
-                res,
-                Modifier
+            GlowHeart(
+                filled = i < hearts,
+                modifier = Modifier
                     .size(width = (96f * k).dp, height = (75f * k).dp)
                     .offset(x = (190f * fx - 96f * k / 2f).dp, y = (23f - 75f * k / 2f).dp)
             )
@@ -80,7 +79,7 @@ fun WaveStatus(wave: Int, waves: Int, left: Int, modifier: Modifier = Modifier) 
         contentAlignment = Alignment.Center,
         modifier = modifier.size(width = 215.dp, height = 33.dp)
     ) {
-        HudImage(com.arsniper.R.drawable.hud_wave_pill, Modifier.fillMaxSize())
+        GlowPill(Modifier.fillMaxSize())
         Row {
             Text(text = "WAVE $wave/$waves  \u00B7  ", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(text = "$left left", color = Color(0xFFFFEB3B), fontSize = 15.sp, fontWeight = FontWeight.Bold)
