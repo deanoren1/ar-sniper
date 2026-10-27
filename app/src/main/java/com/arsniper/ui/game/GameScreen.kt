@@ -69,7 +69,7 @@ import kotlinx.coroutines.delay
 
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
 /** הניקוד הפנימי מחולק בעשר: כך מטבעות הם מספרים קטנים ונוחים */
-private const val COINS_DIVISOR = 10
+private const val COINS_DIVISOR = 35
 private const val NEW_ARENA_COINS = 60
 private const val NEW_ARENA_MILESTONE_GEMS = 3
 private val NEW_ARENA_MILESTONES = setOf(5, 10, 25, 50)
@@ -878,7 +878,7 @@ fun GameScreen(
             onReload = { weapon.reload() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 24.dp, bottom = 136.dp)
+                .padding(end = 22.dp, bottom = 34.dp)
         )
 
         Joystick(

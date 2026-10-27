@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -250,14 +251,21 @@ fun AmmoBar(
     onReload: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val k = 140f / 372f
+    val k = 118f / 372f
     val slots = 11
     val lit = if (reloading || ammo <= 0 || magSize <= 0) 0
         else kotlin.math.ceil(slots * ammo.toFloat() / magSize).toInt().coerceIn(1, slots)
+    // עמודה אנכית ושקופה למחצה (מתמלאת מלמטה); מצוירת כפס אופקי ומסובבת ב-90 מעלות
     Box(
+        contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(width = 140.dp, height = (90f * k).dp)
+            .size(width = (90f * k).dp, height = 118.dp)
             .clickable(onClick = onReload)
+    ) {
+    Box(
+        modifier = Modifier
+            .size(width = 118.dp, height = (90f * k).dp)
+            .graphicsLayer { rotationZ = -90f; alpha = 0.55f }
     ) {
         GlowPill(Modifier.fillMaxSize(), corner = 0.22f)
         AmmoSegments(
@@ -272,5 +280,6 @@ fun AmmoBar(
         } else if (ammo == 0) {
             Text("EMPTY", color = Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
+    }
     }
 }
