@@ -107,18 +107,46 @@ fun PlayScreen(
                 )
             )
             val w = size.width
-            val low = size.height * 0.15f
-            val high = size.height * 0.125f
-            val bar = androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f, 0f); lineTo(w, 0f); lineTo(w, low)
-                lineTo(w * 0.74f, low); lineTo(w * 0.69f, high)
-                lineTo(w * 0.31f, high); lineTo(w * 0.26f, low)
-                lineTo(0f, low); close()
+            val hgt = size.height
+            // קו מפריד עם שתי מדרגות וקו נמוך זוהר מתחת לכותרת (כמו בדוגמה)
+            fun yy(f: Float) = hgt * f
+            val line = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, yy(0.117f))
+                lineTo(w * 0.245f, yy(0.117f))
+                lineTo(w * 0.268f, yy(0.092f))
+                lineTo(w * 0.320f, yy(0.092f))
+                lineTo(w * 0.345f, yy(0.131f))
+                lineTo(w * 0.655f, yy(0.131f))
+                lineTo(w * 0.680f, yy(0.092f))
+                lineTo(w * 0.725f, yy(0.092f))
+                lineTo(w * 0.742f, yy(0.115f))
+                lineTo(w, yy(0.115f))
             }
-            drawPath(bar, Color(0xFF06143C))
+            val above = androidx.compose.ui.graphics.Path().apply {
+                addPath(line)
+                lineTo(w, 0f); lineTo(0f, 0f); close()
+            }
+            drawPath(above, Color(0xFF040F33).copy(alpha = 0.5f))
+            val round = androidx.compose.ui.graphics.PathEffect.cornerPathEffect(hgt * 0.02f)
+            for ((sw, a) in listOf(16f to 0.08f, 9f to 0.14f, 5f to 0.25f)) {
+                drawPath(
+                    line, Color(0xFF2AA8FF).copy(alpha = a),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw, pathEffect = round)
+                )
+            }
             drawPath(
-                bar, Color(0xFF2AA8FF),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
+                line, Color(0xFF6FD3FF),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f, pathEffect = round)
+            )
+            // זוהר רחב מתחת לכותרת
+            drawOval(
+                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                    listOf(Color(0x882AA8FF), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, yy(0.131f)),
+                    radius = w * 0.22f
+                ),
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.28f, yy(0.131f) - w * 0.05f),
+                size = androidx.compose.ui.geometry.Size(w * 0.44f, w * 0.1f)
             )
         }
         androidx.compose.foundation.Image(
@@ -133,7 +161,7 @@ fun PlayScreen(
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     OutlinedText("PLAY", fontSize = (ui.factor * 38f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
                 }
-                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
+                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds, flat = true)
             }
             Spacer(Modifier.height(ui.dp(14f)))
             Row(

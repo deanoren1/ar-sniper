@@ -21,7 +21,7 @@ fun HudImage(res: Int, modifier: Modifier = Modifier) {
  * תא HUD מצויר בקוד (וקטורי, חד בכל גודל): רקע כחול כהה עם מעבר, וקו תכלת זוהר עם הילה.
  */
 @Composable
-fun GlowPill(modifier: Modifier = Modifier, corner: Float = 0.5f) {
+fun GlowPill(modifier: Modifier = Modifier, corner: Float = 0.5f, flat: Boolean = false) {
     val ratio = corner
     androidx.compose.foundation.Canvas(modifier = modifier) {
         val w = size.width
@@ -31,6 +31,19 @@ fun GlowPill(modifier: Modifier = Modifier, corner: Float = 0.5f) {
         val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
         val box = androidx.compose.ui.geometry.Size(w - 2 * inset, h - 2 * inset)
         val cr = androidx.compose.ui.geometry.CornerRadius(box.height * ratio, box.height * ratio)
+        if (flat) {
+            // תא שטוח בסגנון מסכי התפריט: מילוי שקוף למחצה וקו דק, בלי הילה
+            drawRoundRect(
+                color = androidx.compose.ui.graphics.Color(0xFF0A1E5E).copy(alpha = 0.45f),
+                topLeft = topLeft, size = box, cornerRadius = cr
+            )
+            drawRoundRect(
+                color = androidx.compose.ui.graphics.Color(0xFF3F8EF0).copy(alpha = 0.9f),
+                topLeft = topLeft, size = box, cornerRadius = cr,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.3f * d)
+            )
+            return@Canvas
+        }
         // הילה חיצונית
         for ((sw, a) in listOf(9f to 0.10f, 6f to 0.16f, 3.5f to 0.30f)) {
             drawRoundRect(

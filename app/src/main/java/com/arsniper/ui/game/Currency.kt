@@ -42,21 +42,21 @@ fun DiamondIcon(size: Dp = 22.dp, modifier: Modifier = Modifier) {
 
 /** מונה מטבעות וגם יהלומים בעיצוב ה-HUD החדש: שני תאים עם האייקון שבתמונה והמספר מצויר עליהם */
 @Composable
-fun CurrencyBar(coins: Int, diamonds: Int, modifier: Modifier = Modifier) {
+fun CurrencyBar(coins: Int, diamonds: Int, modifier: Modifier = Modifier, flat: Boolean = false) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
         modifier = modifier
     ) {
-        HudCurrencyPill(true, coins)
-        HudCurrencyPill(false, diamonds)
+        HudCurrencyPill(true, coins, flat)
+        HudCurrencyPill(false, diamonds, flat)
     }
 }
 
 @Composable
-private fun HudCurrencyPill(coin: Boolean, value: Int) {
+private fun HudCurrencyPill(coin: Boolean, value: Int, flat: Boolean) {
     androidx.compose.foundation.layout.Box(modifier = Modifier.size(width = 100.dp, height = 46.dp)) {
-        GlowPill(Modifier.fillMaxSize())
+        GlowPill(Modifier.fillMaxSize(), flat = flat)
         if (coin) CoinIcon(size = 38.dp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 5.dp))
         else DiamondIcon(size = 38.dp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 5.dp))
         Text(
