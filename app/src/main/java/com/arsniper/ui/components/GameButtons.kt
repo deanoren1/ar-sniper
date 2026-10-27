@@ -113,7 +113,7 @@ fun GameButton(
             modifier = Modifier.offset(y = if (pressed && enabled) 3.dp else (-2).dp)
         ) {
             if (icon != null) {
-                IconGlyph(icon, size = height * 0.45f, tint = style.text)
+                IconGlyph(icon, size = height * 0.62f, tint = style.text)
                 Box(Modifier.width(8.dp))
             }
             OutlinedText(

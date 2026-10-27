@@ -103,9 +103,9 @@ fun PlayScreen(
         )
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                OutlinedText("PLAY", fontSize = (ui.factor * 38f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
+                OutlinedText("PLAY", fontSize = (ui.factor * 50f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(40f))
+                com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(54f))
                 Spacer(Modifier.weight(1f))
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
@@ -116,16 +116,16 @@ fun PlayScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(ui.dp(10f)),
-                    modifier = Modifier.width(ui.dp(250f))
+                    verticalArrangement = Arrangement.spacedBy(ui.dp(12f)),
+                    modifier = Modifier.width(ui.dp(290f))
                 ) {
                     GameButton(
                         text = "TAKE PHOTO",
                         onClick = onTakePhoto,
                         icon = GameIcon.Photo,
                         enabled = !busy,
-                        height = ui.dp(54f),
-                        fontSize = (ui.factor * 22f).sp,
+                        height = ui.dp(68f),
+                        fontSize = (ui.factor * 29f).sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     GameButton(
@@ -134,8 +134,8 @@ fun PlayScreen(
                         style = GameButtonStyle.Secondary,
                         icon = GameIcon.Photo,
                         enabled = !busy,
-                        height = ui.dp(54f),
-                        fontSize = (ui.factor * 22f).sp,
+                        height = ui.dp(68f),
+                        fontSize = (ui.factor * 29f).sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     GameButton(
@@ -144,14 +144,14 @@ fun PlayScreen(
                         icon = GameIcon.Play,
                         style = GameButtonStyle.Success,
                         enabled = saved.isNotEmpty() && !busy,
-                        height = ui.dp(54f),
-                        fontSize = (ui.factor * 22f).sp,
+                        height = ui.dp(68f),
+                        fontSize = (ui.factor * 29f).sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedText(
                         "Quick game: a random saved photo and arena.\nShoot a NEW photo for a coin bonus!",
-                        fontSize = (ui.factor * 11f).sp,
-                        color = Color(0xFFB8C4E0),
+                        fontSize = (ui.factor * 14f).sp,
+                        color = Color(0xFFC8D4F0),
                         outline = null
                     )
                     if (failed) OutlinedText("Could not open that photo\n" + com.arsniper.data.PhotoImport.lastError, fontSize = 12.sp, color = Color(0xFFFF8A80))
@@ -163,9 +163,9 @@ fun PlayScreen(
                         .fillMaxSize()
                         .clip(RoundedCornerShape(22.dp))
                         .background(
-                            androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF0C3A92), Color(0xFF082A6E)))
+                            androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF1050B8), Color(0xFF0A3A94)))
                         )
-                        .border(2.5.dp, Color(0xFF2AA8FF), RoundedCornerShape(22.dp))
+                        .border(3.5.dp, Color(0xFF3CB4FF), RoundedCornerShape(22.dp))
                 ) {
                     androidx.compose.foundation.Image(
                         painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.play_deco_photos),
@@ -175,10 +175,10 @@ fun PlayScreen(
                     )
                     Column(modifier = Modifier.padding(ui.dp(14f))) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedText("MY PHOTOS", fontSize = (ui.factor * 24f).sp)
+                            OutlinedText("MY PHOTOS", fontSize = (ui.factor * 32f).sp)
                             if (saved.isNotEmpty()) {
                                 Spacer(Modifier.width(ui.dp(10f)))
-                                OutlinedText("Long-press a photo to delete it", fontSize = (ui.factor * 11f).sp, color = Color(0xFFB8C4E0), outline = null)
+                                OutlinedText("Long-press a photo to delete it", fontSize = (ui.factor * 14f).sp, color = Color(0xFFB8C4E0), outline = null)
                             }
                         }
                         Spacer(Modifier.height(ui.dp(8f)))
@@ -222,7 +222,7 @@ fun PlayScreen(
                         verticalArrangement = Arrangement.spacedBy(ui.dp(8f)),
                         modifier = Modifier.padding(ui.dp(14f))
                     ) {
-                        OutlinedText("DELETE PHOTO?", fontSize = (ui.factor * 22f).sp)
+                        OutlinedText("DELETE PHOTO?", fontSize = (ui.factor * 29f).sp)
                         if (thumb != null) {
                             Image(
                                 bitmap = thumb, contentDescription = null, contentScale = ContentScale.Crop,

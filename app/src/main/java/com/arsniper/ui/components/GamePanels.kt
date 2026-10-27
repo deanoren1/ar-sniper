@@ -93,15 +93,15 @@ fun CurrencyPill(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .height(30.dp)
+            .height(42.dp)
             .clip(shape)
             .background(Color(0xFF0A1E5E).copy(alpha = 0.45f))
             .border(1.3.dp, Color(0xFF3F8EF0).copy(alpha = 0.9f), shape)
-            .padding(start = 3.dp, end = 14.dp)
+            .padding(start = 3.dp, end = 20.dp)
     ) {
-        if (isGems) DiamondIcon(size = 25.dp) else CoinIcon(size = 25.dp)
+        if (isGems) DiamondIcon(size = 38.dp) else CoinIcon(size = 38.dp)
         Spacer(Modifier.width(8.dp))
-        OutlinedText("$prefix$amount", fontSize = 16.sp, outline = null)
+        OutlinedText("$prefix$amount", fontSize = 23.sp, outline = null)
         if (onPlus != null) {
             Spacer(Modifier.width(8.dp))
             PlusSquare(onPlus)
@@ -146,12 +146,12 @@ fun ScreenHeader(
     trailing: @Composable () -> Unit = {}
 ) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        OutlinedText(title, fontSize = 30.sp, color = GameColors.Yellow, letterSpacing = 1.sp)
+        OutlinedText(title, fontSize = 38.sp, color = GameColors.Yellow, letterSpacing = 1.sp)
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             if (onBack != null) {
-                GameIconButton(GameIcon.Back, onClick = onBack, style = com.arsniper.ui.theme.GameButtonStyle.Primary, size = 48.dp)
+                GameIconButton(GameIcon.Back, onClick = onBack, style = com.arsniper.ui.theme.GameButtonStyle.Primary, size = 56.dp)
             } else {
-                Spacer(Modifier.width(48.dp))
+                Spacer(Modifier.width(56.dp))
             }
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -305,11 +305,11 @@ private fun Modifier.androidxClickable(onClick: () -> Unit): Modifier =
 fun MenuBackdrop() {
         androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
             drawRect(
-                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF071A4A), Color(0xFF0A2A74), Color(0xFF061540)))
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF0A2468), Color(0xFF0E3C9C), Color(0xFF0A2670)))
             )
             drawRect(
                 androidx.compose.ui.graphics.Brush.radialGradient(
-                    listOf(Color(0x552A8CFF), Color.Transparent),
+                    listOf(Color(0x883CA0FF), Color.Transparent),
                     center = androidx.compose.ui.geometry.Offset(size.width * 0.55f, size.height * 0.55f),
                     radius = size.width * 0.6f
                 )

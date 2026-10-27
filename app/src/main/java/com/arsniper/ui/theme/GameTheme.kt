@@ -46,8 +46,8 @@ enum class GameButtonStyle(
     val text: Color
 ) {
     Primary(Color(0xFFFFD84A), Color(0xFFFFA81C), Color(0xFFB36A00), Color(0xFF2A1A00)),
-    Secondary(Color(0xFF2F8BFF), Color(0xFF1252D6), Color(0xFF0A2E80), Color.White),
-    Success(Color(0xFF45DB55), Color(0xFF1FA33A), Color(0xFF0F6A22), Color.White),
+    Secondary(Color(0xFF58B2FF), Color(0xFF1C6BFF), Color(0xFF0A2E80), Color.White),
+    Success(Color(0xFF6BF26F), Color(0xFF22B83E), Color(0xFF0F6A22), Color.White),
     Danger(Color(0xFFFF5A52), Color(0xFFD02222), Color(0xFF7F1010), Color.White),
     Locked(Color(0xFF50608A), Color(0xFF34436A), Color(0xFF1D2744), Color(0xFFB8C4E0))
 }
