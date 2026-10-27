@@ -825,13 +825,6 @@ fun GameScreen(
                 .padding(start = 16.dp, top = 84.dp)
         )
 
-        HitIndicator(
-            visible = showHit,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 110.dp)
-        )
-
         HeartsRow(
             hearts = director.hearts,
             max = ArenaDirector.MAX_HEARTS,

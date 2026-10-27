@@ -48,15 +48,17 @@ fun CurrencyBar(coins: Int, diamonds: Int, modifier: Modifier = Modifier) {
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
         modifier = modifier
     ) {
-        HudCurrencyPill(com.arsniper.R.drawable.hud_pill_coin, coins)
-        HudCurrencyPill(com.arsniper.R.drawable.hud_pill_gem, diamonds)
+        HudCurrencyPill(true, coins)
+        HudCurrencyPill(false, diamonds)
     }
 }
 
 @Composable
-private fun HudCurrencyPill(res: Int, value: Int) {
+private fun HudCurrencyPill(coin: Boolean, value: Int) {
     androidx.compose.foundation.layout.Box(modifier = Modifier.size(width = 100.dp, height = 46.dp)) {
-        HudImage(res, Modifier.fillMaxSize())
+        GlowPill(Modifier.fillMaxSize())
+        if (coin) CoinIcon(size = 38.dp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 5.dp))
+        else DiamondIcon(size = 38.dp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 5.dp))
         Text(
             text = "$value",
             color = Color.White,

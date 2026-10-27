@@ -259,15 +259,14 @@ fun AmmoBar(
             .size(width = 200.dp, height = (90f * k).dp)
             .clickable(onClick = onReload)
     ) {
-        HudImage(com.arsniper.R.drawable.hud_ammo_bar, Modifier.fillMaxSize())
-        for (i in 0 until lit) {
-            HudImage(
-                com.arsniper.R.drawable.hud_ammo_seg,
-                Modifier
-                    .size(width = (27f * k).dp, height = (70f * k).dp)
-                    .offset(x = ((17f + 32f * i) * k).dp, y = (12f * k).dp)
-            )
-        }
+        GlowPill(Modifier.fillMaxSize(), corner = 0.22f)
+        AmmoSegments(
+            lit = lit,
+            slots = slots,
+            modifier = Modifier
+                .offset(x = (17f * k).dp, y = (12f * k).dp)
+                .size(width = (338f * k).dp, height = (66f * k).dp)
+        )
         if (reloading) {
             Text("RELOADING", color = Color(0xFFFFEB3B), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         } else if (ammo == 0) {

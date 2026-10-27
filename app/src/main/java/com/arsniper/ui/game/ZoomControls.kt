@@ -26,7 +26,9 @@ fun ZoomControls(
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.size(width = 190.dp, height = 48.dp)) {
-        HudImage(com.arsniper.R.drawable.hud_zoom_pill, Modifier.fillMaxSize())
+        GlowPill(Modifier.fillMaxSize())
+        GlowRoundButton(plus = false, modifier = Modifier.align(Alignment.CenterStart).offset(x = 4.dp).size(40.dp))
+        GlowRoundButton(plus = true, modifier = Modifier.align(Alignment.CenterEnd).offset(x = (-4).dp).size(40.dp))
         Text(
             text = "x${(zoom * 10).roundToInt() / 10f}",
             color = Color.White,
