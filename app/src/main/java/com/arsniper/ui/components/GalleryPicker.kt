@@ -1,8 +1,6 @@
 package com.arsniper.ui.components
 
-import android.content.Intent
 import android.net.Uri
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -14,8 +12,9 @@ class GalleryPicker(private val start: () -> Unit) {
 }
 
 /**
- * פותח את אפליקציית הגלריה של המכשיר (ACTION_PICK), שמסתובבת עם הטלפון.
- * אם אין אפליקציית גלריה, חוזר לבורר הקבצים של המערכת. onPicked מקבל את ה-Uri שנבחר.
+ * בורר הקבצים של המערכת (OpenDocument), שמסתובב עם הטלפון.
+ * ניסינו את בורר התמונות המודרני ואת אפליקציית הגלריה (ACTION_PICK), ושניהם לא הסתובבו
+ * כשהמשחק נעול לרוחב. onPicked מקבל את ה-Uri שנבחר.
  */
 @Composable
 fun rememberGalleryPicker(onPicked: (Uri) -> Unit): GalleryPicker {
@@ -23,16 +22,5 @@ fun rememberGalleryPicker(onPicked: (Uri) -> Unit): GalleryPicker {
     val fallback = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) callback.value(uri)
     }
-    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val uri = result.data?.data
-        if (uri != null) callback.value(uri)
-    }
-    return GalleryPicker {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply { type = "image/*" }
-        try {
-            gallery.launch(intent)
-        } catch (e: Exception) {
-            fallback.launch(arrayOf("image/*"))
-        }
-    }
+    return GalleryPicker { fallback.launch(arrayOf("image/*")) }
 }
