@@ -347,10 +347,16 @@ private fun GameOverPanel(
                 OutlinedText("$wave", fontSize = f(40f), color = Color(0xFFFFD43B), outline = null)
             }
             // מטבעות שהרווחת
-            OutlinedText(
-                "$score", fontSize = f(52f), outline = null,
-                modifier = Modifier.offset(x = u(592f), y = u(447f))
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.offset(x = u(556f), y = u(447f)).width(u(140f)).height(u(64f))
+            ) {
+                OutlinedText(
+                    "$score",
+                    fontSize = f(if ("$score".length > 4) 38f else 46f),
+                    outline = null
+                )
+            }
             // סה"כ
             Row(
                 horizontalArrangement = Arrangement.Center,
