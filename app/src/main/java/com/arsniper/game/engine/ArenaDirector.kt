@@ -409,7 +409,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                 val id = ID_BASE + nextSeq * 5 + foe.row
                 nextSeq++
                 foeById[id] = foe
-                out.add(e.copy(id = id, maxHp = foe.hp, hp = foe.hp))
+                out.add(e.copy(id = id, maxHp = foe.hp * HP_SCALE, hp = foe.hp * HP_SCALE))
                 assigned = true
             } else {
                 out.add(e)
@@ -440,6 +440,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
         /** מספרי אויב מתחת לערך הזה יוצרים המנוע, מעליו המנהל */
         private const val ID_BASE = 100_000
+
+        /** כל נקודת חיים של מפלצת רגילה שווה פעמיים: נשק פשוט צריך פי 2 יותר יריות (הבוס לא מושפע) */
+        const val HP_SCALE = 2
 
         /** מספר קבוע לבוס (id % 5 אינו 3, כדי שלא ייחשב מפלצת בלונים) */
         const val BOSS_ID = 300_002

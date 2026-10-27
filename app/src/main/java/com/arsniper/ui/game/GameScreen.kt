@@ -110,7 +110,7 @@ private const val HURT_POINTS = 25
 /** כמה זמן מפלצת שנפגעה ולא מתה רצה (מתעצבנת), בשניות */
 private const val ENRAGE_SECONDS = 2f
 
-private fun hpFor(id: Int): Int = MONSTER_HP[((id % MONSTER_HP.size) + MONSTER_HP.size) % MONSTER_HP.size]
+private fun hpFor(id: Int): Int = MONSTER_HP[((id % MONSTER_HP.size) + MONSTER_HP.size) % MONSTER_HP.size] * ArenaDirector.HP_SCALE
 
 /** קובע חיים למפלצות חדשות. מחזיר את אותה רשימה אם לכולן כבר יש חיים. */
 private fun withHp(list: List<Enemy>): List<Enemy> =
@@ -606,7 +606,7 @@ fun GameScreen(
         } else {
             val result = engine.fire(p, Hover.lifted(enemies, nowSeconds()), aspect)
             when (result) {
-                is FireResult.Hit -> if (Hover.isBalloonMonster(result.enemy)) {
+                is FireResult.Hit -> if (Hover.isBalloonMonster(result.enemy) && Hover.lift(result.enemy, nowSeconds()) > 0f) {
                     // מפלצת בלונים: הגוף חסין, רק פיצוץ בלונים פוגע בה (אזור הבלונים מטופל למעלה)
                     combo.reset()
                 } else {

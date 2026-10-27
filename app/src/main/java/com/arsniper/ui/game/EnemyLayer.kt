@@ -253,11 +253,12 @@ fun EnemyLayer(
                     val telegraphing = AttackPose.ids.contains(enemy.id)
                     if (Hover.isBalloonMonster(enemy)) {
                         // פחות בלונים: אזור הפגיעה קטן יותר
-                        val share = if (enemy.maxHp > 0) enemy.hp.coerceIn(1, 3) else 3
+                        val share = if (enemy.maxHp > 0) kotlin.math.ceil(enemy.hp * 3f / enemy.maxHp).toInt().coerceIn(1, 3) else 3
                         val px = box.cx
                         val py = box.headY + box.height * 0.2f
                         val rr = box.halfWidth * (0.45f + 0.15f * share)
-                        if (!covered(px, py)) {
+                        // הבלונים מרחפים מעל הכול: עצמים בסצנה לא מסתירים אותם
+                        run {
                             ZoneRegistry.add(
                                 ZoneTarget(enemy, WeakZones.BALLOONS, Vec2(px / size.width, py / size.height), rr * 1.15f / size.height)
                             )
@@ -557,7 +558,8 @@ private fun DrawScope.drawZoneHint(x: Float, y: Float, radius: Float, hot: Boole
 /** כמה בלונים נשארו למפלצת הבלונים (1..2 = פחות מהמלא), או 0 אם היא מלאה או לא מפלצת בלונים */
 private fun balloonsLeft(sheet: MonsterSheet, enemy: Enemy): Int {
     if (!Hover.isBalloonMonster(enemy) || enemy.maxHp <= 0 || sheet.fewer.isEmpty()) return 0
-    return if (enemy.hp in 1..2) enemy.hp else 0
+    val left = kotlin.math.ceil(enemy.hp * 3f / enemy.maxHp).toInt()
+    return if (left in 1..2) left else 0
 }
 
 /** לולאות ההליכה של המפלצת: של מספר הבלונים שנשאר אם יש ציור כזה, אחרת הרגילות */
