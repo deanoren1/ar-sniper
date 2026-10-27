@@ -55,8 +55,13 @@ private fun DrawScope.drawGlyph(icon: GameIcon, tint: Color) {
                     strokeWidth = r * 0.36f, cap = StrokeCap.Butt
                 )
             }
-            drawCircle(tint, r * 0.72f, c)
-            drawCircle(Color(0xFF14295E), r * 0.3f, c)
+            // טבעת עם חור אמיתי (שקוף), כך שרואים את הכפתור דרכו ולא נקודה כהה
+            val ring = Path().apply {
+                fillType = androidx.compose.ui.graphics.PathFillType.EvenOdd
+                addOval(androidx.compose.ui.geometry.Rect(c, r * 0.72f))
+                addOval(androidx.compose.ui.geometry.Rect(c, r * 0.3f))
+            }
+            drawPath(ring, tint)
         }
         GameIcon.Stats -> {
             drawRoundRect(tint, Offset(w * 0.12f, h * 0.55f), Size(w * 0.2f, h * 0.35f), CornerRadius(w * 0.04f))
