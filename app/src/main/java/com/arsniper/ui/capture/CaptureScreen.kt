@@ -427,9 +427,8 @@ private fun CameraContent(
             horizontalArrangement = Arrangement.spacedBy(36.dp),
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp)
         ) {
-            RoundCamButton(onClick = { if (!importing && !panoRunning) picker.launch() }) {
-                IconGlyph(GameIcon.Photo, size = 28.dp, tint = Color.White)
-            }
+            // הייבוא מהגלריה נמצא במסך PLAY, לא כאן
+            Spacer(Modifier.size(52.dp))
             ShutterButton(enabled = !isCapturing && !cameraError && !importing && !panoStitching) {
                 if (mode == 0) {
                     if (!isCapturing) {
