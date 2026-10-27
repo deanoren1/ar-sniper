@@ -137,8 +137,20 @@ fun ReviewScreen(
     }
 
     LaunchedEffect(reloadKey) {
-        val outcome = withContext(Dispatchers.Default) {
+        // הניתוח של הסצנה הקודמת נשאר בזיכרון אחרי משחק: משחררים אותו לפני הזיהוי (אחרת OOM אחרי כמה תמונות)
+        com.arsniper.ml.SceneSession.clear()
+        var outcome = withContext(Dispatchers.Default) {
             runCatching { analyze(context, samHolder) }
+        }
+        if (outcome.isFailure) {
+            // ניסיון שני אחרי שחרור זיכרון
+            try { samHolder[0]?.close() } catch (e: Throwable) { }
+            samHolder[0] = null
+            kotlinx.coroutines.delay(400)
+            outcome = withContext(Dispatchers.Default) {
+                System.gc()
+                runCatching { analyze(context, samHolder) }
+            }
         }
         outcome
             .onSuccess {
@@ -374,7 +386,7 @@ fun ReviewScreen(
         }
 
         val statusText = when {
-            errorText != null -> "Analysis failed: $errorText"
+            errorText != null -> "Analysis failed: $errorText\nOK: continue without removing people"
             current == null -> "Scanning photo..."
             removing -> progressText
             cleanedBitmap != null ->
@@ -470,8 +482,9 @@ fun ReviewScreen(
                     .padding(end = u(47f), top = u(720f))
                     .size(width = u(360f), height = u(150f))
                     .clip(RoundedCornerShape(u(70f)))
-                    .clickable(enabled = ready && !samBusy) {
+                    .clickable(enabled = (ready && !samBusy) || errorText != null) {
                         when {
+                            errorText != null -> onContinue()
                             cleanedBitmap != null -> {
                                 PhotoRepository.save(context, cleanedBitmap)
                                 onContinue()
