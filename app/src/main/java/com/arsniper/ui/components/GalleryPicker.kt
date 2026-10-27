@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
-import android.provider.MediaStore
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,7 +43,12 @@ fun rememberGalleryPicker(onPicked: (Uri) -> Unit): GalleryPicker {
     return GalleryPicker {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
         // אפליקציית הגלריה עצמה (סמסונג קודם), ולא בורר המסמכים שמציג את גוגל תמונות/דרייב
-        fun pick() = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply { type = "image/*" }
+        // GET_CONTENT (ולא PICK): אפליקציית הגלריה מחזירה כתובת עם הרשאת קריאה, בלי צורך בהרשאת מדיה
+        fun pick() = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
         val attempts = listOf(
             pick().setPackage("com.sec.android.gallery3d"),
             pick()
