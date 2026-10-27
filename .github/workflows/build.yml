@@ -26,7 +26,14 @@ jobs:
           cache-disabled: true
 
       - name: Build debug APK
-        run: gradle clean assembleDebug --no-build-cache --stacktrace
+        shell: bash
+        run: |
+          set +e
+          gradle clean assembleDebug --no-build-cache --stacktrace 2>&1 | tee build.log
+          code=${PIPESTATUS[0]}
+          # שגיאות קומפילציה כהערות על ההרצה (כדי שאפשר לקרוא אותן בלי הלוגים המלאים)
+          grep -E "^e: " build.log | head -20 | while read -r l; do echo "::error::${l}"; done
+          exit $code
 
       - name: Delete older APK artifacts (keep storage under quota)
         continue-on-error: true
