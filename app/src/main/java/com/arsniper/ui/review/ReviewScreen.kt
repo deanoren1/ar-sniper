@@ -285,6 +285,7 @@ fun ReviewScreen(
             val startNanos = System.nanoTime()
             val outcome = withContext(Dispatchers.Default) {
                 runCatching {
+                    System.gc()
                     val remover = PersonRemover(context)
                     try {
                         val bitmap = remover.remove(current.bitmap, current.mask) { done, total ->
@@ -540,6 +541,8 @@ private fun logitsToRegion(logits: FloatArray, width: Int, height: Int): Boolean
 }
 
 private fun analyze(context: Context, samHolder: Array<Sam2Segmenter?>): ReviewResult {
+    // מפנים זיכרון משלבים קודמים לפני מודל הזיהוי (OOM אחרי כמה תמונות ברצף)
+    System.gc()
     val startNanos = System.nanoTime()
     val bitmap = PhotoRepository.load(context) ?: error("No photo found")
     val segmenter = PersonSegmenter(context)
