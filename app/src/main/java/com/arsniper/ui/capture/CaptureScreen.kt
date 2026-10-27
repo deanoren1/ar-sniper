@@ -327,6 +327,8 @@ private fun CameraContent(
                 }
                 while (panoRunning && index < targets.size) {
                     withFrameNanos { }
+                    // הצילום האחרון יכול להשלים בזמן ההמתנה לפריים, ואז אין עוד יעד
+                    if (index >= targets.size) break
                     val y = tracker.yaw
                     unwrapped += wrapAngle(y - lastYaw)
                     lastYaw = y
