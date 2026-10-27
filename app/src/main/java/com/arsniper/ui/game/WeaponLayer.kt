@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Box
@@ -251,7 +252,7 @@ fun AmmoBar(
     onReload: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val k = 118f / 372f
+    val k = 130f / 372f
     val slots = 11
     val lit = if (reloading || ammo <= 0 || magSize <= 0) 0
         else kotlin.math.ceil(slots * ammo.toFloat() / magSize).toInt().coerceIn(1, slots)
@@ -259,12 +260,12 @@ fun AmmoBar(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(width = (90f * k).dp, height = 118.dp)
+            .size(width = (90f * k).dp, height = 130.dp)
             .clickable(onClick = onReload)
     ) {
     Box(
         modifier = Modifier
-            .size(width = 118.dp, height = (90f * k).dp)
+            .requiredSize(width = 130.dp, height = (90f * k).dp)
             .graphicsLayer { rotationZ = -90f; alpha = 0.55f }
     ) {
         GlowPill(Modifier.fillMaxSize(), corner = 0.22f)
