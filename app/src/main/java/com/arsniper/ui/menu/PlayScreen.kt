@@ -154,7 +154,8 @@ fun PlayScreen(
                         color = Color(0xFFB8C4E0),
                         outline = null
                     )
-                    if (failed) OutlinedText("Could not open that photo", fontSize = 13.sp, color = Color(0xFFFF8A80))
+                    if (failed) OutlinedText("Could not open that photo\n" + com.arsniper.data.PhotoImport.lastError, fontSize = 12.sp, color = Color(0xFFFF8A80))
+                    if (com.arsniper.ui.components.PickerDebug.text.isNotEmpty()) OutlinedText(com.arsniper.ui.components.PickerDebug.text, fontSize = 9.sp, color = Color(0xFF9FB4E8), outline = null)
                 }
                 Box(
                     modifier = Modifier

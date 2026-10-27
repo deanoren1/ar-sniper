@@ -18,6 +18,9 @@ object PhotoImport {
     private const val TAG = "PhotoImport"
     private const val MAX_SIDE = 1920
 
+    /** סיבת הכישלון האחרון (לאבחון) */
+    var lastError: String = ""
+
     /** מחזיר true אם התמונה נקראה ונשמרה */
     fun importFromUri(context: Context, uri: Uri): Boolean {
         try {
@@ -79,6 +82,7 @@ object PhotoImport {
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to import photo", e)
+            lastError = e.toString().take(160)
             return false
         } catch (e: OutOfMemoryError) {
             Log.e(TAG, "Photo too large", e)

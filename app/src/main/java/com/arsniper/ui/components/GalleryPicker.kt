@@ -12,6 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 
+/** מצב אחרון של הבורר (לאבחון על המסך): מה חזר מהגלריה */
+object PickerDebug {
+    var text by androidx.compose.runtime.mutableStateOf("")
+}
+
 /** בחירת תמונה מהטלפון */
 class GalleryPicker(private val start: () -> Unit) {
     fun launch() = start()
@@ -37,6 +42,7 @@ fun rememberGalleryPicker(onPicked: (Uri) -> Unit): GalleryPicker {
     val activity = LocalContext.current.findActivity()
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        PickerDebug.text = "picker: code=${result.resultCode} data=${result.data?.data} clip=${result.data?.clipData?.itemCount}"
         val uri = if (result.resultCode == Activity.RESULT_OK) (result.data?.data ?: result.data?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri) else null
         if (uri != null) callback.value(uri)
     }
