@@ -108,7 +108,7 @@ fun PlayScreen(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(54f))
                 Spacer(Modifier.weight(1f))
-                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds, modifier = Modifier.offset(y = ui.dp(10f)))
+                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
             }
             Spacer(Modifier.height(ui.dp(22f)))

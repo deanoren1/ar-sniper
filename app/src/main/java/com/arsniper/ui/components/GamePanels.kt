@@ -156,7 +156,7 @@ fun ScreenHeader(
                 Spacer(Modifier.width(56.dp))
             }
             Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.offset(y = 10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 trailing()
             }
         }
