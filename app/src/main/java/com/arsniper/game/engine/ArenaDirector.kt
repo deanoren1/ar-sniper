@@ -386,8 +386,12 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                     assigned = true
                     continue
                 }
-                val foe = queue.removeFirstOrNull()
-                if (foe == null) continue // המנוע יצר יותר מהנדרש: מוותרים על המיותרת
+                // מפלצת בלונים אחת לכל היותר באוויר: אם כבר אחת מרחפת, מקדימים מפלצת אחרת מהתור
+                val balloonAlive = list.any { it.isAlive && it.id >= ID_BASE && foeOfRow(it) == Foe.Balloon } ||
+                    out.any { it.isAlive && foeById[it.id] == Foe.Balloon }
+                val pick = if (balloonAlive) queue.indexOfFirst { it != Foe.Balloon } else 0
+                val foe = if (pick >= 0 && pick < queue.size) queue.removeAt(pick) else null
+                if (foe == null) continue // המנוע יצר יותר מהנדרש (או רק בלונים בתור והאחת עוד חיה): מוותרים
                 if (foe == Foe.Dragon) {
                     // הבוס: גדול, עומד במרכז, מספר קבוע (BOSS_ID) כדי שיצויר מהגיליון שלו
                     foeById[BOSS_ID] = foe

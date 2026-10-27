@@ -484,13 +484,17 @@ private fun DrawScope.drawMonster(
     val top = feetY + padPx - height - hop
     val flip = sheet.bossAnim == null && (walking || dead) && enemy.direction < 0f && (dead || abs(enemy.dirY) <= 0.5f)
 
+    // מפלצת בלונים שנפגעה למוות: הבלונים התפוצצו, אז מציירים רק את הגוף (בלי החלק העליון עם הבלונים)
+    val cropTop = if (dead && sheet.bossAnim == null && Hover.isBalloonMonster(enemy)) 0.4f else 0f
+    val srcCut = (sprite.image.height * cropTop).toInt()
+    val dstCut = height * cropTop
     val drawSprite: DrawScope.() -> Unit = {
         drawImage(
             image = sprite.image,
-            srcOffset = IntOffset.Zero,
-            srcSize = IntSize(sprite.image.width, sprite.image.height),
-            dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
-            dstSize = IntSize(width.roundToInt().coerceAtLeast(1), height.roundToInt().coerceAtLeast(1)),
+            srcOffset = IntOffset(0, srcCut),
+            srcSize = IntSize(sprite.image.width, sprite.image.height - srcCut),
+            dstOffset = IntOffset(left.roundToInt(), (top + dstCut).roundToInt()),
+            dstSize = IntSize(width.roundToInt().coerceAtLeast(1), (height - dstCut).roundToInt().coerceAtLeast(1)),
             alpha = alpha,
             colorFilter = tint
         )
