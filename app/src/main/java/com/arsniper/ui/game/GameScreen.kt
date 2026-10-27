@@ -267,6 +267,25 @@ fun GameScreen(
         onDispose { bankRun() }
     }
 
+    var noRoom by remember { mutableStateOf(false) }
+    if (noRoom) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { androidx.compose.material3.Text("No room for monsters") },
+            text = {
+                androidx.compose.material3.Text(
+                    "This photo has no floor or hiding places the monsters can use.\n" +
+                        "Take a new photo with a visible floor or ground and a few objects (a table, a door, plants)."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(onClick = onExit) {
+                    androidx.compose.material3.Text("RETAKE")
+                }
+            }
+        )
+    }
+
     // אחרי שגודל המסך ידוע: בונים את הסצנה (מחבואים לפי ניתוח התמונה) ויוצרים אויבים
     LaunchedEffect(sizeKnown) {
         if (sizeKnown) {
@@ -283,6 +302,11 @@ fun GameScreen(
             }
             scene = sceneContext
             engine.configure(sceneContext)
+            // תמונה בלי רצפה או מחבואים (למשל אמבטיה מלאה במשטחים): אין איפה לשים מפלצות. לא מתחילים משחק ריק.
+            if (sceneContext != null && engine.replenish(emptyList(), 4, aspect).size < 2) {
+                noRoom = true
+                return@LaunchedEffect
+            }
             // המפלצות נוצרות על ידי מנהל הארנה, גל אחרי גל
             enemies = emptyList()
             fire.reset()
