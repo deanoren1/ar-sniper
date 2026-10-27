@@ -103,7 +103,7 @@ private fun GoalRow(goal: Goal, factor: Float) {
                             .width(150.dp)
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(GameColors.Navy900)
+                            .background(androidx.compose.ui.graphics.Color(0xFF050F2C))
                     ) {
                         Box(
                             Modifier

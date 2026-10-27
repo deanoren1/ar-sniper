@@ -101,8 +101,8 @@ private fun WeaponCard(spec: WeaponSpec, isSelected: Boolean, onClick: () -> Uni
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(if (isSelected) GameColors.Navy600 else GameColors.Navy800)
-            .border(3.dp, if (isSelected) GameColors.Yellow else GameColors.Outline, shape)
+            .background(if (isSelected) androidx.compose.ui.graphics.Color(0xFF123A8A) else androidx.compose.ui.graphics.Color(0xFF0A1D50))
+            .border(2.5.dp, if (isSelected) GameColors.Yellow else androidx.compose.ui.graphics.Color(0xFF2F8BFF), shape)
             .clickable(onClick = onClick)
             .padding(8.dp)
     ) {
