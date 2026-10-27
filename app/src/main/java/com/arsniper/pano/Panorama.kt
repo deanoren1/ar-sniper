@@ -88,7 +88,7 @@ class PanoFrame(val pixels: IntArray, val w: Int, val h: Int, val phi: Float, va
 /** זוויות היעד לצילום (יחסית לנקודת ההתחלה). חפיפה של כ-40% בין תמונות */
 fun targetAngles(fov: Float, is360: Boolean): List<Float> {
     val step = fov * 0.6f
-    val need = if (is360) (2 * PI).toFloat() - fov else PI.toFloat()
+    val need = if (is360) (2 * PI).toFloat() - fov * 0.6f else PI.toFloat()
     val out = ArrayList<Float>()
     var t = 0f
     while (true) {

@@ -38,7 +38,7 @@ fun rememberGalleryPicker(onPicked: (Uri) -> Unit): GalleryPicker {
     val activity = LocalContext.current.findActivity()
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        val uri = if (result.resultCode == Activity.RESULT_OK) result.data?.data else null
+        val uri = if (result.resultCode == Activity.RESULT_OK) (result.data?.data ?: result.data?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri) else null
         if (uri != null) callback.value(uri)
     }
     return GalleryPicker {
