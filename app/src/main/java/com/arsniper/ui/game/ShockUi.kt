@@ -36,43 +36,50 @@ fun ShockButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val empty = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_ring_empty)
-    val full = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_ring_full)
+    val cores = listOf(
+        androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_core_0),
+        androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_core_1),
+        androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_core_2),
+        androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_core_3),
+        androidx.compose.ui.graphics.ImageBitmap.imageResource(com.arsniper.R.drawable.hud_core_4)
+    )
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(width = 84.dp, height = 77.dp)
+            .size(width = 88.dp, height = 88.dp)
             .clickable(enabled = ready, onClick = onClick)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val pulse = if (ready) 0.5f + 0.5f * sin(nowNanos / 1e9f * 9f) else 0f
-            val dst = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt())
-            val center = Offset(size.width * (114f / 230f), size.height * (112f / 210f))
-            if (ready) {
-                drawCircle(Color(0xFFFFEA00).copy(alpha = 0.18f + 0.3f * pulse), radius = size.minDimension * 0.62f, center = center)
-            }
-            drawImage(empty, dstSize = dst)
+            val pulse = if (ready) 0.5f + 0.5f * sin(nowNanos / 1e9f * 7f) else 0f
+            val center = Offset(size.width / 2f, size.height / 2f)
+            // מילוי הליבה בחמישה שלבים, עם מעבר חלק ביניהם. מלא = השלב האחרון
             val f = if (ready) 1f else fraction.coerceIn(0f, 1f)
-            if (f > 0.001f) {
-                val path = androidx.compose.ui.graphics.Path().apply {
-                    if (f >= 0.999f) {
-                        addRect(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height))
-                    } else {
-                        moveTo(center.x, center.y)
-                        arcTo(
-                            androidx.compose.ui.geometry.Rect(center.x - size.width, center.y - size.width, center.x + size.width, center.y + size.width),
-                            -90f, -360f * f, false
-                        )
-                        close()
-                    }
-                }
-                clipPath(path) {
-                    drawImage(full, dstSize = dst)
-                }
+            val pos = f * 4f
+            val i = pos.toInt().coerceIn(0, 4)
+            val t = pos - i
+            val scale = if (ready) 1f + 0.05f * pulse else 1f
+            val side = (size.width * 0.96f * scale).toInt()
+            val dst = androidx.compose.ui.unit.IntSize(side, side)
+            val off = androidx.compose.ui.unit.IntOffset((center.x - side / 2f).toInt(), (center.y - side / 2f).toInt())
+            if (ready) {
+                // זוהר פועם כשהליבה מלאה ומוכנה ללחיצה
+                drawCircle(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(Color(0xFF40C4FF).copy(alpha = 0.55f + 0.3f * pulse), Color(0x0040C4FF)),
+                        center = center,
+                        radius = size.minDimension * (0.72f + 0.1f * pulse)
+                    ),
+                    radius = size.minDimension * (0.72f + 0.1f * pulse),
+                    center = center
+                )
+            }
+            drawImage(cores[i], dstOffset = off, dstSize = dst)
+            if (i < 4 && t > 0.01f) {
+                drawImage(cores[i + 1], dstOffset = off, dstSize = dst, alpha = t)
             }
         }
         if (!ready) {
-            OutlinedText("${(fraction * 100).toInt()}%", fontSize = 11.sp, outline = null, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp))
+            OutlinedText("${(fraction * 100).toInt()}%", fontSize = 11.sp, outline = null, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp))
         }
     }
 }

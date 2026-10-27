@@ -72,7 +72,7 @@ fun Joystick(
         val center = Offset(size.width / 2f, size.height / 2f)
         val w = size.width.toInt()
         drawImage(baseImg, dstOffset = androidx.compose.ui.unit.IntOffset(0, 0), dstSize = androidx.compose.ui.unit.IntSize(w, w))
-        val k = (size.width / 385f) * 170f
+        val k = size.width * 0.425f
         val kd = k.toInt()
         val kc = center + knob
         drawImage(

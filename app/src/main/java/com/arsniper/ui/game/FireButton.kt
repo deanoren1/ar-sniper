@@ -30,7 +30,7 @@ fun FireButton(
     val currentRelease by rememberUpdatedState(onRelease)
     Box(
         modifier = modifier
-            .size(width = 112.dp, height = 107.dp)
+            .size(width = 112.dp, height = 109.dp)
             .graphicsLayer {
                 val s = if (pressed) 0.93f else 1f
                 scaleX = s
