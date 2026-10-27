@@ -30,6 +30,7 @@ class Floater(
 /** שכבת הניקוד הצף, בתוך שכבת העולם (עוברת זום ותזוזה יחד עם התמונה) */
 @Composable
 fun FloatingTextLayer(floaters: List<Floater>, nowNanos: Long, modifier: Modifier = Modifier) {
+    val labelImages = LabelArt.load()
     Canvas(modifier = modifier.fillMaxSize()) {
         for (f in floaters) {
             val age = (nowNanos - f.bornNanos) / 1e9f
@@ -37,6 +38,18 @@ fun FloatingTextLayer(floaters: List<Floater>, nowNanos: Long, modifier: Modifie
             val p = age / FLOATER_SECONDS
             val cx = f.x * size.width
             val cy = (f.y - 0.14f * p) * size.height
+            val art = labelImages[f.text]
+            if (art != null) {
+                val w = size.height * LabelArt.widthFor(f.text)
+                val h = w * art.height / art.width
+                drawImage(
+                    art,
+                    dstOffset = androidx.compose.ui.unit.IntOffset((cx - w / 2f).toInt(), (cy - h / 2f).toInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()),
+                    alpha = (1f - p * p).coerceIn(0f, 1f)
+                )
+                continue
+            }
             val textSize = size.height * (if (f.big) 0.075f else 0.05f)
             val alpha = (255 * (1f - p * p)).toInt().coerceIn(0, 255)
             drawIntoCanvas { canvas ->

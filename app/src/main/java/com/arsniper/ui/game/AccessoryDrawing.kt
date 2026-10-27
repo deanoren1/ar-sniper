@@ -213,6 +213,7 @@ private fun easeOut(p: Float): Float {
  */
 @Composable
 fun EffectsLayer(blasts: List<Blast>, nowNanos: Long, modifier: Modifier = Modifier) {
+    val labelImages = LabelArt.load()
     Canvas(modifier = modifier.fillMaxSize()) {
         for (blast in blasts) {
             val age = (nowNanos - blast.bornNanos) / 1e9f
@@ -274,6 +275,19 @@ fun EffectsLayer(blasts: List<Blast>, nowNanos: Long, modifier: Modifier = Modif
             val textSize = size.height * 0.07f * (0.8f + 0.4f * min(1f, p * 6f))
             val textY = cy - maxR * 0.3f - p * size.height * 0.12f
             val alpha = (255f * (1f - p * p)).toInt().coerceIn(0, 255)
+            val art = labelImages[blast.label]
+            if (blast.label.isEmpty()) continue
+            if (art != null) {
+                val w = size.height * LabelArt.widthFor(blast.label) * (0.85f + 0.3f * min(1f, p * 6f))
+                val h = w * art.height / art.width
+                drawImage(
+                    art,
+                    dstOffset = androidx.compose.ui.unit.IntOffset((cx - w / 2f).toInt(), (textY - h / 2f).toInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()),
+                    alpha = (1f - p * p).coerceIn(0f, 1f)
+                )
+                continue
+            }
             drawIntoCanvas { canvas ->
                 val fill = android.graphics.Paint().apply {
                     isAntiAlias = true

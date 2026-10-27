@@ -229,7 +229,7 @@ fun GameScreen(
     var poofs by remember { mutableStateOf(emptyList<Poof>()) }
 
     // ניקוד עם מכפיל הקומבו, וניקוד צף במקום ההצלחה. register=false: לא מאריך את הרצף
-    fun award(points: Int, x: Float, y: Float, register: Boolean = true) {
+    fun award(points: Int, x: Float, y: Float, register: Boolean = true, showText: Boolean = true) {
         val multiplierBefore = combo.multiplier
         if (register) combo.register()
         if (combo.multiplier > multiplierBefore) soundPlayer.play(Sfx.Combo, 0.9f + 0.1f * combo.multiplier)
@@ -237,7 +237,7 @@ fun GameScreen(
         score += gained
         val shown = maxOf(1, gained / COINS_DIVISOR)
         val text = if (combo.multiplier > 1) "+$shown  x${combo.multiplier}" else "+$shown"
-        floaters = floaters + Floater(x, y - 0.04f, text, frameNanos, big = points >= BLOCK_POINTS)
+        if (showText) floaters = floaters + Floater(x, y - 0.04f, text, frameNanos, big = points >= BLOCK_POINTS)
     }
 
     // יהלומים: נשמרים בפרופיל מיד, ומוצגים בסוף הריצה
@@ -525,7 +525,7 @@ fun GameScreen(
         soundPlayer.play(if (result.destroyed) Sfx.Deflect else Sfx.Crack)
         if (result.destroyed) shock.reward()
         if (result.destroyed) {
-            award(BLOCK_POINTS, shotPos.x, shotPos.y, register = false)
+            award(BLOCK_POINTS, shotPos.x, shotPos.y, register = false, showText = false)
             blasts = blasts + Blast(
                 x = shotPos.x,
                 y = shotPos.y,
@@ -535,12 +535,12 @@ fun GameScreen(
                 bornNanos = frameNanos
             )
         } else {
-            award(CRACK_POINTS, shotPos.x, shotPos.y, register = false)
+            award(CRACK_POINTS, shotPos.x, shotPos.y, register = false, showText = false)
             blasts = blasts + Blast(
                 x = shotPos.x,
                 y = shotPos.y,
                 kind = AccessoryKind.Bomb,
-                label = "CRACK!",
+                label = "",
                 radius = fire.currentRadius(shot),
                 bornNanos = frameNanos
             )
