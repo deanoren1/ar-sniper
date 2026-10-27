@@ -191,7 +191,7 @@ class MonsterSprites private constructor(
             val themedIndexForRow = intArrayOf(3, 1, 4, 0, 2)
             val pools = List(5) { row -> mutableListOf(sheets[themedIndexForRow[row]]) }
             // מפלצות נוספות בגיליון (רוח, שלג-אדם...): מצטרפות לסוגי ההתנהגות בסבב
-            val extraRows = intArrayOf(1, 0, 3, 2, 4)
+            val extraRows = intArrayOf(1, 0, 2, 4) // בלי שורה 3: שורה 3 מרחפת, ורק מפלצות בלונים אמיתיות מתאימות לה
             for (i in 5 until sheets.size) pools[extraRows[(i - 5) % extraRows.size]].add(sheets[i])
             // בכל ארנה מתערבבות גם המפלצות המקוריות, לא רק המחופשות
             load(context, null)?.let { original ->
