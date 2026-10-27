@@ -521,23 +521,24 @@ fun GameScreen(
     // ניקוד ואפקט על קליע שנפגע (בלחיצה או בירי)
     fun onIntercept(result: com.arsniper.game.engine.Intercept) {
         val shot = result.shot
+        val shotPos = shot.posAt(fire.time)
         soundPlayer.play(if (result.destroyed) Sfx.Deflect else Sfx.Crack)
         if (result.destroyed) shock.reward()
         if (result.destroyed) {
-            award(BLOCK_POINTS, shot.x, shot.y, register = false)
+            award(BLOCK_POINTS, shotPos.x, shotPos.y, register = false)
             blasts = blasts + Blast(
-                x = shot.x,
-                y = shot.y,
+                x = shotPos.x,
+                y = shotPos.y,
                 kind = AccessoryKind.Gem,
                 label = "BLOCK!",
                 radius = fire.currentRadius(shot) * 1.5f,
                 bornNanos = frameNanos
             )
         } else {
-            award(CRACK_POINTS, shot.x, shot.y, register = false)
+            award(CRACK_POINTS, shotPos.x, shotPos.y, register = false)
             blasts = blasts + Blast(
-                x = shot.x,
-                y = shot.y,
+                x = shotPos.x,
+                y = shotPos.y,
                 kind = AccessoryKind.Bomb,
                 label = "CRACK!",
                 radius = fire.currentRadius(shot),

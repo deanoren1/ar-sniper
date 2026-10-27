@@ -82,8 +82,9 @@ private fun DrawScope.drawTelegraph(t: TelegraphView, time: Float) {
 }
 
 private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float, sprites: ShotSprites) {
-    val cx = s.x * size.width
-    val cy = s.y * size.height
+    val pos = s.posAt(time)
+    val cx = pos.x * size.width
+    val cy = pos.y * size.height
     val r = radiusUnits * size.height
     val full = s.baseRadius * size.height
     val p = ((time - s.born) / s.flight).coerceIn(0f, 1f)

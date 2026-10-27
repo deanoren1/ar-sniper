@@ -25,7 +25,24 @@ class Shot(
     var hp: Int,
     /** ירייה "מטעה": המפלצת הייתה מבולבלת, והקליע לא פוגע בשחקן כשהוא מגיע */
     val harmless: Boolean = false
-)
+) {
+    /**
+     * מיקום הירייה בזמן t (קואורדינטות עולם): יוצאת מהמפלצת וטסה אל השחקן (אמצע התחתית), מאיצה בדרך.
+     * הציור ואזור ההקשה משתמשים באותה פונקציה, כדי שיתאימו תמיד.
+     */
+    fun posAt(time: Float): Vec2 {
+        val p = ((time - born) / flight).coerceIn(0f, 1f)
+        val e = Math.pow(p.toDouble(), 1.4).toFloat() * TRAVEL
+        return Vec2(x + (TARGET_X - x) * e, y + (TARGET_Y - y) * e)
+    }
+
+    companion object {
+        const val TARGET_X = 0.5f
+        const val TARGET_Y = 1.0f
+        /** כמה מהדרך אל היעד הירייה עוברת עד שהיא מגיעה אל השחקן */
+        const val TRAVEL = 0.5f
+    }
+}
 
 /** הכנה לירייה: המפלצת מהבהבת באדום זמן קצר לפני שהיא יורה. אפשר להרוג אותה בזמן הזה */
 class TelegraphView(val x: Float, val y: Float, val radius: Float, val progress: Float, val enemyId: Int)
@@ -261,8 +278,9 @@ class EnemyFire(private val random: Random = Random.Default) {
         var best: Shot? = null
         var bestDistance = Float.MAX_VALUE
         for (s in shots) {
-            val dx = (point.x - s.x) * aspect
-            val dy = point.y - s.y
+            val pos = s.posAt(time)
+            val dx = (point.x - pos.x) * aspect
+            val dy = point.y - pos.y
             val distance = sqrt(dx * dx + dy * dy)
             val reach = max(currentRadius(s), MIN_REACH) + slack
             if (distance <= reach && distance < bestDistance) {
