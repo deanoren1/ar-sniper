@@ -9,7 +9,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.arsniper.game.engine.ShotKind
 
 /** שתי גרסאות לאותו קליע: קטנה ופשוטה (מרחוק) ומפותחת (מקרוב) */
-class ShotPair(val small: ImageBitmap?, val big: ImageBitmap?) {
+/** ירייה עם שובל אלכסוני (השובל לימין-למעלה). cx,cy = מרכז הכדור בתמונה, dia = קוטרו, בפיקסלים של התמונה */
+class SideSprite(val image: ImageBitmap, val cx: Float, val cy: Float, val dia: Float)
+
+class ShotPair(val small: ImageBitmap?, val big: ImageBitmap?, val side: SideSprite? = null) {
     /** צבע הזוהר: ממוצע הפיקסלים הרוויים בציור עצמו, כך שהזוהר תמיד תואם את הגרסה (כחול, זהוב, ירוק...) */
     val glow: androidx.compose.ui.graphics.Color = computeGlow(big ?: small)
 
@@ -52,6 +55,16 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
             ShotKind.Rock to "rock", ShotKind.Spike to "spike", ShotKind.Fire to "fire"
         )
 
+        /** מרכז הכדור (x, y) וקוטרו בתמונות shot_<סוג>_side */
+        private val SIDE_ANCHORS = mapOf(
+            "bomb" to floatArrayOf(69.2f, 57.3f, 88.7f),
+            "orb" to floatArrayOf(74.1f, 72.1f, 114.8f),
+            "gas" to floatArrayOf(81.0f, 72.5f, 112.0f),
+            "rock" to floatArrayOf(95.2f, 72.0f, 113.9f),
+            "spike" to floatArrayOf(92.1f, 71.4f, 140.3f),
+            "fire" to floatArrayOf(85.8f, 75.0f, 134.2f)
+        )
+
         private fun decode(context: Context, name: String): ImageBitmap? {
             val id = context.resources.getIdentifier(name, "drawable", context.packageName)
             if (id == 0) return null
@@ -70,7 +83,10 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
             for ((kind, name) in NAMES) {
                 val small = decode(context, "shot_${name}_${variant}_small")
                 val big = decode(context, "shot_${name}_${variant}_big")
-                if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small)
+                val side = if (alt) null else SIDE_ANCHORS[name]?.let { a ->
+                    decode(context, "shot_${name}_side")?.let { SideSprite(it, a[0], a[1], a[2]) }
+                }
+                if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side)
             }
             return ShotSprites(map)
         }

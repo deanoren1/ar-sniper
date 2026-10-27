@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.arsniper.game.engine.Shot
@@ -224,7 +225,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     val center = base + off
     // היורה בצד המסך: שובל זוהר מהצד שממנו הגיע. יורה מהחזית (באמצע): רק הילה וטבעת מסביב.
     val side = ((s.x - 0.5f) * 2f).coerceIn(-1f, 1f)
-    if (abs(side) > 0.2f) {
+    val useSide = pair.side != null && abs(side) > 0.2f
+    if (!useSide && abs(side) > 0.2f) {
         val dir = if (side < 0f) -1f else 1f
         val len = diameter * (0.9f + 1.1f * abs(side)) * (0.5f + 0.5f * p)
         val tail = Offset(center.x + dir * len, center.y - r * 0.15f * p)
@@ -237,7 +239,7 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
             strokeWidth = r * 1.15f,
             cap = androidx.compose.ui.graphics.StrokeCap.Round
         )
-    } else {
+    } else if (!useSide) {
         drawCircle(
             color = color.copy(alpha = 0.4f * pulse),
             radius = diameter * (0.62f + 0.06f * pulse),
@@ -262,6 +264,25 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         else -> 0f
     }
     val mix = ((p - 0.42f) / 0.16f).coerceIn(0f, 1f)
+    if (useSide && pair.side != null) {
+        // ירייה מהצד: התמונה עם השובל האלכסוני, הפוכה כשהיורה בצד שמאל. בלי סיבוב.
+        val sp = pair.side
+        val k = diameter / sp.dia
+        val w = (sp.image.width * k).toInt().coerceAtLeast(1)
+        val h = (sp.image.height * k).toInt().coerceAtLeast(1)
+        val flip = if (side < 0f) -1f else 1f
+        withTransform({ scale(flip, 1f, center) }) {
+            drawImage(
+                sp.image,
+                dstOffset = androidx.compose.ui.unit.IntOffset((center.x - sp.cx * k).toInt(), (center.y - sp.cy * k).toInt()),
+                dstSize = androidx.compose.ui.unit.IntSize(w, h)
+            )
+        }
+        if (s.hp < s.maxHp) {
+            drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
+        }
+        return
+    }
     rotate(spin, center) {
         drawSprite(pair.small, center, diameter, 1f - mix)
         drawSprite(pair.big, center, diameter, mix)
