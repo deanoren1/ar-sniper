@@ -132,7 +132,7 @@ fun PlayScreen(
                         text = if (busy) "LOADING..." else "FROM GALLERY",
                         onClick = { picker.launch() },
                         style = GameButtonStyle.Secondary,
-                        icon = GameIcon.Photo,
+                        icon = GameIcon.Gallery,
                         enabled = !busy,
                         height = ui.dp(68f),
                         fontSize = (ui.factor * 29f).sp,

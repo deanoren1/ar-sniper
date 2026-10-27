@@ -19,7 +19,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** האייקונים של הממשק. כולם מצוירים בקוד (בלי קבצים), בצבע אחד שנבחר בהצגה */
-enum class GameIcon { Play, Pause, Gear, Stats, Cart, Trophy, Lock, Back, Plus, Star, Home, Photo, Close, Check, Heart, Restart }
+enum class GameIcon { Play, Pause, Gear, Stats, Cart, Trophy, Lock, Back, Plus, Star, Home, Photo, Gallery, Close, Check, Heart, Restart }
 
 @Composable
 fun IconGlyph(icon: GameIcon, modifier: Modifier = Modifier, size: Dp = 28.dp, tint: Color = Color.White) {
@@ -115,6 +115,27 @@ private fun DrawScope.drawGlyph(icon: GameIcon, tint: Color) {
                 lineTo(w * 0.72f, h * 0.58f); lineTo(w * 0.86f, h * 0.75f); close()
             }
             drawPath(hill, tint)
+        }
+        GameIcon.Gallery -> {
+            // שני מסגרות תמונה זו על זו: האחורית מסומנת בקו דק, הקדמית עם שמש והרים
+            val thin = Stroke(width = w * 0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            val back = Path().apply {
+                moveTo(w * 0.26f, h * 0.24f); lineTo(w * 0.26f, h * 0.14f)
+                quadraticBezierTo(w * 0.26f, h * 0.08f, w * 0.32f, h * 0.08f)
+                lineTo(w * 0.90f, h * 0.08f)
+                quadraticBezierTo(w * 0.96f, h * 0.08f, w * 0.96f, h * 0.14f)
+                lineTo(w * 0.96f, h * 0.58f)
+                quadraticBezierTo(w * 0.96f, h * 0.64f, w * 0.90f, h * 0.64f)
+                lineTo(w * 0.84f, h * 0.64f)
+            }
+            drawPath(back, tint.copy(alpha = 0.75f), style = thin)
+            drawRoundRect(tint, Offset(w * 0.04f, h * 0.30f), Size(w * 0.74f, h * 0.60f), CornerRadius(w * 0.1f), style = stroke)
+            drawCircle(tint, w * 0.07f, Offset(w * 0.24f, h * 0.50f))
+            val hills = Path().apply {
+                moveTo(w * 0.11f, h * 0.82f); lineTo(w * 0.31f, h * 0.62f); lineTo(w * 0.45f, h * 0.76f)
+                lineTo(w * 0.56f, h * 0.66f); lineTo(w * 0.72f, h * 0.82f); close()
+            }
+            drawPath(hills, tint)
         }
         GameIcon.Close -> {
             drawLine(tint, Offset(w * 0.22f, h * 0.22f), Offset(w * 0.78f, h * 0.78f), w * 0.18f, StrokeCap.Round)
