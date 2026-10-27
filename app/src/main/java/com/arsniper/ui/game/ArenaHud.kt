@@ -61,7 +61,7 @@ fun HeartsRow(hearts: Int, max: Int, modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(width = 190.dp, height = 46.dp)) {
         GlowPill(Modifier.fillMaxSize())
         for (i in 0 until max) {
-            val fx = if (max <= 1) 0.5f else 0.225f + i * (0.545f / (max - 1))
+            val fx = 0.5f + (i - (max - 1) / 2f) * 0.275f
             GlowHeart(
                 filled = i < hearts,
                 modifier = Modifier

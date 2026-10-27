@@ -35,7 +35,7 @@ fun FireButton(
                 val s = if (pressed) 0.93f else 1f
                 scaleX = s
                 scaleY = s
-                alpha = if (pressed) 1f else 0.92f
+                alpha = if (pressed) 0.8f else 0.5f
             }
             .pointerInput(Unit) {
                 detectTapGestures(

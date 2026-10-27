@@ -78,9 +78,6 @@ fun ShockButton(
                 drawImage(cores[i + 1], dstOffset = off, dstSize = dst, alpha = t)
             }
         }
-        if (!ready) {
-            OutlinedText("${(fraction * 100).toInt()}%", fontSize = 11.sp, outline = null, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp))
-        }
     }
 }
 

@@ -71,14 +71,15 @@ fun Joystick(
     ) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val w = size.width.toInt()
-        drawImage(baseImg, dstOffset = androidx.compose.ui.unit.IntOffset(0, 0), dstSize = androidx.compose.ui.unit.IntSize(w, w))
+        drawImage(baseImg, dstOffset = androidx.compose.ui.unit.IntOffset(0, 0), dstSize = androidx.compose.ui.unit.IntSize(w, w), alpha = 0.5f)
         val k = size.width * 0.425f
         val kd = k.toInt()
         val kc = center + knob
         drawImage(
             knobImg,
             dstOffset = androidx.compose.ui.unit.IntOffset((kc.x - kd / 2f).toInt(), (kc.y - kd / 2f).toInt()),
-            dstSize = androidx.compose.ui.unit.IntSize(kd, kd)
+            dstSize = androidx.compose.ui.unit.IntSize(kd, kd),
+            alpha = if (knob == Offset.Zero) 0.6f else 0.85f
         )
     }
 }
