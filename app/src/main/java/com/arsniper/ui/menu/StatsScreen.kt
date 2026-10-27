@@ -39,6 +39,7 @@ import com.arsniper.ui.theme.ResponsiveBox
 fun StatsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     PlayerProfile.revision.hashCode()
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        com.arsniper.ui.components.MenuBackdrop()
         Column(modifier = Modifier.padding(ui.dp(14f))) {
             ScreenHeader(title = "GOALS", onBack = onBack) {
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)

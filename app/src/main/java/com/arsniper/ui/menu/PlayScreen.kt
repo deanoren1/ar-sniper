@@ -94,61 +94,7 @@ fun PlayScreen(
     }
 
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
-        // רקע: מעבר כחול עם הילה, ופס כותרת עם מדרגה וקו תכלת זוהר
-        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-            drawRect(
-                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF071A4A), Color(0xFF0A2A74), Color(0xFF061540)))
-            )
-            drawRect(
-                androidx.compose.ui.graphics.Brush.radialGradient(
-                    listOf(Color(0x552A8CFF), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(size.width * 0.55f, size.height * 0.55f),
-                    radius = size.width * 0.6f
-                )
-            )
-            val w = size.width
-            val hgt = size.height
-            // קו מפריד עם שתי מדרגות וקו נמוך זוהר מתחת לכותרת (כמו בדוגמה)
-            fun yy(f: Float) = hgt * f
-            val line = androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f, yy(0.117f))
-                lineTo(w * 0.245f, yy(0.117f))
-                lineTo(w * 0.268f, yy(0.092f))
-                lineTo(w * 0.320f, yy(0.092f))
-                lineTo(w * 0.345f, yy(0.131f))
-                lineTo(w * 0.655f, yy(0.131f))
-                lineTo(w * 0.680f, yy(0.092f))
-                lineTo(w * 0.725f, yy(0.092f))
-                lineTo(w * 0.742f, yy(0.115f))
-                lineTo(w, yy(0.115f))
-            }
-            val above = androidx.compose.ui.graphics.Path().apply {
-                addPath(line)
-                lineTo(w, 0f); lineTo(0f, 0f); close()
-            }
-            drawPath(above, Color(0xFF040F33).copy(alpha = 0.5f))
-            val round = androidx.compose.ui.graphics.PathEffect.cornerPathEffect(hgt * 0.02f)
-            for ((sw, a) in listOf(16f to 0.08f, 9f to 0.14f, 5f to 0.25f)) {
-                drawPath(
-                    line, Color(0xFF2AA8FF).copy(alpha = a),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw, pathEffect = round)
-                )
-            }
-            drawPath(
-                line, Color(0xFF6FD3FF),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f, pathEffect = round)
-            )
-            // זוהר רחב מתחת לכותרת
-            drawOval(
-                brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                    listOf(Color(0x882AA8FF), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, yy(0.131f)),
-                    radius = w * 0.22f
-                ),
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.28f, yy(0.131f) - w * 0.05f),
-                size = androidx.compose.ui.geometry.Size(w * 0.44f, w * 0.1f)
-            )
-        }
+        com.arsniper.ui.components.MenuBackdrop()
         androidx.compose.foundation.Image(
             painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.play_deco_camera),
             contentDescription = null,
@@ -156,12 +102,13 @@ fun PlayScreen(
             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(0.2f)
         )
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                OutlinedText("PLAY", fontSize = (ui.factor * 38f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(40f))
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    OutlinedText("PLAY", fontSize = (ui.factor * 38f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
-                }
+                Spacer(Modifier.weight(1f))
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
+            }
             }
             Spacer(Modifier.height(ui.dp(14f)))
             Row(

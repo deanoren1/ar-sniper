@@ -95,6 +95,7 @@ fun ScanLabScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     }
 
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        com.arsniper.ui.components.MenuBackdrop()
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             ScreenHeader(title = "SCAN LAB (TEST)", onBack = onBack)
             Spacer(Modifier.height(8.dp))

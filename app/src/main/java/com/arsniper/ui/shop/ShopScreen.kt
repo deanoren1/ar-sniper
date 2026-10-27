@@ -60,6 +60,7 @@ fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val diamonds = PlayerProfile.diamonds
 
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        com.arsniper.ui.components.MenuBackdrop()
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             ScreenHeader(title = "SHOP", onBack = onBack) {
                 CurrencyBar(coins, diamonds)

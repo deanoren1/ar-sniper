@@ -32,6 +32,7 @@ import com.arsniper.ui.theme.ResponsiveBox
 fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Unit, onSceneDebug: () -> Unit, modifier: Modifier = Modifier) {
     PlayerProfile.revision.hashCode()
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        com.arsniper.ui.components.MenuBackdrop()
         Column(modifier = Modifier.padding(ui.dp(14f))) {
             ScreenHeader(title = "SETTINGS", onBack = onBack)
             Spacer(Modifier.height(ui.dp(16f)))

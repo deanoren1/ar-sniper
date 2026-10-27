@@ -92,15 +92,15 @@ fun CurrencyPill(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .height(34.dp)
+            .height(30.dp)
             .clip(shape)
             .background(Color(0xFF0A1E5E).copy(alpha = 0.45f))
             .border(1.3.dp, Color(0xFF3F8EF0).copy(alpha = 0.9f), shape)
             .padding(start = 3.dp, end = 14.dp)
     ) {
-        if (isGems) DiamondIcon(size = 28.dp) else CoinIcon(size = 28.dp)
+        if (isGems) DiamondIcon(size = 25.dp) else CoinIcon(size = 25.dp)
         Spacer(Modifier.width(8.dp))
-        OutlinedText("$prefix$amount", fontSize = 18.sp, outline = null)
+        OutlinedText("$prefix$amount", fontSize = 16.sp, outline = null)
         if (onPlus != null) {
             Spacer(Modifier.width(8.dp))
             PlusSquare(onPlus)
@@ -144,20 +144,18 @@ fun ScreenHeader(
     modifier: Modifier = Modifier,
     trailing: @Composable () -> Unit = {}
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        if (onBack != null) {
-            GameIconButton(GameIcon.Back, onClick = onBack, style = com.arsniper.ui.theme.GameButtonStyle.Primary, size = 48.dp)
-        } else {
-            Spacer(Modifier.width(48.dp))
-        }
-        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            OutlinedText(title, fontSize = 28.sp, color = Color.White, letterSpacing = 1.sp)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            trailing()
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        OutlinedText(title, fontSize = 30.sp, color = GameColors.Yellow, letterSpacing = 1.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            if (onBack != null) {
+                GameIconButton(GameIcon.Back, onClick = onBack, style = com.arsniper.ui.theme.GameButtonStyle.Primary, size = 48.dp)
+            } else {
+                Spacer(Modifier.width(48.dp))
+            }
+            Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                trailing()
+            }
         }
     }
 }
@@ -300,3 +298,52 @@ fun GameToggle(checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier
 
 private fun Modifier.androidxClickable(onClick: () -> Unit): Modifier =
     this.then(Modifier.clickable(onClick = onClick))
+
+/** רקע התפריטים: מעבר כחול עם הילה, ופס כותרת עם מדרגות וקו תכלת זוהר (כמו מסך PLAY) */
+@Composable
+fun MenuBackdrop() {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            drawRect(
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF071A4A), Color(0xFF0A2A74), Color(0xFF061540)))
+            )
+            drawRect(
+                androidx.compose.ui.graphics.Brush.radialGradient(
+                    listOf(Color(0x552A8CFF), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(size.width * 0.55f, size.height * 0.55f),
+                    radius = size.width * 0.6f
+                )
+            )
+            val w = size.width
+            val hgt = size.height
+            // קו מפריד עם שתי מדרגות וקו נמוך זוהר מתחת לכותרת (כמו בדוגמה)
+            fun yy(f: Float) = hgt * f
+            val line = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, yy(0.117f))
+                lineTo(w * 0.245f, yy(0.117f))
+                lineTo(w * 0.268f, yy(0.092f))
+                lineTo(w * 0.320f, yy(0.092f))
+                lineTo(w * 0.345f, yy(0.131f))
+                lineTo(w * 0.655f, yy(0.131f))
+                lineTo(w * 0.680f, yy(0.092f))
+                lineTo(w * 0.725f, yy(0.092f))
+                lineTo(w * 0.742f, yy(0.115f))
+                lineTo(w, yy(0.115f))
+            }
+            val above = androidx.compose.ui.graphics.Path().apply {
+                addPath(line)
+                lineTo(w, 0f); lineTo(0f, 0f); close()
+            }
+            drawPath(above, Color(0xFF040F33).copy(alpha = 0.5f))
+            val round = androidx.compose.ui.graphics.PathEffect.cornerPathEffect(hgt * 0.02f)
+            for ((sw, a) in listOf(16f to 0.08f, 9f to 0.14f, 5f to 0.25f)) {
+                drawPath(
+                    line, Color(0xFF2AA8FF).copy(alpha = a),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = sw, pathEffect = round)
+                )
+            }
+            drawPath(
+                line, Color(0xFF6FD3FF),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f, pathEffect = round)
+            )
+        }
+}

@@ -74,6 +74,7 @@ fun ArtLabScreen(onBack: () -> Unit, onUsePhoto: () -> Unit, modifier: Modifier 
     var hasBackup by remember { mutableStateOf(backup.exists()) }
 
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
+        com.arsniper.ui.components.MenuBackdrop()
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             ScreenHeader(title = "ART LAB (TEST)", onBack = onBack)
             Spacer(Modifier.height(8.dp))
