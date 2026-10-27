@@ -161,7 +161,7 @@ fun PlayScreen(
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     OutlinedText("PLAY", fontSize = (ui.factor * 38f).sp, color = GameColors.Yellow, letterSpacing = 1.sp)
                 }
-                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds, flat = true)
+                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
             }
             Spacer(Modifier.height(ui.dp(14f)))
             Row(

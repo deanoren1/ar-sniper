@@ -77,8 +77,8 @@ fun CurrencyPill(
         modifier = modifier
             .height(34.dp)
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(GameColors.Navy700, GameColors.Navy900)))
-            .border(2.dp, GameColors.Outline, shape)
+            .background(Color(0xFF0A1E5E).copy(alpha = 0.45f))
+            .border(1.3.dp, Color(0xFF3F8EF0).copy(alpha = 0.9f), shape)
             .padding(start = 3.dp, end = 14.dp)
     ) {
         if (isGems) DiamondIcon(size = 28.dp) else CoinIcon(size = 28.dp)
@@ -100,7 +100,7 @@ fun PlusSquare(onClick: () -> Unit, modifier: Modifier = Modifier, size: Dp = 34
             .size(size)
             .clip(shape)
             .background(Brush.verticalGradient(listOf(Color(0xFF7BE04A), Color(0xFF2FA21F))))
-            .border(2.dp, GameColors.Outline, shape)
+            .border(1.5.dp, Color(0xFF0F6A22), shape)
             .clickable(onClick = onClick)
     ) { IconGlyph(GameIcon.Plus, size = size * 0.55f, tint = Color.White) }
 }
