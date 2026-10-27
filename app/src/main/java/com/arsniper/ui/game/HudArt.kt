@@ -22,15 +22,15 @@ fun HudImage(res: Int, modifier: Modifier = Modifier) {
  */
 @Composable
 fun GlowPill(modifier: Modifier = Modifier, corner: Float = 0.5f) {
+    val ratio = corner
     androidx.compose.foundation.Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
-        val corner = androidx.compose.ui.geometry.CornerRadius(h / 2f, h / 2f)
         val d = density
         val inset = 2.5f * d
         val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
         val box = androidx.compose.ui.geometry.Size(w - 2 * inset, h - 2 * inset)
-        val cr = androidx.compose.ui.geometry.CornerRadius(box.height * corner, box.height * corner)
+        val cr = androidx.compose.ui.geometry.CornerRadius(box.height * ratio, box.height * ratio)
         // הילה חיצונית
         for ((sw, a) in listOf(9f to 0.10f, 6f to 0.16f, 3.5f to 0.30f)) {
             drawRoundRect(
@@ -58,7 +58,7 @@ fun GlowPill(modifier: Modifier = Modifier, corner: Float = 0.5f) {
             ),
             topLeft = androidx.compose.ui.geometry.Offset(inset + 3f * d, inset + 1.5f * d),
             size = androidx.compose.ui.geometry.Size(box.width - 6f * d, box.height * 0.5f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(box.height * corner / 2f, box.height * corner / 2f)
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(box.height * ratio / 2f, box.height * ratio / 2f)
         )
         // קו ראשי וקו פנימי
         drawRoundRect(
@@ -70,7 +70,7 @@ fun GlowPill(modifier: Modifier = Modifier, corner: Float = 0.5f) {
             color = androidx.compose.ui.graphics.Color(0xFF2A5FD0).copy(alpha = 0.7f),
             topLeft = androidx.compose.ui.geometry.Offset(inset + 3f * d, inset + 3f * d),
             size = androidx.compose.ui.geometry.Size(box.width - 6f * d, box.height - 6f * d),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius((box.height - 6f * d) * corner, (box.height - 6f * d) * corner),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius((box.height - 6f * d) * ratio, (box.height - 6f * d) * ratio),
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f * d)
         )
     }
