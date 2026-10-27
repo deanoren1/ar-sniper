@@ -868,7 +868,7 @@ fun GameScreen(
             onClick = { triggerShock() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 28.dp, bottom = 196.dp)
+                .padding(end = 76.dp, bottom = 196.dp)
         )
 
         AmmoBar(
@@ -944,7 +944,7 @@ fun GameScreen(
                 com.arsniper.R.drawable.hud_pause,
                 Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 17.dp, end = 214.dp)
+                    .padding(top = 68.dp, end = 16.dp)
                     .size(width = 52.dp, height = 46.dp)
                     .clickable {
                         sfxMemo.holding = false
