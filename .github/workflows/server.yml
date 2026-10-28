@@ -1,0 +1,33 @@
+name: Server check
+
+on:
+  push:
+    paths:
+      - "server/**"
+      - ".github/workflows/server.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npx tsc
+      - name: Start local worker
+        run: |
+          npx wrangler dev --local --port 8787 > wrangler.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fs http://127.0.0.1:8787/ > /dev/null; then break; fi
+            sleep 2
+          done
+      - name: Relay integration test
+        run: node test/relay.test.mjs
+      - name: Show worker log on failure
+        if: failure()
+        run: cat wrangler.log
