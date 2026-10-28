@@ -221,7 +221,7 @@ fun PlayScreen(
                                     modifier = Modifier.fillMaxWidth().padding(bottom = ui.dp(8f))
                                 ) {
                                     for ((file, thumb) in rowItems) {
-                                        Thumb(thumb, Modifier.weight(1f), onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
+                                        Thumb(thumb, Modifier.weight(1f), badge = remember(file) { PhotoLibrary.panoLabel(file) }, onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
                                     }
                                     repeat(5 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                                 }
@@ -273,7 +273,7 @@ fun PlayScreen(
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun Thumb(image: ImageBitmap?, modifier: Modifier, onLong: () -> Unit, onClick: () -> Unit) {
+private fun Thumb(image: ImageBitmap?, modifier: Modifier, badge: String? = null, onLong: () -> Unit, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = modifier
@@ -285,6 +285,18 @@ private fun Thumb(image: ImageBitmap?, modifier: Modifier, onLong: () -> Unit, o
     ) {
         if (image != null) {
             Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        }
+        if (badge != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(4.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xCC081028))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                OutlinedText(if (badge == "PANO") "PANO" else "$badge\u00B0", fontSize = 12.sp, color = GameColors.Yellow, outline = null)
+            }
         }
     }
 }

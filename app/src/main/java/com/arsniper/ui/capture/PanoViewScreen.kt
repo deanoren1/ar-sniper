@@ -173,6 +173,7 @@ private fun preparePanoramaForGame(context: android.content.Context, radius: Flo
         PanoramaStore.saveGameSpan(context, full.width / radius, full.height / radius)
         com.arsniper.data.PhotoRepository.save(context, bitmap)
         com.arsniper.data.PhotoLibrary.addCurrent(context, finalizing = false)
+        com.arsniper.data.PhotoLibrary.markPano(context, PanoramaStore.is360(context))
         true
     } catch (e: Throwable) {
         false

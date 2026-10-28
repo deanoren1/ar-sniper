@@ -63,6 +63,7 @@ object PhotoLibrary {
         try {
             file.delete()
             File(file.parentFile, file.nameWithoutExtension + ".ok").delete()
+            File(file.parentFile, file.nameWithoutExtension + ".pano").delete()
         } catch (_: Exception) { }
     }
 
@@ -79,5 +80,28 @@ object PhotoLibrary {
         var sample = 1
         while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
         return BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+    }
+
+    /** מסמן את התמונה הנוכחית בספרייה כפנורמה (180 או 360 מעלות) */
+    fun markPano(context: Context, is360: Boolean) {
+        try {
+            val current = PhotoRepository.currentFile(context) ?: return
+            val key = AnalysisCache.keyFor(current)
+            File(dir(context), "$key.pano").writeText(if (is360) "360" else "180")
+        } catch (_: Exception) {
+        }
+    }
+
+    /** "180" / "360" לפנורמה שצולמה באפליקציה, "PANO" לתמונה רחבה מהגלריה, אחרת null */
+    fun panoLabel(file: File): String? {
+        try {
+            val marker = File(file.parentFile, file.nameWithoutExtension + ".pano")
+            if (marker.exists()) return marker.readText().trim()
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            if (bounds.outHeight > 0 && bounds.outWidth.toFloat() / bounds.outHeight >= 2.6f) return "PANO"
+        } catch (_: Exception) {
+        }
+        return null
     }
 }
