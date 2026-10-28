@@ -167,7 +167,10 @@ class MonsterSprites private constructor(
                 val sheet = loadSheet(atlas, row, loadWalk(context, row, "walk_$row"), fewer) ?: continue
                 sheets.add(sheet)
             }
-            return if (sheets.isEmpty()) null else MonsterSprites(List(5) { listOf(sheets[minOf(it, sheets.size - 1)]) }, loadBoss(context))
+            if (sheets.isEmpty()) return null
+            val pools = List(5) { mutableListOf(sheets[minOf(it, sheets.size - 1)]) }
+            addRigs(context, "classic", pools)
+            return MonsterSprites(pools, loadBoss(context))
         }
 
         /** גיליון מפלצות של ארנה: אין הליכה אמיתית (מדומה), הבוס נשאר הרגיל */
@@ -201,7 +204,78 @@ class MonsterSprites private constructor(
                 pools[3].clear()
                 pools[3].addAll(original.pools[3])
             }
+            addRigs(context, variant, pools)
             return MonsterSprites(pools, loadBoss(context, variant) ?: loadBoss(context))
+        }
+
+        private const val RIG_COLUMNS = 6
+        private const val RIG_ROWS = 4
+
+        /**
+         * מפלצות מונפשות על שלד (rig): קובץ rig_<ארנה>_<סוג>_<n> ב-res/drawable, למשל rig_tundra_1_0.
+         * ארנה: classic, tundra, jungle... סוג = שורת ההתנהגות (0 ענק, 1 תמנון, 2 קיפוד, 4 חייזר; לא 3: מפלצת הבלונים מיוחדת).
+         * n = 0, 1, 2... כמה שרוצים. המפלצת מצטרפת למאגר של הסוג ומתערבבת עם האחרות. המפרט המלא: docs/MONSTER_SPRITES.md
+         */
+        private fun addRigs(context: Context, arena: String, pools: List<MutableList<MonsterSheet>>) {
+            for (foe in intArrayOf(0, 1, 2, 4)) {
+                var n = 0
+                while (true) {
+                    val name = "rig_${arena}_${foe}_$n"
+                    val id = context.resources.getIdentifier(name, "drawable", context.packageName)
+                    if (id == 0) break
+                    loadRig(context, id)?.let { pools[foe].add(it) }
+                    n++
+                }
+            }
+        }
+
+        /**
+         * גיליון rig: 6 עמודות על 4 שורות. שורה 0: עמידה. שורה 1: הליכה (פונה ימינה). שורה 2: הכנה לירי (3) וירייה (3).
+         * שורה 3: פגיעה (2) ומוות (4). כל הפריימים נחתכים באותו מלבן, כך שהרגליים נשארות על אותו קו והגודל קבוע.
+         */
+        private fun loadRig(context: Context, id: Int): MonsterSheet? {
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            bitmap.density = Bitmap.DENSITY_NONE
+            val cw = bitmap.width / RIG_COLUMNS
+            val ch = bitmap.height / RIG_ROWS
+            if (cw < 8 || ch < 8) return null
+            var minX = cw
+            var minY = ch
+            var maxX = -1
+            var maxY = -1
+            val pixels = IntArray(cw * ch)
+            for (row in 0 until RIG_ROWS) {
+                for (col in 0 until RIG_COLUMNS) {
+                    bitmap.getPixels(pixels, 0, cw, col * cw, row * ch, cw, ch)
+                    for (y in 0 until ch) {
+                        for (x in 0 until cw) {
+                            if (Color.alpha(pixels[y * cw + x]) > ALPHA_MIN) {
+                                if (x < minX) minX = x
+                                if (x > maxX) maxX = x
+                                if (y < minY) minY = y
+                                if (y > maxY) maxY = y
+                            }
+                        }
+                    }
+                }
+            }
+            if (maxX < 0) return null
+            fun frame(row: Int, col: Int): MonsterSprite {
+                val f = Bitmap.createBitmap(bitmap, col * cw + minX, row * ch + minY, maxX - minX + 1, maxY - minY + 1)
+                f.density = Bitmap.DENSITY_NONE
+                return MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
+            }
+            return MonsterSheet(
+                idle = frame(0, 0),
+                walk = (0 until RIG_COLUMNS).map { frame(1, it) },
+                peek = frame(2, 2),
+                hit = frame(3, 0),
+                sizeScale = 1.0f
+            )
         }
 
         /**
