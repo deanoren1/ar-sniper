@@ -17,7 +17,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
+      - name: Install
+        run: |
+          if ! npm install --no-audit --no-fund > npm.log 2>&1; then
+            echo "::error::$(tail -25 npm.log | tr '\n' ' ' | cut -c1-1500)"
+            exit 1
+          fi
       - run: npx tsc
       - name: Start local worker
         run: |
