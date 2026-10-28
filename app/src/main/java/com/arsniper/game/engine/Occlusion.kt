@@ -26,7 +26,8 @@ object Occlusion {
 
     /** העצמים שמכסים את הדמות (קרובים אליה יותר וחופפים לה). ריק לדמויות שמציצות או יוצאות מחלון. */
     fun nearerSpots(scene: SceneContext, enemy: Enemy): List<HidingSpot> {
-        if (enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window) return emptyList()
+        // הבוס (Static) גדול ומרחף: אין לו "רגליים על הרצפה", ולכן עצמים בחדר לא חותכים אותו
+        if (enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window || enemy.kind == EnemyKind.Static) return emptyList()
         val mapper = scene.mapper
         val aspect = mapper.screenAspect
         val x = enemy.position.x

@@ -349,13 +349,23 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
 private class Placed(val x: Float, val y: Float, val width: Float, val index: Int)
 
 private fun DrawScope.drawDecals(assets: ArenaAssets, refWidth: Float) {
+    // הכתמים ממוקמים לפי קואורדינטות התמונה (רצפה לפי הניתוח). התמונה מוצגת במצב Crop, ולכן ממירים למסך
+    val analysis = SceneSession.analysis
+    val mapper = if (analysis != null && analysis.height > 0 && size.height > 0f) {
+        com.arsniper.game.model.WorldMapper(analysis.width.toFloat() / analysis.height, size.width / size.height)
+    } else {
+        null
+    }
     for (p in assets.placed) {
         val img = assets.decals.getOrNull(p.index) ?: continue
         val w = refWidth * p.width
         val h = w * img.height / img.width * 0.38f // משטחים את הכתם כדי שיראה כאילו הוא על הרצפה
         drawImage(
             image = img,
-            dstOffset = IntOffset((p.x * size.width - w / 2f).toInt(), (p.y * size.height - h / 2f).toInt()),
+            dstOffset = IntOffset(
+                ((mapper?.worldX(p.x) ?: p.x) * size.width - w / 2f).toInt(),
+                ((mapper?.worldY(p.y) ?: p.y) * size.height - h / 2f).toInt()
+            ),
             dstSize = IntSize(w.toInt(), h.toInt()),
             alpha = 0.8f
         )
