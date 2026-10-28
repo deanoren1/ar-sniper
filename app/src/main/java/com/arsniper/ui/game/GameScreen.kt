@@ -810,8 +810,10 @@ fun GameScreen(
                 }
         ) {
             BackgroundLayer(photo = photo)
-            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true)
+            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
+            // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
+            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true)
             CombatLayer(
                 shots = fire.shots.toList(),
                 telegraphs = fire.telegraphViews.toList(),

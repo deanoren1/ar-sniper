@@ -36,10 +36,18 @@ fun ArenaStyleLayer(
     modifier: Modifier = Modifier,
     particleScale: Float = 1f,
     /** מסגרת קדמית וכתמי רצפה (רק בקרב עצמו, ורק לארנות שיש להן נכסים) */
-    props: Boolean = false
+    props: Boolean = false,
+    /** false: בלי המסגרת הקדמית (היא מצוירת בנפרד, מעל המפלצות) */
+    drawFrame: Boolean = true,
+    /** true: רק המסגרת הקדמית (שכבה שמונחת מעל המפלצות, כדי שהן יהיו מאחוריה) */
+    frameOnly: Boolean = false
 ) {
     val context = LocalContext.current
-    val assets = remember(style, props) { if (props) ArenaAssets.load(context, style) else null }
+    val assets = remember(style, props, frameOnly) { if (props) ArenaAssets.load(context, style, frameOnly) else null }
+    if (frameOnly) {
+        Canvas(modifier = modifier.fillMaxSize()) { drawArenaFrame(assets) }
+        return
+    }
     Canvas(modifier = modifier.fillMaxSize()) {
         val t = nowNanos / 1e9f
         // כתמי רצפה: מתחת לגוון, כדי שיהיו חלק מהתמונה
@@ -65,17 +73,21 @@ fun ArenaStyleLayer(
             )
         }
         drawParticles(style, t, particleScale)
-        // המסגרת הקדמית מעל הכול בשכבה הזאת (המפלצות והמחבואים מצוירים מעליה)
-        assets?.frame?.let { frame ->
-            val w = size.width * 1.08f
-            val h = size.height * 1.08f
-            drawImage(
-                image = frame,
-                dstOffset = IntOffset((-size.width * 0.04f).toInt(), (-size.height * 0.04f).toInt()),
-                dstSize = IntSize(w.toInt(), h.toInt()),
-                alpha = 0.97f
-            )
-        }
+        if (drawFrame) drawArenaFrame(assets)
+    }
+}
+
+/** המסגרת הקדמית של הארנה (קישוטי הקצוות), מעל התמונה והמפלצות */
+private fun DrawScope.drawArenaFrame(assets: ArenaAssets?) {
+    assets?.frame?.let { frame ->
+        val w = size.width * 1.08f
+        val h = size.height * 1.08f
+        drawImage(
+            image = frame,
+            dstOffset = IntOffset((-size.width * 0.04f).toInt(), (-size.height * 0.04f).toInt()),
+            dstSize = IntSize(w.toInt(), h.toInt()),
+            alpha = 0.97f
+        )
     }
 }
 
@@ -84,7 +96,7 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
     companion object {
         private val FLOOR_LABELS = setOf(3, 6, 9, 11, 13, 28, 29, 46, 52, 91, 94)
 
-        fun load(context: Context, style: ArenaStyle): ArenaAssets? {
+        fun load(context: Context, style: ArenaStyle, frameOnly: Boolean = false): ArenaAssets? {
             val res = context.resources
             val pkg = context.packageName
             val key = style.name.lowercase()
@@ -93,7 +105,7 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
             val frame = if (frameId != 0) ImageBitmap.imageResource(res, frameId) else null
             val decals = ArrayList<ImageBitmap>()
             var n = 0
-            while (true) {
+            while (!frameOnly) {
                 val d = id("arena_decal_${key}_$n")
                 if (d == 0) break
                 decals.add(ImageBitmap.imageResource(res, d))
