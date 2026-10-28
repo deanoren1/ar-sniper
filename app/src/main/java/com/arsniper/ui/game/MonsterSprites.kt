@@ -196,6 +196,10 @@ class MonsterSprites private constructor(
             // בכל ארנה מתערבבות גם המפלצות המקוריות, לא רק המחופשות
             load(context, null)?.let { original ->
                 for (row in 0 until 5) pools[row].addAll(original.pools[row])
+                // מפלצת הבלונים (שורה 3) רק מהציורים המקוריים: רק להם יש ציור של 2 ושל בלון אחד, והבלונים מתפוצצים בזה אחר זה.
+                // בציור מעוצב (למשל טונדרה) הייתה תמיד עם שלושה בלונים גם אחרי פגיעות.
+                pools[3].clear()
+                pools[3].addAll(original.pools[3])
             }
             return MonsterSprites(pools, loadBoss(context, variant) ?: loadBoss(context))
         }
