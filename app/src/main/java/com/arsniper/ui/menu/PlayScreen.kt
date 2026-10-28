@@ -70,7 +70,6 @@ fun PlayScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     PlayerProfile.revision.hashCode()
     var refresh by remember { mutableStateOf(0) }
@@ -83,18 +82,24 @@ fun PlayScreen(
         }
     }
 
+    // הייבוא רץ ברמת התהליך (שורד בנייה מחדש של המסך אחרי חזרה מהגלריה); המסך רק מגיב לתוצאה
     val picker = rememberGalleryPicker { uri ->
-        run {
-            busy = true
-            failed = false
-            scope.launch {
-                val ok = withContext(Dispatchers.IO) {
-                    // נשמרת מיד לספרייה (כך היא מופיעה ב-MY PHOTOS גם אם יוצאים ממסך הסקירה)
-                    PhotoImport.importFromUri(context, uri).also { if (it) PhotoLibrary.addCurrent(context) }
-                }
+        failed = false
+        com.arsniper.data.PickImport.start(context, uri)
+    }
+    val importState = com.arsniper.data.PickImport.state
+    val busy = importState == com.arsniper.data.PickImport.BUSY
+    LaunchedEffect(importState) {
+        when (importState) {
+            com.arsniper.data.PickImport.OK -> {
+                com.arsniper.data.PickImport.consume()
                 refresh++
-                busy = false
-                if (ok) onGalleryPicked() else failed = true
+                onGalleryPicked()
+            }
+            com.arsniper.data.PickImport.FAILED -> {
+                com.arsniper.data.PickImport.consume()
+                refresh++
+                failed = true
             }
         }
     }
