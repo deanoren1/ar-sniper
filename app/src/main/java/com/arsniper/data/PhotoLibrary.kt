@@ -13,7 +13,7 @@ import kotlin.math.max
  */
 object PhotoLibrary {
 
-    const val MAX = 10
+    const val MAX = 40
 
     private fun dir(context: Context) = File(context.filesDir, "library").apply { mkdirs() }
 

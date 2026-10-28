@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -196,7 +197,7 @@ fun PlayScreen(
                         contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
                         modifier = Modifier.align(Alignment.BottomEnd).fillMaxWidth(0.34f)
                     )
-                    Column(modifier = Modifier.padding(ui.dp(14f))) {
+                    Column(modifier = Modifier.fillMaxSize().padding(ui.dp(14f))) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedText("MY PHOTOS", fontSize = (ui.factor * 32f).sp)
                             if (saved.isNotEmpty()) {
@@ -215,15 +216,23 @@ fun PlayScreen(
                                 )
                             }
                         } else {
-                            for (rowItems in saved.chunked(5)) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(ui.dp(8f)),
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = ui.dp(8f))
-                                ) {
-                                    for ((file, thumb) in rowItems) {
-                                        Thumb(thumb, Modifier.weight(1f), badge = remember(file) { PhotoLibrary.panoLabel(file) }, onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
+                            // רשימה שגוללת למעלה ולמטה, כדי שיהיה מקום להרבה תמונות
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                            ) {
+                                for (rowItems in saved.chunked(5)) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(ui.dp(8f)),
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = ui.dp(8f))
+                                    ) {
+                                        for ((file, thumb) in rowItems) {
+                                            Thumb(thumb, Modifier.weight(1f), badge = remember(file) { PhotoLibrary.panoLabel(file) }, onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
+                                        }
+                                        repeat(5 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                                     }
-                                    repeat(5 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
                         }
