@@ -32,7 +32,11 @@ jobs:
             sleep 2
           done
       - name: Relay integration test
-        run: node test/relay.test.mjs
+        run: |
+          if ! node test/relay.test.mjs > test.log 2>&1; then
+            echo "::error::TEST: $(tail -15 test.log | tr '\n' ' ' | cut -c1-900) WORKER: $(tail -15 wrangler.log | tr '\n' ' ' | cut -c1-900)"
+            exit 1
+          fi
       - name: Show worker log on failure
         if: failure()
         run: cat wrangler.log
