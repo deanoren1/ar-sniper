@@ -29,7 +29,7 @@ import com.arsniper.ui.theme.ResponsiveBox
 
 /** הגדרות: צלילים ורטט. נשמרות בפרופיל ופועלות מיד */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Unit, onSceneDebug: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Unit, onSceneDebug: () -> Unit, onCoop: () -> Unit = {}, modifier: Modifier = Modifier) {
     PlayerProfile.revision.hashCode()
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         com.arsniper.ui.components.MenuBackdrop()
@@ -47,6 +47,14 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
                     ) {
                         SettingRow("SOUND EFFECTS", PlayerProfile.soundOn) { PlayerProfile.soundOn = it }
                         SettingRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
+                        GameButton(
+                            text = "CO-OP (BETA)",
+                            onClick = onCoop,
+                            style = GameButtonStyle.Success,
+                            height = 44.dp,
+                            fontSize = 16.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         GameButton(
                             text = "ART LAB (TEST)",
                             onClick = onArtLab,

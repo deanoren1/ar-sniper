@@ -23,7 +23,7 @@ import com.arsniper.ui.menu.ScanLabScreen
 import com.arsniper.ui.menu.SettingsScreen
 import com.arsniper.ui.menu.StatsScreen
 
-enum class Screen { Start, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats, ArtLab, ScanLab, SceneDebug }
+enum class Screen { Start, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
 
 @Composable
 fun AppNavigation() {
@@ -38,6 +38,7 @@ fun AppNavigation() {
         screen = when (screen) {
             Screen.Game -> if (quick) Screen.Play else Screen.Arena
             Screen.Capture, Screen.Review, Screen.Scene, Screen.Arena, Screen.PanoView -> Screen.Play
+            Screen.Coop -> Screen.Settings
             else -> Screen.Start
         }
     }
@@ -111,9 +112,10 @@ fun AppNavigation() {
             onNextArena = { quick = false; screen = Screen.Arena }
         )
         Screen.Shop -> ShopScreen(onBack = { screen = Screen.Start })
-        Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug })
+        Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug }, onCoop = { screen = Screen.Coop })
         Screen.ScanLab -> ScanLabScreen(onBack = { screen = Screen.Settings })
         Screen.ArtLab -> ArtLabScreen(onBack = { screen = Screen.Settings }, onUsePhoto = { screen = Screen.Review })
         Screen.Stats -> StatsScreen(onBack = { screen = Screen.Start })
+        Screen.Coop -> com.arsniper.ui.menu.CoopScreen(onBack = { screen = Screen.Settings })
     }
 }

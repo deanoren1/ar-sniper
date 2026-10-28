@@ -84,4 +84,6 @@ dependencies {
 
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
     implementation("com.google.ai.edge.litert:litert:2.1.0")
+    // משחק משותף: חיבור WebSocket לשרת החדרים
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
