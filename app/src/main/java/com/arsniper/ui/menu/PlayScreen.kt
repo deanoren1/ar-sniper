@@ -292,7 +292,7 @@ private fun Thumb(image: ImageBitmap?, modifier: Modifier, badge: String? = null
                     if (badge == "360") com.arsniper.R.drawable.pano_360 else com.arsniper.R.drawable.pano_180
                 ),
                 contentDescription = null,
-                modifier = Modifier.align(Alignment.BottomStart).padding(2.dp).height(34.dp)
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp).height(34.dp)
             )
         }
     }
