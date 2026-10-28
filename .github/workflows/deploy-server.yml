@@ -37,7 +37,14 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Deploy
         if: steps.check.outputs.ready == 'true'
-        run: npx wrangler deploy 2>&1 | tee deploy.log
+        run: |
+          set -o pipefail
+          npx wrangler whoami > who.log 2>&1 || true
+          npx wrangler deploy > deploy.log 2>&1
+          code=$?
+          echo "::notice title=Deploy log::$(tail -30 deploy.log | tr '\n' ' ' | cut -c1-1500)"
+          echo "::notice title=Whoami::$(tail -15 who.log | tr '\n' ' ' | cut -c1-900)"
+          exit $code
       - name: Show address
         if: steps.check.outputs.ready == 'true'
         run: grep -o 'https://[^ ]*workers.dev' deploy.log | head -1 | sed 's/^/::notice title=Server address::/'
