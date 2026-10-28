@@ -370,6 +370,24 @@ object PanoramaStore {
             .putFloat("spanH", spanH).putFloat("spanV", spanV).apply()
     }
 
+    /** פנורמה שנשלחה למשחק וממתינה לסיום הסקירה (שם 360 מורחבת בקצוות כדי שהציור יהיה רציף) */
+    fun setPendingGame(context: Context, is360: Boolean, spanH: Float, spanV: Float) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("pg_on", true).putBoolean("pg_360", is360)
+            .putFloat("pg_h", spanH).putFloat("pg_v", spanV).apply()
+    }
+
+    fun clearPendingGame(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("pg_on", false).apply()
+    }
+
+    /** (is360, spanH, spanV) של הפנורמה הממתינה, או null */
+    fun pendingGame(context: Context): Triple<Boolean, Float, Float>? {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!p.getBoolean("pg_on", false)) return null
+        return Triple(p.getBoolean("pg_360", false), p.getFloat("pg_h", PI.toFloat()), p.getFloat("pg_v", 1f))
+    }
+
     fun spanH(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat("spanH", PI.toFloat())
 
     fun spanV(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat("spanV", 1f)

@@ -214,6 +214,11 @@ fun GameScreen(
     // פנורמה: העולם רחב מהמסך. aspect = יחס העולם (כל התמונה), viewAspect = יחס המסך
     val photoRatio = photo?.let { it.width.toFloat() / it.height } ?: 0f
     val panoMode = photoRatio >= 2.6f
+    // פנורמה 360: ring = כמה מהעולם הוא המעגל המלא, ext = ההרחבה בכל קצה. הכוונת עוטפת בין הקצוות
+    val panoInfo = remember { if (panoMode) com.arsniper.data.PhotoLibrary.panoInfo(context) else null }
+    val ring = panoInfo?.ring ?: 1f
+    val ext = panoInfo?.ext ?: 0f
+    val wraps = panoMode && ring < 0.999f && ext > 0f
     var aspect by remember { mutableStateOf(2f) }
     var viewAspect by remember { mutableStateOf(2f) }
     var screenHeightPx by remember { mutableStateOf(1) }
@@ -307,9 +312,12 @@ fun GameScreen(
             val sceneContext = if (analysis != null) {
                 SceneContext(
                     analysis = analysis,
-                    spots = SceneSession.spots,
+                    // 360: ההרחבות בקצוות הן רק המשך ציור. מפלצות ומחבואים נשארים באמצע (המעגל האמיתי)
+                    spots = if (wraps) SceneSession.spots.filter { (it.minX + it.maxX) / 2f in (ext + 0.01f)..(1f - ext - 0.01f) } else SceneSession.spots,
                     mapper = WorldMapper(analysis.width.toFloat() / analysis.height, aspect),
-                    luma = SceneSession.luma
+                    luma = SceneSession.luma,
+                    walkMinX = if (wraps) ext + 0.02f else 0.04f,
+                    walkMaxX = if (wraps) 1f - ext - 0.02f else 0.96f
                 )
             } else {
                 null
@@ -337,6 +345,11 @@ fun GameScreen(
                 if (lastFrameNanos != 0L) {
                     val dt = if (paused) 0f else (now - lastFrameNanos) / 1_000_000_000f
                     crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom / BASE_ZOOM, viewAspect)
+                    if (wraps) {
+                        var wx = crosshair.x
+                        if (wx > 1f - ext) wx -= ring else if (wx < ext) wx += ring
+                        if (wx != crosshair.x) crosshair = Vec2(wx, crosshair.y)
+                    }
                     if (started && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
                         enemies = withHp(engine.update(enemies, dt))
                         // מפלצת שמתה (חוץ מהבוס ומהמפלצות שמתפוצצות איתו): אולי נופל פרס
@@ -519,8 +532,8 @@ fun GameScreen(
     // ג'ירו: סיבוב הטלפון מזיז את הכוונת (והמצלמה אחריה) לאורך הפנורמה
     val context2 = LocalContext.current
     val tracker = remember { HeadingTracker(context2) }
-    val spanH = remember { PanoramaStore.spanH(context2) }
-    val spanV = remember { PanoramaStore.spanV(context2) }
+    val spanH = panoInfo?.spanH ?: PanoramaStore.spanH(context2)
+    val spanV = panoInfo?.spanV ?: PanoramaStore.spanV(context2)
     DisposableEffect(panoMode) {
         if (panoMode) tracker.start()
         onDispose { tracker.stop() }
@@ -927,7 +940,14 @@ fun GameScreen(
             var rightCount = 0
             for (e in enemies) {
                 if (!e.isAlive) continue
-                val sx = camera.worldToScreen(e.position).x
+                var ex = e.position.x
+                if (wraps) {
+                    // בעטיפה: מודדים את הדרך הקצרה ביותר סביב המעגל
+                    var d = ex - crosshair.x
+                    if (d > ring / 2f) d -= ring else if (d < -ring / 2f) d += ring
+                    ex = crosshair.x + d
+                }
+                val sx = camera.worldToScreen(Vec2(ex, e.position.y)).x
                 if (sx < 0f) leftCount++ else if (sx > 1f) rightCount++
             }
             if (leftCount > 0) {

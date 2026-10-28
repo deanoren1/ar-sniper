@@ -38,6 +38,7 @@ object PhotoLibrary {
                 if (old != null && old != key) {
                     File(dir(context), "$old.jpg").delete()
                     File(dir(context), "$old.ok").delete()
+                    File(dir(context), "$old.pano").delete()
                 }
                 pendingKey = null
                 File(dir(context), "$key.ok").writeText("2")
@@ -89,11 +90,11 @@ object PhotoLibrary {
     }
 
     /** מסמן את התמונה הנוכחית בספרייה כפנורמה (180 או 360 מעלות) */
-    fun markPano(context: Context, is360: Boolean) {
+    fun markPano(context: Context, is360: Boolean, ring: Float = 1f, ext: Float = 0f, spanH: Float = 0f, spanV: Float = 0f) {
         try {
             val current = PhotoRepository.currentFile(context) ?: return
             val key = AnalysisCache.keyFor(current)
-            File(dir(context), "$key.pano").writeText(if (is360) "360" else "180")
+            File(dir(context), "$key.pano").writeText("${if (is360) "360" else "180"}|$ring|$ext|$spanH|$spanV")
         } catch (_: Exception) {
         }
     }
@@ -102,12 +103,29 @@ object PhotoLibrary {
     fun panoLabel(file: File): String? {
         try {
             val marker = File(file.parentFile, file.nameWithoutExtension + ".pano")
-            if (marker.exists()) return marker.readText().trim()
+            if (marker.exists()) return marker.readText().trim().substringBefore('|')
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.absolutePath, bounds)
             if (bounds.outHeight > 0 && bounds.outWidth.toFloat() / bounds.outHeight >= 2.6f) return "PANO"
         } catch (_: Exception) {
         }
         return null
+    }
+
+    /** פרטי הפנורמה של התמונה הנוכחית: ring = כמה מרוחב העולם הוא המעגל המלא (1 = בלי עטיפה), ext = ההרחבה בכל קצה, ורוחב/גובה ברדיאנים */
+    class PanoInfo(val is360: Boolean, val ring: Float, val ext: Float, val spanH: Float, val spanV: Float)
+
+    fun panoInfo(context: Context): PanoInfo? {
+        try {
+            val current = PhotoRepository.currentFile(context) ?: return null
+            val marker = File(dir(context), AnalysisCache.keyFor(current) + ".pano")
+            if (!marker.exists()) return null
+            val t = marker.readText().trim().split('|')
+            val spanH = t.getOrNull(3)?.toFloatOrNull() ?: 0f
+            if (t.size < 5 || spanH <= 0f) return null
+            return PanoInfo(t[0] == "360", t[1].toFloat(), t[2].toFloat(), spanH, t[4].toFloat())
+        } catch (_: Exception) {
+            return null
+        }
     }
 }

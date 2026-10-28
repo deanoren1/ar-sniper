@@ -136,7 +136,7 @@ fun PanoViewScreen(onBack: () -> Unit, onPlay: () -> Unit = {}, modifier: Modifi
                 if (!preparing && bmp != null) {
                     preparing = true
                     scope.launch {
-                        val ok = withContext(Dispatchers.IO) { preparePanoramaForGame(context, radius) }
+                        val ok = withContext(Dispatchers.IO) { com.arsniper.pano.PanoGame.prepare(context, radius) }
                         preparing = false
                         if (ok) onPlay()
                     }
@@ -150,32 +150,5 @@ fun PanoViewScreen(onBack: () -> Unit, onPlay: () -> Unit = {}, modifier: Modifi
         if (bmp == null) {
             OutlinedText("Loading...", modifier = Modifier.align(Alignment.Center))
         }
-    }
-}
-
-
-/** מקטין את הפנורמה לגודל שהניתוח מחזיק, שומר אותה כתמונת המשחק הנוכחית (עוברת סקירת אנשים כמו כל תמונה) */
-private fun preparePanoramaForGame(context: android.content.Context, radius: Float): Boolean {
-    return try {
-        val full = PanoramaStore.load(context) ?: return false
-        val scale = minOf(
-            1f,
-            1080f / full.height,
-            kotlin.math.sqrt(3_800_000f / (full.width.toFloat() * full.height))
-        )
-        val bitmap = if (scale < 1f) {
-            android.graphics.Bitmap.createScaledBitmap(
-                full, (full.width * scale).roundToInt().coerceAtLeast(1), (full.height * scale).roundToInt().coerceAtLeast(1), true
-            )
-        } else {
-            full
-        }
-        PanoramaStore.saveGameSpan(context, full.width / radius, full.height / radius)
-        com.arsniper.data.PhotoRepository.save(context, bitmap)
-        com.arsniper.data.PhotoLibrary.addCurrent(context, finalizing = false)
-        com.arsniper.data.PhotoLibrary.markPano(context, PanoramaStore.is360(context))
-        true
-    } catch (e: Throwable) {
-        false
     }
 }

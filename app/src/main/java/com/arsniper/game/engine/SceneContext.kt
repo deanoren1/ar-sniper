@@ -14,7 +14,10 @@ class SceneContext(
     val spots: List<HidingSpot>,
     val mapper: WorldMapper,
     /** בהירות התמונה (0..255) ברזולוציית רשת הניתוח, להתאמת הצבע של האויבים לתאורה (אופציונלי) */
-    private val luma: ByteArray? = null
+    private val luma: ByteArray? = null,
+    /** טווח ה-x (בעולם) שמותר ללכת בו: בפנורמה 360 המפלצות נשארות באמצע, וההרחבות בקצוות הן רק להמשכיות הציור */
+    private val walkMinX: Float = 0.04f,
+    private val walkMaxX: Float = 0.96f
 ) {
 
     private val walkable = BooleanArray(256).also { table ->
@@ -26,7 +29,7 @@ class SceneContext(
 
     /** האם אפשר לעמוד על הנקודה הזו (כביש, מדרכה, רצפה, אדמה...) */
     fun isWalkable(worldX: Float, worldY: Float): Boolean {
-        if (worldX < 0.04f || worldX > 0.96f || worldY < 0.04f || worldY > 0.98f) return false
+        if (worldX < walkMinX || worldX > walkMaxX || worldY < 0.04f || worldY > 0.98f) return false
         val label = analysis.labelAt(mapper.photoX(worldX), mapper.photoY(worldY))
         return walkable[label and 0xFF]
     }

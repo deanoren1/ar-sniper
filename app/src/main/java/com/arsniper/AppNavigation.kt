@@ -52,11 +52,12 @@ fun AppNavigation() {
         )
         Screen.Play -> PlayScreen(
             onBack = { screen = Screen.Start },
-            onTakePhoto = { PhotoLibrary.clearPending(); quick = false; screen = Screen.Capture },
-            onGalleryPicked = { quick = false; screen = Screen.Review },
+            onTakePhoto = { PhotoLibrary.clearPending(); com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Capture },
+            onGalleryPicked = { com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Review },
             onPickSaved = { file ->
                 PhotoLibrary.select(context, file)
                 PhotoLibrary.clearPending()
+                com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                 quick = false
                 // ניתוח אנשים הוא חובה: תמונה שלא נסקרה עוברת קודם במסך הסקירה
                 screen = if (PhotoLibrary.isReviewed(file)) Screen.Scene else Screen.Review
@@ -67,13 +68,14 @@ fun AppNavigation() {
                 if (file != null) {
                     PhotoLibrary.select(context, file)
                     PhotoLibrary.clearPending()
+                    com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                     quick = true
                     screen = if (PhotoLibrary.isReviewed(file)) Screen.Scene else Screen.Review
                 }
             }
         )
         Screen.Capture -> CaptureScreen(
-            onPhotoCaptured = { screen = Screen.Review },
+            onPhotoCaptured = { com.arsniper.pano.PanoramaStore.clearPendingGame(context); screen = Screen.Review },
             onBack = { screen = Screen.Play },
             onGalleryPicked = { screen = Screen.Review },
             onPanorama = { screen = Screen.PanoView }
@@ -83,7 +85,7 @@ fun AppNavigation() {
             onPlay = { quick = false; screen = Screen.Review }
         )
         Screen.Review -> ReviewScreen(
-            onContinue = { PhotoLibrary.addCurrent(context, finalizing = true); screen = Screen.Scene },
+            onContinue = { com.arsniper.pano.PanoGame.finalizeReview(context); screen = Screen.Scene },
             onRetake = { screen = Screen.Capture }
         )
         Screen.Scene -> SceneScreen(
