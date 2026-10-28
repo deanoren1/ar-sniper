@@ -389,7 +389,7 @@ fun ReviewScreen(
                 bitmap = cleanedImage ?: current.photo,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                alignment = Alignment(panBias, 0f),
+                alignment = androidx.compose.ui.BiasAlignment(panBias, 0f),
                 modifier = Modifier.fillMaxSize()
             )
             if (cleanedImage == null) {
@@ -397,7 +397,7 @@ fun ReviewScreen(
                     bitmap = overlayImage,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    alignment = Alignment(panBias, 0f),
+                    alignment = androidx.compose.ui.BiasAlignment(panBias, 0f),
                     modifier = Modifier.fillMaxSize()
                 )
             }

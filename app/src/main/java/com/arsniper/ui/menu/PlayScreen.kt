@@ -287,16 +287,13 @@ private fun Thumb(image: ImageBitmap?, modifier: Modifier, badge: String? = null
             Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
         if (badge != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xCC081028))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                OutlinedText(if (badge == "PANO") "PANO" else "$badge\u00B0", fontSize = 12.sp, color = GameColors.Yellow, outline = null)
-            }
+            Image(
+                painter = androidx.compose.ui.res.painterResource(
+                    if (badge == "360") com.arsniper.R.drawable.pano_360 else com.arsniper.R.drawable.pano_180
+                ),
+                contentDescription = null,
+                modifier = Modifier.align(Alignment.BottomStart).padding(2.dp).height(34.dp)
+            )
         }
     }
 }
