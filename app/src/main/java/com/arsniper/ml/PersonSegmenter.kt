@@ -21,7 +21,9 @@ import kotlin.math.min
  * אם המודל לא מחזיר הסתברויות, חוזרים למסכה הקטגורית כמו קודם.
  * בסוף נמחקים כתמים קטנים ורחוקים מהאנשים (זיהוי שגוי, כמו נעל); אפשר להוסיף אותם בחזרה עם ADD.
  */
-class PersonSegmenter(context: Context) {
+class PersonSegmenter(private val context: Context) {
+
+    private var tiles = 0
 
     private val segmenter: ImageSegmenter
 
@@ -106,6 +108,7 @@ class PersonSegmenter(context: Context) {
             tile
         }
         try {
+            com.arsniper.data.Breadcrumb.mark(context, "segmenter: tile ${++tiles} ${tileWidth}x${tileHeight} -> ${feed.width}x${feed.height}")
             val result = segmenter.segment(BitmapImageBuilder(feed).build())
 
             var personMap: MPImage? = null

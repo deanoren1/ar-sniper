@@ -78,6 +78,7 @@ object PhotoImport {
             }
 
             val bitmap = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+            Breadcrumb.mark(context, "import: decoded ${bitmap.width}x${bitmap.height}")
             PhotoRepository.save(context, bitmap)
             return true
         } catch (e: Exception) {

@@ -74,6 +74,7 @@ fun PlayScreen(
     var failed by remember { mutableStateOf(false) }
     PlayerProfile.revision.hashCode()
     var refresh by remember { mutableStateOf(0) }
+    val lastStage = remember { com.arsniper.data.Breadcrumb.read(context) }
     var pendingDelete by remember { mutableStateOf<Pair<File, ImageBitmap?>?>(null) }
 
     val saved by produceState<List<Pair<File, ImageBitmap?>>>(emptyList(), refresh) {
@@ -172,7 +173,7 @@ fun PlayScreen(
                         .border(3.5.dp, Color(0xFF3CB4FF), RoundedCornerShape(22.dp))
                 ) {
                     OutlinedText(
-                        com.arsniper.ui.components.PickerDebug.text + (if (failed) "  | import failed: " + com.arsniper.data.PhotoImport.lastError else ""),
+                        com.arsniper.ui.components.PickerDebug.text + (if (lastStage.isNotEmpty()) "\nlast stage: " + lastStage else "") + (if (failed) "  | import failed: " + com.arsniper.data.PhotoImport.lastError else ""),
                         fontSize = 12.sp, color = Color(0xFFFFE08A), outline = null,
                         modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
                     )

@@ -556,13 +556,17 @@ private fun logitsToRegion(logits: FloatArray, width: Int, height: Int): Boolean
 private fun analyze(context: Context, samHolder: Array<Sam2Segmenter?>): ReviewResult {
     // מפנים זיכרון משלבים קודמים לפני מודל הזיהוי (OOM אחרי כמה תמונות ברצף)
     System.gc()
+    com.arsniper.data.Breadcrumb.mark(context, "review: analysis start")
     val startNanos = System.nanoTime()
     val bitmap = PhotoRepository.load(context) ?: error("No photo found")
+    com.arsniper.data.Breadcrumb.mark(context, "review: photo loaded ${bitmap.width}x${bitmap.height}")
     val segmenter = PersonSegmenter(context)
+    com.arsniper.data.Breadcrumb.mark(context, "review: segmenter created")
     try {
         val rough = segmenter.detectPeople(bitmap)
         var mask = rough
         var refineNote = ""
+        com.arsniper.data.Breadcrumb.mark(context, "review: people detected, opening SAM")
         // SAM נשאר פתוח אחרי הניתוח, כדי שנגיעות יהיו מהירות
         val sam = openSam(context, bitmap, samHolder)
         if (sam != null && rough.coverage() > 0f) {
@@ -576,6 +580,7 @@ private fun analyze(context: Context, samHolder: Array<Sam2Segmenter?>): ReviewR
                 refineNote = ""
             }
         }
+        com.arsniper.data.Breadcrumb.mark(context, "review: analysis done")
         val overlay = Bitmap.createBitmap(mask.width, mask.height, Bitmap.Config.ARGB_8888)
         refreshOverlay(overlay, mask, Rect(0, 0, mask.width, mask.height))
         val seconds = (System.nanoTime() - startNanos) / 1_000_000_000f
