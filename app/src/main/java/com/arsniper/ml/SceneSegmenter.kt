@@ -15,14 +15,38 @@ import kotlin.math.roundToInt
  * קלט למודל: [1, 3, 448, 448] RGB בטווח 0..1.
  * פלטים לפי הסדר: עומק [448x448] במטרים, נורמלים [3x448x448], סיווג [150x256x256].
  */
-class SceneSegmenter(modelFile: File) {
+class SceneSegmenter(private val modelFile: File) {
 
-    private val model: CompiledModel = CompiledModel.create(
+    private var model: CompiledModel = CompiledModel.create(
         modelFile.absolutePath,
         CompiledModel.Options(Accelerator.GPU)
     )
-    private val inputBuffers = model.createInputBuffers()
-    private val outputBuffers = model.createOutputBuffers()
+    private var inputBuffers = model.createInputBuffers()
+    private var outputBuffers = model.createOutputBuffers()
+
+    /** "GPU" או "CPU": בחלק מהמכשירים ה-GPU מחזיר ערכים לא תקינים (NaN), ואז עוברים ל-CPU */
+    var accelerator = "GPU"
+        private set
+
+    private fun switchToCpu() {
+        try {
+            model.close()
+        } catch (e: Throwable) {
+            // אין מה לעשות בכשל סגירה
+        }
+        model = CompiledModel.create(
+            modelFile.absolutePath,
+            CompiledModel.Options(Accelerator.CPU)
+        )
+        inputBuffers = model.createInputBuffers()
+        outputBuffers = model.createOutputBuffers()
+        accelerator = "CPU"
+    }
+
+    private fun hasBadValues(values: FloatArray): Boolean {
+        for (v in values) if (!v.isFinite()) return true
+        return false
+    }
 
     private class TileResult(val labels: ByteArray, val depth: FloatArray)
 
@@ -100,11 +124,27 @@ class SceneSegmenter(modelFile: File) {
             input[2 * INPUT_PLANE + i] = (color and 0xFF) / 255f
         }
 
-        inputBuffers[0].writeFloat(input)
-        model.run(inputBuffers, outputBuffers)
-
-        val depth = outputBuffers[0].readFloat()
-        val segmentation = outputBuffers[2].readFloat()
+        var depth: FloatArray
+        var segmentation: FloatArray
+        while (true) {
+            inputBuffers[0].writeFloat(input)
+            model.run(inputBuffers, outputBuffers)
+            depth = outputBuffers[0].readFloat()
+            segmentation = outputBuffers[2].readFloat()
+            val bad = hasBadValues(depth) || hasBadValues(segmentation)
+            if (!bad || accelerator == "CPU") break
+            // ה-GPU במכשיר הזה מחזיר ערכים לא תקינים: מריצים מחדש על ה-CPU
+            switchToCpu()
+        }
+        // הגנה אחרונה: ערך לא תקין בעומק (גם ב-CPU) לא יפיל את הסריקה
+        if (hasBadValues(depth)) {
+            var sum = 0.0
+            var count = 0
+            for (v in depth) if (v.isFinite()) { sum += v; count += 1 }
+            val fill = if (count > 0) (sum / count).toFloat() else 3f
+            for (i in depth.indices) if (!depth[i].isFinite()) depth[i] = fill
+        }
+        for (i in segmentation.indices) if (!segmentation[i].isFinite()) segmentation[i] = -1e9f
 
         // לכל פיקסל: הקטגוריה עם הערך הגבוה ביותר
         val plane = SEG_SIZE * SEG_SIZE
