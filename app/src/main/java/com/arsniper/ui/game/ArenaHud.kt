@@ -177,6 +177,7 @@ fun EndOverlay(
     onRevive: () -> Unit,
     onRetry: () -> Unit,
     onMenu: () -> Unit = {},
+    onNext: (() -> Unit)? = null,
     bonusText: String? = null,
     difficultyTitle: String? = null,
     modifier: Modifier = Modifier
@@ -236,6 +237,17 @@ fun EndOverlay(
                     if (diamonds < reviveCost) {
                         OutlinedText("Need $reviveCost gems (you have $diamonds)", fontSize = 12.sp, color = GameColors.Sky, outline = null)
                     }
+                }
+                if (won && onNext != null) {
+                    GameButton(
+                        text = "NEXT ARENA",
+                        onClick = onNext,
+                        icon = GameIcon.Play,
+                        style = GameButtonStyle.Primary,
+                        height = 50.dp,
+                        fontSize = 20.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     GameIconButton(GameIcon.Home, onClick = onMenu, style = GameButtonStyle.Secondary, size = 50.dp)

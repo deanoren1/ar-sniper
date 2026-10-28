@@ -105,7 +105,8 @@ fun AppNavigation() {
         )
         Screen.Game -> GameScreen(
             style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
-            onExit = { screen = Screen.Play }
+            onExit = { screen = Screen.Play },
+            onNextArena = { quick = false; screen = Screen.Arena }
         )
         Screen.Shop -> ShopScreen(onBack = { screen = Screen.Start })
         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug })

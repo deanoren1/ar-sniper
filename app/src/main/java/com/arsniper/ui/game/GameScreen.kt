@@ -155,6 +155,7 @@ private fun hurt(enemy: Enemy, damage: Int, now: Double): Enemy {
 fun GameScreen(
     style: ArenaStyle = ArenaStyle.Classic,
     onExit: () -> Unit = {},
+    onNextArena: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1106,6 +1107,7 @@ fun GameScreen(
                 onRevive = { reviveRun() },
                 onRetry = { retry() },
                 onMenu = { onExit() },
+                onNext = onNextArena,
                 bonusText = photoBonus,
                 difficultyTitle = difficulty.title
             )
