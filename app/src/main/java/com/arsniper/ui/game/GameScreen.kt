@@ -539,10 +539,20 @@ fun GameScreen(
                 lastYaw = tracker.yaw
                 lastPitch = tracker.pitch
             }
-            val dYaw = wrapAngle(tracker.yaw - lastYaw)
-            val dPitch = tracker.pitch - lastPitch
+            // כשהטלפון מכוון כמעט למעלה/למטה הכיוון האופקי לא יציב (קפיצות): מתעלמים
+            if (kotlin.math.abs(tracker.pitch) > 1.1f) {
+                lastYaw = Float.NaN
+                continue
+            }
+            var dYaw = wrapAngle(tracker.yaw - lastYaw)
+            var dPitch = tracker.pitch - lastPitch
             lastYaw = tracker.yaw
             lastPitch = tracker.pitch
+            // רעידות קטנות לא מזיזות, וקפיצה פתאומית גדולה נחתכת
+            if (kotlin.math.abs(dYaw) < 0.0012f) dYaw = 0f
+            if (kotlin.math.abs(dPitch) < 0.0012f) dPitch = 0f
+            dYaw = dYaw.coerceIn(-0.12f, 0.12f)
+            dPitch = dPitch.coerceIn(-0.12f, 0.12f)
             crosshair = Vec2(
                 (crosshair.x + dYaw / spanH).coerceIn(0f, 1f),
                 (crosshair.y - dPitch / spanV).coerceIn(0f, 1f)
@@ -888,10 +898,10 @@ fun GameScreen(
                 }
         ) {
             BackgroundLayer(photo = photo)
-            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false)
+            if (!panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
-            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true)
+            if (!panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true)
             CombatLayer(
                 shots = fire.shots.toList(),
                 telegraphs = fire.telegraphViews.toList(),
@@ -904,6 +914,9 @@ fun GameScreen(
             PoofLayer(poofs = poofs, nowNanos = frameNanos)
             FloatingTextLayer(floaters = floaters, nowNanos = frameNanos)
         }
+
+        // פנורמה: עיצוב הארנה מצויר על המסך (ביחס המסך), לא נמתח לרוחב כל העולם
+        if (panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true)
 
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))

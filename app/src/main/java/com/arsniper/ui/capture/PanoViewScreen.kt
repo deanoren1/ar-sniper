@@ -154,7 +154,7 @@ fun PanoViewScreen(onBack: () -> Unit, onPlay: () -> Unit = {}, modifier: Modifi
 }
 
 
-/** מקטין את הפנורמה לגודל שהניתוח מחזיק, שומר אותה כתמונת המשחק הנוכחית ומסמן אותה כנסקרה (אין בה דמויות להסיר) */
+/** מקטין את הפנורמה לגודל שהניתוח מחזיק, שומר אותה כתמונת המשחק הנוכחית (עוברת סקירת אנשים כמו כל תמונה) */
 private fun preparePanoramaForGame(context: android.content.Context, radius: Float): Boolean {
     return try {
         val full = PanoramaStore.load(context) ?: return false
@@ -172,7 +172,7 @@ private fun preparePanoramaForGame(context: android.content.Context, radius: Flo
         }
         PanoramaStore.saveGameSpan(context, full.width / radius, full.height / radius)
         com.arsniper.data.PhotoRepository.save(context, bitmap)
-        com.arsniper.data.PhotoLibrary.addCurrent(context, finalizing = true)
+        com.arsniper.data.PhotoLibrary.addCurrent(context, finalizing = false)
         true
     } catch (e: Throwable) {
         false
