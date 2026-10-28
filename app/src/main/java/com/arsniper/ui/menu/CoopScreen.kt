@@ -1,6 +1,17 @@
 package com.arsniper.ui.menu
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import com.arsniper.data.PhotoLibrary
+import com.arsniper.game.progress.ArenaStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,6 +93,10 @@ fun CoopScreen(
     // אורח: המארח התחיל. בודקים שיש לנו אותה תמונה, ועוברים למשחק
     val pending = CoopSync.pendingStart
     var startError by remember { mutableStateOf("") }
+    // המארח בוחר תמונה וארנה (null = אקראית מהפתוחות)
+    val library = remember { PhotoLibrary.list(context).filter { PhotoLibrary.isReviewed(it) }.take(12) }
+    var chosenName by remember { mutableStateOf<String?>(null) }
+    var chosenStyle by remember { mutableStateOf<ArenaStyle?>(null) }
     LaunchedEffect(pending) {
         val info = pending ?: return@LaunchedEffect
         val file = com.arsniper.data.PhotoRepository.currentFile(context)
@@ -130,6 +145,55 @@ fun CoopScreen(
                                 OutlinedText("Ping: ${CoopClient.pingMs} ms", fontSize = 13.sp, color = Color(0xFFB8C4E0), outline = null)
                             }
                             if (CoopClient.role == "host" && CoopClient.peers >= 2) {
+                                OutlinedText("PHOTO", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                                ) {
+                                    if (library.isEmpty()) {
+                                        OutlinedText("No photos yet. Play a photo first", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
+                                    }
+                                    for (file in library) {
+                                        val bmp = remember(file.name) { PhotoLibrary.thumbnail(file, 200)?.asImageBitmap() }
+                                        val selected = chosenName == file.name
+                                        Box(
+                                            modifier = Modifier
+                                                .size(width = 96.dp, height = 64.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(if (selected) 3.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    chosenName = file.name
+                                                    PhotoLibrary.select(context, file)
+                                                    val scanned = try {
+                                                        com.arsniper.ml.AnalysisCache.fileFor(context.filesDir, com.arsniper.ml.AnalysisCache.keyFor(file)).exists()
+                                                    } catch (_: Exception) { false }
+                                                    startError = if (scanned) "" else "This photo has not been scanned yet. Play it once from My Photos, then come back"
+                                                }
+                                        ) {
+                                            if (bmp != null) Image(bmp, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                        }
+                                    }
+                                }
+                                OutlinedText("ARENA", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                                ) {
+                                    val styles = listOf<ArenaStyle?>(null) + ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) }
+                                    for (st in styles) {
+                                        val selected = chosenStyle == st
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (selected) Color(0xFF2B5BD7) else Color(0xFF1B2A55))
+                                                .border(if (selected) 2.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
+                                                .clickable { chosenStyle = st }
+                                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        ) {
+                                            OutlinedText(st?.title ?: "RANDOM", fontSize = 12.sp)
+                                        }
+                                    }
+                                }
                                 GameButton(
                                     text = "SEND PHOTO TO PARTNER",
                                     onClick = { CoopTransfer.sendCurrent() },
@@ -154,12 +218,12 @@ fun CoopScreen(
                                         val file = com.arsniper.data.PhotoRepository.currentFile(context)
                                         if (file == null) {
                                             startError = "No photo yet. Play or pick a photo first"
-                                        } else if (CoopTransfer.readyCount < 1) {
+                                        } else if (CoopTransfer.readyCount < 1 || CoopTransfer.sentKey != com.arsniper.ml.AnalysisCache.keyFor(file)) {
                                             startError = "Press SEND PHOTO first, and wait for \"Partner has the photo\""
                                         } else {
                                             val key = com.arsniper.ml.AnalysisCache.keyFor(file)
-                                            val open = com.arsniper.game.progress.ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) }
-                                            val style = (open.randomOrNull() ?: com.arsniper.game.progress.ArenaStyle.values()[0]).ordinal
+                                            val open = ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) }
+                                            val style = (chosenStyle ?: open.randomOrNull() ?: ArenaStyle.values()[0]).ordinal
                                             startError = ""
                                             CoopSync.sendStart(style, key)
                                             onStart(style, "host")
@@ -180,6 +244,8 @@ fun CoopScreen(
                                     outline = null
                                 )
                             }
+                            com.arsniper.ui.components.MicToggle()
+                            OutlinedText("Use headphones to avoid echo", fontSize = 11.sp, color = Color(0xFFB8C4E0), outline = null)
                             GameButton(
                                 text = "LEAVE ROOM",
                                 onClick = { CoopClient.disconnect() },

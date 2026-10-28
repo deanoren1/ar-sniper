@@ -103,6 +103,12 @@ private const val SPREAD_OFFSET = 0.05f
 private const val SHOCK_KILL_POINTS = 100
 private const val FIRE_SLACK = 0.02f
 
+/** צלילים שהמארח שולח גם לשותף (פגיעות והשמדה). צלילי הירייה והגלים של האורח נוצרים אצלו */
+private val COOP_SHARED_SFX = setOf(
+    Sfx.Telegraph, Sfx.Launch, Sfx.BossRoar, Sfx.Deflect, Sfx.Crack,
+    Sfx.Zone, Sfx.EnemyHurt, Sfx.EnemyDie, Sfx.BalloonPop, Sfx.Boom
+)
+
 /** כמה זמן נמשך הבהוב האדום כשהשחקן נפגע */
 private const val FLASH_START = 0.55f
 private const val FLASH_DECAY_PER_SECOND = 1.4f
@@ -185,6 +191,11 @@ fun GameScreen(
     val coopTapRef = remember { arrayOfNulls<(Vec2) -> Unit>(1) }
     // משחק משותף: הכוונת של השותף (אצל האורח: של המארח, מתוך תמונת המצב)
     var hostCross by remember { mutableStateOf<Vec2?>(null) }
+    // משחק משותף: ניקוד לכל שחקן (0 = מארח, 1 = אורח), ומי יורה כרגע (לשיוך הניקוד)
+    val scoreBy = remember { intArrayOf(0, 0) }
+    val shooter = remember { intArrayOf(0) }
+    // משחק משותף (מארח): אפקטים שכבר נשלחו לשותף
+    val seenFx = remember { HashSet<Any>() }
     val loot = remember { Loot() }
     val shock = remember { Shockwave() }
     var shockStart by remember { mutableStateOf(0L) }
@@ -220,6 +231,11 @@ fun GameScreen(
 
     DisposableEffect(Unit) {
         onDispose { soundPlayer.release() }
+    }
+    // משחק משותף (מארח): צלילי פגיעה והשמדה נשלחים גם לשותף
+    DisposableEffect(isHost) {
+        if (isHost) soundPlayer.onPlay = { s, r -> if (s in COOP_SHARED_SFX) CoopSync.queueSound(s.ordinal, r) }
+        onDispose { soundPlayer.onPlay = null }
     }
 
     // הכוונת נשמרת בקואורדינטות עולם (0..1 ביחס לתמונה)
@@ -262,7 +278,10 @@ fun GameScreen(
     // הודעת בונוס אחת במקום קבוע בראש המסך (החדשה מחליפה את הקודמת)
     var toast by remember { mutableStateOf<BonusToastData?>(null) }
     fun showToast(text: String) {
-        if (text.isNotEmpty()) toast = BonusToastData(text, frameNanos)
+        if (text.isNotEmpty()) {
+            toast = BonusToastData(text, frameNanos)
+            if (isHost) CoopSync.queueToast(text)
+        }
     }
     var poofs by remember { mutableStateOf(emptyList<Poof>()) }
 
@@ -273,6 +292,7 @@ fun GameScreen(
         if (combo.multiplier > multiplierBefore) soundPlayer.play(Sfx.Combo, 0.9f + 0.1f * combo.multiplier)
         val gained = scaled(points * combo.multiplier)
         score += gained
+        scoreBy[shooter[0]] += gained
         val shown = maxOf(1, gained / COINS_DIVISOR)
         val text = if (combo.multiplier > 1) "+$shown  x${combo.multiplier}" else "+$shown"
         if (showText) floaters = floaters + Floater(x, y - 0.04f, text, frameNanos, big = points >= BLOCK_POINTS)
@@ -518,6 +538,8 @@ fun GameScreen(
                             AttackPose.bossStunned = snap.bossStunned
                             AttackPose.bossEnraged = snap.bossEnraged
                             score = snap.score
+                            scoreBy[0] = snap.scoreHost
+                            scoreBy[1] = snap.scoreGuest
                             hostCross = Vec2(snap.hostX, snap.hostY)
                             // אירועים: איבדנו לב, או שהשלב התחלף
                             if (snap.hearts < sfxMemo.guestHearts) {
@@ -541,6 +563,27 @@ fun GameScreen(
                                 sfxMemo.phase = director.phase
                             }
                         }
+                        // אפקטים שהמארח שלח: צלילים, פיצוצים, ניקוד צף
+                        while (true) {
+                            val ev = CoopSync.events.poll() ?: break
+                            when (ev.type) {
+                                's' -> {
+                                    val all = Sfx.values()
+                                    if (ev.i in all.indices) soundPlayer.play(all[ev.i], ev.f)
+                                }
+                                'b' -> {
+                                    val kinds = AccessoryKind.values()
+                                    blasts = blasts + Blast(ev.x, ev.y, kinds[ev.i.coerceIn(0, kinds.size - 1)], ev.text, ev.f, now)
+                                }
+                                'f' -> floaters = floaters + Floater(ev.x, ev.y, ev.text, now, ev.big)
+                                't' -> showToast(ev.text)
+                                'k' -> {
+                                    shockStart = now
+                                    shake = max(shake, 1.3f)
+                                }
+                                'p' -> poofs = poofs + Poof(ev.x, ev.y, now)
+                            }
+                        }
                         if (now - lastAimNanos > 100_000_000L) {
                             lastAimNanos = now
                             CoopSync.sendAim(crosshair.x, crosshair.y)
@@ -557,12 +600,22 @@ fun GameScreen(
                                 coopShootRef[0]?.invoke(Vec2(input.x, input.y), input.damage.coerceIn(1, 20))
                             }
                         }
+                        // אפקטים חדשים (פיצוצים, ניקוד צף, פוף) נשלחים לשותף פעם אחת
+                        for (b in blasts) if (seenFx.add(b)) CoopSync.queueBlast(b.x, b.y, b.kind.ordinal, b.label, b.radius)
+                        for (f in floaters) if (seenFx.add(f)) CoopSync.queueFloater(f.x, f.y, f.text, f.big)
+                        for (p in poofs) if (seenFx.add(p)) CoopSync.queuePoof(p.x, p.y)
+                        if (seenFx.size > 300) {
+                            seenFx.clear()
+                            seenFx.addAll(blasts)
+                            seenFx.addAll(floaters)
+                            seenFx.addAll(poofs)
+                        }
                         if (now - lastSnapNanos >= 80_000_000L) {
                             lastSnapNanos = now
                             CoopSync.sendSnapshot(
                                 snapSeq++, enemies, fire, director, crosshair, score, nowSeconds(),
                                 AttackPose.ids, AttackPose.progress, AttackPose.bossSinceFire,
-                                AttackPose.bossStunned, AttackPose.bossEnraged
+                                AttackPose.bossStunned, AttackPose.bossEnraged, scoreBy[0], scoreBy[1]
                             )
                         }
                     }
@@ -720,6 +773,7 @@ fun GameScreen(
         if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         shake = max(shake, 1.3f)
         shockStart = frameNanos
+        if (isHost) CoopSync.queueShock()
         fire.clearAll()
         val now = nowSeconds()
         var kills = 0
@@ -925,7 +979,10 @@ fun GameScreen(
         }
     }
     fireRef[0] = { fireNow() }
-    coopShootRef[0] = { p, d -> shootAt(p, d) }
+    coopShootRef[0] = { p, d ->
+        shooter[0] = 1
+        try { shootAt(p, d) } finally { shooter[0] = 0 }
+    }
     coopTapRef[0] = { w ->
         val pickedLoot = loot.collect(w, latestAspect, TAP_SLACK)
         if (pickedLoot != null) {
@@ -965,6 +1022,8 @@ fun GameScreen(
         enemies = emptyList()
         blasts = emptyList()
         score = 0
+        scoreBy[0] = 0
+        scoreBy[1] = 0
         sfxMemo.banked = 0
         diamondsGained = 0
         flash = 0f
@@ -1160,6 +1219,21 @@ fun GameScreen(
                 .padding(start = 16.dp, top = 84.dp)
         )
 
+        val coopLine = if (coop != null) {
+            val mine = if (isHost) scoreBy[0] else scoreBy[1]
+            val other = if (isHost) scoreBy[1] else scoreBy[0]
+            "YOU ${mine / COINS_DIVISOR}   PARTNER ${other / COINS_DIVISOR}"
+        } else {
+            null
+        }
+        if (coopLine != null) {
+            OutlinedText(
+                coopLine,
+                fontSize = 14.sp,
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 138.dp)
+            )
+        }
+
         HeartsRow(
             hearts = director.hearts,
             max = ArenaDirector.MAX_HEARTS,
@@ -1195,6 +1269,11 @@ fun GameScreen(
         // הרובה בתחתית המסך (בלי מגע), ומד הכדורים מעל כפתור הירי
         if (weaponArt != null) {
             WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget)
+        }
+        if (coop != null) {
+            com.arsniper.ui.components.MicToggle(
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 124.dp, end = 16.dp)
+            )
         }
         ShockButton(
             fraction = shock.fraction,
@@ -1319,7 +1398,8 @@ fun GameScreen(
                 onRetry = { if (!isGuest) retry() },
                 onMenu = { onExit() },
                 onNext = onNextArena,
-                bonusText = photoBonus,
+                bonusText = listOfNotNull(coopLine?.let { "$it   TEAM ${score / COINS_DIVISOR}" }, photoBonus)
+                    .joinToString("\n").ifEmpty { null },
                 difficultyTitle = difficulty.title
             )
         }

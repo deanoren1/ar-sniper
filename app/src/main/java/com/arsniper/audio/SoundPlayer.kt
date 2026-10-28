@@ -90,7 +90,11 @@ class SoundPlayer(context: Context) {
     }
 
     /** מנגן אפקט. rate = גובה הצליל (1 = רגיל), כדי לגוון חזרות */
+    /** משחק משותף (מארח): שומע כל צליל שמתנגן, כדי להעביר לשותף את האפקטים המשותפים */
+    @Volatile var onPlay: ((Sfx, Float) -> Unit)? = null
+
     fun play(sfx: Sfx, rate: Float = 1f) {
+        onPlay?.invoke(sfx, rate)
         if (!com.arsniper.data.PlayerProfile.soundOn) return
         val id = ids[sfx] ?: return
         val loaded = synchronized(ready) { ready.contains(id) }

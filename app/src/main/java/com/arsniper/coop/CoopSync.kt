@@ -93,8 +93,32 @@ object CoopSync {
         val bossStunned: Boolean,
         val bossEnraged: Boolean,
         val hostX: Float,
-        val hostY: Float
+        val hostY: Float,
+        val scoreHost: Int,
+        val scoreGuest: Int
     )
+
+    // ---------------------------------------------------------------- אפקטים משותפים (פגיעות, ניקוד צף, צלילים)
+
+    /** אפקט שהמארח שולח: s = צליל, b = פיצוץ, f = ניקוד צף, t = הודעה, k = הלם, p = פוף */
+    class GuestEvent(val type: Char, val i: Int, val f: Float, val x: Float, val y: Float, val text: String, val big: Boolean)
+
+    private val outEvents = ConcurrentLinkedQueue<JSONArray>()
+    val events = ConcurrentLinkedQueue<GuestEvent>()
+
+    private fun queue(a: JSONArray) {
+        if (outEvents.size > 200) outEvents.clear()
+        outEvents.add(a)
+    }
+
+    fun queueSound(ordinal: Int, rate: Float) = queue(JSONArray().put("s").put(ordinal).put(r4(rate)))
+    fun queueBlast(x: Float, y: Float, kind: Int, label: String, radius: Float) =
+        queue(JSONArray().put("b").put(r4(x)).put(r4(y)).put(kind).put(label).put(r4(radius)))
+    fun queueFloater(x: Float, y: Float, text: String, big: Boolean) =
+        queue(JSONArray().put("f").put(r4(x)).put(r4(y)).put(text).put(if (big) 1 else 0))
+    fun queueToast(text: String) = queue(JSONArray().put("t").put(text))
+    fun queueShock() = queue(JSONArray().put("k"))
+    fun queuePoof(x: Float, y: Float) = queue(JSONArray().put("p").put(r4(x)).put(r4(y)))
 
     private val buffer = ArrayList<Snapshot>()
     private val lock = Any()
@@ -104,6 +128,8 @@ object CoopSync {
         synchronized(lock) { buffer.clear() }
         lastSeq = -1
         inbox.clear()
+        events.clear()
+        outEvents.clear()
         partnerAim = null
         guestReady = false
         hostEnded = false
@@ -125,7 +151,9 @@ object CoopSync {
         apProgress: Map<Int, Float>,
         bossSince: Float,
         bossStunned: Boolean,
-        bossEnraged: Boolean
+        bossEnraged: Boolean,
+        scoreHost: Int,
+        scoreGuest: Int
     ) {
         val o = JSONObject()
         o.put("t", "snap").put("n", seq)
@@ -163,6 +191,15 @@ object CoopSync {
         val ap = JSONArray()
         for (id in apIds) ap.put(JSONArray().put(id).put(r4(apProgress[id] ?: 0f)))
         o.put("ap", ap)
+        o.put("s1", scoreHost).put("s2", scoreGuest)
+        val ev = JSONArray()
+        var taken = 0
+        while (taken < 60) {
+            val e = outEvents.poll() ?: break
+            ev.put(e)
+            taken += 1
+        }
+        o.put("ev", ev)
         o.put("bs", r4(bossSince)).put("bst", if (bossStunned) 1 else 0).put("ben", if (bossEnraged) 1 else 0)
         CoopClient.sendText(o.toString())
     }
@@ -203,7 +240,7 @@ object CoopSync {
 
     /** מאזין המשחק: מחליף את מאזין הלובי כל עוד מסך המשחק פתוח */
     fun attachGame() {
-        CoopClient.onBinary = null
+        CoopClient.onBinary = { CoopVoice.onFrame(it) }
         CoopClient.onText = { onGameText(it) }
     }
 
@@ -273,8 +310,23 @@ object CoopSync {
             j.getInt("bh"), j.getInt("bm"), j.getInt("ba") == 1, j.getInt("bd") == 1, j.getInt("hl") == 1,
             j.getInt("sc"), j.getDouble("ft").toFloat(), enemies, shots, views, apIds, apProgress,
             j.getDouble("bs").toFloat(), j.getInt("bst") == 1, j.getInt("ben") == 1,
-            j.getDouble("cx").toFloat(), j.getDouble("cy").toFloat()
+            j.getDouble("cx").toFloat(), j.getDouble("cy").toFloat(), j.optInt("s1"), j.optInt("s2")
         )
+        val evArr = j.optJSONArray("ev")
+        if (evArr != null) {
+            for (i in 0 until evArr.length()) {
+                val a = evArr.getJSONArray(i)
+                when (a.getString(0)) {
+                    "s" -> events.add(GuestEvent('s', a.getInt(1), f(a, 2), 0f, 0f, "", false))
+                    "b" -> events.add(GuestEvent('b', a.getInt(3), f(a, 5), f(a, 1), f(a, 2), a.getString(4), false))
+                    "f" -> events.add(GuestEvent('f', 0, 0f, f(a, 1), f(a, 2), a.getString(3), a.getInt(4) == 1))
+                    "t" -> events.add(GuestEvent('t', 0, 0f, 0f, 0f, a.getString(1), false))
+                    "k" -> events.add(GuestEvent('k', 0, 0f, 0f, 0f, "", false))
+                    "p" -> events.add(GuestEvent('p', 0, 0f, f(a, 1), f(a, 2), "", false))
+                }
+            }
+            while (events.size > 300) events.poll()
+        }
         synchronized(lock) {
             buffer.add(snap)
             while (buffer.size > 8) buffer.removeAt(0)

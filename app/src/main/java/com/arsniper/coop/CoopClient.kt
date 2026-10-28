@@ -169,6 +169,7 @@ object CoopClient {
     }
 
     private fun reset(newStatus: CoopStatus, text: String) {
+        CoopVoice.stop()
         socket?.cancel()
         socket = null
         status = newStatus

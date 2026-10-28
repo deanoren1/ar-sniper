@@ -41,6 +41,10 @@ object CoopTransfer {
     var readyCount by mutableStateOf(0)
         private set
 
+    /** מפתח התמונה האחרונה ששלחנו (START מותר רק על אותה תמונה) */
+    var sentKey by mutableStateOf("")
+        private set
+
     // צד המקבל (אורח)
     var receiving by mutableStateOf(false)
         private set
@@ -97,6 +101,7 @@ object CoopTransfer {
         sendProgress = 0f
         receiveProgress = 0f
         readyCount = 0
+        sentKey = ""
     }
 
     // ---------------------------------------------------------------- שליחה
@@ -121,6 +126,10 @@ object CoopTransfer {
             val temps = ArrayList<File>()
             try {
                 val key = AnalysisCache.keyFor(photo)
+                if (!AnalysisCache.fileFor(context.filesDir, key).exists()) {
+                    throw IllegalStateException("Scan this photo first: play it once from My Photos")
+                }
+                sentKey = key
                 val parts = ArrayList<Triple<String, File, Boolean>>()
                 parts.add(Triple("photo", photo, false))
                 val extras = listOf(
@@ -235,6 +244,10 @@ object CoopTransfer {
     }
 
     private fun onBinary(data: ByteArray) {
+        if (data.isNotEmpty() && data[0] == CoopVoice.TAG) {
+            CoopVoice.onFrame(data)
+            return
+        }
         val inc = incoming ?: return
         if (data.size <= HEADER || data[0] != TAG) return
         val bb = ByteBuffer.wrap(data)
