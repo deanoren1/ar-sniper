@@ -40,7 +40,7 @@ object PhotoLibrary {
                     File(dir(context), "$old.ok").delete()
                 }
                 pendingKey = null
-                File(dir(context), "$key.ok").writeText("1")
+                File(dir(context), "$key.ok").writeText("2")
             } else {
                 pendingKey = key
             }
@@ -51,7 +51,13 @@ object PhotoLibrary {
     }
 
     /** האם התמונה עברה סקירת אנשים (חובה לפני משחק) */
-    fun isReviewed(file: File): Boolean = File(file.parentFile, file.nameWithoutExtension + ".ok").exists()
+    fun isReviewed(file: File): Boolean {
+        val marker = File(file.parentFile, file.nameWithoutExtension + ".ok")
+        if (!marker.exists()) return false
+        // פנורמות שסומנו כנסקרו בגרסה הישנה (בלי סקירה אמיתית) חייבות לעבור סקירה מחדש
+        if (panoLabel(file) != null) return try { marker.readText().trim() == "2" } catch (_: Exception) { false }
+        return true
+    }
 
     /** הקבצים השמורים, החדש ראשון */
     fun list(context: Context): List<File> =

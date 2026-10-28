@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import com.arsniper.game.progress.ArenaStyle
 import com.arsniper.game.progress.ParticleKind
 import kotlin.math.abs
@@ -40,19 +42,29 @@ fun ArenaStyleLayer(
     /** false: בלי המסגרת הקדמית (היא מצוירת בנפרד, מעל המפלצות) */
     drawFrame: Boolean = true,
     /** true: רק המסגרת הקדמית (שכבה שמונחת מעל המפלצות, כדי שהן יהיו מאחוריה) */
-    frameOnly: Boolean = false
+    frameOnly: Boolean = false,
+    /** > 0: השכבה מצוירת בתוך עולם רחב (פנורמה). הערך הוא יחס המסך: כתמי הרצפה והמסגרת נשארים בגודל מסך אמיתי ומונחים לאורך כל העולם */
+    worldViewAspect: Float = 0f,
+    /** true: רק מה שצמוד למסך (חלקיקים, ערפל, חשכת קצוות), בלי כתמי רצפה ובלי מסגרת */
+    screenOnly: Boolean = false
 ) {
     val context = LocalContext.current
     val assets = remember(style, props, frameOnly) { if (props) ArenaAssets.load(context, style, frameOnly) else null }
     if (frameOnly) {
-        Canvas(modifier = modifier.fillMaxSize()) { drawArenaFrame(assets) }
+        Canvas(modifier = modifier.fillMaxSize()) {
+            if (worldViewAspect > 0f) drawWorldFrame(assets, worldViewAspect) else drawArenaFrame(assets)
+        }
         return
     }
     Canvas(modifier = modifier.fillMaxSize()) {
         val t = nowNanos / 1e9f
         // כתמי רצפה: מתחת לגוון, כדי שיהיו חלק מהתמונה
-        assets?.let { drawDecals(it) }
-        drawRect(Color(style.tint.toInt()).copy(alpha = style.tintAlpha))
+        val worldMode = worldViewAspect > 0f
+        if (!screenOnly) {
+            assets?.let { drawDecals(it, if (worldMode) size.height * worldViewAspect else size.width) }
+            drawRect(Color(style.tint.toInt()).copy(alpha = style.tintAlpha))
+        }
+        if (worldMode) return@Canvas
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(Color.Transparent, Color.Black.copy(alpha = style.vignette)),
@@ -73,7 +85,7 @@ fun ArenaStyleLayer(
             )
         }
         drawParticles(style, t, particleScale)
-        if (drawFrame) drawArenaFrame(assets)
+        if (drawFrame && !screenOnly) drawArenaFrame(assets)
     }
 }
 
@@ -88,6 +100,49 @@ private fun DrawScope.drawArenaFrame(assets: ArenaAssets?) {
             dstSize = IntSize(w.toInt(), h.toInt()),
             alpha = 0.97f
         )
+    }
+}
+
+/**
+ * מסגרת בעולם רחב: הקצה השמאלי של המסגרת בקצה השמאלי של העולם, הימני בימני, ובאמצע פס שחוזר על עצמו
+ * (כל אריח הפוך מהקודם, כדי שלא יהיו תפרים), כך שבתזוזה לאורך הפנורמה רואים גם את הקישוטים למעלה ולמטה משתנים.
+ */
+private fun DrawScope.drawWorldFrame(assets: ArenaAssets?, viewAspect: Float) {
+    val frame = assets?.frame ?: return
+    val fw = size.height * 1.08f * viewAspect
+    val fh = size.height * 1.08f
+    val ox = -size.height * 0.04f * viewAspect
+    val oy = -size.height * 0.04f
+    val edge = 0.30f
+    val edgePx = (frame.width * edge).toInt()
+    val dstEdge = (fw * edge).toInt()
+    // קצה שמאל וקצה ימין
+    drawImage(frame, IntOffset(0, 0), IntSize(edgePx, frame.height), IntOffset(ox.toInt(), oy.toInt()), IntSize(dstEdge, fh.toInt()), alpha = 0.97f)
+    drawImage(
+        frame, IntOffset(frame.width - edgePx, 0), IntSize(edgePx, frame.height),
+        IntOffset((size.width - ox - dstEdge).toInt(), oy.toInt()), IntSize(dstEdge, fh.toInt()), alpha = 0.97f
+    )
+    // האמצע: אריחים של הפס המרכזי
+    val midSrcX = edgePx
+    val midSrcW = frame.width - 2 * edgePx
+    val tileW = fw * (1f - 2 * edge)
+    val start = ox + dstEdge
+    val end = size.width - ox - dstEdge
+    if (tileW < 1f || end <= start) return
+    clipRect(left = start, top = 0f, right = end, bottom = size.height) {
+        var x = start
+        var i = 0
+        while (x < end) {
+            if (i % 2 == 0) {
+                drawImage(frame, IntOffset(midSrcX, 0), IntSize(midSrcW, frame.height), IntOffset(x.toInt(), oy.toInt()), IntSize(tileW.toInt() + 1, fh.toInt()), alpha = 0.97f)
+            } else {
+                withTransform({ scale(-1f, 1f, Offset(x + tileW / 2f, 0f)) }) {
+                    drawImage(frame, IntOffset(midSrcX, 0), IntSize(midSrcW, frame.height), IntOffset(x.toInt(), oy.toInt()), IntSize(tileW.toInt() + 1, fh.toInt()), alpha = 0.97f)
+                }
+            }
+            x += tileW
+            i++
+        }
     }
 }
 
@@ -122,12 +177,17 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
             val rnd = Random()
             val out = ArrayList<Placed>()
             var tries = 0
-            while (out.size < 5 && tries < 80) {
+            // פנורמה: יותר כתמים ופיזור על כל האורך (המרחקים ביחס למסך רגיל)
+            val photoAspect = if (analysis != null) analysis.width.toFloat() / analysis.height else 2.1f
+            val wide = photoAspect >= 2.6f
+            val widthScale = if (wide) photoAspect / 2.1f else 1f
+            val wanted = if (wide) (5 * widthScale).toInt() else 5
+            while (out.size < wanted && tries < 80 * widthScale.toInt().coerceAtLeast(1)) {
                 tries++
-                val x = 0.1f + 0.8f * rnd.nextFloat()
+                val x = if (wide) 0.03f + 0.94f * rnd.nextFloat() else 0.1f + 0.8f * rnd.nextFloat()
                 val y = 0.55f + 0.4f * rnd.nextFloat()
                 if (analysis != null && analysis.labelAt(x, y) !in FLOOR_LABELS) continue
-                if (out.any { abs(it.x - x) < 0.18f && abs(it.y - y) < 0.12f }) continue
+                if (out.any { abs(it.x - x) < 0.18f / widthScale && abs(it.y - y) < 0.12f }) continue
                 val index = rnd.nextInt(available)
                 val base = 0.2f * decals[index].width / 384f
                 out.add(Placed(x, y, base * (0.7f + 0.8f * (y - 0.55f)), index))
@@ -139,10 +199,10 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
 
 private class Placed(val x: Float, val y: Float, val width: Float, val index: Int)
 
-private fun DrawScope.drawDecals(assets: ArenaAssets) {
+private fun DrawScope.drawDecals(assets: ArenaAssets, refWidth: Float) {
     for (p in assets.placed) {
         val img = assets.decals.getOrNull(p.index) ?: continue
-        val w = size.width * p.width
+        val w = refWidth * p.width
         val h = w * img.height / img.width * 0.38f // משטחים את הכתם כדי שיראה כאילו הוא על הרצפה
         drawImage(
             image = img,

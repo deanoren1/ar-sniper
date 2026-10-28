@@ -898,10 +898,10 @@ fun GameScreen(
                 }
         ) {
             BackgroundLayer(photo = photo)
-            if (!panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false)
+            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, worldViewAspect = if (panoMode) viewAspect else 0f)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
-            if (!panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true)
+            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true, worldViewAspect = if (panoMode) viewAspect else 0f)
             CombatLayer(
                 shots = fire.shots.toList(),
                 telegraphs = fire.telegraphViews.toList(),
@@ -915,8 +915,8 @@ fun GameScreen(
             FloatingTextLayer(floaters = floaters, nowNanos = frameNanos)
         }
 
-        // פנורמה: עיצוב הארנה מצויר על המסך (ביחס המסך), לא נמתח לרוחב כל העולם
-        if (panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true)
+        // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
+        if (panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, drawFrame = false, screenOnly = true)
 
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
