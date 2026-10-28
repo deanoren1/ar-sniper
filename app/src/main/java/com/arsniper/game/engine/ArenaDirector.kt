@@ -175,6 +175,33 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         spawnCooldown = 0f
     }
 
+    /**
+     * משחק משותף, אצל האורח: מעתיק את מצב הארנה שהמארח שלח (האורח לא מריץ את הגלים בעצמו, רק מציג).
+     * "left" = כמה מפלצות נשארו בגל (בבוס: 1 כשהוא חי).
+     */
+    fun applyRemote(
+        newPhase: ArenaPhase,
+        wave: Int,
+        newHearts: Int,
+        left: Int,
+        newBossHp: Int,
+        newBossMax: Int,
+        newBossAlive: Boolean,
+        newBossDying: Boolean,
+        healed: Boolean
+    ) {
+        phase = newPhase
+        waveIndex = wave.coerceIn(0, waves.size - 1)
+        hearts = newHearts
+        totalInWave = left.coerceAtLeast(0)
+        killedInWave = 0
+        bossHp = newBossHp
+        bossMax = newBossMax
+        bossAlive = newBossAlive
+        bossDying = newBossDying
+        healedOnClear = healed
+    }
+
     /** סוג המפלצת של אויב (null אם זה לא אויב של הארנה) */
     fun foeOf(enemyId: Int): Foe? = foeById[enemyId]
 

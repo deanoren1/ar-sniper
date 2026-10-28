@@ -36,6 +36,11 @@ import com.arsniper.pano.HeadingTracker
 import com.arsniper.pano.PanoramaStore
 import com.arsniper.pano.wrapAngle
 import com.arsniper.game.engine.Shot
+import com.arsniper.game.engine.ShotKind
+import com.arsniper.game.engine.TelegraphView
+import com.arsniper.coop.CoopClient
+import com.arsniper.coop.CoopStatus
+import com.arsniper.coop.CoopSync
 import com.arsniper.ui.components.OutlinedText
 import com.arsniper.audio.Sfx
 import com.arsniper.data.PlayerProfile
@@ -156,9 +161,13 @@ fun GameScreen(
     style: ArenaStyle = ArenaStyle.Classic,
     onExit: () -> Unit = {},
     onNextArena: (() -> Unit)? = null,
+    /** משחק משותף: null = רגיל, "host" = מארח (מריץ הכל), "guest" = אורח (מציג ויורה) */
+    coop: String? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isGuest = coop == "guest"
+    val isHost = coop == "host"
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
@@ -171,6 +180,11 @@ fun GameScreen(
     val weapon = remember { Weapon(stats.magazine, stats.reloadSeconds) }
     // הפניה לפונקציית הירי, כדי שלולאת המשחק תוכל לירות ברצף כשמחזיקים את הכפתור (Auto Gun)
     val fireRef = remember { arrayOfNulls<() -> Unit>(1) }
+    // משחק משותף (מארח): ירייה והקשה של השותף מופעלות דרך אותן פונקציות כמו של השחקן
+    val coopShootRef = remember { arrayOfNulls<(Vec2, Int) -> Unit>(1) }
+    val coopTapRef = remember { arrayOfNulls<(Vec2) -> Unit>(1) }
+    // משחק משותף: הכוונת של השותף (אצל האורח: של המארח, מתוך תמונת המצב)
+    var hostCross by remember { mutableStateOf<Vec2?>(null) }
     val loot = remember { Loot() }
     val shock = remember { Shockwave() }
     var shockStart by remember { mutableStateOf(0L) }
@@ -324,6 +338,11 @@ fun GameScreen(
             }
             scene = sceneContext
             engine.configure(sceneContext)
+            if (isGuest) {
+                // האורח לא יוצר מפלצות: הוא מציג את מה שהמארח שולח
+                CoopSync.sendGuestReady()
+                return@LaunchedEffect
+            }
             // תמונה בלי רצפה או מחבואים (למשל אמבטיה מלאה במשטחים): אין איפה לשים מפלצות. לא מתחילים משחק ריק.
             if (sceneContext != null && engine.replenish(emptyList(), 4, aspect).size < 2) {
                 noRoom = true
@@ -332,14 +351,28 @@ fun GameScreen(
             // המפלצות נוצרות על ידי מנהל הארנה, גל אחרי גל
             enemies = emptyList()
             fire.reset()
+            if (isHost) {
+                // מחכים (עד 10 שניות) שהמסך של האורח יהיה מוכן
+                var waited = 0
+                while (!CoopSync.guestReady && waited < 100) {
+                    delay(100)
+                    waited += 1
+                }
+            }
             director.restart()
             started = true
         }
     }
 
+    // משחק משותף (אורח): מחבואים לפי מזהה, כדי לחבר את המפלצות שהגיעו מהמארח לאותם מחבואים
+    val spotMap by rememberUpdatedState(remember(scene) { scene?.spots?.associateBy { it.id } ?: emptyMap() })
+
     // לולאת משחק: מעדכנת את הכוונת בכל פריים
     LaunchedEffect(Unit) {
         var lastFrameNanos = 0L
+        var lastAimNanos = 0L
+        var lastSnapNanos = 0L
+        var snapSeq = 0
         while (true) {
             withFrameNanos { now ->
                 if (lastFrameNanos != 0L) {
@@ -350,7 +383,7 @@ fun GameScreen(
                         if (wx > 1f - ext) wx -= ring else if (wx < ext) wx += ring
                         if (wx != crosshair.x) crosshair = Vec2(wx, crosshair.y)
                     }
-                    if (started && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
+                    if (!isGuest && started && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
                         enemies = withHp(engine.update(enemies, dt))
                         // מפלצת שמתה (חוץ מהבוס ומהמפלצות שמתפוצצות איתו): אולי נופל פרס
                         for (e in enemies) {
@@ -435,6 +468,102 @@ fun GameScreen(
                                 else -> Unit
                             }
                             sfxMemo.phase = director.phase
+                        }
+                    }
+                    if (isGuest) {
+                        // אורח: מציג את תמונת המצב של המארח, ושולח לו את הכוונת
+                        val view = CoopSync.view(System.nanoTime())
+                        if (view != null) {
+                            val snap = view.latest
+                            val nowSec = nowSeconds()
+                            val kinds = EnemyKind.values()
+                            val states = EnemyState.values()
+                            enemies = view.enemies.map { se ->
+                                Enemy(
+                                    id = se.id,
+                                    position = Vec2(se.x, se.y),
+                                    radius = se.r,
+                                    isAlive = se.alive,
+                                    kind = kinds[se.kind.coerceIn(0, kinds.size - 1)],
+                                    state = states[se.state.coerceIn(0, states.size - 1)],
+                                    spot = if (se.spotId >= 0) spotMap[se.spotId] else null,
+                                    hidePos = Vec2(se.hx, se.hy),
+                                    peekPos = Vec2(se.px, se.py),
+                                    exposure = se.exposure,
+                                    timer = se.timer,
+                                    direction = se.dir,
+                                    phase = se.phase,
+                                    dirY = se.dirY,
+                                    maxHp = se.maxHp,
+                                    hp = se.hp,
+                                    hurtAt = nowSec - se.hurtAge
+                                )
+                            }
+                            val shotKinds = ShotKind.values()
+                            fire.applyRemote(
+                                view.fireTime,
+                                snap.shots.map {
+                                    Shot(it.id, it.x, it.y, shotKinds[it.kind.coerceIn(0, shotKinds.size - 1)], it.born, it.flight, it.baseRadius, it.maxHp, it.hp, it.harmless)
+                                },
+                                snap.views.map { TelegraphView(it.x, it.y, it.radius, it.progress, it.enemyId) }
+                            )
+                            val phases = ArenaPhase.values()
+                            director.applyRemote(
+                                phases[snap.phase.coerceIn(0, phases.size - 1)], snap.wave, snap.hearts, snap.left,
+                                snap.bossHp, snap.bossMax, snap.bossAlive, snap.bossDying, snap.healed
+                            )
+                            AttackPose.ids = snap.apIds
+                            AttackPose.progress = snap.apProgress
+                            AttackPose.bossSinceFire = snap.bossSince
+                            AttackPose.bossStunned = snap.bossStunned
+                            AttackPose.bossEnraged = snap.bossEnraged
+                            score = snap.score
+                            hostCross = Vec2(snap.hostX, snap.hostY)
+                            // אירועים: איבדנו לב, או שהשלב התחלף
+                            if (snap.hearts < sfxMemo.guestHearts) {
+                                soundPlayer.play(Sfx.PlayerHit)
+                                shake = max(shake, 0.7f)
+                                flash = FLASH_START
+                                if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            sfxMemo.guestHearts = snap.hearts
+                            if (director.phase != sfxMemo.phase) {
+                                when (director.phase) {
+                                    ArenaPhase.Intro -> {
+                                        weapon.refill()
+                                        soundPlayer.play(Sfx.WaveStart)
+                                    }
+                                    ArenaPhase.Clear -> soundPlayer.play(Sfx.WaveClear)
+                                    ArenaPhase.Won -> soundPlayer.play(Sfx.Win)
+                                    ArenaPhase.Lost -> soundPlayer.play(Sfx.Lose)
+                                    else -> Unit
+                                }
+                                sfxMemo.phase = director.phase
+                            }
+                        }
+                        if (now - lastAimNanos > 100_000_000L) {
+                            lastAimNanos = now
+                            CoopSync.sendAim(crosshair.x, crosshair.y)
+                        }
+                    }
+                    if (isHost) {
+                        // מארח: הירי וההקשות של השותף, ותמונת מצב אליו
+                        while (true) {
+                            val input = CoopSync.inbox.poll() ?: break
+                            if (director.phase != ArenaPhase.Fighting) continue
+                            if (input.tap) {
+                                coopTapRef[0]?.invoke(Vec2(input.x, input.y))
+                            } else {
+                                coopShootRef[0]?.invoke(Vec2(input.x, input.y), input.damage.coerceIn(1, 20))
+                            }
+                        }
+                        if (now - lastSnapNanos >= 80_000_000L) {
+                            lastSnapNanos = now
+                            CoopSync.sendSnapshot(
+                                snapSeq++, enemies, fire, director, crosshair, score, nowSeconds(),
+                                AttackPose.ids, AttackPose.progress, AttackPose.bossSinceFire,
+                                AttackPose.bossStunned, AttackPose.bossEnraged
+                            )
                         }
                     }
                     combo.update(dt)
@@ -584,6 +713,7 @@ fun GameScreen(
 
     // הלם: מחסל את כל המפלצות הרגילות וכל הקליעים. הבוס לא מת: מאבד 15% מהחיים ומסוחרר
     fun triggerShock() {
+        if (isGuest) return
         if (director.phase != ArenaPhase.Fighting || director.bossDying) return
         if (!shock.trigger()) return
         soundPlayer.play(Sfx.Boom)
@@ -768,7 +898,7 @@ fun GameScreen(
             return
         }
         // כוונת על פרס: אוספים אותו (בלי לצרוך כדור)
-        val picked = loot.collect(crosshair, aspect, FIRE_SLACK + 0.03f)
+        val picked = if (isGuest) null else loot.collect(crosshair, aspect, FIRE_SLACK + 0.03f)
         if (picked != null) {
             collectLoot(picked)
             return
@@ -787,10 +917,24 @@ fun GameScreen(
         val offsets = if (stats.pellets > 1) floatArrayOf(-SPREAD_OFFSET, 0f, SPREAD_OFFSET) else floatArrayOf(0f)
         for (offset in offsets) {
             val dmg = Catalog.rollDamage(stats.damage, kotlin.random.Random.nextFloat())
-            shootAt(Vec2(crosshair.x + offset, crosshair.y), dmg)
+            if (isGuest) {
+                CoopSync.sendFire(crosshair.x + offset, crosshair.y, dmg)
+            } else {
+                shootAt(Vec2(crosshair.x + offset, crosshair.y), dmg)
+            }
         }
     }
     fireRef[0] = { fireNow() }
+    coopShootRef[0] = { p, d -> shootAt(p, d) }
+    coopTapRef[0] = { w ->
+        val pickedLoot = loot.collect(w, latestAspect, TAP_SLACK)
+        if (pickedLoot != null) {
+            collectLoot(pickedLoot)
+        } else {
+            val hit = fire.intercept(w, latestAspect, TAP_SLACK)
+            if (hit != null) onIntercept(hit)
+        }
+    }
 
     // החייאה ביהלומים: חוזרים לאותו גל עם 2 לבבות, מחסנית והלם מלאים
     fun reviveRun() {
@@ -841,6 +985,13 @@ fun GameScreen(
         director.restart()
     }
 
+    // משחק משותף: אם המארח יצא או שהחיבור נפל, חוזרים ללובי
+    if (coop != null) {
+        LaunchedEffect(CoopSync.hostEnded, CoopClient.status) {
+            if ((isGuest && CoopSync.hostEnded) || CoopClient.status != CoopStatus.Connected) onExit()
+        }
+    }
+
     // כפתור "אחורה": פותח את תפריט ההשהיה, ובתפריט פתוח חוזר למשחק
     BackHandler(enabled = true) {
         if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
@@ -885,12 +1036,16 @@ fun GameScreen(
                             (offset.x / size.width - 0.5f) / cam.zoom * cam.viewFraction + cam.center.x,
                             (offset.y / size.height - 0.5f) / cam.zoom + cam.center.y
                         )
-                        val picked = loot.collect(Vec2(world.x, world.y), latestAspect, TAP_SLACK)
-                        if (picked != null) {
-                            collectLoot(picked)
+                        if (isGuest) {
+                            CoopSync.sendTap(world.x, world.y)
                         } else {
-                            val result = fire.intercept(world, latestAspect, TAP_SLACK)
-                            if (result != null) onIntercept(result)
+                            val picked = loot.collect(Vec2(world.x, world.y), latestAspect, TAP_SLACK)
+                            if (picked != null) {
+                                collectLoot(picked)
+                            } else {
+                                val result = fire.intercept(world, latestAspect, TAP_SLACK)
+                                if (result != null) onIntercept(result)
+                            }
                         }
                     }
                 }
@@ -933,6 +1088,29 @@ fun GameScreen(
 
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
+
+        // משחק משותף: הכוונת השקופה של השותף, וחץ כשהוא מכוון אל מחוץ למסך
+        if (coop != null) {
+            val partner: Vec2? = if (isHost) {
+                if (System.nanoTime() - CoopSync.partnerAimAt < 2_000_000_000L) CoopSync.partnerAim else null
+            } else {
+                hostCross
+            }
+            if (partner != null) {
+                val ps = camera.worldToScreen(partner)
+                if (ps.x in 0f..1f && ps.y in 0f..1f) {
+                    CrosshairOverlay(position = Offset(ps.x, ps.y), alpha = 0.45f)
+                } else {
+                    OutlinedText(
+                        if (ps.x < 0f) "◀ P2" else if (ps.x > 1f) "P2 ▶" else "P2",
+                        fontSize = 20.sp,
+                        modifier = Modifier
+                            .align(if (ps.x < 0f) Alignment.CenterStart else if (ps.x > 1f) Alignment.CenterEnd else Alignment.TopCenter)
+                            .padding(horizontal = 12.dp, vertical = 120.dp)
+                    )
+                }
+            }
+        }
 
         // פנורמה: חיצים שמראים כמה מפלצות יש מחוץ למסך, מכל צד
         if (panoMode) {
@@ -1118,7 +1296,7 @@ fun GameScreen(
                 onResume = { paused = false },
                 onRestart = {
                     paused = false
-                    retry()
+                    if (!isGuest) retry()
                 },
                 onMainMenu = {
                     paused = false
@@ -1137,8 +1315,8 @@ fun GameScreen(
                 totalCoins = PlayerProfile.coins,
                 reviveCost = if (revives < 1) REVIVE_COST else 0,
                 diamonds = PlayerProfile.diamonds,
-                onRevive = { reviveRun() },
-                onRetry = { retry() },
+                onRevive = { if (!isGuest) reviveRun() },
+                onRetry = { if (!isGuest) retry() },
                 onMenu = { onExit() },
                 onNext = onNextArena,
                 bonusText = photoBonus,
@@ -1161,4 +1339,7 @@ private class SfxMemo {
     var holding: Boolean = false
     var autoTimer: Float = 0f
     var phase: ArenaPhase? = null
+
+    /** אורח במשחק משותף: כמה לבבות היו בתמונת המצב הקודמת (לזיהוי פגיעה בשחקן) */
+    var guestHearts: Int = ArenaDirector.MAX_HEARTS
 }

@@ -101,6 +101,15 @@ class EnemyFire(private val random: Random = Random.Default) {
         time = 0f
     }
 
+    /** משחק משותף, אצל האורח: מציג את הקליעים וההכנות שהמארח שלח, בשעון של המארח */
+    fun applyRemote(newTime: Float, remoteShots: List<Shot>, views: List<TelegraphView>) {
+        time = newTime
+        shots.clear()
+        shots.addAll(remoteShots)
+        telegraphViews.clear()
+        telegraphViews.addAll(views)
+    }
+
     /** האם האויב נראה עכשיו וכך יכול לירות (מציץ שחשוף לגמרי, או דמות שהולכת בחוץ) */
     private fun canAttack(e: Enemy): Boolean {
         if (!e.isAlive) return false

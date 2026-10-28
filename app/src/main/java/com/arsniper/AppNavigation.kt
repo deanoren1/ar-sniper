@@ -33,10 +33,12 @@ fun AppNavigation() {
 
     // כפתור/מחוות חזרה מחזיר למסך הפתיחה
     var arenaIndex by rememberSaveable { mutableStateOf(0) }
+    // משחק משותף: "host" / "guest" בזמן משחק, אחרת ריק
+    var coopRole by rememberSaveable { mutableStateOf("") }
 
     BackHandler(enabled = screen != Screen.Start) {
         screen = when (screen) {
-            Screen.Game -> if (quick) Screen.Play else Screen.Arena
+            Screen.Game -> if (coopRole.isNotEmpty()) Screen.Coop else if (quick) Screen.Play else Screen.Arena
             Screen.Capture, Screen.Review, Screen.Scene, Screen.Arena, Screen.PanoView -> Screen.Play
             Screen.Coop -> Screen.Settings
             else -> Screen.Start
@@ -91,7 +93,9 @@ fun AppNavigation() {
         )
         Screen.Scene -> SceneScreen(
             onContinue = {
-                if (quick) {
+                if (coopRole.isNotEmpty()) {
+                    screen = Screen.Game
+                } else if (quick) {
                     val open = ArenaStyle.values().filter { PlayerProfile.isUnlocked(it) }
                     arenaIndex = (open.randomOrNull() ?: ArenaStyle.values()[0]).ordinal
                     screen = Screen.Game
@@ -108,7 +112,16 @@ fun AppNavigation() {
         )
         Screen.Game -> GameScreen(
             style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
-            onExit = { screen = Screen.Play },
+            coop = coopRole.ifEmpty { null },
+            onExit = {
+                if (coopRole.isNotEmpty()) {
+                    if (coopRole == "host") com.arsniper.coop.CoopSync.sendEnd()
+                    coopRole = ""
+                    screen = Screen.Coop
+                } else {
+                    screen = Screen.Play
+                }
+            },
             onNextArena = { quick = false; screen = Screen.Arena }
         )
         Screen.Shop -> ShopScreen(onBack = { screen = Screen.Start })
@@ -116,6 +129,18 @@ fun AppNavigation() {
         Screen.ScanLab -> ScanLabScreen(onBack = { screen = Screen.Settings })
         Screen.ArtLab -> ArtLabScreen(onBack = { screen = Screen.Settings }, onUsePhoto = { screen = Screen.Review })
         Screen.Stats -> StatsScreen(onBack = { screen = Screen.Start })
-        Screen.Coop -> com.arsniper.ui.menu.CoopScreen(onBack = { screen = Screen.Settings })
+        Screen.Coop -> com.arsniper.ui.menu.CoopScreen(
+            onBack = { screen = Screen.Settings },
+            onStart = { style, role ->
+                // החיבור נשאר פתוח, והמשחק לוקח את ההודעות מהלובי
+                com.arsniper.coop.CoopSync.keepConnection = true
+                com.arsniper.coop.CoopSync.resetGame()
+                com.arsniper.coop.CoopSync.attachGame()
+                arenaIndex = style
+                coopRole = role
+                quick = false
+                screen = Screen.Scene
+            }
+        )
     }
 }

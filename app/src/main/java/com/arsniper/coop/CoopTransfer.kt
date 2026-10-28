@@ -82,10 +82,12 @@ object CoopTransfer {
         CoopClient.onBinary = { onBinary(it) }
     }
 
-    fun detach() {
+    fun detach(keepHandlers: Boolean = false) {
         cancelled = true
-        CoopClient.onText = null
-        CoopClient.onBinary = null
+        if (!keepHandlers) {
+            CoopClient.onText = null
+            CoopClient.onBinary = null
+        }
         closeIncoming()
         sending = false
         receiving = false
@@ -200,6 +202,7 @@ object CoopTransfer {
         try {
             val json = JSONObject(text)
             when (json.optString("t")) {
+                "start" -> CoopSync.onStart(json)
                 "offer" -> if (CoopClient.role != "host") startReceive(json)
                 "ready" -> if (CoopClient.role == "host" && json.optInt("id") == sendId) {
                     readyCount += 1

@@ -18,13 +18,14 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun CrosshairOverlay(
     modifier: Modifier = Modifier,
-    position: Offset = Offset(0.5f, 0.5f)
+    position: Offset = Offset(0.5f, 0.5f),
+    alpha: Float = 1f
 ) {
     val image = ImageBitmap.imageResource(com.arsniper.R.drawable.hud_crosshair)
     Canvas(modifier = modifier.fillMaxSize()) {
         val d = 96.dp.toPx().toInt()
         val cx = (size.width * position.x).toInt()
         val cy = (size.height * position.y).toInt()
-        drawImage(image, dstOffset = IntOffset(cx - d / 2, cy - d / 2), dstSize = IntSize(d, d))
+        drawImage(image, dstOffset = IntOffset(cx - d / 2, cy - d / 2), dstSize = IntSize(d, d), alpha = alpha)
     }
 }

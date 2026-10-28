@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.coop.CoopClient
 import com.arsniper.coop.CoopStatus
+import com.arsniper.coop.CoopSync
 import com.arsniper.coop.CoopTransfer
 import com.arsniper.ui.components.GameButton
 import com.arsniper.ui.components.NavyPanel
@@ -45,7 +46,12 @@ import kotlinx.coroutines.delay
  * השלב הזה בודק רק את החיבור לשרת. סנכרון המשחק עצמו יתווסף אחר כך.
  */
 @Composable
-fun CoopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun CoopScreen(
+    onBack: () -> Unit,
+    /** מתחילים משחק: מספר ארנה ותפקיד ("host" או "guest") */
+    onStart: (style: Int, role: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     var server by remember { mutableStateOf(CoopClient.savedServer(context)) }
     var joinCode by remember { mutableStateOf("") }
@@ -59,10 +65,34 @@ fun CoopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
     DisposableEffect(Unit) {
+        CoopSync.keepConnection = false
+        CoopSync.pendingStart = null
         CoopTransfer.attach(context)
         onDispose {
-            CoopTransfer.detach()
-            CoopClient.disconnect()
+            if (CoopSync.keepConnection) {
+                // עוברים למשחק: החיבור נשאר, והמשחק לוקח את המאזינים
+                CoopTransfer.detach(keepHandlers = true)
+            } else {
+                CoopTransfer.detach()
+                CoopClient.disconnect()
+            }
+        }
+    }
+
+    // אורח: המארח התחיל. בודקים שיש לנו אותה תמונה, ועוברים למשחק
+    val pending = CoopSync.pendingStart
+    var startError by remember { mutableStateOf("") }
+    LaunchedEffect(pending) {
+        val info = pending ?: return@LaunchedEffect
+        val file = com.arsniper.data.PhotoRepository.currentFile(context)
+        val key = try { file?.let { com.arsniper.ml.AnalysisCache.keyFor(it) } } catch (_: Exception) { null }
+        if (key == null || key != info.key) {
+            startError = "The host started, but you do not have the same photo yet. Ask the host to press SEND PHOTO"
+            CoopSync.pendingStart = null
+        } else {
+            startError = ""
+            CoopSync.pendingStart = null
+            onStart(info.style, "guest")
         }
     }
 
@@ -118,6 +148,29 @@ fun CoopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 if (CoopTransfer.sendText.isNotEmpty()) {
                                     OutlinedText(CoopTransfer.sendText, fontSize = 13.sp, color = GameColors.Yellow, outline = null)
                                 }
+                                GameButton(
+                                    text = "START GAME",
+                                    onClick = {
+                                        val file = com.arsniper.data.PhotoRepository.currentFile(context)
+                                        if (file == null) {
+                                            startError = "No photo yet. Play or pick a photo first"
+                                        } else if (CoopTransfer.readyCount < 1) {
+                                            startError = "Press SEND PHOTO first, and wait for \"Partner has the photo\""
+                                        } else {
+                                            val key = com.arsniper.ml.AnalysisCache.keyFor(file)
+                                            val open = com.arsniper.game.progress.ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) }
+                                            val style = (open.randomOrNull() ?: com.arsniper.game.progress.ArenaStyle.values()[0]).ordinal
+                                            startError = ""
+                                            CoopSync.sendStart(style, key)
+                                            onStart(style, "host")
+                                        }
+                                    },
+                                    enabled = !CoopTransfer.sending,
+                                    style = GameButtonStyle.Primary,
+                                    height = 48.dp,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
                             if (CoopClient.role != "host" && CoopTransfer.receiveText.isNotEmpty()) {
                                 OutlinedText(
@@ -177,6 +230,9 @@ fun CoopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                     modifier = Modifier.widthIn(min = 110.dp)
                                 )
                             }
+                        }
+                        if (startError.isNotEmpty()) {
+                            OutlinedText(startError, fontSize = 13.sp, color = Color(0xFFFF8A8A), outline = null)
                         }
                         if (CoopClient.message.isNotEmpty()) {
                             OutlinedText(
