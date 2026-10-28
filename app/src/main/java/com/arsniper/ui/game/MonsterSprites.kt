@@ -223,7 +223,10 @@ class MonsterSprites private constructor(
                     val name = "rig_${arena}_${foe}_$n"
                     val id = context.resources.getIdentifier(name, "drawable", context.packageName)
                     if (id == 0) break
-                    loadRig(context, id)?.let { pools[foe].add(it) }
+                    // זוויות נוספות (אופציונלי): rig_..._<n>_front ו-rig_..._<n>_back, לשורת ההליכה אל המצלמה ומהמצלמה
+                    val front = context.resources.getIdentifier("${name}_front", "drawable", context.packageName).takeIf { it != 0 }
+                    val back = context.resources.getIdentifier("${name}_back", "drawable", context.packageName).takeIf { it != 0 }
+                    loadRig(context, id, front, back)?.let { pools[foe].add(it) }
                     n++
                 }
             }
@@ -233,7 +236,7 @@ class MonsterSprites private constructor(
          * גיליון rig: 6 עמודות על 4 שורות. שורה 0: עמידה. שורה 1: הליכה (פונה ימינה). שורה 2: הכנה לירי (3) וירייה (3).
          * שורה 3: פגיעה (2) ומוות (4). כל הפריימים נחתכים באותו מלבן, כך שהרגליים נשארות על אותו קו והגודל קבוע.
          */
-        private fun loadRig(context: Context, id: Int): MonsterSheet? {
+        private fun loadRig(context: Context, id: Int, frontId: Int? = null, backId: Int? = null): MonsterSheet? {
             val options = BitmapFactory.Options().apply {
                 inScaled = false
                 inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -269,12 +272,41 @@ class MonsterSprites private constructor(
                 f.density = Bitmap.DENSITY_NONE
                 return MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
             }
+            val side = (0 until RIG_COLUMNS).map { frame(1, it) }
+            // זוויות אל המצלמה ומהמצלמה: רק שורת ההליכה של הגיליון הנוסף, בגודל אחיד לפי הגיליון הראשי
+            fun walkOf(extraId: Int?): List<MonsterSprite> {
+                if (extraId == null) return side
+                val extra = BitmapFactory.decodeResource(context.resources, extraId, options) ?: return side
+                extra.density = Bitmap.DENSITY_NONE
+                val ew = extra.width / RIG_COLUMNS
+                val eh = extra.height / RIG_ROWS
+                if (ew < 8 || eh < 8) return side
+                var x0 = ew; var y0 = eh; var x1 = -1; var y1 = -1
+                val px = IntArray(ew * eh)
+                for (col in 0 until RIG_COLUMNS) {
+                    extra.getPixels(px, 0, ew, col * ew, eh, ew, eh)
+                    for (y in 0 until eh) for (x in 0 until ew) {
+                        if (Color.alpha(px[y * ew + x]) > ALPHA_MIN) {
+                            if (x < x0) x0 = x; if (x > x1) x1 = x
+                            if (y < y0) y0 = y; if (y > y1) y1 = y
+                        }
+                    }
+                }
+                if (x1 < 0) return side
+                return (0 until RIG_COLUMNS).map { col ->
+                    val f = Bitmap.createBitmap(extra, col * ew + x0, eh + y0, x1 - x0 + 1, y1 - y0 + 1)
+                    f.density = Bitmap.DENSITY_NONE
+                    MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
+                }
+            }
+            val moves = if (frontId != null || backId != null) WalkSet(side, walkOf(frontId), walkOf(backId), side) else null
             return MonsterSheet(
                 idle = frame(0, 0),
-                walk = (0 until RIG_COLUMNS).map { frame(1, it) },
+                walk = side,
                 peek = frame(2, 2),
                 hit = frame(3, 0),
-                sizeScale = 1.0f
+                sizeScale = 1.0f,
+                moves = moves
             )
         }
 
