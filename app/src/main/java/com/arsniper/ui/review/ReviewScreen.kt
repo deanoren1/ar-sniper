@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.arsniper.ui.components.OutlinedText
 import com.arsniper.data.PhotoRepository
 import com.arsniper.ml.ModelStore
 import com.arsniper.ml.PersonMask
@@ -110,6 +111,8 @@ fun ReviewScreen(
     var mode by remember { mutableStateOf(BrushMode.Add) }
     var brushIndex by remember { mutableStateOf(1) }
     var boxWidth by remember { mutableStateOf(0) }
+    // תמונה רחבה (פנורמה): איזה חלק ממנה רואים. -1 = קצה שמאל, 1 = קצה ימין
+    var panBias by remember { mutableStateOf(0f) }
     var boxHeight by remember { mutableStateOf(0) }
 
     // מצב ההסרה
@@ -192,7 +195,7 @@ fun ReviewScreen(
             boxWidth.toFloat() / imageWidth,
             boxHeight.toFloat() / imageHeight
         )
-        val offsetX = (boxWidth - imageWidth * scale) / 2f
+        val offsetX = (boxWidth - imageWidth * scale) * (panBias + 1f) / 2f
         val offsetY = (boxHeight - imageHeight * scale) / 2f
 
         val centerX = ((position.x - offsetX) / scale).roundToInt()
@@ -229,7 +232,7 @@ fun ReviewScreen(
         val imageWidth = current.mask.width
         val imageHeight = current.mask.height
         val scale = maxOf(boxWidth.toFloat() / imageWidth, boxHeight.toFloat() / imageHeight)
-        val offsetX = (boxWidth - imageWidth * scale) / 2f
+        val offsetX = (boxWidth - imageWidth * scale) * (panBias + 1f) / 2f
         val offsetY = (boxHeight - imageHeight * scale) / 2f
         val px = (position.x - offsetX) / scale
         val py = (position.y - offsetY) / scale
@@ -354,6 +357,19 @@ fun ReviewScreen(
                 }
             }
             .pointerInput(fineTune) {
+                if (!fineTune) {
+                    detectDragGestures { change, drag ->
+                        change.consume()
+                        val r = result
+                        if (r != null && boxWidth > 0 && boxHeight > 0) {
+                            val scaledW = r.mask.width * maxOf(boxWidth.toFloat() / r.mask.width, boxHeight.toFloat() / r.mask.height)
+                            val travel = (scaledW - boxWidth) / 2f
+                            if (travel > 1f) panBias = (panBias - drag.x / travel).coerceIn(-1f, 1f)
+                        }
+                    }
+                }
+            }
+            .pointerInput(fineTune) {
                 if (fineTune) {
                     detectDragGestures(
                         onDragStart = {
@@ -373,6 +389,7 @@ fun ReviewScreen(
                 bitmap = cleanedImage ?: current.photo,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                alignment = Alignment(panBias, 0f),
                 modifier = Modifier.fillMaxSize()
             )
             if (cleanedImage == null) {
@@ -380,7 +397,28 @@ fun ReviewScreen(
                     bitmap = overlayImage,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
+                    alignment = Alignment(panBias, 0f),
                     modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+
+        // תמונה רחבה: חיצים להזזה ימינה ושמאלה (עובדים גם במצב צביעה, שבו גרירה צובעת)
+        val wideImage = current != null && boxHeight > 0 &&
+            current.mask.width.toFloat() / current.mask.height > boxWidth.toFloat() / boxHeight * 1.05f
+        if (wideImage) {
+            if (panBias > -0.99f) {
+                OutlinedText(
+                    "\u25C0", fontSize = 34.sp,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 6.dp)
+                        .clickable { panBias = (panBias - 0.4f).coerceIn(-1f, 1f) }.padding(14.dp)
+                )
+            }
+            if (panBias < 0.99f) {
+                OutlinedText(
+                    "\u25B6", fontSize = 34.sp,
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp)
+                        .clickable { panBias = (panBias + 0.4f).coerceIn(-1f, 1f) }.padding(14.dp)
                 )
             }
         }
