@@ -65,7 +65,8 @@ try { await connect(code); } catch { rejected = true; }
 assert(rejected, "fifth player is rejected (room full)");
 
 host.close();
-const closed = JSON.parse(await next(guest));
+let closed = JSON.parse(await next(guest));
+while (closed.t === "join") closed = JSON.parse(await next(guest)); // קודם מגיעות הודעות ההצטרפות של השחקנים 3 ו-4
 assert(closed.t === "closed" && closed.reason === "host-left", "guests are told when the host leaves");
 
 console.log("ALL OK");
