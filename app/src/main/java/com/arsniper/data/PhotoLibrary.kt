@@ -140,4 +140,35 @@ object PhotoLibrary {
             return null
         }
     }
+
+    /** הטקסט של סימון הפנורמה של התמונה הנוכחית (null = תמונה רגילה): נשלח לשותף במשחק משותף */
+    fun panoMarkerText(context: Context): String? {
+        try {
+            val current = PhotoRepository.currentFile(context) ?: return null
+            val marker = File(dir(context), AnalysisCache.keyFor(current) + ".pano")
+            return if (marker.exists()) marker.readText().trim() else null
+        } catch (_: Exception) {
+            return null
+        }
+    }
+
+    /**
+     * מייבא תמונה שהתקבלה מהמארח במשחק משותף: שומר בספרייה כסקורה, מסמן פנורמה אם צריך,
+     * והופך אותה לתמונה הנוכחית. מחזיר את המפתח של התמונה, או null בכשל.
+     */
+    fun importShared(context: Context, photo: File, panoMarker: String?): String? {
+        return try {
+            val key = AnalysisCache.keyFor(photo)
+            val target = File(dir(context), "$key.jpg")
+            photo.copyTo(target, overwrite = true)
+            target.setLastModified(System.currentTimeMillis())
+            File(dir(context), "$key.ok").writeText("2")
+            val panoFile = File(dir(context), "$key.pano")
+            if (!panoMarker.isNullOrEmpty()) panoFile.writeText(panoMarker) else panoFile.delete()
+            select(context, target)
+            key
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

@@ -35,6 +35,9 @@ object AnalysisCache {
 
     private fun cacheDir(baseDir: File): File = File(baseDir, "analysis_cache")
 
+    /** מיקום קובץ הניתוח של מפתח נתון (משמש להעברת ניתוח בין מכשירים במשחק משותף) */
+    fun fileFor(baseDir: File, key: String): File = File(cacheDir(baseDir), "$key.bin")
+
     fun load(baseDir: File, key: String): SceneAnalysis? {
         val file = File(cacheDir(baseDir), "$key.bin")
         if (!file.exists()) return null

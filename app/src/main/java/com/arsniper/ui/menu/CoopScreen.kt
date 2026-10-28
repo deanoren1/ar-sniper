@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arsniper.coop.CoopClient
 import com.arsniper.coop.CoopStatus
+import com.arsniper.coop.CoopTransfer
 import com.arsniper.ui.components.GameButton
 import com.arsniper.ui.components.NavyPanel
 import com.arsniper.ui.components.OutlinedText
@@ -57,7 +58,13 @@ fun CoopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             delay(3000)
         }
     }
-    DisposableEffect(Unit) { onDispose { CoopClient.disconnect() } }
+    DisposableEffect(Unit) {
+        CoopTransfer.attach(context)
+        onDispose {
+            CoopTransfer.detach()
+            CoopClient.disconnect()
+        }
+    }
 
     val fieldColors = TextStyle(color = Color.White, fontSize = 16.sp)
 
@@ -91,6 +98,34 @@ fun CoopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             )
                             if (CoopClient.pingMs >= 0) {
                                 OutlinedText("Ping: ${CoopClient.pingMs} ms", fontSize = 13.sp, color = Color(0xFFB8C4E0), outline = null)
+                            }
+                            if (CoopClient.role == "host" && CoopClient.peers >= 2) {
+                                GameButton(
+                                    text = "SEND PHOTO TO PARTNER",
+                                    onClick = { CoopTransfer.sendCurrent() },
+                                    enabled = !CoopTransfer.sending,
+                                    style = GameButtonStyle.Success,
+                                    height = 44.dp,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedText(
+                                    "Sends the photo you played last, with its scan",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFB8C4E0),
+                                    outline = null
+                                )
+                                if (CoopTransfer.sendText.isNotEmpty()) {
+                                    OutlinedText(CoopTransfer.sendText, fontSize = 13.sp, color = GameColors.Yellow, outline = null)
+                                }
+                            }
+                            if (CoopClient.role != "host" && CoopTransfer.receiveText.isNotEmpty()) {
+                                OutlinedText(
+                                    CoopTransfer.receiveText,
+                                    fontSize = 14.sp,
+                                    color = if (CoopTransfer.received) GameColors.Yellow else Color.White,
+                                    outline = null
+                                )
                             }
                             GameButton(
                                 text = "LEAVE ROOM",

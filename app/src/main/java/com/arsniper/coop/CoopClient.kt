@@ -153,6 +153,9 @@ object CoopClient {
 
     fun sendBytes(data: ByteArray): Boolean = socket?.send(data.toByteString()) ?: false
 
+    /** כמה בתים ממתינים בתור השליחה (לשליחה איטית של קבצים גדולים) */
+    fun queueSize(): Long = socket?.queueSize() ?: 0L
+
     /** בודק זמן תגובה (הלוך ושוב) לשרת */
     fun ping() {
         pingSentAt = System.currentTimeMillis()
