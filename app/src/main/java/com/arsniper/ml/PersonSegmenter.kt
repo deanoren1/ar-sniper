@@ -91,8 +91,22 @@ class PersonSegmenter(context: Context) {
         k: Int
     ) {
         val tile = Bitmap.createBitmap(source, left, top, tileWidth, tileHeight)
+        // המודל עובד ב-257 פיקסלים, אבל המסכות שהוא מחזיר גדולות כמו הקלט (21 קטגוריות x 4 בתים לפיקסל).
+        // תמונה מלאה של 1920 יוצרת מאות מגה של זיכרון ומקריסה את האפליקציה: מקטינים את הקלט (אין פגיעה באיכות).
+        val longest = maxOf(tileWidth, tileHeight)
+        val feed = if (longest > FEED_SIDE) {
+            val f = FEED_SIDE.toFloat() / longest
+            Bitmap.createScaledBitmap(
+                tile,
+                (tileWidth * f).toInt().coerceAtLeast(1),
+                (tileHeight * f).toInt().coerceAtLeast(1),
+                true
+            )
+        } else {
+            tile
+        }
         try {
-            val result = segmenter.segment(BitmapImageBuilder(tile).build())
+            val result = segmenter.segment(BitmapImageBuilder(feed).build())
 
             var personMap: MPImage? = null
             var floats: java.nio.FloatBuffer? = null
@@ -145,6 +159,7 @@ class PersonSegmenter(context: Context) {
                 }
             }
         } finally {
+            if (feed !== tile) feed.recycle()
             if (tile !== source) tile.recycle()
         }
     }
@@ -179,6 +194,9 @@ class PersonSegmenter(context: Context) {
 
     companion object {
         private const val MODEL_PATH = "deeplab_v3.tflite"
+
+        /** הצלע הארוכה של הקלט למודל (המודל עצמו עובד ב-257) */
+        private const val FEED_SIDE = 513
 
         /** מספר הקטגוריה "אדם" במודל DeepLab-v3 (תיוג PASCAL VOC) */
         private const val PERSON_CLASS = 15

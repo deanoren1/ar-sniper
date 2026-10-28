@@ -17,18 +17,41 @@ object PhotoLibrary {
 
     private fun dir(context: Context) = File(context.filesDir, "library").apply { mkdirs() }
 
-    /** שומר עותק של התמונה הנוכחית (אם עוד אין כזאת) ומנקה ישנות */
-    fun addCurrent(context: Context) {
+    /** מפתח התמונה שנשמרה מיד אחרי בחירה מהגלריה, לפני שעברה סקירת אנשים (תוחלף בגרסה המאושרת) */
+    @Volatile private var pendingKey: String? = null
+
+    fun clearPending() { pendingKey = null }
+
+    /**
+     * שומר עותק של התמונה הנוכחית (אם עוד אין כזאת) ומנקה ישנות.
+     * finalizing = התמונה עברה סקירת אנשים ואושרה: מסומנת כסקורה, ומחליפה את העותק שנשמר לפני הסקירה.
+     */
+    fun addCurrent(context: Context, finalizing: Boolean = false) {
         try {
             val current = PhotoRepository.currentFile(context) ?: return
-            val target = File(dir(context), AnalysisCache.keyFor(current) + ".jpg")
+            val key = AnalysisCache.keyFor(current)
+            val target = File(dir(context), "$key.jpg")
             if (!target.exists()) current.copyTo(target, overwrite = true)
             target.setLastModified(System.currentTimeMillis())
+            if (finalizing) {
+                val old = pendingKey
+                if (old != null && old != key) {
+                    File(dir(context), "$old.jpg").delete()
+                    File(dir(context), "$old.ok").delete()
+                }
+                pendingKey = null
+                File(dir(context), "$key.ok").writeText("1")
+            } else {
+                pendingKey = key
+            }
             val files = list(context)
-            for (old in files.drop(MAX)) old.delete()
+            for (old in files.drop(MAX)) delete(old)
         } catch (_: Exception) {
         }
     }
+
+    /** האם התמונה עברה סקירת אנשים (חובה לפני משחק) */
+    fun isReviewed(file: File): Boolean = File(file.parentFile, file.nameWithoutExtension + ".ok").exists()
 
     /** הקבצים השמורים, החדש ראשון */
     fun list(context: Context): List<File> =
@@ -36,7 +59,12 @@ object PhotoLibrary {
             ?.sortedByDescending { it.lastModified() }
             ?: emptyList()
 
-    fun delete(file: File) { try { file.delete() } catch (_: Exception) { } }
+    fun delete(file: File) {
+        try {
+            file.delete()
+            File(file.parentFile, file.nameWithoutExtension + ".ok").delete()
+        } catch (_: Exception) { }
+    }
 
     /** הופך תמונה שמורה לתמונה הנוכחית של המשחק */
     fun select(context: Context, file: File) {

@@ -52,19 +52,23 @@ fun AppNavigation() {
         )
         Screen.Play -> PlayScreen(
             onBack = { screen = Screen.Start },
-            onTakePhoto = { quick = false; screen = Screen.Capture },
+            onTakePhoto = { PhotoLibrary.clearPending(); quick = false; screen = Screen.Capture },
             onGalleryPicked = { quick = false; screen = Screen.Review },
             onPickSaved = { file ->
                 PhotoLibrary.select(context, file)
+                PhotoLibrary.clearPending()
                 quick = false
-                screen = Screen.Scene
+                // ניתוח אנשים הוא חובה: תמונה שלא נסקרה עוברת קודם במסך הסקירה
+                screen = if (PhotoLibrary.isReviewed(file)) Screen.Scene else Screen.Review
             },
             onQuick = {
-                val file = PhotoLibrary.list(context).randomOrNull()
+                val all = PhotoLibrary.list(context)
+                val file = all.filter { PhotoLibrary.isReviewed(it) }.randomOrNull() ?: all.randomOrNull()
                 if (file != null) {
                     PhotoLibrary.select(context, file)
+                    PhotoLibrary.clearPending()
                     quick = true
-                    screen = Screen.Scene
+                    screen = if (PhotoLibrary.isReviewed(file)) Screen.Scene else Screen.Review
                 }
             }
         )
@@ -76,7 +80,7 @@ fun AppNavigation() {
         )
         Screen.PanoView -> com.arsniper.ui.capture.PanoViewScreen(onBack = { screen = Screen.Play })
         Screen.Review -> ReviewScreen(
-            onContinue = { PhotoLibrary.addCurrent(context); screen = Screen.Scene },
+            onContinue = { PhotoLibrary.addCurrent(context, finalizing = true); screen = Screen.Scene },
             onRetake = { screen = Screen.Capture }
         )
         Screen.Scene -> SceneScreen(
