@@ -401,7 +401,8 @@ private fun DrawScope.drawMonster(
     } else if (sheet.bossAnim != null) {
         bossFrame(sheet.bossAnim, enemy, anim, hurt)
     } else if (AttackPose.ids.contains(enemy.id)) {
-        sheet.peek
+        // מפלצת בלונים שאיבדה בלון: גם בהכנה לירייה נשארת עם מספר הבלונים שנשאר (תמונת ההכנה המקורית היא עם שלושה)
+        sheet.fewer[balloonsLeft(sheet, enemy)]?.front?.get(0) ?: sheet.peek
     } else {
         // מפלצת בלונים שאיבדה בלון: עומדת בציור של מספר הבלונים שנשאר
         sheet.fewer[balloonsLeft(sheet, enemy)]?.front?.get(0) ?: sheet.idle
