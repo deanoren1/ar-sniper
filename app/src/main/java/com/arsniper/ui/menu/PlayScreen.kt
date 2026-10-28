@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -113,14 +114,20 @@ fun PlayScreen(
             contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(0.2f)
         )
+        // אותו גודל ומיקום של המטבעות כמו במסך הפתיחה (ובהתאמה: חץ החזרה באותו גובה בצד השני)
+        CurrencyBar(
+            PlayerProfile.coins, PlayerProfile.diamonds,
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = ui.dp(10f), top = ui.dp(8f))
+        )
+        com.arsniper.ui.components.GameIconButton(
+            GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(46f),
+            modifier = Modifier.align(Alignment.TopStart).padding(start = ui.dp(10f), top = ui.dp(6f))
+        )
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 com.arsniper.ui.components.GradientTitle("PLAY", fontSize = (ui.factor * 50f).sp)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                com.arsniper.ui.components.GameIconButton(GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = ui.dp(54f))
-                Spacer(Modifier.weight(1f))
-                CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
-            }
+            // שומר את גובה הכותרת (הכפתורים והמטבעות מונחים בנפרד, באותו מיקום כמו במסך הפתיחה)
+            Spacer(Modifier.height(ui.dp(54f)))
             }
             Spacer(Modifier.height(ui.dp(22f)))
             Row(
