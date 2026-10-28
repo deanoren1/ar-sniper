@@ -82,12 +82,13 @@ class GameEngine(
         input: Vec2,
         dtSeconds: Float,
         aspect: Float,
-        zoom: Float = 1f
+        zoom: Float = 1f,
+        viewAspect: Float = aspect
     ): Vec2 {
         val dt = dtSeconds.coerceAtMost(0.05f)
         val speed = crosshairSpeed / zoom.coerceAtLeast(1f)
-        val dx = input.x * speed * dt
-        val dy = input.y * speed * dt * aspect
+        val dx = input.x * speed * dt * viewAspect / aspect
+        val dy = input.y * speed * dt * viewAspect
         return Vec2(
             (current.x + dx).coerceIn(0f, 1f),
             (current.y + dy).coerceIn(0f, 1f)

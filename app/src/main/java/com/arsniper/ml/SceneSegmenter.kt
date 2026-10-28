@@ -29,8 +29,10 @@ class SceneSegmenter(modelFile: File) {
     fun analyze(photo: Bitmap, onProgress: (done: Int, total: Int) -> Unit): SceneAnalysis {
         val width = photo.width
         val height = photo.height
-        val gridWidth = GRID_WIDTH
-        val gridHeight = (GRID_WIDTH.toFloat() * height / width).roundToInt().coerceAtLeast(1)
+        // תמונה רחבה (פנורמה): רשת רחבה יותר, כדי שהפרטים לא יתפרסו על כל כך מעט תאים
+        val photoAspect = width.toFloat() / height
+        val gridWidth = if (photoAspect > 2.2f) (GRID_WIDTH * photoAspect / 1.8f).roundToInt().coerceIn(GRID_WIDTH, 1600) else GRID_WIDTH
+        val gridHeight = (gridWidth.toFloat() * height / width).roundToInt().coerceAtLeast(1)
 
         val labels = ByteArray(gridWidth * gridHeight)
         val depth = FloatArray(gridWidth * gridHeight)

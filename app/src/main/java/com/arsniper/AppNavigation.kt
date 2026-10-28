@@ -78,7 +78,10 @@ fun AppNavigation() {
             onGalleryPicked = { screen = Screen.Review },
             onPanorama = { screen = Screen.PanoView }
         )
-        Screen.PanoView -> com.arsniper.ui.capture.PanoViewScreen(onBack = { screen = Screen.Play })
+        Screen.PanoView -> com.arsniper.ui.capture.PanoViewScreen(
+            onBack = { screen = Screen.Play },
+            onPlay = { quick = false; screen = Screen.Scene }
+        )
         Screen.Review -> ReviewScreen(
             onContinue = { PhotoLibrary.addCurrent(context, finalizing = true); screen = Screen.Scene },
             onRetake = { screen = Screen.Capture }

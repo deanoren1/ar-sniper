@@ -274,8 +274,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         val h = (sp.image.height * k).toInt().coerceAtLeast(1)
         val flip = if (side < 0f) -1f else 1f
         // השובל מצביע אחורה, לכיוון שממנו הגיע הקליע בפועל (לפי קו הטיסה על המסך)
-        val backX = (s.x - Shot.TARGET_X) * size.width
-        val backY = (s.y - Shot.TARGET_Y) * size.height
+        val backX = (s.x - Shot.targetX) * size.width
+        val backY = (s.y - Shot.targetY) * size.height
         val wanted = Math.toDegrees(kotlin.math.atan2(backY, backX).toDouble()).toFloat()
         val native = if (flip < 0f) 180f - sp.trailDeg else sp.trailDeg
         var turn = wanted - native

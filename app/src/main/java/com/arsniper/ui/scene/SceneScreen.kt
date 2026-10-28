@@ -390,7 +390,9 @@ fun SceneScreen(
             val view = current ?: return@LaunchedEffect
             when {
                 autoStage == 0 -> {
-                    if (view.samMasks.isNotEmpty()) {
+                    // פנורמה: מודל העצמים עובד על ריבוע, ולכן מדלגים עליו וממשיכים עם הזיהוי הרגיל
+                    val wide = view.analysis.width.toFloat() / view.analysis.height > 2.2f
+                    if (view.samMasks.isNotEmpty() || wide) {
                         autoStage = 9
                         onContinue()
                     } else {

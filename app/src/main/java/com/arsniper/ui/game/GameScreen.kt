@@ -29,6 +29,14 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.platform.LocalDensity
+import com.arsniper.pano.HeadingTracker
+import com.arsniper.pano.PanoramaStore
+import com.arsniper.pano.wrapAngle
+import com.arsniper.game.engine.Shot
+import com.arsniper.ui.components.OutlinedText
 import com.arsniper.audio.Sfx
 import com.arsniper.data.PlayerProfile
 import com.arsniper.audio.SoundPlayer
@@ -202,7 +210,12 @@ fun GameScreen(
     // הכוונת נשמרת בקואורדינטות עולם (0..1 ביחס לתמונה)
     var crosshair by remember { mutableStateOf(Vec2(0.5f, 0.5f)) }
     var joystick by remember { mutableStateOf(Vec2.ZERO) }
+    // פנורמה: העולם רחב מהמסך. aspect = יחס העולם (כל התמונה), viewAspect = יחס המסך
+    val photoRatio = photo?.let { it.width.toFloat() / it.height } ?: 0f
+    val panoMode = photoRatio >= 2.6f
     var aspect by remember { mutableStateOf(2f) }
+    var viewAspect by remember { mutableStateOf(2f) }
+    var screenHeightPx by remember { mutableStateOf(1) }
     var sizeKnown by remember { mutableStateOf(false) }
     var zoom by remember { mutableStateOf(BASE_ZOOM) }
 
@@ -322,7 +335,7 @@ fun GameScreen(
             withFrameNanos { now ->
                 if (lastFrameNanos != 0L) {
                     val dt = if (paused) 0f else (now - lastFrameNanos) / 1_000_000_000f
-                    crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom / BASE_ZOOM)
+                    crosshair = engine.moveCrosshair(crosshair, joystick, dt, aspect, zoom / BASE_ZOOM, viewAspect)
                     if (started && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
                         enemies = withHp(engine.update(enemies, dt))
                         // מפלצת שמתה (חוץ מהבוס ומהמפלצות שמתפוצצות איתו): אולי נופל פרס
@@ -485,8 +498,63 @@ fun GameScreen(
     }
 
     // המצלמה עוקבת אחרי הכוונת, ובלי לצאת מגבולות התמונה
-    val camera = GameCamera.following(crosshair, zoom)
+    val viewFraction = if (panoMode) (viewAspect / aspect).coerceAtMost(1f) else 1f
+    val camera = GameCamera.following(crosshair, zoom, viewFraction)
     val crosshairOnScreen = camera.worldToScreen(crosshair)
+    // הקליעים טסים אל אמצע תחתית מה שרואים, ומפלצות יורות רק קרוב לתצוגה
+    if (panoMode) {
+        val halfView = 0.5f * viewFraction / camera.zoom
+        Shot.targetX = camera.center.x
+        Shot.targetY = camera.center.y + 0.5f / camera.zoom
+        Shot.attackMinX = camera.center.x - halfView * 1.5f
+        Shot.attackMaxX = camera.center.x + halfView * 1.5f
+    } else {
+        Shot.targetX = 0.5f
+        Shot.targetY = 1f
+        Shot.attackMinX = 0f
+        Shot.attackMaxX = 1f
+    }
+
+    // ג'ירו: סיבוב הטלפון מזיז את הכוונת (והמצלמה אחריה) לאורך הפנורמה
+    val context2 = LocalContext.current
+    val tracker = remember { HeadingTracker(context2) }
+    val spanH = remember { PanoramaStore.spanH(context2) }
+    val spanV = remember { PanoramaStore.spanV(context2) }
+    DisposableEffect(panoMode) {
+        if (panoMode) tracker.start()
+        onDispose { tracker.stop() }
+    }
+    LaunchedEffect(panoMode) {
+        if (!panoMode) return@LaunchedEffect
+        var lastYaw = Float.NaN
+        var lastPitch = 0f
+        while (true) {
+            withFrameNanos { }
+            if (!tracker.ready || paused) {
+                lastYaw = Float.NaN
+                continue
+            }
+            if (lastYaw.isNaN()) {
+                lastYaw = tracker.yaw
+                lastPitch = tracker.pitch
+            }
+            val dYaw = wrapAngle(tracker.yaw - lastYaw)
+            val dPitch = tracker.pitch - lastPitch
+            lastYaw = tracker.yaw
+            lastPitch = tracker.pitch
+            crosshair = Vec2(
+                (crosshair.x + dYaw / spanH).coerceIn(0f, 1f),
+                (crosshair.y - dPitch / spanV).coerceIn(0f, 1f)
+            )
+        }
+    }
+    val worldModifier = if (panoMode && screenHeightPx > 1) {
+        with(LocalDensity.current) {
+            Modifier.requiredSize((screenHeightPx * aspect).toDp(), screenHeightPx.toDp())
+        }
+    } else {
+        Modifier.fillMaxSize()
+    }
     val latestCamera by rememberUpdatedState(camera)
     val latestAspect by rememberUpdatedState(aspect)
 
@@ -764,14 +832,24 @@ fun GameScreen(
             .fillMaxSize()
             .onSizeChanged { size ->
                 if (size.height > 0) {
-                    aspect = size.width.toFloat() / size.height.toFloat()
+                    viewAspect = size.width.toFloat() / size.height.toFloat()
+                    aspect = if (panoMode) photoRatio else viewAspect
+                    screenHeightPx = size.height
                     sizeKnown = true
                 }
             }
             .pointerInput(Unit) {
-                detectTransformGestures { _, _, zoomChange, _ ->
+                detectTransformGestures { _, pan, zoomChange, _ ->
                     zoom = (zoom * zoomChange)
                         .coerceIn(BASE_ZOOM, GameCamera.MAX_ZOOM)
+                    // פנורמה: גרירה מזיזה את הכוונת (והמצלמה אחריה)
+                    if (panoMode && size.width > 0 && size.height > 0) {
+                        val vf = (viewAspect / aspect).coerceAtMost(1f)
+                        crosshair = Vec2(
+                            (crosshair.x - pan.x / size.width * vf / zoom).coerceIn(0f, 1f),
+                            (crosshair.y - pan.y / size.height / zoom).coerceIn(0f, 1f)
+                        )
+                    }
                 }
             }
             .pointerInput(Unit) {
@@ -780,7 +858,7 @@ fun GameScreen(
                     if (director.phase == ArenaPhase.Fighting && size.width > 0 && size.height > 0) {
                         val cam = latestCamera
                         val world = Vec2(
-                            (offset.x / size.width - 0.5f) / cam.zoom + cam.center.x,
+                            (offset.x / size.width - 0.5f) / cam.zoom * cam.viewFraction + cam.center.x,
                             (offset.y / size.height - 0.5f) / cam.zoom + cam.center.y
                         )
                         val picked = loot.collect(Vec2(world.x, world.y), latestAspect, TAP_SLACK)
@@ -796,8 +874,7 @@ fun GameScreen(
     ) {
         // העולם: רקע ואויבים, מוגדלים ומוזזים יחד לפי המצלמה
         Box(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = worldModifier
                 .graphicsLayer {
                     transformOrigin = TransformOrigin(0f, 0f)
                     scaleX = camera.zoom
@@ -829,6 +906,23 @@ fun GameScreen(
 
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
+
+        // פנורמה: חיצים שמראים כמה מפלצות יש מחוץ למסך, מכל צד
+        if (panoMode) {
+            var leftCount = 0
+            var rightCount = 0
+            for (e in enemies) {
+                if (!e.isAlive) continue
+                val sx = camera.worldToScreen(e.position).x
+                if (sx < 0f) leftCount++ else if (sx > 1f) rightCount++
+            }
+            if (leftCount > 0) {
+                OutlinedText("◀ $leftCount", fontSize = 24.sp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp))
+            }
+            if (rightCount > 0) {
+                OutlinedText("$rightCount ▶", fontSize = 24.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp))
+            }
+        }
 
         CurrencyBar(
             coins = score / COINS_DIVISOR,

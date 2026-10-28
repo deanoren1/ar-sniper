@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -36,6 +37,7 @@ import com.arsniper.ui.components.GameIconButton
 import com.arsniper.ui.components.OutlinedText
 import com.arsniper.ui.theme.GameButtonStyle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
@@ -44,8 +46,10 @@ import kotlin.math.roundToInt
  * עדיין לא מחובר למשחק: נועד לבדוק שהחיבור יצא טוב.
  */
 @Composable
-fun PanoViewScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun PanoViewScreen(onBack: () -> Unit, onPlay: () -> Unit = {}, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var preparing by remember { mutableStateOf(false) }
     val pano by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null) {
         value = withContext(Dispatchers.IO) { PanoramaStore.load(context)?.asImageBitmap() }
     }
@@ -126,8 +130,51 @@ fun PanoViewScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             fontSize = 14.sp,
             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
         )
+        GameButton(
+            text = if (preparing) "..." else "PLAY",
+            onClick = {
+                if (!preparing && bmp != null) {
+                    preparing = true
+                    scope.launch {
+                        val ok = withContext(Dispatchers.IO) { preparePanoramaForGame(context, radius) }
+                        preparing = false
+                        if (ok) onPlay()
+                    }
+                }
+            },
+            style = GameButtonStyle.Success,
+            height = 48.dp,
+            fontSize = 18.sp,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp)
+        )
         if (bmp == null) {
             OutlinedText("Loading...", modifier = Modifier.align(Alignment.Center))
         }
+    }
+}
+
+
+/** מקטין את הפנורמה לגודל שהניתוח מחזיק, שומר אותה כתמונת המשחק הנוכחית ומסמן אותה כנסקרה (אין בה דמויות להסיר) */
+private fun preparePanoramaForGame(context: android.content.Context, radius: Float): Boolean {
+    return try {
+        val full = PanoramaStore.load(context) ?: return false
+        val scale = minOf(
+            1f,
+            1080f / full.height,
+            kotlin.math.sqrt(3_800_000f / (full.width.toFloat() * full.height))
+        )
+        val bitmap = if (scale < 1f) {
+            android.graphics.Bitmap.createScaledBitmap(
+                full, (full.width * scale).roundToInt().coerceAtLeast(1), (full.height * scale).roundToInt().coerceAtLeast(1), true
+            )
+        } else {
+            full
+        }
+        PanoramaStore.saveGameSpan(context, full.width / radius, full.height / radius)
+        com.arsniper.data.PhotoRepository.save(context, bitmap)
+        com.arsniper.data.PhotoLibrary.addCurrent(context, finalizing = true)
+        true
+    } catch (e: Throwable) {
+        false
     }
 }

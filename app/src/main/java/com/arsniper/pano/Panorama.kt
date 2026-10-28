@@ -363,4 +363,14 @@ object PanoramaStore {
     fun is360(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("is360", true)
 
     fun radius(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat("radius", 700f)
+
+    /** מידות הפנורמה שנשלחה למשחק ביחידות רדיוס (רוחב וגובה): מאפשרות להפוך סיבוב טלפון למרחק בתמונה */
+    fun saveGameSpan(context: Context, spanH: Float, spanV: Float) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putFloat("spanH", spanH).putFloat("spanV", spanV).apply()
+    }
+
+    fun spanH(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat("spanH", PI.toFloat())
+
+    fun spanV(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getFloat("spanV", 1f)
 }

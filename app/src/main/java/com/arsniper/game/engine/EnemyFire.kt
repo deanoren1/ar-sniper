@@ -33,12 +33,16 @@ class Shot(
     fun posAt(time: Float): Vec2 {
         val p = ((time - born) / flight).coerceIn(0f, 1f)
         val e = Math.pow(p.toDouble(), 1.4).toFloat() * TRAVEL
-        return Vec2(x + (TARGET_X - x) * e, y + (TARGET_Y - y) * e)
+        return Vec2(x + (targetX - x) * e, y + (targetY - y) * e)
     }
 
     companion object {
-        const val TARGET_X = 0.5f
-        const val TARGET_Y = 1.0f
+        /** היעד של הקליעים: אמצע תחתית מה שרואים על המסך (בפנורמה זז עם המצלמה) */
+        @Volatile var targetX = 0.5f
+        @Volatile var targetY = 1.0f
+        /** טווח x בעולם שבו מפלצות מותר להן לירות (בפנורמה: רק מה שליד התצוגה) */
+        @Volatile var attackMinX = 0f
+        @Volatile var attackMaxX = 1f
         /** כמה מהדרך אל היעד הירייה עוברת עד שהיא מגיעה אל השחקן */
         const val TRAVEL = 0.5f
     }
@@ -100,6 +104,7 @@ class EnemyFire(private val random: Random = Random.Default) {
     /** האם האויב נראה עכשיו וכך יכול לירות (מציץ שחשוף לגמרי, או דמות שהולכת בחוץ) */
     private fun canAttack(e: Enemy): Boolean {
         if (!e.isAlive) return false
+        if (e.position.x < Shot.attackMinX || e.position.x > Shot.attackMaxX) return false
         return when (e.kind) {
             EnemyKind.Peek, EnemyKind.Window -> e.state == EnemyState.Exposed && e.exposure >= 0.95f
             EnemyKind.Open -> e.spot == null && e.exposure >= 0.95f
