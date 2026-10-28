@@ -839,7 +839,7 @@ private fun AutoScanOverlay(progress: Float, status: String, failed: Boolean) {
                 .fillMaxWidth(0.5f)
         ) {
             com.arsniper.ui.components.OutlinedText(
-                if (failed) "SCAN FAILED" else status,
+                status.take(260),
                 fontSize = 12.sp,
                 color = Color.White,
                 outlineWidth = 5f,
