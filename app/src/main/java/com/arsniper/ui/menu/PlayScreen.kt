@@ -76,12 +76,36 @@ fun PlayScreen(
     var failed by remember { mutableStateOf(false) }
     PlayerProfile.revision.hashCode()
     var refresh by remember { mutableStateOf(0) }
+    // מסנן (0 הכול, 1 מועדפים, 2 פנורמה 180, 3 פנורמה 360, 4 תמונות רגילות) ומיון (0 אחרונות, 1 מועדפות קודם, 2 ישנות קודם)
+    var filter by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    var sortMode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    var favTick by remember { mutableStateOf(0) }
     val lastStage = remember { com.arsniper.data.Breadcrumb.read(context) }
     var pendingDelete by remember { mutableStateOf<Pair<File, ImageBitmap?>?>(null) }
 
     val saved by produceState<List<Pair<File, ImageBitmap?>>>(emptyList(), refresh) {
         value = withContext(Dispatchers.IO) {
             PhotoLibrary.list(context).map { it to PhotoLibrary.thumbnail(it)?.asImageBitmap() }
+        }
+    }
+
+    val shown = remember(saved, filter, sortMode, favTick) {
+        val items = saved.map { (file, thumb) ->
+            LibraryItem(file, thumb, PhotoLibrary.panoLabel(file), PhotoLibrary.isFavorite(file))
+        }
+        val filtered = items.filter {
+            when (filter) {
+                1 -> it.favorite
+                2 -> it.label == "180" || it.label == "PANO"
+                3 -> it.label == "360"
+                4 -> it.label == null
+                else -> true
+            }
+        }
+        when (sortMode) {
+            1 -> filtered.sortedByDescending { it.favorite }
+            2 -> filtered.reversed()
+            else -> filtered
         }
     }
 
@@ -216,6 +240,21 @@ fun PlayScreen(
                                 )
                             }
                         } else {
+                            // מסננים ומיון
+                            val filterNames = listOf("ALL", "\u2605", "180\u00B0", "360\u00B0", "PHOTOS")
+                            val sortNames = listOf("RECENT", "FAVORITES FIRST", "OLDEST")
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(ui.dp(6f)),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = ui.dp(8f))
+                            ) {
+                                for ((i, name) in filterNames.withIndex()) {
+                                    FilterPill(name, selected = filter == i) { filter = i }
+                                }
+                                Spacer(Modifier.weight(1f))
+                                FilterPill("SORT: " + sortNames[sortMode], selected = false) { sortMode = (sortMode + 1) % sortNames.size }
+                                Spacer(Modifier.width(ui.dp(120f)))
+                            }
                             // רשימה שגוללת למעלה ולמטה, כדי שיהיה מקום להרבה תמונות
                             Column(
                                 modifier = Modifier
@@ -223,13 +262,15 @@ fun PlayScreen(
                                     .fillMaxWidth()
                                     .verticalScroll(androidx.compose.foundation.rememberScrollState())
                             ) {
-                                for (rowItems in saved.chunked(5)) {
+                                for (rowItems in shown.chunked(5)) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(ui.dp(8f)),
                                         modifier = Modifier.fillMaxWidth().padding(bottom = ui.dp(8f))
                                     ) {
-                                        for ((file, thumb) in rowItems) {
-                                            Thumb(thumb, Modifier.weight(1f), badge = remember(file) { PhotoLibrary.panoLabel(file) }, onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
+                                        for (item in rowItems) {
+                                            val file = item.file
+                                            val thumb = item.thumb
+                                            Thumb(thumb, Modifier.weight(1f), badge = item.label, favorite = item.favorite, onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
                                         }
                                         repeat(5 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                                     }
@@ -261,7 +302,14 @@ fun PlayScreen(
                                 modifier = Modifier.width(ui.dp(120f)).aspectRatio(1.4f).clip(RoundedCornerShape(10.dp))
                             )
                         }
-                        OutlinedText("It will be removed from your saved photos.", fontSize = (ui.factor * 12f).sp, color = Color(0xFFB8C4E0), outline = null)
+                        val isFav = remember(file, favTick) { PhotoLibrary.isFavorite(file) }
+                        GameButton(
+                            if (isFav) "\u2605 REMOVE FROM FAVORITES" else "\u2606 ADD TO FAVORITES",
+                            { PhotoLibrary.setFavorite(file, !isFav); favTick++; pendingDelete = null },
+                            style = GameButtonStyle.Success, height = ui.dp(42f), fontSize = (ui.factor * 15f).sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedText("Delete removes it from your saved photos.", fontSize = (ui.factor * 12f).sp, color = Color(0xFFB8C4E0), outline = null)
                         GameButton(
                             "DELETE",
                             { PhotoLibrary.delete(file); pendingDelete = null; refresh++ },
@@ -282,7 +330,7 @@ fun PlayScreen(
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun Thumb(image: ImageBitmap?, modifier: Modifier, badge: String? = null, onLong: () -> Unit, onClick: () -> Unit) {
+private fun Thumb(image: ImageBitmap?, modifier: Modifier, badge: String? = null, favorite: Boolean = false, onLong: () -> Unit, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = modifier
@@ -295,6 +343,9 @@ private fun Thumb(image: ImageBitmap?, modifier: Modifier, badge: String? = null
         if (image != null) {
             Image(bitmap = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
+        if (favorite) {
+            OutlinedText("\u2605", fontSize = 18.sp, color = GameColors.Yellow, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp))
+        }
         if (badge != null) {
             Image(
                 painter = androidx.compose.ui.res.painterResource(
@@ -304,5 +355,23 @@ private fun Thumb(image: ImageBitmap?, modifier: Modifier, badge: String? = null
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp).height(34.dp)
             )
         }
+    }
+}
+
+/** תמונה ברשימת התמונות שלי: הקובץ, התמונה הממוזערת, סוג הפנורמה (אם יש) והאם מועדפת */
+private class LibraryItem(val file: File, val thumb: ImageBitmap?, val label: String?, val favorite: Boolean)
+
+@Composable
+private fun FilterPill(text: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) GameColors.Yellow else Color(0xFF16264F))
+            .border(1.5.dp, if (selected) Color.White else Color(0xFF3CB4FF), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        OutlinedText(text, fontSize = 13.sp, color = if (selected) Color(0xFF081028) else Color.White, outline = null)
     }
 }

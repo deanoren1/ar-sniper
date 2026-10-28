@@ -46,7 +46,8 @@ object PhotoLibrary {
                 pendingKey = key
             }
             val files = list(context)
-            for (old in files.drop(MAX)) delete(old)
+            // מועדפות לא נמחקות כשהספרייה מלאה
+            for (old in files.filter { !isFavorite(it) }.drop(MAX)) delete(old)
         } catch (_: Exception) {
         }
     }
@@ -71,6 +72,7 @@ object PhotoLibrary {
             file.delete()
             File(file.parentFile, file.nameWithoutExtension + ".ok").delete()
             File(file.parentFile, file.nameWithoutExtension + ".pano").delete()
+            File(file.parentFile, file.nameWithoutExtension + ".fav").delete()
         } catch (_: Exception) { }
     }
 
@@ -87,6 +89,16 @@ object PhotoLibrary {
         var sample = 1
         while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
         return BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+    }
+
+    fun isFavorite(file: File): Boolean = File(file.parentFile, file.nameWithoutExtension + ".fav").exists()
+
+    fun setFavorite(file: File, favorite: Boolean) {
+        try {
+            val marker = File(file.parentFile, file.nameWithoutExtension + ".fav")
+            if (favorite) marker.writeText("1") else marker.delete()
+        } catch (_: Exception) {
+        }
     }
 
     /** מסמן את התמונה הנוכחית בספרייה כפנורמה (180 או 360 מעלות) */
