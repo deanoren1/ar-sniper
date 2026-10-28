@@ -16,9 +16,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import com.arsniper.game.progress.ArenaStyle
 import com.arsniper.game.progress.ParticleKind
@@ -50,9 +56,25 @@ fun ArenaStyleLayer(
 ) {
     val context = LocalContext.current
     val assets = remember(style, props, frameOnly) { if (props) ArenaAssets.load(context, style, frameOnly) else null }
+    val fog = remember(style, props, frameOnly, screenOnly) {
+        if (props && !frameOnly && !screenOnly && style.fog > 0f) buildDepthFog(style) else null
+    }
     if (frameOnly) {
+        val baked = remember(assets, worldViewAspect) {
+            val frame = assets?.frame
+            val analysis = SceneSession.analysis
+            if (worldViewAspect > 0f && frame != null && analysis != null) {
+                bakeWorldFrame(frame, analysis.width.toFloat() / analysis.height, worldViewAspect, style.ordinal)
+            } else {
+                null
+            }
+        }
         Canvas(modifier = modifier.fillMaxSize()) {
-            if (worldViewAspect > 0f) drawWorldFrame(assets, worldViewAspect) else drawArenaFrame(assets)
+            if (worldViewAspect > 0f) {
+                baked?.let { drawImage(it, srcOffset = IntOffset.Zero, srcSize = IntSize(it.width, it.height), dstSize = IntSize(size.width.toInt(), size.height.toInt()), alpha = 0.97f) }
+            } else {
+                drawArenaFrame(assets)
+            }
         }
         return
     }
@@ -62,7 +84,19 @@ fun ArenaStyleLayer(
         val worldMode = worldViewAspect > 0f
         if (!screenOnly) {
             assets?.let { drawDecals(it, if (worldMode) size.height * worldViewAspect else size.width) }
-            drawRect(Color(style.tint.toInt()).copy(alpha = style.tintAlpha))
+            val grade = gradeOf(style)
+            if (grade == null) {
+                drawRect(Color(style.tint.toInt()).copy(alpha = style.tintAlpha))
+            } else {
+                // תיקון צבע: גוון קל, צללים וגבהים בצבעים שונים, ערפל לפי עומק וקרני אור
+                drawRect(Color(style.tint.toInt()).copy(alpha = style.tintAlpha * 0.5f))
+                drawRect(lerp(Color.White, Color(grade.shadow.toInt()), 0.5f), blendMode = BlendMode.Multiply)
+                drawRect(Color(grade.highlight.toInt()).copy(alpha = 0.28f), blendMode = BlendMode.Overlay)
+                fog?.let { f ->
+                    drawImage(f, srcOffset = IntOffset.Zero, srcSize = IntSize(f.width, f.height), dstSize = IntSize(size.width.toInt(), size.height.toInt()))
+                }
+                if (grade.rays) drawLightRays(Color(grade.highlight.toInt()), t, if (worldMode) worldViewAspect else size.width / size.height)
+            }
         }
         if (worldMode) return@Canvas
         drawRect(
@@ -103,46 +137,161 @@ private fun DrawScope.drawArenaFrame(assets: ArenaAssets?) {
     }
 }
 
-/**
- * מסגרת בעולם רחב: הקצה השמאלי של המסגרת בקצה השמאלי של העולם, הימני בימני, ובאמצע פס שחוזר על עצמו
- * (כל אריח הפוך מהקודם, כדי שלא יהיו תפרים), כך שבתזוזה לאורך הפנורמה רואים גם את הקישוטים למעלה ולמטה משתנים.
- */
-private fun DrawScope.drawWorldFrame(assets: ArenaAssets?, viewAspect: Float) {
-    val frame = assets?.frame ?: return
-    val fw = size.height * 1.08f * viewAspect
-    val fh = size.height * 1.08f
-    val ox = -size.height * 0.04f * viewAspect
-    val oy = -size.height * 0.04f
-    val edge = 0.30f
-    val edgePx = (frame.width * edge).toInt()
-    val dstEdge = (fw * edge).toInt()
-    // קצה שמאל וקצה ימין
-    drawImage(frame, IntOffset(0, 0), IntSize(edgePx, frame.height), IntOffset(ox.toInt(), oy.toInt()), IntSize(dstEdge, fh.toInt()), alpha = 0.97f)
-    drawImage(
-        frame, IntOffset(frame.width - edgePx, 0), IntSize(edgePx, frame.height),
-        IntOffset((size.width - ox - dstEdge).toInt(), oy.toInt()), IntSize(dstEdge, fh.toInt()), alpha = 0.97f
-    )
-    // האמצע: אריחים של הפס המרכזי
-    val midSrcX = edgePx
-    val midSrcW = frame.width - 2 * edgePx
-    val tileW = fw * (1f - 2 * edge)
-    val start = ox + dstEdge
-    val end = size.width - ox - dstEdge
-    if (tileW < 1f || end <= start) return
-    clipRect(left = start, top = 0f, right = end, bottom = size.height) {
-        var x = start
-        var i = 0
-        while (x < end) {
-            if (i % 2 == 0) {
-                drawImage(frame, IntOffset(midSrcX, 0), IntSize(midSrcW, frame.height), IntOffset(x.toInt(), oy.toInt()), IntSize(tileW.toInt() + 1, fh.toInt()), alpha = 0.97f)
-            } else {
-                withTransform({ scale(-1f, 1f, Offset(x + tileW / 2f, 0f)) }) {
-                    drawImage(frame, IntOffset(midSrcX, 0), IntSize(midSrcW, frame.height), IntOffset(x.toInt(), oy.toInt()), IntSize(tileW.toInt() + 1, fh.toInt()), alpha = 0.97f)
-                }
-            }
-            x += tileW
-            i++
+/** תיקון צבע לארנה: צבע לצללים, צבע לגבהים, ניגודיות ורוויה. null = בלי (קלאסי) */
+private class Grade(val shadow: Long, val highlight: Long, val contrast: Float, val saturation: Float, val rays: Boolean)
+
+private fun gradeOf(style: ArenaStyle): Grade? = when (style) {
+    ArenaStyle.Classic -> null
+    ArenaStyle.Tundra -> Grade(0xFFA9C8FF, 0xFFE8F4FF, 1.08f, 0.9f, true)
+    ArenaStyle.Jungle -> Grade(0xFF7FB38A, 0xFFFFF0A0, 1.10f, 1.2f, true)
+    ArenaStyle.Military -> Grade(0xFF8FA070, 0xFFFFE9B0, 1.10f, 0.85f, true)
+    ArenaStyle.Ruins -> Grade(0xFFB58A5A, 0xFFFFD27A, 1.10f, 1.05f, true)
+    ArenaStyle.Market -> Grade(0xFFC48A6A, 0xFFFFC27A, 1.08f, 1.2f, true)
+    ArenaStyle.Cyber -> Grade(0xFF6A3AD0, 0xFF5CF2FF, 1.18f, 1.25f, false)
+    ArenaStyle.Forest -> Grade(0xFF4AA088, 0xFFC8FFE0, 1.10f, 1.15f, true)
+    ArenaStyle.Industrial -> Grade(0xFF8A5A3A, 0xFFFF9A3C, 1.15f, 0.95f, true)
+}
+
+/** מסנן צבע (ניגודיות ורוויה) לתמונת הרקע של הארנה */
+fun arenaColorFilter(style: ArenaStyle): ColorFilter? {
+    val g = gradeOf(style) ?: return null
+    val m = ColorMatrix().apply { setToSaturation(g.saturation) }
+    val k = g.contrast
+    val o = 128f * (1f - k)
+    m *= ColorMatrix(floatArrayOf(
+        k, 0f, 0f, 0f, o,
+        0f, k, 0f, 0f, o,
+        0f, 0f, k, 0f, o,
+        0f, 0f, 0f, 1f, 0f
+    ))
+    return ColorFilter.colorMatrix(m)
+}
+
+/** ערפל לפי עומק: המרוחק מתעמעם בצבע הארנה, הקרוב נשאר חד. נבנה פעם אחת מניתוח העומק */
+private fun buildDepthFog(style: ArenaStyle): ImageBitmap? {
+    val analysis = SceneSession.analysis ?: return null
+    val w = analysis.width
+    val h = analysis.height
+    if (w <= 0 || h <= 0) return null
+    val sorted = analysis.depth.copyOf().also { it.sort() }
+    val near = sorted[(sorted.size * 0.05f).toInt()]
+    val far = sorted[(sorted.size * 0.95f).toInt()]
+    val range = (far - near).coerceAtLeast(0.01f)
+    val base = Color(style.particleColor.toInt())
+    val tint = Color(style.tint.toInt())
+    val fogColor = lerp(base, tint, 0.5f)
+    val strength = (style.fog * 2.4f).coerceAtMost(0.6f)
+    val px = IntArray(w * h)
+    for (i in px.indices) {
+        val t = ((analysis.depth[i] - near) / range).coerceIn(0f, 1f)
+        val a = (t * t * (3f - 2f * t)) * strength
+        px[i] = Color(fogColor.red, fogColor.green, fogColor.blue, a).toArgb()
+    }
+    return android.graphics.Bitmap.createBitmap(px, w, h, android.graphics.Bitmap.Config.ARGB_8888).asImageBitmap()
+}
+
+/** קרני אור אלכסוניות ורכות שנושמות לאט */
+private fun DrawScope.drawLightRays(color: Color, t: Float, aspect: Float) {
+    val n = (aspect * 1.4f).toInt().coerceAtLeast(3)
+    for (i in 0 until n) {
+        val x0 = size.width * (i + 0.3f + 0.4f * hash(i, 7)) / n
+        val w = size.height * (0.18f + 0.22f * hash(i, 8))
+        val a = 0.10f + 0.07f * sin(t * 0.35f + i * 1.7f)
+        withTransform({ rotate(-18f, Offset(x0, 0f)) }) {
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color.Transparent, color.copy(alpha = a), Color.Transparent),
+                    startX = x0 - w / 2f, endX = x0 + w / 2f
+                ),
+                topLeft = Offset(x0 - w / 2f, -size.height * 0.2f),
+                size = androidx.compose.ui.geometry.Size(w, size.height * 1.6f),
+                blendMode = BlendMode.Screen
+            )
         }
+    }
+}
+
+/**
+ * מסגרת בעולם רחב, נאפית פעם אחת לתמונה אחת לכל האורך: הקצה השמאלי והימני של המסגרת בקצוות העולם,
+ * ובאמצע פסים אקראיים (גודל, מקום וכיוון) מהפס המרכזי של המסגרת, עם חפיפה רכה בין פס לפס.
+ * ככה אין חזרה סימטרית כמו מראה, והתפרים לא נראים. הקצוות חלקים כי הפס הראשון והאחרון נשענים על קצה המסגרת.
+ */
+private fun bakeWorldFrame(frameImage: ImageBitmap, worldAspect: Float, viewAspect: Float, seed: Int): ImageBitmap? {
+    return try {
+        val frame = frameImage.asAndroidBitmap()
+        val outH = 540
+        val outW = (outH * worldAspect).toInt().coerceAtLeast(outH)
+        val out = android.graphics.Bitmap.createBitmap(outW, outH, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+        val fw = outH * 1.08f * viewAspect
+        val fh = outH * 1.08f
+        val ox = -outH * 0.04f * viewAspect
+        val oy = -outH * 0.04f
+        val edge = 0.30f
+        val edgePx = (frame.width * edge).toInt()
+        val dstEdge = fw * edge
+        val scale = fw / frame.width
+        fun draw(srcL: Int, srcW: Int, dstL: Float, dstW: Float, flip: Boolean, target: android.graphics.Canvas = canvas, dx: Float = 0f) {
+            val src = android.graphics.Rect(srcL, 0, srcL + srcW, frame.height)
+            val dst = android.graphics.RectF(dstL - dx, oy, dstL - dx + dstW, oy + fh)
+            if (flip) {
+                target.save()
+                target.scale(-1f, 1f, dst.centerX(), 0f)
+                target.drawBitmap(frame, src, dst, paint)
+                target.restore()
+            } else {
+                target.drawBitmap(frame, src, dst, paint)
+            }
+        }
+        val start = ox + dstEdge
+        val end = outW - ox - dstEdge
+        val midSrcX = edgePx
+        val midSrcW = frame.width - 2 * edgePx
+        val rnd = java.util.Random(seed.toLong() * 7919L + 13L)
+        val feather = fw * 0.05f
+        // אמצע: פסים אקראיים
+        var x = start
+        var first = true
+        while (x < end - 1f) {
+            val remaining = end - x
+            var sw = (midSrcW * (0.45f + 0.35f * rnd.nextFloat())).toInt().coerceAtLeast(8)
+            var srcL = midSrcX + rnd.nextInt((midSrcW - sw).coerceAtLeast(1))
+            var dstW = sw * scale
+            var flip = !first && rnd.nextBoolean()
+            val last = remaining <= dstW + feather
+            if (first) srcL = midSrcX
+            if (last) {
+                // הפס האחרון נגמר בדיוק במקום שבו מתחיל הקצה הימני
+                dstW = remaining + feather
+                sw = (dstW / scale).toInt().coerceIn(8, midSrcW)
+                dstW = sw * scale
+                srcL = midSrcX + midSrcW - sw
+                flip = false
+            }
+            val pieceW = dstW.toInt().coerceAtLeast(2)
+            val piece = android.graphics.Bitmap.createBitmap(pieceW, outH, android.graphics.Bitmap.Config.ARGB_8888)
+            val pc = android.graphics.Canvas(piece)
+            draw(srcL, sw, 0f, pieceW.toFloat(), flip, pc, dx = 0f)
+            if (!first) {
+                val mask = android.graphics.Paint().apply {
+                    shader = android.graphics.LinearGradient(0f, 0f, feather, 0f, 0x00000000, -0x1, android.graphics.Shader.TileMode.CLAMP)
+                    xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
+                }
+                pc.drawRect(0f, 0f, pieceW.toFloat(), outH.toFloat(), mask)
+            }
+            canvas.drawBitmap(piece, if (first) x else x - feather, 0f, paint)
+            piece.recycle()
+            x += pieceW - (if (first) 0f else feather)
+            first = false
+            if (last) break
+        }
+        // הקצוות
+        draw(0, edgePx, ox, dstEdge, false)
+        draw(frame.width - edgePx, edgePx, outW - ox - dstEdge, dstEdge, false)
+        out.asImageBitmap()
+    } catch (e: Throwable) {
+        null
     }
 }
 

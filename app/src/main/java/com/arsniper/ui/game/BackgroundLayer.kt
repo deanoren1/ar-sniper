@@ -13,7 +13,8 @@ import androidx.compose.ui.layout.ContentScale
 @Composable
 fun BackgroundLayer(
     photo: ImageBitmap?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    colorFilter: androidx.compose.ui.graphics.ColorFilter? = null
 ) {
     Box(
         modifier = modifier
@@ -25,6 +26,7 @@ fun BackgroundLayer(
                 bitmap = photo,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                colorFilter = colorFilter,
                 modifier = Modifier.fillMaxSize()
             )
         }

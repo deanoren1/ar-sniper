@@ -897,7 +897,7 @@ fun GameScreen(
                     translationY = (0.5f - camera.center.y * camera.zoom) * size.height + shakeY
                 }
         ) {
-            BackgroundLayer(photo = photo)
+            BackgroundLayer(photo = photo, colorFilter = remember(style) { arenaColorFilter(style) })
             ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, worldViewAspect = if (panoMode) viewAspect else 0f)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
