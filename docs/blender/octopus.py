@@ -59,6 +59,40 @@ def bsdf_of(m):
     return m.node_tree.nodes[m["bsdf"]]
 
 
+def add_skin(m, scale=14.0, strength=0.6, vein=None, vein_scale=5.0, vein_width=0.07):
+    """מרקם עור: רעש ל-bump (גבשושיות) ורשת ורידים כהה/אדומה מעל צבע הבסיס"""
+    nt = m.node_tree
+    bsdf = nt.nodes[m["bsdf"]]
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = scale
+    noise.inputs["Detail"].default_value = 8.0
+    noise.inputs["Roughness"].default_value = 0.65
+    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = strength
+    bump.inputs["Distance"].default_value = 0.05
+    nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    if vein is not None:
+        vor = nt.nodes.new("ShaderNodeTexVoronoi")
+        vor.feature = "DISTANCE_TO_EDGE"
+        vor.inputs["Scale"].default_value = vein_scale
+        nt.links.new(tc.outputs["Object"], vor.inputs["Vector"])
+        ramp = nt.nodes.new("ShaderNodeValToRGB")
+        ramp.color_ramp.elements[0].position = 0.0
+        ramp.color_ramp.elements[0].color = (1, 1, 1, 1)
+        ramp.color_ramp.elements[1].position = vein_width
+        ramp.color_ramp.elements[1].color = (0, 0, 0, 1)
+        nt.links.new(vor.outputs["Distance"], ramp.inputs["Fac"])
+        mix = nt.nodes.new("ShaderNodeMixRGB")
+        mix.blend_type = "MIX"
+        mix.inputs["Color1"].default_value = bsdf.inputs["Base Color"].default_value
+        mix.inputs["Color2"].default_value = (*vein, 1.0)
+        nt.links.new(ramp.outputs["Color"], mix.inputs["Fac"])
+        nt.links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
+
+
 def glass_mat():
     m = bpy.data.materials.new("Glass")
     m.use_nodes = True
@@ -72,10 +106,10 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = nt.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.65
-    mad.inputs[2].default_value = 0.035
-    for key, value in (("Base Color", (0.55, 0.78, 1.0, 1.0)), ("Roughness", 0.04), ("Metallic", 0.0),
-                       ("Emission Color", (0.35, 0.65, 1.0, 1.0)), ("Emission Strength", 0.12)):
+    mad.inputs[1].default_value = 0.6
+    mad.inputs[2].default_value = 0.06
+    for key, value in (("Base Color", (0.35, 0.6, 0.5, 1.0)), ("Roughness", 0.06), ("Metallic", 0.0),
+                       ("Emission Color", (0.2, 0.5, 0.4, 1.0)), ("Emission Strength", 0.1)):
         try:
             glossy.inputs[key].default_value = value
         except Exception:
@@ -88,23 +122,32 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.40, 0.05, 0.72), rough=0.38, coat=0.5)
-PURPLE_DARK = mat("PurpleDark", (0.30, 0.04, 0.55), rough=0.3, coat=0.6)
-SPOT = mat("Spot", (0.95, 0.22, 0.65), rough=0.5)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.86, 0.58), rough=0.25, emit=(1.0, 0.8, 0.45), strength=0.25)
-IRIS = mat("Iris", (1.0, 0.18, 0.0), rough=0.25, emit=(1.0, 0.2, 0.02), strength=0.35)
+PURPLE = mat("Purple", (0.24, 0.04, 0.38), rough=0.28, coat=0.8)
+add_skin(PURPLE, scale=16.0, strength=0.9, vein=(0.5, 0.04, 0.22), vein_scale=5.5)
+PURPLE_DARK = mat("PurpleDark", (0.13, 0.03, 0.22), rough=0.3, coat=0.7)
+add_skin(PURPLE_DARK, scale=20.0, strength=0.8)
+SPOT = mat("Spot", (0.5, 0.08, 0.32), rough=0.4)
+EYE_WHITE = mat("EyeWhite", (0.88, 0.78, 0.3), rough=0.2, emit=(0.9, 0.75, 0.25), strength=0.2)
+add_skin(EYE_WHITE, scale=30.0, strength=0.1, vein=(0.6, 0.04, 0.04), vein_scale=9.0, vein_width=0.05)
+IRIS = mat("Iris", (1.0, 0.1, 0.0), rough=0.25, emit=(1.0, 0.1, 0.0), strength=1.4)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.9)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
-MOUTH = mat("Mouth", (0.06, 0.0, 0.08), rough=0.9)
-TEETH = mat("Teeth", (1.0, 0.97, 0.88), rough=0.3)
-METAL = mat("Metal", (0.10, 0.10, 0.13), rough=0.35, metal=0.9)
-RING = mat("Ring", (0.9, 0.4, 0.65), rough=0.3, metal=0.8)
-COPPER = mat("Copper", (0.75, 0.42, 0.14), rough=0.3, metal=1.0)
-FLAME = mat("Flame", (1.0, 0.4, 0.03), emit=(1.0, 0.35, 0.03), strength=1.6)
+MOUTH = mat("Mouth", (0.10, 0.0, 0.02), rough=0.9)
+TEETH = mat("Teeth", (0.85, 0.8, 0.6), rough=0.35)
+METAL = mat("Metal", (0.10, 0.10, 0.12), rough=0.5, metal=0.9)
+add_skin(METAL, scale=25.0, strength=0.5)
+RING = mat("Ring", (0.42, 0.22, 0.10), rough=0.45, metal=0.9)
+add_skin(RING, scale=30.0, strength=0.5)
+COPPER = mat("Copper", (0.6, 0.32, 0.12), rough=0.4, metal=1.0)
+FLAME = mat("Flame", (1.0, 0.25, 0.02), emit=(1.0, 0.22, 0.02), strength=2.2)
 ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
-XMARK = mat("XMark", (0.15, 0.02, 0.1), rough=0.5)
+XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
+SUCKER = mat("Sucker", (0.72, 0.5, 0.55), rough=0.35, coat=0.4)
+BONE = mat("Bone", (0.16, 0.12, 0.12), rough=0.3, coat=0.5)
+TANK = mat("Tank", (0.10, 0.13, 0.12), rough=0.55, metal=0.7)
+add_skin(TANK, scale=18.0, strength=0.7, vein=(0.28, 0.12, 0.05), vein_scale=3.0, vein_width=0.1)
 GLASS = glass_mat()
 
 # ------------------------------------------------------------------ עזרים
@@ -178,44 +221,54 @@ pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, וב�
 
 # גוף
 BODY_R = 0.9
-BODY_SCALE = (1.0, 0.95, 0.92)
+BODY_SCALE = (1.05, 0.95, 0.85)
 sphere("Body", BODY_R, (0, 0, 0), PURPLE, pivot, scale=BODY_SCALE, seg=48)
 
-# קוצים וכתמים על הגוף
-for i in range(11):
-    az = math.radians(i * (360 / 11) + 8)
-    pol = math.radians(rng.uniform(22, 58))
+# קרנות גדולות בחלק האחורי והעליון, וקוצים קטנים בין הכתמים. החזית (העין והפה) נשארת נקייה
+for i in range(9):
+    az = math.radians(20 + i * 40 + rng.uniform(-8, 8))
+    if 235 < math.degrees(az) % 360 < 305:
+        continue  # לא מול הפנים
+    pol = math.radians(rng.uniform(22, 55))
     n = Vector((math.sin(pol) * math.cos(az), math.sin(pol) * math.sin(az), math.cos(pol)))
-    p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 0.97
-    h = rng.uniform(0.16, 0.24)
-    cone(f"Spike{i}", 0.085, 0.0, h, p + n * (h / 2), PURPLE_DARK, pivot, rot=normal_rot(n))
+    p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 0.95
+    h = rng.uniform(0.26, 0.42)
+    cone(f"Horn{i}", 0.11, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
-for i in range(30):
+for i in range(26):
     az = rng.uniform(0, 2 * math.pi)
-    pol = math.acos(rng.uniform(-0.6, 0.95))
+    pol = math.acos(rng.uniform(-0.5, 0.95))
     n = Vector((math.sin(pol) * math.cos(az), math.sin(pol) * math.sin(az), math.cos(pol)))
-    if n.y < -0.45 and abs(n.x) < 0.75 and -0.45 < n.z < 0.7:
+    if n.y < -0.35 and abs(n.x) < 0.8 and -0.65 < n.z < 0.85:
         continue  # שם העין והפה
-    p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 0.985
-    r = rng.uniform(0.06, 0.12)
-    sphere(f"Spot{i}", r, p, SPOT, pivot, scale=(1, 1, 0.3), rot=normal_rot(n), seg=16)
+    p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 0.97
+    h = rng.uniform(0.07, 0.14)
+    cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
-# עין
-EYE_Y, EYE_Z = -0.62, 0.22
+# עין: אישון אנכי (חתולי) וקשתית אדומה זוהרת, עם עפעפיים נוטים שנותנים מבט כועס
+EYE_Y, EYE_Z = -0.62, 0.20
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye_parts = [
-    sphere("EyeWhite", 0.46, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
-    sphere("Iris", 0.34, (0, -0.23, 0), IRIS, eye, scale=(1, 0.3, 1), seg=40),
-    sphere("Pupil", 0.23, (0, -0.29, 0), PUPIL, eye, scale=(1, 0.3, 1), seg=28),
-    sphere("Shine", 0.065, (0.1, -0.325, 0.11), SHINE, eye, scale=(1, 0.4, 1), seg=16),
+    sphere("EyeWhite", 0.44, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
+    sphere("Iris", 0.33, (0, -0.22, 0), IRIS, eye, scale=(1, 0.3, 1), seg=40),
+    sphere("Pupil", 0.3, (0, -0.28, 0), PUPIL, eye, scale=(0.3, 0.3, 1.0), seg=28),
+    sphere("Shine", 0.05, (0.07, -0.31, 0.12), SHINE, eye, scale=(1, 0.4, 1), seg=16),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
+for name, sx, ang in (("LidL", -1, 0.42), ("LidR", 1, -0.42)):
+    sphere(name, 0.5, (0.27 * sx, -0.13, 0.30), PURPLE_DARK, eye, scale=(0.7, 0.6, 0.42), rot=(0, ang, 0), seg=28)
 
-# פה עם שיניים
-mouth = empty("Mouth", pivot, loc=(0, -0.70, -0.40))
-mouth_parts = [sphere("MouthCavity", 0.3, (0, 0, 0), MOUTH, mouth, scale=(1.25, 0.3, 0.5), seg=28)]
-for i, x in enumerate((-0.17, -0.06, 0.06, 0.17)):
-    mouth_parts.append(cone(f"Tooth{i}", 0.04, 0.0, 0.1, (x, -0.09, 0.07), TEETH, mouth, rot=(math.pi, 0, 0)))
+# פה רחב עם שתי שורות שיניים חדות
+mouth = empty("Mouth", pivot, loc=(0, -0.72, -0.42))
+mouth_parts = [sphere("MouthCavity", 0.3, (0, 0, 0), MOUTH, mouth, scale=(1.7, 0.32, 0.62), seg=28)]
+for i in range(7):
+    x = -0.4 + i * (0.8 / 6)
+    h = 0.13 + 0.07 * ((i * 5) % 3) / 2
+    mouth_parts.append(cone(f"ToothU{i}", 0.045, 0.0, h, (x, -0.07, 0.15 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
+for i in range(6):
+    x = -0.34 + i * (0.68 / 5)
+    h = 0.11 + 0.05 * ((i * 7) % 3) / 2
+    mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
 
 # כיפת זכוכית עם טבעת נחושת-ורודה
 DOME_R, DOME_Z, DOME_CUT = 1.05, 0.10, -0.75
@@ -241,7 +294,7 @@ for i in range(22):
 # שני מיכלי אש בצדדים ומעט מאחור (כדי שמהצד עדיין רואים את הפנים), עם צינור לכיפה
 for side, sx in (("L", -1), ("R", 1)):
     tx, ty = 1.2 * sx, 0.45
-    cylinder(f"Tank{side}", 0.3, 1.1, (tx, ty, 0.1), PURPLE_DARK, torso)
+    cylinder(f"Tank{side}", 0.3, 1.1, (tx, ty, 0.1), TANK, torso)
     cylinder(f"TankCapTop{side}", 0.335, 0.12, (tx, ty, 0.69), METAL, torso)
     cylinder(f"TankCapBot{side}", 0.335, 0.12, (tx, ty, -0.49), METAL, torso)
     torus(f"TankBand1{side}", 0.305, 0.035, (tx, ty, 0.35), METAL, torso)
@@ -254,14 +307,14 @@ for side, sx in (("L", -1), ("R", 1)):
     cone(f"FlameTip{side}", 0.075, 0.0, 0.2, (tx, ty - 0.33, 0.17), FLAME, torso, scale=(1, 0.3, 1))
 
 # שמונה זרועות: שרשרת של 4 מקטעים, כל מפרק מסתובב בקוד
-ARM_LEN = [0.36, 0.32, 0.28, 0.24]
-ARM_RAD = [0.24, 0.20, 0.17, 0.14, 0.11]
-ARM_CURLS = [0.5, 0.5, 0.3]   # כמה כל מפרק מיישר את הזרוע כלפי מטה במנוחה
+ARM_LEN = [0.40, 0.36, 0.32, 0.28]
+ARM_RAD = [0.21, 0.17, 0.13, 0.095, 0.04]
+ARM_CURLS = [0.5, 0.3, -0.15]   # כמה כל מפרק מיישר את הזרוע כלפי מטה במנוחה
 arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שורש)
 tips = []
 for i in range(8):
     theta = math.radians(i * 45 + 22.5)
-    tilt = 1.0 + rng.uniform(-0.1, 0.1)
+    tilt = 0.95 + rng.uniform(-0.1, 0.1)
     root = empty(f"ArmRoot{i}", torso, loc=(0.5 * math.cos(theta), 0.5 * math.sin(theta), -0.72), rot=(0, -tilt, theta))
     joints = [root]
     for k in range(1, 4):
@@ -269,6 +322,11 @@ for i in range(8):
     for k in range(4):
         cone(f"Seg{i}_{k}", ARM_RAD[k + 1], ARM_RAD[k], ARM_LEN[k], (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k])
         sphere(f"Knee{i}_{k}", ARM_RAD[k], (0, 0, 0), PURPLE, joints[k], seg=20)
+        if k < 3:
+            for q, f in enumerate((0.3, 0.68)):
+                rr = ARM_RAD[k] + (ARM_RAD[k + 1] - ARM_RAD[k]) * f
+                sphere(f"Sucker{i}_{k}_{q}", rr * 0.32, (rr * 0.93, 0, -ARM_LEN[k] * f), SUCKER, joints[k],
+                       scale=(0.4, 1, 1), seg=12)
     tips.append(sphere(f"Tip{i}", ARM_RAD[4], (0, 0, -ARM_LEN[3]), PURPLE, joints[3], seg=20))
     arms.append((root, joints, tilt))
 
@@ -304,9 +362,9 @@ puddle = []
 for i in range(9):
     a = rng.uniform(0, 2 * math.pi)
     d = rng.uniform(0.0, 0.85)
-    r = rng.uniform(0.28, 0.48)
+    r = rng.uniform(0.34, 0.6)
     puddle.append(sphere(f"Puddle{i}", r, (d * math.cos(a), d * math.sin(a) * 0.6, 0.04), PURPLE if i % 2 else PURPLE_DARK,
-                         monster, scale=(1, 1, 0.2), seg=16, main=False))
+                         monster, scale=(1, 1, 0.3), seg=16, main=False))
 shards = []
 for i in range(7):
     a = rng.uniform(0, 2 * math.pi)
@@ -361,17 +419,17 @@ def add_light(name, kind, energy, loc, rot=None, target=None, size=None, color=(
     return lo
 
 
-sun = add_light("Sun", "SUN", 2.4, (0, 0, 8), rot=(math.radians(50), 0, math.radians(-35)))
+sun = add_light("Sun", "SUN", 2.8, (0, 0, 8), rot=(math.radians(50), 0, math.radians(-35)), color=(1.0, 0.92, 0.82))
 sun.data.angle = 0.18
-add_light("Fill", "AREA", 280, (3.5, -6, 3.5), target=(0, 0, HEIGHT * 0.5), size=6, color=(1.0, 0.95, 0.9))
-add_light("Rim", "AREA", 250, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.75, 0.6, 1.0))
+add_light("Fill", "AREA", 150, (3.5, -6, 3.5), target=(0, 0, HEIGHT * 0.5), size=6, color=(0.7, 0.8, 1.0))
+add_light("Rim", "AREA", 420, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.95, 0.3, 1.0))
 
 world = bpy.data.worlds.new("World")
 scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes["Background"]
-bg.inputs[0].default_value = (0.55, 0.6, 0.78, 1.0)
-bg.inputs[1].default_value = 0.5
+bg.inputs[0].default_value = (0.25, 0.3, 0.5, 1.0)
+bg.inputs[1].default_value = 0.4
 
 scene.render.engine = "CYCLES"
 scene.cycles.device = "CPU"
@@ -504,13 +562,13 @@ def pose(clip, i, n):
             pivot.scale = (1.12, 1.1, 0.86)
             eye.scale.z = 0.3
             mouth.scale = (1.0, 1.0, 1.6)
-            tint(0.3)
+            tint(0.4, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.25)
         else:
             torso.rotation_euler.x = -0.12
             pivot.scale = (1.04, 1.04, 0.97)
             eye.scale.z = 0.7
-            tint(0.12)
+            tint(0.15, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=0.05)
         show(stars, True)
     elif clip == "Death":
@@ -520,20 +578,20 @@ def pose(clip, i, n):
         if i == 0:
             torso.rotation_euler.x = -0.4
             torso.location.z -= 0.1
-            tint(0.25)
+            tint(0.3, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.45)
         elif i == 1:
             torso.rotation_euler.x = -1.15
             torso.location.z -= 0.55
             torso.location.y += 0.35
-            tint(0.3)
+            tint(0.2, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
         elif i == 2:
             torso.rotation_euler.x = -1.15
             torso.location.z -= 0.55
             torso.location.y += 0.35
             pivot.scale = (1.3, 1.3, 1.3)
-            tint(0.9, (1.0, 0.75, 1.0))
+            tint(0.45, (0.9, 0.35, 0.9))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
             show([o for o in main_parts if o.name.startswith(("Dome", "Rivet"))], False)
             for f, d, dist in frags:
@@ -541,7 +599,7 @@ def pose(clip, i, n):
                 f.location = d * dist
             show(shards, True)
         else:
-            show(main_parts, False)
+            show(main_parts + x_marks, False)
             show(puddle + shards, True)
             for f, d, dist in frags[:10]:
                 f.hide_render = False
