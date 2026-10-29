@@ -175,7 +175,9 @@ private fun buildDepthFog(style: ArenaStyle): ImageBitmap? {
     val w = analysis.width
     val h = analysis.height
     if (w <= 0 || h <= 0) return null
-    val sorted = analysis.depth.copyOf().also { it.sort() }
+    // החלקה חזקה: בלי תפרים אנכיים שנוצרים בגבולות האריחים של ניתוח העומק
+    val depth = smoothDepth(analysis.depth, w, h, (w / 24).coerceAtLeast(3))
+    val sorted = depth.copyOf().also { it.sort() }
     val near = sorted[(sorted.size * 0.05f).toInt()]
     val far = sorted[(sorted.size * 0.95f).toInt()]
     val range = (far - near).coerceAtLeast(0.01f)
@@ -185,7 +187,7 @@ private fun buildDepthFog(style: ArenaStyle): ImageBitmap? {
     val strength = (style.fog * 2.4f).coerceAtMost(0.6f)
     val px = IntArray(w * h)
     for (i in px.indices) {
-        val t = ((analysis.depth[i] - near) / range).coerceIn(0f, 1f)
+        val t = ((depth[i] - near) / range).coerceIn(0f, 1f)
         val a = (t * t * (3f - 2f * t)) * strength
         px[i] = Color(fogColor.red, fogColor.green, fogColor.blue, a).toArgb()
     }
@@ -417,4 +419,39 @@ private fun DrawScope.drawParticles(style: ArenaStyle, t: Float, scale: Float) {
             }
         }
     }
+}
+
+/** טשטוש מלבני מופרד (פעמיים) של מפת העומק */
+private fun smoothDepth(src: FloatArray, w: Int, h: Int, radius: Int): FloatArray {
+    var cur = src
+    repeat(2) {
+        val tmp = FloatArray(cur.size)
+        for (y in 0 until h) {
+            var sum = 0f
+            var lo = 0
+            var hi = -1
+            for (x in 0 until w) {
+                val newHi = minOf(w - 1, x + radius)
+                while (hi < newHi) { hi++; sum += cur[y * w + hi] }
+                val newLo = maxOf(0, x - radius)
+                while (lo < newLo) { sum -= cur[y * w + lo]; lo++ }
+                tmp[y * w + x] = sum / (hi - lo + 1)
+            }
+        }
+        val out = FloatArray(cur.size)
+        for (x in 0 until w) {
+            var sum = 0f
+            var lo = 0
+            var hi = -1
+            for (y in 0 until h) {
+                val newHi = minOf(h - 1, y + radius)
+                while (hi < newHi) { hi++; sum += tmp[hi * w + x] }
+                val newLo = maxOf(0, y - radius)
+                while (lo < newLo) { sum -= tmp[lo * w + x]; lo++ }
+                out[y * w + x] = sum / (hi - lo + 1)
+            }
+        }
+        cur = out
+    }
+    return cur
 }

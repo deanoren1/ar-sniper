@@ -1266,7 +1266,16 @@ fun GameScreen(
                     translationY = (0.5f - camera.center.y * camera.zoom) * size.height + shakeY
                 }
         ) {
-            BackgroundLayer(photo = themed ?: photo, colorFilter = remember(style, themed != null) { if (themed != null) null else arenaColorFilter(style) })
+            BackgroundLayer(photo = photo, colorFilter = remember(style) { arenaColorFilter(style) })
+            // התמונה המעוצבת נכנסת בהדרגה מעל המקורית (בלי קפיצה כשהחישוב מסתיים)
+            themed?.let { t ->
+                var fadeIn by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { fadeIn = true }
+                val themedAlpha by androidx.compose.animation.core.animateFloatAsState(if (fadeIn) 1f else 0f, androidx.compose.animation.core.tween(900), label = "themedFade")
+                androidx.compose.foundation.layout.Box(Modifier.graphicsLayer { alpha = themedAlpha }) {
+                    BackgroundLayer(photo = t, colorFilter = null)
+                }
+            }
             ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, frameVariant = if (themed != null) frameVariant else -1, worldViewAspect = if (panoMode) viewAspect else 0f)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // ערפל צף מעל המפלצות (טונדרה מעוצבת): מסתיר אותן חלקית
