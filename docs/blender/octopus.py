@@ -296,57 +296,105 @@ for i in range(14):
     cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
 # עין גדולה ועגולה בסגנון צעצוע, עם קשתית כתומה ואישון שחור עגול.
-EYE_Y, EYE_Z = -0.56, 0.22
+EYE_Y, EYE_Z = -0.75, 0.26
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.10, 1.0, 1.10)
+eye.scale = (1.0, 1.0, 1.0)
 eye_parts = [
-    sphere("EyeWhite", 0.47, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
-    sphere("Iris", 0.335, (0, -0.205, 0), IRIS, eye, scale=(1, 0.30, 1), seg=48),
-    sphere("Pupil", 0.205, (0, -0.285, 0), PUPIL, eye, scale=(1.0, 0.28, 1.0), seg=40),
-    sphere("Shine", 0.065, (0.08, -0.34, 0.12), SHINE, eye, scale=(1, 0.35, 1), seg=20),
+    sphere("EyeWhite", 0.41, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
+    sphere("Iris", 0.285, (0, -0.205, 0), IRIS, eye, scale=(1, 0.34, 1), seg=48),
+    sphere("Pupil", 0.17, (0, -0.285, 0), PUPIL, eye, scale=(1.0, 0.30, 1.0), seg=40),
+    sphere("Shine", 0.052, (0.065, -0.34, 0.105), SHINE, eye, scale=(1, 0.35, 1), seg=20),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
-# Raised glossy rim around the eye; avoids the two oversized eyebrow blobs.
-torus("EyeRim", 0.445, 0.035, (0, -0.025, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
+# Thin raised rim; the sclera and orange iris remain visible instead of sinking into the shell.
+torus("EyeRim", 0.39, 0.028, (0, -0.025, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
 
-# פה רחב וחיוך שובב; שיניים קטנות ומעוגלות יחסית
-mouth = empty("Mouth", pivot, loc=(0, -0.78, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.30, (0, 0, 0), MOUTH, mouth, scale=(1.82, 0.28, 0.52), seg=36)]
-for i in range(5):
-    x = -0.38 + i * (0.76 / 4)
-    h = 0.075 + 0.025 * ((i * 5) % 3) / 2
-    mouth_parts.append(cone(f"ToothU{i}", 0.045, 0.0, h, (x, -0.07, 0.15 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
-for i in range(4):
-    x = -0.30 + i * (0.60 / 3)
-    h = 0.065 + 0.02 * ((i * 7) % 3) / 2
-    mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
+# Compact playful mouth with just a few small teeth (closer to the reference toy expression).
+mouth = empty("Mouth", pivot, loc=(0, -0.80, -0.43))
+mouth_parts = [sphere("MouthCavity", 0.27, (0, 0, 0), MOUTH, mouth, scale=(1.45, 0.30, 0.46), seg=36)]
+for i, x in enumerate((-0.23, 0.0, 0.23)):
+    h = (0.060, 0.070, 0.060)[i]
+    mouth_parts.append(cone(f"ToothU{i}", 0.038, 0.0, h, (x, -0.075, 0.115 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
+for i, x in enumerate((-0.15, 0.15)):
+    h = 0.055
+    mouth_parts.append(cone(f"ToothL{i}", 0.034, 0.0, h, (x, -0.075, -0.115 + h / 2), TEETH, mouth))
 
 # No glass bubble: a visible pink lower collar/band anchors the purple shell.
 # It sits at the head's base, not around an imaginary glass dome.
-torus("LowerPinkBand", 0.76, 0.105, (0, 0, -0.69), RING, torso)
-for i in range(18):
-    a = i * (2 * math.pi / 18)
-    sphere(f"BandRivet{i}", 0.026, (0.76 * math.cos(a), 0.76 * math.sin(a), -0.60), SPOT, torso, seg=12)
+torus("LowerPinkBand", 0.73, 0.060, (0, 0, -0.71), RING, torso)
+for i in range(16):
+    a = i * (2 * math.pi / 16)
+    sphere(f"BandRivet{i}", 0.018, (0.73 * math.cos(a), 0.73 * math.sin(a), -0.65), SPOT, torso, seg=12)
 
-# שני מיכלי אש בצדדים ומעט מאחור (כדי שמהצד עדיין רואים את הפנים), עם צינור לכיפה
+# Smaller side tanks; keep them as secondary details behind the head silhouette.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.08 * sx, 0.48
-    cylinder(f"Tank{side}", 0.275, 0.98, (tx, ty, 0.1), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.305, 0.12, (tx, ty, 0.62), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.305, 0.12, (tx, ty, -0.42), METAL, torso)
-    torus(f"TankBand1{side}", 0.28, 0.035, (tx, ty, 0.30), METAL, torso)
-    torus(f"TankBand2{side}", 0.28, 0.035, (tx, ty, -0.12), METAL, torso)
-    cylinder(f"TankNozzle{side}", 0.065, 0.14, (tx, ty, 0.70), METAL, torso)
-    sphere(f"Valve{side}", 0.055, (tx, ty, 0.80), COPPER, torso, seg=16)
-    cylinder(f"Connector{side}", 0.07, 0.3, (0.95 * sx, ty - 0.02, 0.4), COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.17, 0.03, (tx, ty - 0.3, 0.1), METAL, torso, rot=(math.pi / 2, 0, 0))
-    sphere(f"FlameBase{side}", 0.075, (tx, ty - 0.33, 0.04), FLAME, torso, scale=(1, 0.3, 1), seg=16)
-    cone(f"FlameTip{side}", 0.075, 0.0, 0.2, (tx, ty - 0.33, 0.17), FLAME, torso, scale=(1, 0.3, 1))
+    tx, ty = 1.00 * sx, 0.48
+    cylinder(f"Tank{side}", 0.215, 0.78, (tx, ty, 0.08), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.245, 0.10, (tx, ty, 0.52), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.245, 0.10, (tx, ty, -0.36), METAL, torso)
+    torus(f"TankBand1{side}", 0.22, 0.028, (tx, ty, 0.25), METAL, torso)
+    torus(f"TankBand2{side}", 0.22, 0.028, (tx, ty, -0.10), METAL, torso)
+    cylinder(f"TankNozzle{side}", 0.052, 0.12, (tx, ty, 0.59), METAL, torso)
+    sphere(f"Valve{side}", 0.045, (tx, ty, 0.67), COPPER, torso, seg=16)
+    cylinder(f"Connector{side}", 0.055, 0.24, (0.89 * sx, ty - 0.02, 0.34), COPPER, torso, rot=(0, math.pi / 2, 0))
+    cylinder(f"Badge{side}", 0.135, 0.025, (tx, ty - 0.235, 0.08), METAL, torso, rot=(math.pi / 2, 0, 0))
+    sphere(f"FlameBase{side}", 0.058, (tx, ty - 0.26, 0.035), FLAME, torso, scale=(1, 0.3, 1), seg=16)
+    cone(f"FlameTip{side}", 0.058, 0.0, 0.15, (tx, ty - 0.26, 0.14), FLAME, torso, scale=(1, 0.3, 1))
 
-# שמונה זרועות: שרשרת של 4 מקטעים, כל מפרק מסתובב בקוד
+# Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
 ARM_LEN = [0.43, 0.39, 0.34, 0.28]
 ARM_RAD = [0.255, 0.215, 0.17, 0.125, 0.065]
-ARM_CURLS = [0.22, 0.35, -0.72]   # זרועות רכות עם קצוות מעוגלים שמתקפלים פנימה
+ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
+ARM_TOTAL = sum(ARM_LEN)
+
+
+def arm_curve_x(t):
+    # Gentle sideways curl near the tip, with no hard bends between segments.
+    return 0.06 * math.sin(math.pi * t) - 0.12 * t * t + 0.05 * t * t * t
+
+
+def arm_radius(t):
+    return 0.052 + 0.203 * ((1.0 - t) ** 0.82)
+
+
+def make_arm_tube(name, parent):
+    rings, sides = 40, 24
+    verts, faces = [], []
+    for ri in range(rings + 1):
+        t = ri / rings
+        z = -ARM_TOTAL * t
+        cx = arm_curve_x(t)
+        radius = arm_radius(t)
+        for j in range(sides):
+            a = 2 * math.pi * j / sides
+            verts.append((cx + radius * math.cos(a), radius * math.sin(a), z))
+    for ri in range(rings):
+        for j in range(sides):
+            a = ri * sides + j
+            b = ri * sides + (j + 1) % sides
+            faces.append((a, a + sides, b + sides, b))
+    faces.append(tuple(range(sides)))
+    faces.append(tuple((rings * sides + j) for j in reversed(range(sides))))
+    mesh = bpy.data.meshes.new(name + "Mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.parent = parent
+    obj.data.materials.append(PURPLE)
+    smooth(obj)
+    sub = obj.modifiers.new("OrganicArmSmooth", "SUBSURF")
+    sub.levels = 1
+    sub.render_levels = 1
+    main_parts.append(obj)
+    return obj
+
+
 arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שורש)
 tips = []
 for i in range(8):
@@ -356,15 +404,13 @@ for i in range(8):
     joints = [root]
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
-    for k in range(4):
-        sphere(f"Seg{i}_{k}", 1.0, (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k], scale=(ARM_RAD[k] * 1.02, ARM_RAD[k] * 1.02, ARM_LEN[k] / 2 + ARM_RAD[k] * 1.05), seg=32)
-        sphere(f"Knee{i}_{k}", ARM_RAD[k] * 0.94, (0, 0, 0), PURPLE, joints[k], seg=24)
-        if k < 3:
-            for q, f in enumerate((0.38, 0.72)):
-                rr = ARM_RAD[k] + (ARM_RAD[k + 1] - ARM_RAD[k]) * f
-                sphere(f"Sucker{i}_{k}_{q}", rr * 0.30, (rr * 0.93, -0.012, -ARM_LEN[k] * f), SUCKER, joints[k],
-                       scale=(0.4, 1, 1), seg=12)
-    tips.append(sphere(f"Tip{i}", ARM_RAD[4], (0, 0, -ARM_LEN[3]), PURPLE, joints[3], seg=20))
+    make_arm_tube(f"ArmTube{i}", root)
+    # Small purple suckers sit flush against the front-facing underside of each arm.
+    for q, t in enumerate((0.30, 0.43, 0.56, 0.69, 0.80)):
+        rr = arm_radius(t)
+        sphere(f"Sucker{i}_{q}", 1.0, (arm_curve_x(t), -rr * 0.84, -ARM_TOTAL * t), SUCKER, root,
+               scale=(rr * 0.40, rr * 0.15, rr * 0.40), seg=16)
+    tips.append(empty(f"Tip{i}", root, loc=(arm_curve_x(1.0), 0, -ARM_TOTAL)))
     arms.append((root, joints, tilt))
 
 # ------------------------------------------------------------------ חלקים נסתרים רוב הזמן (אנרגיה, כוכבים, X, שברים)
