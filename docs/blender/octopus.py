@@ -106,10 +106,10 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = nt.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.6
-    mad.inputs[2].default_value = 0.06
-    for key, value in (("Base Color", (0.35, 0.6, 0.5, 1.0)), ("Roughness", 0.06), ("Metallic", 0.0),
-                       ("Emission Color", (0.2, 0.5, 0.4, 1.0)), ("Emission Strength", 0.1)):
+    mad.inputs[1].default_value = 0.5
+    mad.inputs[2].default_value = 0.025
+    for key, value in (("Base Color", (0.45, 0.6, 0.9, 1.0)), ("Roughness", 0.06), ("Metallic", 0.0),
+                       ("Emission Color", (0.3, 0.45, 0.8, 1.0)), ("Emission Strength", 0.06)):
         try:
             glossy.inputs[key].default_value = value
         except Exception:
@@ -140,8 +140,8 @@ RING = mat("Ring", (0.42, 0.22, 0.10), rough=0.45, metal=0.9)
 add_skin(RING, scale=30.0, strength=0.5)
 COPPER = mat("Copper", (0.6, 0.32, 0.12), rough=0.4, metal=1.0)
 FLAME = mat("Flame", (1.0, 0.25, 0.02), emit=(1.0, 0.22, 0.02), strength=2.2)
-ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
-ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
+ORB = mat("Orb", (0.3, 0.04, 1.0), emit=(0.3, 0.04, 1.0), strength=1.0)
+ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.7, 0.45, 1.0), strength=2.2)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.72, 0.5, 0.55), rough=0.35, coat=0.4)
@@ -538,7 +538,7 @@ def pose(clip, i, n):
         show(orb_parts, True)
         r = 0.12 + 0.2 * k
         orb_halo.scale = (r, r, r)
-        orb_core.scale = (r * 0.45, r * 0.45, r * 0.45)
+        orb_core.scale = (r * 0.38, r * 0.38, r * 0.38)
         for o in orb_parts:
             o.location = (0, -1.25 - 0.05 * k, -0.42)
     elif clip == "Shoot":
@@ -551,7 +551,7 @@ def pose(clip, i, n):
         show(orb_parts, True)
         r = (0.42, 0.34, 0.24)[i]
         orb_halo.scale = (r, r, r)
-        orb_core.scale = (r * 0.45, r * 0.45, r * 0.45)
+        orb_core.scale = (r * 0.38, r * 0.38, r * 0.38)
         oy = (-1.5, -1.8, -2.05)[i]
         for o in orb_parts:
             o.location = (0, oy, -0.42)
@@ -562,13 +562,13 @@ def pose(clip, i, n):
             pivot.scale = (1.12, 1.1, 0.86)
             eye.scale.z = 0.3
             mouth.scale = (1.0, 1.0, 1.6)
-            tint(0.4, (0.9, 0.05, 0.02))
+            tint(0.1, (0.8, 0.02, 0.0))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.25)
         else:
             torso.rotation_euler.x = -0.12
             pivot.scale = (1.04, 1.04, 0.97)
             eye.scale.z = 0.7
-            tint(0.15, (0.9, 0.05, 0.02))
+            tint(0.04, (0.8, 0.02, 0.0))
             arms_wave(0.0, 0.0, 0.0, extra_y=0.05)
         show(stars, True)
     elif clip == "Death":
@@ -578,20 +578,20 @@ def pose(clip, i, n):
         if i == 0:
             torso.rotation_euler.x = -0.4
             torso.location.z -= 0.1
-            tint(0.3, (0.9, 0.05, 0.02))
+            tint(0.08, (0.8, 0.02, 0.0))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.45)
         elif i == 1:
             torso.rotation_euler.x = -1.15
             torso.location.z -= 0.55
             torso.location.y += 0.35
-            tint(0.2, (0.9, 0.05, 0.02))
+            tint(0.05, (0.8, 0.02, 0.0))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
         elif i == 2:
             torso.rotation_euler.x = -1.15
             torso.location.z -= 0.55
             torso.location.y += 0.35
             pivot.scale = (1.3, 1.3, 1.3)
-            tint(0.45, (0.9, 0.35, 0.9))
+            tint(0.18, (0.7, 0.15, 0.7))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
             show([o for o in main_parts if o.name.startswith(("Dome", "Rivet"))], False)
             for f, d, dist in frags:
