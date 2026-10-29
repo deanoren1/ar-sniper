@@ -234,7 +234,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
 )):
     x = sx
     z = sz
-    surface = -BODY_SCALE[1] * math.sqrt(max(0.08, BODY_R**2 - (x / BODY_SCALE[0])**2 - (z / BODY_SCALE[2])**2))
+    surface = -BODY_R * BODY_SCALE[1] * math.sqrt(max(0.08, 1.0 - (x / (BODY_R * BODY_SCALE[0]))**2 - (z / (BODY_R * BODY_SCALE[2]))**2))
     sphere(f"BodySpot{i}", 1.0, (x, surface - 0.012, z), SPOT, pivot,
            scale=(rx, 0.025, rz), rot=(0, angle, 0), seg=24)
 
