@@ -279,12 +279,12 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.64, -0.25, 0.14, 0.11, -0.4),
 )):
     x, z = sx, sz
-    rx *= 0.78
-    rz *= 0.78
+    rx *= 0.64
+    rz *= 0.68
     radius = shell_radius_at(z)
-    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.010
+    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     sphere(f"BodySpot{i}", 1.0, (x, surface, z), SPOT, pivot,
-           scale=(rx, 0.024, rz), rot=(0, angle, 0), seg=24)
+           scale=(rx, 0.016, rz), rot=(0, angle, 0), seg=24)
 
 # More small, flatter spots around the forehead and outer cheeks; keep the eye area clear.
 for i, (sx, sz, rx, rz) in enumerate((
@@ -294,10 +294,12 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.48, -0.34, 0.075, 0.055), (0.48, -0.34, 0.075, 0.055),
     (-0.15, 0.88, 0.065, 0.045), (0.15, 0.88, 0.065, 0.045),
 )):
+    rx *= 0.88
+    rz *= 0.88
     radius = shell_radius_at(sz)
-    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.006
+    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
-           scale=(rx, 0.018, rz), seg=20)
+           scale=(rx, 0.013, rz), seg=20)
 
 # קוצים קטנים ורודים, בעיקר בחלק העליון; בלי קרניים אפורות גדולות.
 for i in range(5):
@@ -307,8 +309,8 @@ for i in range(5):
     pol = math.radians(rng.uniform(22, 55))
     n = Vector((math.sin(pol) * math.cos(az), math.sin(pol) * math.sin(az), math.cos(pol)))
     p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 0.95
-    h = rng.uniform(0.13, 0.22)
-    cone(f"Horn{i}", 0.075, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
+    h = rng.uniform(0.11, 0.18)
+    cone(f"Horn{i}", 0.062, 0.0, h, p + n * (h / 2), SPOT, pivot, rot=normal_rot(n))
 
 for i in range(14):
     az = rng.uniform(0, 2 * math.pi)
@@ -345,29 +347,29 @@ for i, x in enumerate((-0.15, 0.15)):
     mouth_parts.append(cone(f"ToothL{i}", 0.034, 0.0, h, (x, -0.075, -0.115 + h / 2), TEETH, mouth))
 
 # No glass bubble: a visible pink lower collar/band anchors the purple shell.
-torus("LowerPinkBand", 0.84, 0.075, (0, 0, -0.68), RING, torso)
-for i in range(18):
-    a = i * (2 * math.pi / 18)
-    sphere(f"BandRivet{i}", 0.017, (0.84 * math.cos(a), 0.84 * math.sin(a), -0.59), SPOT, torso, seg=12)
+torus("LowerPinkBand", 0.73, 0.052, (0, 0, -0.68), RING, torso)
+for i in range(16):
+    a = i * (2 * math.pi / 16)
+    sphere(f"BandRivet{i}", 0.013, (0.73 * math.cos(a), 0.73 * math.sin(a), -0.605), SPOT, torso, seg=12)
 
 # Compact side tanks, pulled outward so the dark hardware and flame badges read clearly.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.16 * sx, 0.18
-    cylinder(f"Tank{side}", 0.19, 0.72, (tx, ty, 0.08), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.22, 0.09, (tx, ty, 0.49), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.22, 0.09, (tx, ty, -0.33), METAL, torso)
-    torus(f"TankBand1{side}", 0.195, 0.025, (tx, ty, 0.23), METAL, torso)
-    torus(f"TankBand2{side}", 0.195, 0.025, (tx, ty, -0.08), METAL, torso)
-    cylinder(f"TankNozzle{side}", 0.047, 0.10, (tx, ty, 0.55), METAL, torso)
-    sphere(f"Valve{side}", 0.04, (tx, ty, 0.62), COPPER, torso, seg=16)
-    cylinder(f"Connector{side}", 0.05, 0.24, (0.99 * sx, ty - 0.02, 0.31), COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.125, 0.022, (tx, ty - 0.215, 0.08), METAL, torso, rot=(math.pi / 2, 0, 0))
-    sphere(f"FlameBase{side}", 0.052, (tx, ty - 0.24, 0.035), FLAME, torso, scale=(1, 0.3, 1), seg=16)
-    cone(f"FlameTip{side}", 0.052, 0.0, 0.13, (tx, ty - 0.24, 0.13), FLAME, torso, scale=(1, 0.3, 1))
+    tx, ty = 1.10 * sx, 0.18
+    cylinder(f"Tank{side}", 0.17, 0.62, (tx, ty, 0.07), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.195, 0.08, (tx, ty, 0.42), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.195, 0.08, (tx, ty, -0.28), METAL, torso)
+    torus(f"TankBand1{side}", 0.175, 0.021, (tx, ty, 0.20), METAL, torso)
+    torus(f"TankBand2{side}", 0.175, 0.021, (tx, ty, -0.06), METAL, torso)
+    cylinder(f"TankNozzle{side}", 0.040, 0.08, (tx, ty, 0.47), METAL, torso)
+    sphere(f"Valve{side}", 0.034, (tx, ty, 0.53), COPPER, torso, seg=16)
+    cylinder(f"Connector{side}", 0.045, 0.20, (0.96 * sx, ty - 0.02, 0.28), COPPER, torso, rot=(0, math.pi / 2, 0))
+    cylinder(f"Badge{side}", 0.108, 0.020, (tx, ty - 0.192, 0.07), METAL, torso, rot=(math.pi / 2, 0, 0))
+    sphere(f"FlameBase{side}", 0.045, (tx, ty - 0.214, 0.030), FLAME, torso, scale=(1, 0.3, 1), seg=16)
+    cone(f"FlameTip{side}", 0.045, 0.0, 0.11, (tx, ty - 0.214, 0.105), FLAME, torso, scale=(1, 0.3, 1))
 
 # Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
-ARM_LEN = [0.34, 0.30, 0.25, 0.20]
-ARM_RAD = [0.235, 0.21, 0.18, 0.14, 0.075]
+ARM_LEN = [0.40, 0.35, 0.30, 0.24]
+ARM_RAD = [0.22, 0.19, 0.16, 0.125, 0.06]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
@@ -375,25 +377,25 @@ ARM_TOTAL = sum(ARM_LEN)
 def arm_curve_x(t):
     # Spread the tentacles away from the body, then hook the rounded tips outward.
     u = max(0.0, (t - 0.66) / 0.34)
-    return 0.16 * math.sin(math.pi * t) - 0.035 * t + 0.24 * u * u
+    return 0.22 * math.sin(math.pi * t) - 0.03 * t + 0.30 * u * u
 
 
 def arm_curve_y(t):
-    return 0.045 * math.sin(2.0 * math.pi * t)
+    return 0.065 * math.sin(2.0 * math.pi * t)
 
 
 def arm_curve_z(t):
-    u = max(0.0, (t - 0.70) / 0.30)
-    return -ARM_TOTAL * t + 0.22 * u * u
+    u = max(0.0, (t - 0.62) / 0.38)
+    return -ARM_TOTAL * t + 0.34 * u * u
 
 
 def arm_radius(t):
     # Taper the tube more noticeably and let a small sphere make the tip fully round.
-    return 0.075 + 0.16 * (1.0 - t ** 1.5)
+    return 0.06 + 0.16 * (1.0 - t ** 1.45)
 
 
 def make_arm_tube(name, parent):
-    rings, sides = 40, 24
+    rings, sides = 48, 24
     verts, faces = [], []
     for ri in range(rings + 1):
         t = ri / rings
@@ -442,14 +444,14 @@ for i in range(8):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     make_arm_tube(f"ArmTube{i}", root)
     # Small purple suckers sit flush against the front-facing underside of each arm.
-    for q, t in enumerate((0.28, 0.40, 0.52, 0.64, 0.76)):
+    for q, t in enumerate((0.25, 0.36, 0.47, 0.58, 0.69, 0.80)):
         rr = arm_radius(t)
         sphere(f"Sucker{i}_{q}", 1.0,
-               (arm_curve_x(t), arm_curve_y(t) - rr * 0.94, arm_curve_z(t)),
-               SUCKER, root, scale=(rr * 0.34, rr * 0.11, rr * 0.34), seg=20)
+               (arm_curve_x(t), arm_curve_y(t) - rr * 1.02, arm_curve_z(t)),
+               SUCKER, root, scale=(rr * 0.42, rr * 0.12, rr * 0.42), seg=20)
     tip_loc = (arm_curve_x(1.0), arm_curve_y(1.0), arm_curve_z(1.0))
     sphere(f"ArmTip{i}", 1.0, tip_loc, PURPLE, root,
-           scale=(arm_radius(1.0), arm_radius(1.0), arm_radius(1.0)), seg=24)
+           scale=(arm_radius(1.0) * 0.86, arm_radius(1.0) * 0.86, arm_radius(1.0) * 0.86), seg=24)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
