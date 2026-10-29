@@ -123,9 +123,9 @@ def glass_mat():
 
 
 PURPLE = mat("Purple", (0.38, 0.025, 0.58), rough=0.24, coat=0.72)
-add_skin(PURPLE, scale=22.0, strength=0.28)  # smoother stylized skin; avoid the dense web-like vein pattern
+add_skin(PURPLE, scale=18.0, strength=0.09)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
-add_skin(PURPLE_DARK, scale=24.0, strength=0.22)
+add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.95, 0.035, 0.58), rough=0.28, coat=0.45)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.91, 0.72), rough=0.2, coat=0.25)
 # Smooth cream sclera; no visible vein pattern in the toy style.
@@ -260,9 +260,9 @@ for i in range(14):
     cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
 # עין גדולה ועגולה בסגנון צעצוע, עם קשתית כתומה ואישון שחור עגול.
-EYE_Y, EYE_Z = -0.62, 0.20
+EYE_Y, EYE_Z = -0.64, 0.22
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.28, 1.0, 1.28)
+eye.scale = (1.16, 1.0, 1.16)
 eye_parts = [
     sphere("EyeWhite", 0.47, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
     sphere("Iris", 0.335, (0, -0.205, 0), IRIS, eye, scale=(1, 0.30, 1), seg=48),
@@ -271,22 +271,22 @@ eye_parts = [
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
 # Raised glossy rim around the eye; avoids the two oversized eyebrow blobs.
-torus("EyeRim", 0.445, 0.045, (0, -0.045, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeRim", 0.445, 0.026, (0, -0.045, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
 
-# פה רחב עם שתי שורות שיניים חדות
+# פה רחב וחיוך שובב; שיניים קטנות ומעוגלות יחסית
 mouth = empty("Mouth", pivot, loc=(0, -0.78, -0.43))
 mouth_parts = [sphere("MouthCavity", 0.34, (0, 0, 0), MOUTH, mouth, scale=(1.95, 0.32, 0.66), seg=36)]
 for i in range(7):
     x = -0.46 + i * (0.92 / 6)
-    h = 0.13 + 0.07 * ((i * 5) % 3) / 2
+    h = 0.075 + 0.025 * ((i * 5) % 3) / 2
     mouth_parts.append(cone(f"ToothU{i}", 0.045, 0.0, h, (x, -0.07, 0.15 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
 for i in range(6):
     x = -0.39 + i * (0.78 / 5)
-    h = 0.11 + 0.05 * ((i * 7) % 3) / 2
+    h = 0.065 + 0.02 * ((i * 7) % 3) / 2
     mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
 
 # כיפת זכוכית עם טבעת נחושת-ורודה
-DOME_R, DOME_Z, DOME_CUT = 1.12, 0.10, -0.72
+DOME_R, DOME_Z, DOME_CUT = 1.02, 0.08, -0.70
 bpy.ops.mesh.primitive_uv_sphere_add(segments=56, ring_count=28, radius=DOME_R, location=(0, 0.20, DOME_Z))
 dome = bpy.context.active_object
 bm = bmesh.new()
@@ -308,14 +308,14 @@ for i in range(22):
 
 # שני מיכלי אש בצדדים ומעט מאחור (כדי שמהצד עדיין רואים את הפנים), עם צינור לכיפה
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.2 * sx, 0.45
-    cylinder(f"Tank{side}", 0.3, 1.1, (tx, ty, 0.1), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.335, 0.12, (tx, ty, 0.69), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.335, 0.12, (tx, ty, -0.49), METAL, torso)
-    torus(f"TankBand1{side}", 0.305, 0.035, (tx, ty, 0.35), METAL, torso)
-    torus(f"TankBand2{side}", 0.305, 0.035, (tx, ty, -0.15), METAL, torso)
-    cylinder(f"TankNozzle{side}", 0.08, 0.16, (tx, ty, 0.82), METAL, torso)
-    sphere(f"Valve{side}", 0.07, (tx, ty, 0.94), COPPER, torso, seg=16)
+    tx, ty = 1.08 * sx, 0.48
+    cylinder(f"Tank{side}", 0.245, 0.98, (tx, ty, 0.1), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.275, 0.10, (tx, ty, 0.62), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.275, 0.10, (tx, ty, -0.42), METAL, torso)
+    torus(f"TankBand1{side}", 0.25, 0.025, (tx, ty, 0.30), METAL, torso)
+    torus(f"TankBand2{side}", 0.25, 0.025, (tx, ty, -0.12), METAL, torso)
+    cylinder(f"TankNozzle{side}", 0.065, 0.14, (tx, ty, 0.70), METAL, torso)
+    sphere(f"Valve{side}", 0.055, (tx, ty, 0.80), COPPER, torso, seg=16)
     cylinder(f"Connector{side}", 0.07, 0.3, (0.95 * sx, ty - 0.02, 0.4), COPPER, torso, rot=(0, math.pi / 2, 0))
     cylinder(f"Badge{side}", 0.17, 0.03, (tx, ty - 0.3, 0.1), METAL, torso, rot=(math.pi / 2, 0, 0))
     sphere(f"FlameBase{side}", 0.075, (tx, ty - 0.33, 0.04), FLAME, torso, scale=(1, 0.3, 1), seg=16)
@@ -335,7 +335,7 @@ for i in range(8):
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     for k in range(4):
-        cone(f"Seg{i}_{k}", ARM_RAD[k + 1], ARM_RAD[k], ARM_LEN[k], (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k])
+        sphere(f"Seg{i}_{k}", 1.0, (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k], scale=(ARM_RAD[k], ARM_RAD[k], ARM_LEN[k] / 2 + ARM_RAD[k] * 0.35), seg=24)
         sphere(f"Knee{i}_{k}", ARM_RAD[k], (0, 0, 0), PURPLE, joints[k], seg=20)
         if k < 3:
             for q, f in enumerate((0.38, 0.72)):
