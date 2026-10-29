@@ -347,14 +347,16 @@ for i, x in enumerate((-0.12, 0.12)):
     mouth_parts.append(cone(f"ToothL{i}", 0.029, 0.0, h, (x, -0.068, -0.055 + h / 2), TEETH, mouth))
 
 # No glass bubble: a visible pink lower collar/band anchors the purple shell.
-torus("LowerPinkBand", 0.70, 0.038, (0, 0, -0.72), RING, torso)
+torus("LowerPinkBand", 0.77, 0.045, (0, 0, -0.70), RING, torso)
 for i in range(12):
     a = i * (2 * math.pi / 12)
-    sphere(f"BandRivet{i}", 0.009, (0.70 * math.cos(a), 0.70 * math.sin(a), -0.70), SPOT, torso, seg=12)
+    sphere(f"BandRivet{i}", 0.008, (0.77 * math.cos(a), 0.77 * math.sin(a), -0.68), SPOT, torso, seg=12)
 
 # Compact side tanks, pulled outward so the dark hardware and flame badges read clearly.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.02 * sx, 0.16
+    # Keep the tanks compact but move them outward and slightly forward so their
+    # magenta shells, dark bands, and orange flame badges remain visible in front view.
+    tx, ty = 1.16 * sx, -0.035
     cylinder(f"Tank{side}", 0.145, 0.56, (tx, ty, 0.07), TANK, torso)
     cylinder(f"TankCapTop{side}", 0.165, 0.07, (tx, ty, 0.385), METAL, torso)
     cylinder(f"TankCapBot{side}", 0.165, 0.07, (tx, ty, -0.245), METAL, torso)
@@ -362,7 +364,7 @@ for side, sx in (("L", -1), ("R", 1)):
     torus(f"TankBand2{side}", 0.148, 0.018, (tx, ty, -0.04), METAL, torso)
     cylinder(f"TankNozzle{side}", 0.034, 0.07, (tx, ty, 0.455), METAL, torso)
     sphere(f"Valve{side}", 0.028, (tx, ty, 0.505), COPPER, torso, seg=16)
-    cylinder(f"Connector{side}", 0.038, 0.16, (0.91 * sx, ty - 0.02, 0.25), COPPER, torso, rot=(0, math.pi / 2, 0))
+    cylinder(f"Connector{side}", 0.038, 0.19, (1.035 * sx, ty - 0.015, 0.25), COPPER, torso, rot=(0, math.pi / 2, 0))
     cylinder(f"Badge{side}", 0.090, 0.018, (tx, ty - 0.152, 0.07), METAL, torso, rot=(math.pi / 2, 0, 0))
     sphere(f"FlameBase{side}", 0.036, (tx, ty - 0.174, 0.030), FLAME, torso, scale=(1, 0.3, 1), seg=16)
     cone(f"FlameTip{side}", 0.036, 0.0, 0.09, (tx, ty - 0.174, 0.092), FLAME, torso, scale=(1, 0.3, 1))
@@ -375,45 +377,72 @@ ARM_TOTAL = sum(ARM_LEN)
 
 
 def arm_curve_x(t):
-    # Fan out, then curl the tip back inward for a compact octopus silhouette.
-    u = max(0.0, (t - 0.66) / 0.34)
-    return 0.20 * math.sin(math.pi * t) + 0.34 * u - 0.42 * u * u + 0.08 * math.sin(2.0 * math.pi * u)
+    # Broad outward sweep followed by a soft inward hook at the tip.
+    u = max(0.0, min(1.0, (t - 0.64) / 0.36))
+    hook = u * u * (3.0 - 2.0 * u)
+    return 0.55 * math.sin(math.pi * 0.70 * t) + 0.08 * t - 0.32 * hook
 
 
 def arm_curve_y(t):
-    return 0.065 * math.sin(2.0 * math.pi * t)
+    return 0.025 * math.sin(2.0 * math.pi * t)
 
 
 def arm_curve_z(t):
-    u = max(0.0, (t - 0.66) / 0.34)
-    # Lift the last third so the arms hook upward instead of hanging like fingers.
-    return -ARM_TOTAL * t + 0.68 * u * u
+    u = max(0.0, min(1.0, (t - 0.64) / 0.36))
+    hook = u * u * (3.0 - 2.0 * u)
+    # The last section curls upward, producing a rounded hook rather than a finger.
+    return -0.52 * t + 0.30 * hook
 
 
 def arm_radius(t):
-    # Taper gently, but keep the ends plush and rounded rather than pointed.
-    return 0.065 + 0.155 * (1.0 - t ** 1.45)
+    # Plush base and middle, then a true rounded taper at the end (no flat cut cap).
+    if t < 0.78:
+        return 0.205 - 0.035 * (t / 0.78)
+    u = min(1.0, max(0.0, (t - 0.78) / 0.22))
+    return 0.170 * math.sqrt(max(0.0, 1.0 - u * u))
+
+
+def arm_center(t):
+    return Vector((arm_curve_x(t), arm_curve_y(t), arm_curve_z(t)))
 
 
 def make_arm_tube(name, parent):
-    rings, sides = 48, 24
+    rings, sides = 52, 24
     verts, faces = [], []
-    for ri in range(rings + 1):
+    # Build each cross-section perpendicular to the actual curved centerline.
+    # This prevents the tube from looking like a stack of rotated sausage segments.
+    for ri in range(rings):
         t = ri / rings
-        z = arm_curve_z(t)
-        cx = arm_curve_x(t)
-        cy = arm_curve_y(t)
+        center = arm_center(t)
+        before = arm_center(max(0.0, t - 0.002))
+        after = arm_center(min(1.0, t + 0.002))
+        tangent = (after - before).normalized()
+        reference = Vector((0.0, 1.0, 0.0))
+        normal = reference - tangent * reference.dot(tangent)
+        if normal.length < 1e-5:
+            reference = Vector((1.0, 0.0, 0.0))
+            normal = reference - tangent * reference.dot(tangent)
+        normal.normalize()
+        binormal = tangent.cross(normal).normalized()
         radius = arm_radius(t)
         for j in range(sides):
-            a = 2 * math.pi * j / sides
-            verts.append((cx + radius * math.cos(a), cy + radius * math.sin(a), z))
-    for ri in range(rings):
+            a = 2.0 * math.pi * j / sides
+            p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
+            verts.append(tuple(p))
+    pole_index = len(verts)
+    verts.append(tuple(arm_center(1.0)))
+    for ri in range(rings - 1):
         for j in range(sides):
             a = ri * sides + j
             b = ri * sides + (j + 1) % sides
-            faces.append((a, a + sides, b + sides, b))
-    faces.append(tuple(range(sides)))
-    faces.append(tuple((rings * sides + j) for j in reversed(range(sides))))
+            faces.append((a, b, b + sides, a + sides))
+    last_ring = (rings - 1) * sides
+    for j in range(sides):
+        a = last_ring + j
+        b = last_ring + (j + 1) % sides
+        faces.append((a, b, pole_index))
+    # The root is buried in the body; cap it cleanly to avoid a hole in the mesh.
+    faces.append(tuple(reversed(range(sides))))
     mesh = bpy.data.meshes.new(name + "Mesh")
     mesh.from_pydata(verts, [], faces)
     mesh.update()
@@ -428,8 +457,8 @@ def make_arm_tube(name, parent):
     obj.data.materials.append(PURPLE)
     smooth(obj)
     sub = obj.modifiers.new("OrganicArmSmooth", "SUBSURF")
-    sub.levels = 1
-    sub.render_levels = 1
+    sub.levels = 2
+    sub.render_levels = 2
     main_parts.append(obj)
     return obj
 
@@ -444,17 +473,27 @@ for i in range(8):
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     make_arm_tube(f"ArmTube{i}", root)
-    # Small suction cups: a pink raised rim with a dark inset, not glossy bead-like bumps.
-    for q, t in enumerate((0.24, 0.40, 0.56, 0.72)):
+    # Suckers face the camera-facing side of each radial arm, rather than all pointing
+    # in one local direction. Their shallow inset keeps them from reading as beads.
+    root_rotation = root.rotation_euler.to_matrix()
+    front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
+    for q, t in enumerate((0.22, 0.38, 0.54, 0.68)):
+        center = arm_center(t)
+        before = arm_center(max(0.0, t - 0.002))
+        after = arm_center(min(1.0, t + 0.002))
+        tangent = (after - before).normalized()
+        cup_normal = front_local - tangent * front_local.dot(tangent)
+        if cup_normal.length < 1e-5:
+            cup_normal = Vector((0.0, 1.0, 0.0))
+        cup_normal.normalize()
         rr = arm_radius(t)
-        sx, sy, sz = arm_curve_x(t), arm_curve_y(t) - rr * 0.96, arm_curve_z(t)
-        torus(f"SuckerRim{i}_{q}", rr * 0.24, rr * 0.07, (sx, sy, sz), SUCKER, root,
-              rot=(math.pi / 2, 0, 0))
-        sphere(f"SuckerCup{i}_{q}", 1.0, (sx, sy - rr * 0.045, sz), PURPLE_DARK, root,
-               scale=(rr * 0.14, rr * 0.045, rr * 0.14), seg=16)
-    tip_loc = (arm_curve_x(1.0), arm_curve_y(1.0), arm_curve_z(1.0))
-    # Round over the tube's flat end cap so the tentacle reads as soft, not cut off.
-    sphere(f"ArmTipCap{i}", arm_radius(1.0), tip_loc, PURPLE, root, seg=24)
+        cup_pos = center + cup_normal * rr * 0.93
+        torus(f"SuckerRim{i}_{q}", rr * 0.22, rr * 0.055, tuple(cup_pos), SUCKER, root,
+              rot=normal_rot(cup_normal))
+        inset_pos = cup_pos + cup_normal * rr * 0.035
+        sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), PURPLE_DARK, root,
+               scale=(rr * 0.13, rr * 0.13, rr * 0.035), rot=normal_rot(cup_normal), seg=16)
+    tip_loc = tuple(arm_center(1.0))
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
