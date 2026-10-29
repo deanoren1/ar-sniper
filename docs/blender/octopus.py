@@ -136,7 +136,7 @@ MOUTH = mat("Mouth", (0.10, 0.0, 0.02), rough=0.9)
 TEETH = mat("Teeth", (0.85, 0.8, 0.6), rough=0.35)
 METAL = mat("Metal", (0.10, 0.10, 0.12), rough=0.5, metal=0.9)
 add_skin(METAL, scale=25.0, strength=0.5)
-RING = mat("Ring", (0.42, 0.22, 0.10), rough=0.45, metal=0.9)
+RING = mat("Ring", (0.98, 0.16, 0.52), rough=0.32, metal=0.18, coat=0.35)
 add_skin(RING, scale=30.0, strength=0.5)
 COPPER = mat("Copper", (0.6, 0.32, 0.12), rough=0.4, metal=1.0)
 FLAME = mat("Flame", (1.0, 0.25, 0.02), emit=(1.0, 0.22, 0.02), strength=2.2)
@@ -146,7 +146,7 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.40, 0.12, 0.32), rough=0.42, coat=0.2)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TANK = mat("Tank", (0.52, 0.018, 0.42), rough=0.38, metal=0.12, coat=0.3)
+TANK = mat("Tank", (0.72, 0.025, 0.46), rough=0.4, metal=0.05, coat=0.22)
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
 
@@ -260,9 +260,9 @@ for i in range(14):
     cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
 # עין גדולה ועגולה בסגנון צעצוע, עם קשתית כתומה ואישון שחור עגול.
-EYE_Y, EYE_Z = -0.64, 0.22
+EYE_Y, EYE_Z = -0.56, 0.22
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.16, 1.0, 1.16)
+eye.scale = (1.10, 1.0, 1.10)
 eye_parts = [
     sphere("EyeWhite", 0.47, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
     sphere("Iris", 0.335, (0, -0.205, 0), IRIS, eye, scale=(1, 0.30, 1), seg=48),
@@ -271,7 +271,7 @@ eye_parts = [
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
 # Raised glossy rim around the eye; avoids the two oversized eyebrow blobs.
-torus("EyeRim", 0.445, 0.026, (0, -0.045, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeRim", 0.445, 0.035, (0, -0.025, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
 
 # פה רחב וחיוך שובב; שיניים קטנות ומעוגלות יחסית
 mouth = empty("Mouth", pivot, loc=(0, -0.78, -0.43))
@@ -295,6 +295,7 @@ bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < DOME_CUT], context="V
 bm.to_mesh(dome.data)
 bm.free()
 fin(dome, GLASS, torso, "Dome")
+dome.hide_render = True  # Reference design has an exposed purple shell, not a clear glass bubble
 try:
     dome.visible_shadow = False
 except Exception:
@@ -304,16 +305,16 @@ rim_z = DOME_Z + DOME_CUT
 torus("DomeRing", rim_r, 0.09, (0, 0, rim_z), RING, torso)
 for i in range(22):
     a = i * (2 * math.pi / 22)
-    sphere(f"Rivet{i}", 0.032, (rim_r * math.cos(a), rim_r * math.sin(a), rim_z + 0.09), COPPER, torso, seg=12)
+    sphere(f"Rivet{i}", 0.028, (rim_r * math.cos(a), rim_r * math.sin(a), rim_z + 0.09), SPOT, torso, seg=12)
 
 # שני מיכלי אש בצדדים ומעט מאחור (כדי שמהצד עדיין רואים את הפנים), עם צינור לכיפה
 for side, sx in (("L", -1), ("R", 1)):
     tx, ty = 1.08 * sx, 0.48
-    cylinder(f"Tank{side}", 0.245, 0.98, (tx, ty, 0.1), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.275, 0.10, (tx, ty, 0.62), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.275, 0.10, (tx, ty, -0.42), METAL, torso)
-    torus(f"TankBand1{side}", 0.25, 0.025, (tx, ty, 0.30), METAL, torso)
-    torus(f"TankBand2{side}", 0.25, 0.025, (tx, ty, -0.12), METAL, torso)
+    cylinder(f"Tank{side}", 0.275, 0.98, (tx, ty, 0.1), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.305, 0.12, (tx, ty, 0.62), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.305, 0.12, (tx, ty, -0.42), METAL, torso)
+    torus(f"TankBand1{side}", 0.28, 0.035, (tx, ty, 0.30), METAL, torso)
+    torus(f"TankBand2{side}", 0.28, 0.035, (tx, ty, -0.12), METAL, torso)
     cylinder(f"TankNozzle{side}", 0.065, 0.14, (tx, ty, 0.70), METAL, torso)
     sphere(f"Valve{side}", 0.055, (tx, ty, 0.80), COPPER, torso, seg=16)
     cylinder(f"Connector{side}", 0.07, 0.3, (0.95 * sx, ty - 0.02, 0.4), COPPER, torso, rot=(0, math.pi / 2, 0))
