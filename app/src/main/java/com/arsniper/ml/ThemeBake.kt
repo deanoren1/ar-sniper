@@ -25,7 +25,7 @@ import kotlin.math.sqrt
  */
 object ThemeBake {
 
-    private const val VERSION = 2
+    private const val VERSION = 3
     private const val MAX_PIXELS = 2_000_000
 
     /** קטגוריות ADE20K של רצפה/קרקע */
@@ -59,7 +59,7 @@ object ThemeBake {
 
     private fun tundra(context: Context, source: Bitmap, a: SceneAnalysis): Bitmap? {
         val snowTex = loadTex(context, "theme/snow.jpg")
-        val frostTex = loadTex(context, "theme/frost.jpg")
+        val frostTex: Tex? = null // טקסטורת הכפור כבויה: יצרה דוגמאות מוזרות על חפצים
         val scale = min(1f, sqrt(MAX_PIXELS.toFloat() / (source.width.toFloat() * source.height)))
         val w = max(8, (source.width * scale).roundToInt())
         val h = max(8, (source.height * scale).roundToInt())
@@ -73,7 +73,7 @@ object ThemeBake {
 
         // שיפוע ההיפוך של העומק לאורך Y (מוחלק), ואחריו כיול מול הרצפה
         val inv = FloatArray(gw * gh) { 1f / max(a.depth[it], 0.25f) }
-        val smooth = boxBlur(inv, gw, gh, 3)
+        val smooth = boxBlur(inv, gw, gh, 7)
         val g = FloatArray(gw * gh)
         for (y in 1 until gh - 1) {
             for (x in 0 until gw) {
@@ -90,7 +90,7 @@ object ThemeBake {
             if (label in NO_SNOW) u = 0f else if (label in FLOOR) u = max(u, 0.9f)
             up[i] = u
         }
-        val upSmooth = boxBlur(up, gw, gh, 1)
+        val upSmooth = boxBlur(up, gw, gh, 3)
 
         val px = IntArray(w * h)
         out.getPixels(px, 0, w, 0, 0, w, h)
@@ -115,7 +115,7 @@ object ThemeBake {
                 val n1 = noise(x * 0.55f * f, y * 0.9f * f)
                 val n2 = noise(x * 1.7f * f + 50f, y * 2.8f * f + 17f)
                 val n3 = noise(x * 1.3f + 99f, y * 1.3f)
-                val thr = if (isFloor) 0.44f else 0.30f
+                val thr = if (isFloor) 0.52f else 0.42f
                 val cover = smoothstep(thr - 0.10f, thr + 0.10f, n1 * 0.75f + n2 * 0.25f)
                 val snow = upv * cover
 
@@ -135,7 +135,7 @@ object ThemeBake {
 
                 // כפור על משטחים אנכיים וחפצים (לא שמיים/תקרה)
                 if (label != 2 && label != CEILING) {
-                    val frost = (1f - upv) * 0.20f * smoothstep(0.52f, 0.78f, n3)
+                    val frost = (1f - upv) * 0.07f * smoothstep(0.52f, 0.78f, n3)
                     if (frostTex != null) {
                         val fc = sample(frostTex, x * 0.8f, y * 0.8f)
                         val fk = (1f - upv) * 0.38f * smoothstep(0.40f, 0.70f, n3)
@@ -153,7 +153,7 @@ object ThemeBake {
                 // שלג: מואר לפי הבהירות המקורית, כחלחל בצל, עם נצנוץ
                 if (snow > 0.01f) {
                     val t = (luma * 1.35f).coerceIn(0f, 1f)
-                    val shade = 0.66f + 0.40f * t
+                    val shade = 0.52f + 0.34f * t
                     var sr: Float
                     var sg: Float
                     var sb: Float
@@ -173,7 +173,7 @@ object ThemeBake {
                             sb += sparkle
                         }
                     }
-                    val k = snow * 0.95f
+                    val k = snow * 0.72f
                     r = lerp(r, sr, k)
                     gg = lerp(gg, sg, k)
                     b = lerp(b, sb, k)
