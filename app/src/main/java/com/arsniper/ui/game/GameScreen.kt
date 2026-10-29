@@ -85,6 +85,9 @@ import kotlinx.coroutines.delay
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
 /** הניקוד הפנימי מחולק בעשר: כך מטבעות הם מספרים קטנים ונוחים */
 private const val COINS_DIVISOR = 35
+/** מסגרת הקישוטים מעל ארנה מעוצבת (טונדרה): כבויה בזמן הבדיקה; להחזרה: true */
+private const val SHOW_FRAME_ON_THEMED = false
+
 private const val NEW_ARENA_COINS = 60
 private const val NEW_ARENA_MILESTONE_GEMS = 3
 private val NEW_ARENA_MILESTONES = setOf(5, 10, 25, 50)
@@ -1266,7 +1269,7 @@ fun GameScreen(
             ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, worldViewAspect = if (panoMode) viewAspect else 0f)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
-            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true, worldViewAspect = if (panoMode) viewAspect else 0f)
+            if (!(themed != null && SHOW_FRAME_ON_THEMED.not())) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true, worldViewAspect = if (panoMode) viewAspect else 0f)
             CombatLayer(
                 shots = fire.shots.toList(),
                 telegraphs = fire.telegraphViews.toList(),
