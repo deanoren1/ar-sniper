@@ -255,8 +255,9 @@ eye_parts = [
     sphere("Shine", 0.05, (0.07, -0.31, 0.12), SHINE, eye, scale=(1, 0.4, 1), seg=16),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
-for name, sx, ang in (("LidL", -1, 0.42), ("LidR", 1, -0.42)):
-    sphere(name, 0.5, (0.27 * sx, -0.13, 0.30), PURPLE_DARK, eye, scale=(0.7, 0.6, 0.42), rot=(0, ang, 0), seg=28)
+for name, sx, ang in (("LidL", -1, 0.30), ("LidR", 1, -0.30)):
+    # Eyelids frame the eye instead of covering most of it, keeping the expression readable at game size.
+    sphere(name, 0.36, (0.31 * sx, -0.13, 0.40), PURPLE_DARK, eye, scale=(0.72, 0.55, 0.30), rot=(0, ang, 0), seg=28)
 
 # פה רחב עם שתי שורות שיניים חדות
 mouth = empty("Mouth", pivot, loc=(0, -0.72, -0.42))
