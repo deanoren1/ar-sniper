@@ -347,10 +347,10 @@ for i, x in enumerate((-0.12, 0.12)):
     mouth_parts.append(cone(f"ToothL{i}", 0.029, 0.0, h, (x, -0.068, -0.055 + h / 2), TEETH, mouth))
 
 # No glass bubble: a visible pink lower collar/band anchors the purple shell.
-torus("LowerPinkBand", 0.77, 0.045, (0, 0, -0.70), RING, torso)
+torus("LowerPinkBand", 0.68, 0.032, (0, 0, -0.73), RING, torso)
 for i in range(12):
     a = i * (2 * math.pi / 12)
-    sphere(f"BandRivet{i}", 0.008, (0.77 * math.cos(a), 0.77 * math.sin(a), -0.68), SPOT, torso, seg=12)
+    sphere(f"BandRivet{i}", 0.007, (0.68 * math.cos(a), 0.68 * math.sin(a), -0.71), SPOT, torso, seg=12)
 
 # Compact side tanks, pulled outward so the dark hardware and flame badges read clearly.
 for side, sx in (("L", -1), ("R", 1)):
@@ -377,10 +377,11 @@ ARM_TOTAL = sum(ARM_LEN)
 
 
 def arm_curve_x(t):
-    # Broad outward sweep followed by a soft inward hook at the tip.
-    u = max(0.0, min(1.0, (t - 0.64) / 0.36))
+    # Longer outward sweep gives each arm a readable silhouette beyond the shell,
+    # then a deliberate inward curl keeps the end playful rather than finger-like.
+    u = max(0.0, min(1.0, (t - 0.62) / 0.38))
     hook = u * u * (3.0 - 2.0 * u)
-    return 0.55 * math.sin(math.pi * 0.70 * t) + 0.08 * t - 0.32 * hook
+    return 0.92 * math.sin(math.pi * 0.70 * t) + 0.12 * t - 0.74 * hook
 
 
 def arm_curve_y(t):
@@ -388,18 +389,19 @@ def arm_curve_y(t):
 
 
 def arm_curve_z(t):
-    u = max(0.0, min(1.0, (t - 0.64) / 0.36))
+    u = max(0.0, min(1.0, (t - 0.62) / 0.38))
     hook = u * u * (3.0 - 2.0 * u)
-    # The last section curls upward, producing a rounded hook rather than a finger.
-    return -0.52 * t + 0.30 * hook
+    # A longer drop makes the tentacle read as an arm; the final lift creates a curl.
+    return -0.68 * t + 0.46 * hook
 
 
 def arm_radius(t):
-    # Plush base and middle, then a true rounded taper at the end (no flat cut cap).
-    if t < 0.78:
-        return 0.205 - 0.035 * (t / 0.78)
-    u = min(1.0, max(0.0, (t - 0.78) / 0.22))
-    return 0.170 * math.sqrt(max(0.0, 1.0 - u * u))
+    # Thick plush arms with a softer taper; keep a small terminal radius so the
+    # subdivided cap becomes rounded instead of a sharp pointed tip.
+    if t < 0.72:
+        return 0.215 - 0.035 * (t / 0.72)
+    u = min(1.0, max(0.0, (t - 0.72) / 0.28))
+    return 0.18 * (0.38 + 0.62 * math.cos(u * math.pi * 0.5))
 
 
 def arm_center(t):
@@ -407,12 +409,12 @@ def arm_center(t):
 
 
 def make_arm_tube(name, parent):
-    rings, sides = 52, 24
+    rings, sides = 56, 24
     verts, faces = [], []
     # Build each cross-section perpendicular to the actual curved centerline.
     # This prevents the tube from looking like a stack of rotated sausage segments.
     for ri in range(rings):
-        t = ri / rings
+        t = ri / (rings - 1)
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
         after = arm_center(min(1.0, t + 0.002))
@@ -429,19 +431,14 @@ def make_arm_tube(name, parent):
             a = 2.0 * math.pi * j / sides
             p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
             verts.append(tuple(p))
-    pole_index = len(verts)
-    verts.append(tuple(arm_center(1.0)))
     for ri in range(rings - 1):
         for j in range(sides):
             a = ri * sides + j
             b = ri * sides + (j + 1) % sides
             faces.append((a, b, b + sides, a + sides))
     last_ring = (rings - 1) * sides
-    for j in range(sides):
-        a = last_ring + j
-        b = last_ring + (j + 1) % sides
-        faces.append((a, b, pole_index))
-    # The root is buried in the body; cap it cleanly to avoid a hole in the mesh.
+    # Closed ends let subdivision round the tip instead of pinching it into a point.
+    faces.append(tuple(last_ring + j for j in range(sides)))
     faces.append(tuple(reversed(range(sides))))
     mesh = bpy.data.meshes.new(name + "Mesh")
     mesh.from_pydata(verts, [], faces)
@@ -477,7 +474,7 @@ for i in range(8):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.22, 0.38, 0.54, 0.68)):
+    for q, t in enumerate((0.18, 0.31, 0.44, 0.57, 0.69, 0.79)):
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
         after = arm_center(min(1.0, t + 0.002))
@@ -487,12 +484,12 @@ for i in range(8):
             cup_normal = Vector((0.0, 1.0, 0.0))
         cup_normal.normalize()
         rr = arm_radius(t)
-        cup_pos = center + cup_normal * rr * 0.93
-        torus(f"SuckerRim{i}_{q}", rr * 0.22, rr * 0.055, tuple(cup_pos), SUCKER, root,
+        cup_pos = center + cup_normal * rr * 0.96
+        torus(f"SuckerRim{i}_{q}", rr * 0.27, rr * 0.070, tuple(cup_pos), SUCKER, root,
               rot=normal_rot(cup_normal))
-        inset_pos = cup_pos + cup_normal * rr * 0.035
+        inset_pos = cup_pos + cup_normal * rr * 0.045
         sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), PURPLE_DARK, root,
-               scale=(rr * 0.13, rr * 0.13, rr * 0.035), rot=normal_rot(cup_normal), seg=16)
+               scale=(rr * 0.16, rr * 0.16, rr * 0.045), rot=normal_rot(cup_normal), seg=16)
     tip_loc = tuple(arm_center(1.0))
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
