@@ -106,8 +106,8 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = nt.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.6
-    mad.inputs[2].default_value = 0.06
+    mad.inputs[1].default_value = 0.34
+    mad.inputs[2].default_value = 0.025
     for key, value in (("Base Color", (0.35, 0.6, 0.5, 1.0)), ("Roughness", 0.06), ("Metallic", 0.0),
                        ("Emission Color", (0.2, 0.5, 0.4, 1.0)), ("Emission Strength", 0.1)):
         try:
@@ -123,13 +123,13 @@ def glass_mat():
 
 
 PURPLE = mat("Purple", (0.24, 0.04, 0.38), rough=0.28, coat=0.8)
-add_skin(PURPLE, scale=16.0, strength=0.9, vein=(0.5, 0.04, 0.22), vein_scale=5.5)
+add_skin(PURPLE, scale=22.0, strength=0.28)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.13, 0.03, 0.22), rough=0.3, coat=0.7)
-add_skin(PURPLE_DARK, scale=20.0, strength=0.8)
+add_skin(PURPLE_DARK, scale=24.0, strength=0.22)
 SPOT = mat("Spot", (0.5, 0.08, 0.32), rough=0.4)
-EYE_WHITE = mat("EyeWhite", (0.88, 0.78, 0.3), rough=0.2, emit=(0.9, 0.75, 0.25), strength=0.2)
+EYE_WHITE = mat("EyeWhite", (0.95, 0.88, 0.72), rough=0.22, emit=(0.95, 0.72, 0.4), strength=0.08)
 add_skin(EYE_WHITE, scale=30.0, strength=0.1, vein=(0.6, 0.04, 0.04), vein_scale=9.0, vein_width=0.05)
-IRIS = mat("Iris", (1.0, 0.1, 0.0), rough=0.25, emit=(1.0, 0.1, 0.0), strength=1.4)
+IRIS = mat("Iris", (0.78, 0.035, 0.08), rough=0.28, emit=(0.85, 0.025, 0.06), strength=0.65)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.9)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.10, 0.0, 0.02), rough=0.9)
@@ -144,10 +144,10 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.72, 0.5, 0.55), rough=0.35, coat=0.4)
+SUCKER = mat("Sucker", (0.40, 0.12, 0.32), rough=0.42, coat=0.2)
 BONE = mat("Bone", (0.16, 0.12, 0.12), rough=0.3, coat=0.5)
 TANK = mat("Tank", (0.10, 0.13, 0.12), rough=0.55, metal=0.7)
-add_skin(TANK, scale=18.0, strength=0.7, vein=(0.28, 0.12, 0.05), vein_scale=3.0, vein_width=0.1)
+add_skin(TANK, scale=20.0, strength=0.22)
 GLASS = glass_mat()
 
 # ------------------------------------------------------------------ עזרים
@@ -247,6 +247,7 @@ for i in range(26):
 
 # עין: אישון אנכי (חתולי) וקשתית אדומה זוהרת, עם עפעפיים נוטים שנותנים מבט כועס
 EYE_Y, EYE_Z = -0.62, 0.20
+eye.scale = (0.84, 0.84, 0.84)  # keep the cyclops eye expressive without overwhelming the face
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye_parts = [
     sphere("EyeWhite", 0.44, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
@@ -272,8 +273,8 @@ for i in range(6):
     mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
 
 # כיפת זכוכית עם טבעת נחושת-ורודה
-DOME_R, DOME_Z, DOME_CUT = 1.05, 0.10, -0.75
-bpy.ops.mesh.primitive_uv_sphere_add(segments=56, ring_count=28, radius=DOME_R, location=(0, 0, DOME_Z))
+DOME_R, DOME_Z, DOME_CUT = 0.91, 0.10, -0.60
+bpy.ops.mesh.primitive_uv_sphere_add(segments=56, ring_count=28, radius=DOME_R, location=(0, 0.20, DOME_Z))
 dome = bpy.context.active_object
 bm = bmesh.new()
 bm.from_mesh(dome.data)
@@ -308,8 +309,8 @@ for side, sx in (("L", -1), ("R", 1)):
     cone(f"FlameTip{side}", 0.075, 0.0, 0.2, (tx, ty - 0.33, 0.17), FLAME, torso, scale=(1, 0.3, 1))
 
 # שמונה זרועות: שרשרת של 4 מקטעים, כל מפרק מסתובב בקוד
-ARM_LEN = [0.40, 0.36, 0.32, 0.28]
-ARM_RAD = [0.21, 0.17, 0.13, 0.095, 0.04]
+ARM_LEN = [0.46, 0.42, 0.37, 0.32]
+ARM_RAD = [0.23, 0.19, 0.145, 0.105, 0.045]
 ARM_CURLS = [0.5, 0.3, -0.15]   # כמה כל מפרק מיישר את הזרוע כלפי מטה במנוחה
 arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שורש)
 tips = []
@@ -324,9 +325,9 @@ for i in range(8):
         cone(f"Seg{i}_{k}", ARM_RAD[k + 1], ARM_RAD[k], ARM_LEN[k], (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k])
         sphere(f"Knee{i}_{k}", ARM_RAD[k], (0, 0, 0), PURPLE, joints[k], seg=20)
         if k < 3:
-            for q, f in enumerate((0.3, 0.68)):
+            for q, f in enumerate((0.38,)):
                 rr = ARM_RAD[k] + (ARM_RAD[k + 1] - ARM_RAD[k]) * f
-                sphere(f"Sucker{i}_{k}_{q}", rr * 0.32, (rr * 0.93, 0, -ARM_LEN[k] * f), SUCKER, joints[k],
+                sphere(f"Sucker{i}_{k}_{q}", rr * 0.24, (rr * 0.93, 0, -ARM_LEN[k] * f), SUCKER, joints[k],
                        scale=(0.4, 1, 1), seg=12)
     tips.append(sphere(f"Tip{i}", ARM_RAD[4], (0, 0, -ARM_LEN[3]), PURPLE, joints[3], seg=20))
     arms.append((root, joints, tilt))
