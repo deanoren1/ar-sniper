@@ -272,30 +272,29 @@ make_shell("Body", pivot, PURPLE)
 
 # כתמים בולטים על המצח והלחיים; הם שטוחים על פני הגוף ולא יוצרים מרקם של רשת
 for i, (sx, sz, rx, rz, angle) in enumerate((
-    (-0.62, 0.52, 0.16, 0.105, -0.35), (-0.42, 0.69, 0.13, 0.085, -0.55),
-    (0.00, 0.78, 0.11, 0.075, 0.0), (0.48, 0.65, 0.14, 0.09, 0.45),
-    (0.68, 0.40, 0.14, 0.105, 0.55), (-0.74, 0.16, 0.13, 0.15, -0.2),
-    (0.75, 0.12, 0.13, 0.15, 0.2), (-0.63, -0.22, 0.14, 0.11, 0.4),
-    (0.64, -0.25, 0.14, 0.11, -0.4),
+    (-0.62, 0.48, 0.12, 0.08, -0.35), (-0.34, 0.68, 0.10, 0.07, -0.55),
+    (0.08, 0.78, 0.08, 0.055, 0.0), (0.46, 0.62, 0.12, 0.075, 0.45),
+    (0.68, 0.34, 0.11, 0.08, 0.55), (-0.74, 0.08, 0.10, 0.11, -0.2),
+    (0.56, -0.12, 0.11, 0.08, -0.4), (-0.48, -0.28, 0.10, 0.08, 0.4),
+    (0.10, -0.32, 0.08, 0.055, 0.0),
 )):
     x, z = sx, sz
-    rx *= 0.64
-    rz *= 0.68
+    rx *= 0.58
+    rz *= 0.62
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     sphere(f"BodySpot{i}", 1.0, (x, surface, z), SPOT, pivot,
            scale=(rx, 0.016, rz), rot=(0, angle, 0), seg=24)
 
-# More small, flatter spots around the forehead and outer cheeks; keep the eye area clear.
+# Small, irregularly spaced flat spots; avoid the obvious symmetrical ring around the face.
 for i, (sx, sz, rx, rz) in enumerate((
-    (-0.34, 0.82, 0.085, 0.060), (0.34, 0.82, 0.085, 0.060),
-    (-0.78, 0.34, 0.090, 0.065), (0.78, 0.34, 0.090, 0.065),
-    (-0.72, -0.05, 0.085, 0.060), (0.72, -0.05, 0.085, 0.060),
-    (-0.48, -0.34, 0.075, 0.055), (0.48, -0.34, 0.075, 0.055),
-    (-0.15, 0.88, 0.065, 0.045), (0.15, 0.88, 0.065, 0.045),
+    (-0.25, 0.82, 0.060, 0.042), (0.31, 0.79, 0.060, 0.042),
+    (-0.78, 0.27, 0.065, 0.045), (0.76, 0.17, 0.060, 0.044),
+    (-0.60, -0.04, 0.055, 0.040), (0.34, -0.38, 0.060, 0.040),
+    (-0.18, -0.41, 0.050, 0.035),
 )):
-    rx *= 0.88
-    rz *= 0.88
+    rx *= 0.72
+    rz *= 0.72
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
@@ -325,16 +324,16 @@ for i in range(14):
 # עין גדולה ועגולה בסגנון צעצוע, עם קשתית כתומה ואישון שחור עגול.
 EYE_Y, EYE_Z = -0.75, 0.26
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.0, 1.0, 1.0)
+eye.scale = (0.94, 0.94, 0.94)
 eye_parts = [
-    sphere("EyeWhite", 0.41, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
-    sphere("Iris", 0.285, (0, -0.205, 0), IRIS, eye, scale=(1, 0.34, 1), seg=48),
-    sphere("Pupil", 0.17, (0, -0.285, 0), PUPIL, eye, scale=(1.0, 0.30, 1.0), seg=40),
-    sphere("Shine", 0.052, (0.065, -0.34, 0.105), SHINE, eye, scale=(1, 0.35, 1), seg=20),
+    sphere("EyeWhite", 0.40, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
+    sphere("Iris", 0.275, (0, -0.205, 0), IRIS, eye, scale=(1, 0.34, 1), seg=48),
+    sphere("Pupil", 0.16, (0, -0.285, 0), PUPIL, eye, scale=(1.0, 0.30, 1.0), seg=40),
+    sphere("Shine", 0.050, (0.065, -0.34, 0.105), SHINE, eye, scale=(1, 0.35, 1), seg=20),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
 # Thin raised rim; the sclera and orange iris remain visible instead of sinking into the shell.
-torus("EyeRim", 0.39, 0.028, (0, -0.025, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeRim", 0.385, 0.016, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 
 # Compact playful mouth with just a few small teeth (closer to the reference toy expression).
 mouth = empty("Mouth", pivot, loc=(0, -0.80, -0.43))
@@ -368,16 +367,16 @@ for side, sx in (("L", -1), ("R", 1)):
     cone(f"FlameTip{side}", 0.045, 0.0, 0.11, (tx, ty - 0.214, 0.105), FLAME, torso, scale=(1, 0.3, 1))
 
 # Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
-ARM_LEN = [0.40, 0.35, 0.30, 0.24]
-ARM_RAD = [0.22, 0.19, 0.16, 0.125, 0.06]
+ARM_LEN = [0.32, 0.28, 0.23, 0.18]
+ARM_RAD = [0.22, 0.19, 0.16, 0.125, 0.065]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
 
 def arm_curve_x(t):
-    # Spread the tentacles away from the body, then hook the rounded tips outward.
+    # Fan out, then curl the tip back inward for a compact octopus silhouette.
     u = max(0.0, (t - 0.66) / 0.34)
-    return 0.22 * math.sin(math.pi * t) - 0.03 * t + 0.30 * u * u
+    return 0.20 * math.sin(math.pi * t) + 0.34 * u - 0.42 * u * u + 0.08 * math.sin(2.0 * math.pi * u)
 
 
 def arm_curve_y(t):
@@ -385,13 +384,14 @@ def arm_curve_y(t):
 
 
 def arm_curve_z(t):
-    u = max(0.0, (t - 0.62) / 0.38)
-    return -ARM_TOTAL * t + 0.34 * u * u
+    u = max(0.0, (t - 0.66) / 0.34)
+    # Lift the last third so the arms hook upward instead of hanging like fingers.
+    return -ARM_TOTAL * t + 0.68 * u * u
 
 
 def arm_radius(t):
-    # Taper the tube more noticeably and let a small sphere make the tip fully round.
-    return 0.06 + 0.16 * (1.0 - t ** 1.45)
+    # Taper gently, but keep the ends plush and rounded rather than pointed.
+    return 0.065 + 0.155 * (1.0 - t ** 1.45)
 
 
 def make_arm_tube(name, parent):
@@ -438,20 +438,21 @@ tips = []
 for i in range(8):
     theta = math.radians(i * 45 + 22.5)
     tilt = 0.95 + rng.uniform(-0.1, 0.1)
-    root = empty(f"ArmRoot{i}", torso, loc=(0.5 * math.cos(theta), 0.5 * math.sin(theta), -0.72), rot=(0, -tilt, theta))
+    root = empty(f"ArmRoot{i}", torso, loc=(0.5 * math.cos(theta), 0.5 * math.sin(theta), -0.64), rot=(0, -tilt, theta))
     joints = [root]
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     make_arm_tube(f"ArmTube{i}", root)
-    # Small purple suckers sit flush against the front-facing underside of each arm.
-    for q, t in enumerate((0.25, 0.36, 0.47, 0.58, 0.69, 0.80)):
+    # Small suction cups: a pink raised rim with a dark inset, not glossy bead-like bumps.
+    for q, t in enumerate((0.24, 0.40, 0.56, 0.72)):
         rr = arm_radius(t)
-        sphere(f"Sucker{i}_{q}", 1.0,
-               (arm_curve_x(t), arm_curve_y(t) - rr * 1.02, arm_curve_z(t)),
-               SUCKER, root, scale=(rr * 0.42, rr * 0.12, rr * 0.42), seg=20)
+        sx, sy, sz = arm_curve_x(t), arm_curve_y(t) - rr * 0.96, arm_curve_z(t)
+        torus(f"SuckerRim{i}_{q}", rr * 0.24, rr * 0.07, (sx, sy, sz), SUCKER, root,
+              rot=(math.pi / 2, 0, 0))
+        sphere(f"SuckerCup{i}_{q}", 1.0, (sx, sy - rr * 0.045, sz), PURPLE_DARK, root,
+               scale=(rr * 0.14, rr * 0.045, rr * 0.14), seg=16)
     tip_loc = (arm_curve_x(1.0), arm_curve_y(1.0), arm_curve_z(1.0))
-    sphere(f"ArmTip{i}", 1.0, tip_loc, PURPLE, root,
-           scale=(arm_radius(1.0) * 0.86, arm_radius(1.0) * 0.86, arm_radius(1.0) * 0.86), seg=24)
+    # The tube itself closes the tip; avoid a separate bulb that reads as a joint.
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
