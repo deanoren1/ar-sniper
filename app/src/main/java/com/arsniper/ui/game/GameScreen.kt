@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -176,6 +177,7 @@ fun GameScreen(
     val isGuest = coop == "guest"
     val isHost = coop == "host"
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
+    var themed by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
     val soundPlayer = remember { SoundPlayer(context) }
@@ -362,6 +364,20 @@ fun GameScreen(
             }
             scene = sceneContext
             engine.configure(sceneContext)
+            // עיצוב הארנה לפי גיאומטריית התמונה (טונדרה: שלג, כפור, קרחונים); מטמון בדיסק
+            if (analysis != null && photo != null && style == ArenaStyle.Tundra) {
+                val file = PhotoRepository.currentFile(context)
+                if (file != null) {
+                    themed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                        try {
+                            val key = com.arsniper.ml.AnalysisCache.keyFor(file)
+                            com.arsniper.ml.ThemeBake.bake(context, style, photo.asAndroidBitmap(), analysis, key)?.asImageBitmap()
+                        } catch (_: Throwable) {
+                            null
+                        }
+                    }
+                }
+            }
             if (isGuest) {
                 // האורח לא יוצר מפלצות: הוא מציג את מה שהמארח שולח
                 CoopSync.sendGuestReady()
@@ -1246,7 +1262,7 @@ fun GameScreen(
                     translationY = (0.5f - camera.center.y * camera.zoom) * size.height + shakeY
                 }
         ) {
-            BackgroundLayer(photo = photo, colorFilter = remember(style) { arenaColorFilter(style) })
+            BackgroundLayer(photo = themed ?: photo, colorFilter = remember(style, themed != null) { if (themed != null) null else arenaColorFilter(style) })
             ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, worldViewAspect = if (panoMode) viewAspect else 0f)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
