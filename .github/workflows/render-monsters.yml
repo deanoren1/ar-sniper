@@ -40,7 +40,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p out
-          ~/blender/blender -b -noaudio --python-exit-code 1 -P docs/blender/octopus.py -- out "${{ inputs.angles || 'side' }}" 384 32 2>&1 | tee out/render.log | tail -60
+          ~/blender/blender -b -noaudio --python-exit-code 1 -P docs/blender/octopus_glb.py -- out "${{ inputs.angles || 'side' }}" 384 32 2>&1 | tee out/render.log | tail -60
       - name: Assemble sheets
         run: |
           pip install --quiet pillow
