@@ -447,15 +447,10 @@ bg = world.node_tree.nodes["Background"]
 bg.inputs[0].default_value = (0.25, 0.3, 0.5, 1.0)
 bg.inputs[1].default_value = 0.4
 
-scene.render.engine = "CYCLES"
-scene.cycles.device = "CPU"
-scene.cycles.samples = SAMPLES
-scene.cycles.use_denoising = True
-try:
-    scene.cycles.denoiser = "OPENIMAGEDENOISE"
-except Exception:
-    pass
-scene.cycles.filter_width = 1.4
+# Eevee avoids a reproducible native Cycles BVH crash in the headless GitHub runner.
+scene.render.engine = "BLENDER_EEVEE_NEXT"
+scene.eevee.taa_render_samples = max(16, SAMPLES)
+scene.render.image_settings.file_format = "PNG"
 scene.render.film_transparent = True
 scene.render.image_settings.file_format = "PNG"
 scene.render.image_settings.color_mode = "RGBA"
