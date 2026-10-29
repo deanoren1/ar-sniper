@@ -122,14 +122,14 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.24, 0.04, 0.38), rough=0.28, coat=0.8)
+PURPLE = mat("Purple", (0.38, 0.025, 0.58), rough=0.24, coat=0.72)
 add_skin(PURPLE, scale=22.0, strength=0.28)  # smoother stylized skin; avoid the dense web-like vein pattern
-PURPLE_DARK = mat("PurpleDark", (0.13, 0.03, 0.22), rough=0.3, coat=0.7)
+PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=24.0, strength=0.22)
-SPOT = mat("Spot", (0.5, 0.08, 0.32), rough=0.4)
-EYE_WHITE = mat("EyeWhite", (0.95, 0.88, 0.72), rough=0.22, emit=(0.95, 0.72, 0.4), strength=0.08)
-add_skin(EYE_WHITE, scale=30.0, strength=0.1, vein=(0.6, 0.04, 0.04), vein_scale=9.0, vein_width=0.05)
-IRIS = mat("Iris", (0.78, 0.035, 0.08), rough=0.28, emit=(0.85, 0.025, 0.06), strength=0.65)
+SPOT = mat("Spot", (0.95, 0.035, 0.58), rough=0.28, coat=0.45)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.91, 0.72), rough=0.2, coat=0.25)
+# Smooth cream sclera; no visible vein pattern in the toy style.
+IRIS = mat("Iris", (1.0, 0.19, 0.008), rough=0.22, coat=0.45, emit=(1.0, 0.12, 0.005), strength=0.18)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.9)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.10, 0.0, 0.02), rough=0.9)
@@ -145,9 +145,9 @@ ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.40, 0.12, 0.32), rough=0.42, coat=0.2)
-BONE = mat("Bone", (0.16, 0.12, 0.12), rough=0.3, coat=0.5)
-TANK = mat("Tank", (0.10, 0.13, 0.12), rough=0.55, metal=0.7)
-add_skin(TANK, scale=20.0, strength=0.22)
+BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
+TANK = mat("Tank", (0.52, 0.018, 0.42), rough=0.26, metal=0.25, coat=0.65)
+# Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
 
 # ------------------------------------------------------------------ עזרים
@@ -238,51 +238,50 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     sphere(f"BodySpot{i}", 1.0, (x, surface - 0.012, z), SPOT, pivot,
            scale=(rx, 0.025, rz), rot=(0, angle, 0), seg=24)
 
-# קרנות גדולות בחלק האחורי והעליון, וקוצים קטנים בין הכתמים. החזית (העין והפה) נשארת נקייה
-for i in range(9):
+# קוצים קטנים ורודים, בעיקר בחלק העליון; בלי קרניים אפורות גדולות.
+for i in range(5):
     az = math.radians(20 + i * 40 + rng.uniform(-8, 8))
     if 235 < math.degrees(az) % 360 < 305:
         continue  # לא מול הפנים
     pol = math.radians(rng.uniform(22, 55))
     n = Vector((math.sin(pol) * math.cos(az), math.sin(pol) * math.sin(az), math.cos(pol)))
     p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 0.95
-    h = rng.uniform(0.26, 0.42)
-    cone(f"Horn{i}", 0.11, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
+    h = rng.uniform(0.13, 0.22)
+    cone(f"Horn{i}", 0.075, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
-for i in range(26):
+for i in range(14):
     az = rng.uniform(0, 2 * math.pi)
     pol = math.acos(rng.uniform(-0.5, 0.95))
     n = Vector((math.sin(pol) * math.cos(az), math.sin(pol) * math.sin(az), math.cos(pol)))
     if n.y < -0.35 and abs(n.x) < 0.8 and -0.65 < n.z < 0.85:
         continue  # שם העין והפה
     p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 0.97
-    h = rng.uniform(0.07, 0.14)
+    h = rng.uniform(0.045, 0.09)
     cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
-# עין: אישון אנכי (חתולי) וקשתית אדומה זוהרת, עם עפעפיים נוטים שנותנים מבט כועס
+# עין גדולה ועגולה בסגנון צעצוע, עם קשתית כתומה ואישון שחור עגול.
 EYE_Y, EYE_Z = -0.62, 0.20
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.0, 1.0, 1.0)  # keep the large, expressive cyclops eye from the reference
+eye.scale = (1.28, 1.0, 1.28)
 eye_parts = [
-    sphere("EyeWhite", 0.44, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
-    sphere("Iris", 0.33, (0, -0.22, 0), IRIS, eye, scale=(1, 0.3, 1), seg=40),
-    sphere("Pupil", 0.3, (0, -0.28, 0), PUPIL, eye, scale=(0.3, 0.3, 1.0), seg=28),
-    sphere("Shine", 0.05, (0.07, -0.31, 0.12), SHINE, eye, scale=(1, 0.4, 1), seg=16),
+    sphere("EyeWhite", 0.47, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
+    sphere("Iris", 0.335, (0, -0.205, 0), IRIS, eye, scale=(1, 0.30, 1), seg=48),
+    sphere("Pupil", 0.205, (0, -0.285, 0), PUPIL, eye, scale=(1.0, 0.28, 1.0), seg=40),
+    sphere("Shine", 0.065, (0.08, -0.34, 0.12), SHINE, eye, scale=(1, 0.35, 1), seg=20),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
-for name, sx, ang in (("LidL", -1, 0.30), ("LidR", 1, -0.30)):
-    # Eyelids frame the eye instead of covering most of it, keeping the expression readable at game size.
-    sphere(name, 0.36, (0.31 * sx, -0.13, 0.40), PURPLE_DARK, eye, scale=(0.72, 0.55, 0.30), rot=(0, ang, 0), seg=28)
+# Raised glossy rim around the eye; avoids the two oversized eyebrow blobs.
+torus("EyeRim", 0.445, 0.045, (0, -0.045, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
 
 # פה רחב עם שתי שורות שיניים חדות
-mouth = empty("Mouth", pivot, loc=(0, -0.72, -0.42))
-mouth_parts = [sphere("MouthCavity", 0.3, (0, 0, 0), MOUTH, mouth, scale=(1.7, 0.32, 0.62), seg=28)]
+mouth = empty("Mouth", pivot, loc=(0, -0.78, -0.43))
+mouth_parts = [sphere("MouthCavity", 0.34, (0, 0, 0), MOUTH, mouth, scale=(1.95, 0.32, 0.66), seg=36)]
 for i in range(7):
-    x = -0.4 + i * (0.8 / 6)
+    x = -0.46 + i * (0.92 / 6)
     h = 0.13 + 0.07 * ((i * 5) % 3) / 2
     mouth_parts.append(cone(f"ToothU{i}", 0.045, 0.0, h, (x, -0.07, 0.15 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
 for i in range(6):
-    x = -0.34 + i * (0.68 / 5)
+    x = -0.39 + i * (0.78 / 5)
     h = 0.11 + 0.05 * ((i * 7) % 3) / 2
     mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
 
@@ -323,9 +322,9 @@ for side, sx in (("L", -1), ("R", 1)):
     cone(f"FlameTip{side}", 0.075, 0.0, 0.2, (tx, ty - 0.33, 0.17), FLAME, torso, scale=(1, 0.3, 1))
 
 # שמונה זרועות: שרשרת של 4 מקטעים, כל מפרק מסתובב בקוד
-ARM_LEN = [0.46, 0.42, 0.37, 0.32]
-ARM_RAD = [0.23, 0.19, 0.145, 0.105, 0.045]
-ARM_CURLS = [0.15, 0.55, 2.0]   # הזרועות נפתחות החוצה והקצוות מתקפלים כלפי מעלה
+ARM_LEN = [0.43, 0.39, 0.34, 0.28]
+ARM_RAD = [0.255, 0.215, 0.17, 0.125, 0.065]
+ARM_CURLS = [0.22, 0.35, -0.72]   # זרועות רכות עם קצוות מעוגלים שמתקפלים פנימה
 arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שורש)
 tips = []
 for i in range(8):
