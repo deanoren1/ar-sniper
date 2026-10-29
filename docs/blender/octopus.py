@@ -219,10 +219,24 @@ monster = empty("Monster")
 torso = empty("Torso", monster, loc=(0, 0, TORSO_Z))
 pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, ובתוכו הגוף, העין והפה
 
-# גוף
+# גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
 BODY_R = 0.9
 BODY_SCALE = (1.05, 0.95, 0.85)
 sphere("Body", BODY_R, (0, 0, 0), PURPLE, pivot, scale=BODY_SCALE, seg=48)
+
+# כתמים בולטים על המצח והלחיים; הם שטוחים על פני הגוף ולא יוצרים מרקם של רשת
+for i, (sx, sz, rx, rz, angle) in enumerate((
+    (-0.62, 0.52, 0.15, 0.09, -0.35), (-0.38, 0.69, 0.12, 0.075, -0.55),
+    (0.00, 0.76, 0.11, 0.065, 0.0), (0.40, 0.67, 0.14, 0.08, 0.45),
+    (0.66, 0.43, 0.12, 0.085, 0.55), (-0.72, 0.18, 0.10, 0.13, -0.2),
+    (0.73, 0.12, 0.11, 0.14, 0.2), (-0.63, -0.22, 0.12, 0.09, 0.4),
+    (0.64, -0.25, 0.13, 0.10, -0.4),
+)):
+    x = sx
+    z = sz
+    surface = -BODY_SCALE[1] * math.sqrt(max(0.08, BODY_R**2 - (x / BODY_SCALE[0])**2 - (z / BODY_SCALE[2])**2))
+    sphere(f"BodySpot{i}", 1.0, (x, surface - 0.012, z), SPOT, pivot,
+           scale=(rx, 0.025, rz), rot=(0, angle, 0), seg=24)
 
 # קרנות גדולות בחלק האחורי והעליון, וקוצים קטנים בין הכתמים. החזית (העין והפה) נשארת נקייה
 for i in range(9):
@@ -247,9 +261,8 @@ for i in range(26):
 
 # עין: אישון אנכי (חתולי) וקשתית אדומה זוהרת, עם עפעפיים נוטים שנותנים מבט כועס
 EYE_Y, EYE_Z = -0.62, 0.20
-eye.scale = (0.84, 0.84, 0.84)  # keep the cyclops eye expressive without overwhelming the face
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye_parts = [
+eye.scale = (1.0, 1.0, 1.0)  # keep the large, expressive cyclops eye from the referenceeye_parts = [
     sphere("EyeWhite", 0.44, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
     sphere("Iris", 0.33, (0, -0.22, 0), IRIS, eye, scale=(1, 0.3, 1), seg=40),
     sphere("Pupil", 0.3, (0, -0.28, 0), PUPIL, eye, scale=(0.3, 0.3, 1.0), seg=28),
@@ -273,7 +286,7 @@ for i in range(6):
     mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
 
 # כיפת זכוכית עם טבעת נחושת-ורודה
-DOME_R, DOME_Z, DOME_CUT = 0.91, 0.10, -0.60
+DOME_R, DOME_Z, DOME_CUT = 1.12, 0.10, -0.72
 bpy.ops.mesh.primitive_uv_sphere_add(segments=56, ring_count=28, radius=DOME_R, location=(0, 0.20, DOME_Z))
 dome = bpy.context.active_object
 bm = bmesh.new()
@@ -311,7 +324,7 @@ for side, sx in (("L", -1), ("R", 1)):
 # שמונה זרועות: שרשרת של 4 מקטעים, כל מפרק מסתובב בקוד
 ARM_LEN = [0.46, 0.42, 0.37, 0.32]
 ARM_RAD = [0.23, 0.19, 0.145, 0.105, 0.045]
-ARM_CURLS = [0.5, 0.3, -0.15]   # כמה כל מפרק מיישר את הזרוע כלפי מטה במנוחה
+ARM_CURLS = [0.15, 0.55, 2.0]   # הזרועות נפתחות החוצה והקצוות מתקפלים כלפי מעלה
 arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שורש)
 tips = []
 for i in range(8):
@@ -325,9 +338,9 @@ for i in range(8):
         cone(f"Seg{i}_{k}", ARM_RAD[k + 1], ARM_RAD[k], ARM_LEN[k], (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k])
         sphere(f"Knee{i}_{k}", ARM_RAD[k], (0, 0, 0), PURPLE, joints[k], seg=20)
         if k < 3:
-            for q, f in enumerate((0.38,)):
+            for q, f in enumerate((0.38, 0.72)):
                 rr = ARM_RAD[k] + (ARM_RAD[k + 1] - ARM_RAD[k]) * f
-                sphere(f"Sucker{i}_{k}_{q}", rr * 0.24, (rr * 0.93, 0, -ARM_LEN[k] * f), SUCKER, joints[k],
+                sphere(f"Sucker{i}_{k}_{q}", rr * 0.30, (rr * 0.93, -0.012, -ARM_LEN[k] * f), SUCKER, joints[k],
                        scale=(0.4, 1, 1), seg=12)
     tips.append(sphere(f"Tip{i}", ARM_RAD[4], (0, 0, -ARM_LEN[3]), PURPLE, joints[3], seg=20))
     arms.append((root, joints, tilt))
