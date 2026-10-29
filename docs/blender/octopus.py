@@ -222,7 +222,43 @@ pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, וב�
 # גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
 BODY_R = 0.9
 BODY_SCALE = (1.05, 0.95, 0.85)
-sphere("Body", BODY_R, (0, 0, 0), PURPLE, pivot, scale=BODY_SCALE, seg=48)
+
+# New approach: build the head from a smooth lathed profile rather than a basic sphere.
+# The broad lower shell and gently narrowing crown create the reference's exposed octopus head.
+def make_shell(name, parent, material):
+    profile = [
+        (-0.76, 0.64), (-0.70, 0.78), (-0.54, 0.91), (-0.30, 1.00),
+        (-0.02, 1.035), (0.25, 1.00), (0.48, 0.88), (0.67, 0.67),
+        (0.82, 0.40), (0.89, 0.12), (0.90, 0.015)
+    ]
+    sides = 64
+    verts, faces = [], []
+    for z, radius in profile:
+        for j in range(sides):
+            a = 2 * math.pi * j / sides
+            verts.append((radius * math.cos(a), radius * 0.88 * math.sin(a), z))
+    for k in range(len(profile) - 1):
+        for j in range(sides):
+            a = k * sides + j
+            b = k * sides + (j + 1) % sides
+            faces.append((a, b, b + sides, a + sides))
+    faces.append(tuple(range(sides - 1, -1, -1)))
+    faces.append(tuple((len(profile) - 1) * sides + j for j in range(sides)))
+    mesh = bpy.data.meshes.new(name + "Mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.parent = parent
+    obj.data.materials.append(material)
+    smooth(obj)
+    sub = obj.modifiers.new("SilhouetteSmooth", "SUBSURF")
+    sub.levels = 2
+    sub.render_levels = 2
+    main_parts.append(obj)
+    return obj
+
+make_shell("Body", pivot, PURPLE)
 
 # כתמים בולטים על המצח והלחיים; הם שטוחים על פני הגוף ולא יוצרים מרקם של רשת
 for i, (sx, sz, rx, rz, angle) in enumerate((
@@ -285,27 +321,12 @@ for i in range(4):
     h = 0.065 + 0.02 * ((i * 7) % 3) / 2
     mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
 
-# כיפת זכוכית עם טבעת נחושת-ורודה
-DOME_R, DOME_Z, DOME_CUT = 1.02, 0.08, -0.70
-bpy.ops.mesh.primitive_uv_sphere_add(segments=56, ring_count=28, radius=DOME_R, location=(0, 0.20, DOME_Z))
-dome = bpy.context.active_object
-bm = bmesh.new()
-bm.from_mesh(dome.data)
-bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < DOME_CUT], context="VERTS")
-bm.to_mesh(dome.data)
-bm.free()
-fin(dome, GLASS, torso, "Dome", main=False)
-dome.hide_render = True  # Reference design has an exposed purple shell, not a clear glass bubble
-try:
-    dome.visible_shadow = False
-except Exception:
-    pass
-rim_r = math.sqrt(DOME_R ** 2 - DOME_CUT ** 2)
-rim_z = DOME_Z + DOME_CUT
-torus("DomeRing", rim_r, 0.09, (0, 0, rim_z), RING, torso)
-for i in range(22):
-    a = i * (2 * math.pi / 22)
-    sphere(f"Rivet{i}", 0.028, (rim_r * math.cos(a), rim_r * math.sin(a), rim_z + 0.09), SPOT, torso, seg=12)
+# No glass bubble: a visible pink lower collar/band anchors the purple shell.
+# It sits at the head's base, not around an imaginary glass dome.
+torus("LowerPinkBand", 0.76, 0.105, (0, 0, -0.69), RING, torso)
+for i in range(18):
+    a = i * (2 * math.pi / 18)
+    sphere(f"BandRivet{i}", 0.026, (0.76 * math.cos(a), 0.76 * math.sin(a), -0.60), SPOT, torso, seg=12)
 
 # שני מיכלי אש בצדדים ומעט מאחור (כדי שמהצד עדיין רואים את הפנים), עם צינור לכיפה
 for side, sx in (("L", -1), ("R", 1)):
@@ -336,8 +357,8 @@ for i in range(8):
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     for k in range(4):
-        sphere(f"Seg{i}_{k}", 1.0, (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k], scale=(ARM_RAD[k] * 0.90, ARM_RAD[k] * 0.90, ARM_LEN[k] / 2 + ARM_RAD[k] * 0.55), seg=32)
-        sphere(f"Knee{i}_{k}", ARM_RAD[k] * 0.78, (0, 0, 0), PURPLE, joints[k], seg=24)
+        sphere(f"Seg{i}_{k}", 1.0, (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k], scale=(ARM_RAD[k] * 1.02, ARM_RAD[k] * 1.02, ARM_LEN[k] / 2 + ARM_RAD[k] * 1.05), seg=32)
+        sphere(f"Knee{i}_{k}", ARM_RAD[k] * 0.94, (0, 0, 0), PURPLE, joints[k], seg=24)
         if k < 3:
             for q, f in enumerate((0.38, 0.72)):
                 rr = ARM_RAD[k] + (ARM_RAD[k + 1] - ARM_RAD[k]) * f
@@ -604,7 +625,7 @@ def pose(clip, i, n):
             pivot.scale = (1.3, 1.3, 1.3)
             tint(0.45, (0.9, 0.35, 0.9))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
-            show([o for o in main_parts if o.name.startswith(("Dome", "Rivet"))], False)
+            show([o for o in main_parts if o.name.startswith(("LowerPinkBand", "BandRivet"))], False)
             for f, d, dist in frags:
                 f.hide_render = False
                 f.location = d * dist
