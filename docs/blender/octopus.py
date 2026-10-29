@@ -279,12 +279,12 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.10, -0.32, 0.08, 0.055, 0.0),
 )):
     x, z = sx, sz
-    rx *= 0.58
-    rz *= 0.62
+    rx *= 0.50
+    rz *= 0.54
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     sphere(f"BodySpot{i}", 1.0, (x, surface, z), SPOT, pivot,
-           scale=(rx, 0.016, rz), rot=(0, angle, 0), seg=24)
+           scale=(rx, 0.010, rz), rot=(0, angle, 0), seg=24)
 
 # Small, irregularly spaced flat spots; avoid the obvious symmetrical ring around the face.
 for i, (sx, sz, rx, rz) in enumerate((
@@ -293,12 +293,12 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.60, -0.04, 0.055, 0.040), (0.34, -0.38, 0.060, 0.040),
     (-0.18, -0.41, 0.050, 0.035),
 )):
-    rx *= 0.72
-    rz *= 0.72
+    rx *= 0.68
+    rz *= 0.68
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
-           scale=(rx, 0.013, rz), seg=20)
+           scale=(rx, 0.009, rz), seg=20)
 
 # קוצים קטנים ורודים, בעיקר בחלק העליון; בלי קרניים אפורות גדולות.
 for i in range(5):
@@ -324,47 +324,48 @@ for i in range(14):
 # עין גדולה ועגולה בסגנון צעצוע, עם קשתית כתומה ואישון שחור עגול.
 EYE_Y, EYE_Z = -0.75, 0.26
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.94, 0.94, 0.94)
+eye.scale = (0.98, 0.98, 0.98)
 eye_parts = [
-    sphere("EyeWhite", 0.40, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.52, 1), seg=48),
-    sphere("Iris", 0.275, (0, -0.205, 0), IRIS, eye, scale=(1, 0.34, 1), seg=48),
-    sphere("Pupil", 0.16, (0, -0.285, 0), PUPIL, eye, scale=(1.0, 0.30, 1.0), seg=40),
-    sphere("Shine", 0.050, (0.065, -0.34, 0.105), SHINE, eye, scale=(1, 0.35, 1), seg=20),
+    sphere("EyeWhite", 0.42, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1), seg=48),
+    sphere("Iris", 0.30, (0, -0.215, 0), IRIS, eye, scale=(1, 0.34, 1), seg=48),
+    sphere("Pupil", 0.17, (0, -0.295, 0), PUPIL, eye, scale=(1.0, 0.30, 1.0), seg=40),
+    sphere("Shine", 0.050, (0.065, -0.35, 0.105), SHINE, eye, scale=(1, 0.35, 1), seg=20),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
 # Thin raised rim; the sclera and orange iris remain visible instead of sinking into the shell.
-torus("EyeRim", 0.385, 0.016, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeRim", 0.405, 0.014, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 
 # Compact playful mouth with just a few small teeth (closer to the reference toy expression).
-mouth = empty("Mouth", pivot, loc=(0, -0.80, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.25, (0, 0, 0), MOUTH, mouth, scale=(1.34, 0.30, 0.37), seg=36)]
-for i, x in enumerate((-0.23, 0.0, 0.23)):
-    h = (0.060, 0.070, 0.060)[i]
-    mouth_parts.append(cone(f"ToothU{i}", 0.038, 0.0, h, (x, -0.075, 0.115 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.15, 0.15)):
-    h = 0.055
-    mouth_parts.append(cone(f"ToothL{i}", 0.034, 0.0, h, (x, -0.075, -0.115 + h / 2), TEETH, mouth))
+mouth = empty("Mouth", pivot, loc=(0, -0.80, -0.45))
+mouth_parts = [sphere("MouthCavity", 0.235, (0, 0, 0), MOUTH, mouth, scale=(1.30, 0.32, 0.40), seg=36)]
+for i, x in enumerate((-0.18, 0.0, 0.18)):
+    h = (0.050, 0.060, 0.050)[i]
+    # Seat the upper teeth inside the cavity so they read as a grin, not floating spikes.
+    mouth_parts.append(cone(f"ToothU{i}", 0.032, 0.0, h, (x, -0.068, 0.055 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
+for i, x in enumerate((-0.12, 0.12)):
+    h = 0.045
+    mouth_parts.append(cone(f"ToothL{i}", 0.029, 0.0, h, (x, -0.068, -0.055 + h / 2), TEETH, mouth))
 
 # No glass bubble: a visible pink lower collar/band anchors the purple shell.
-torus("LowerPinkBand", 0.73, 0.052, (0, 0, -0.68), RING, torso)
-for i in range(16):
-    a = i * (2 * math.pi / 16)
-    sphere(f"BandRivet{i}", 0.013, (0.73 * math.cos(a), 0.73 * math.sin(a), -0.605), SPOT, torso, seg=12)
+torus("LowerPinkBand", 0.70, 0.038, (0, 0, -0.72), RING, torso)
+for i in range(12):
+    a = i * (2 * math.pi / 12)
+    sphere(f"BandRivet{i}", 0.009, (0.70 * math.cos(a), 0.70 * math.sin(a), -0.70), SPOT, torso, seg=12)
 
 # Compact side tanks, pulled outward so the dark hardware and flame badges read clearly.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.10 * sx, 0.18
-    cylinder(f"Tank{side}", 0.17, 0.62, (tx, ty, 0.07), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.195, 0.08, (tx, ty, 0.42), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.195, 0.08, (tx, ty, -0.28), METAL, torso)
-    torus(f"TankBand1{side}", 0.175, 0.021, (tx, ty, 0.20), METAL, torso)
-    torus(f"TankBand2{side}", 0.175, 0.021, (tx, ty, -0.06), METAL, torso)
-    cylinder(f"TankNozzle{side}", 0.040, 0.08, (tx, ty, 0.47), METAL, torso)
-    sphere(f"Valve{side}", 0.034, (tx, ty, 0.53), COPPER, torso, seg=16)
-    cylinder(f"Connector{side}", 0.045, 0.20, (0.96 * sx, ty - 0.02, 0.28), COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.108, 0.020, (tx, ty - 0.192, 0.07), METAL, torso, rot=(math.pi / 2, 0, 0))
-    sphere(f"FlameBase{side}", 0.045, (tx, ty - 0.214, 0.030), FLAME, torso, scale=(1, 0.3, 1), seg=16)
-    cone(f"FlameTip{side}", 0.045, 0.0, 0.11, (tx, ty - 0.214, 0.105), FLAME, torso, scale=(1, 0.3, 1))
+    tx, ty = 1.02 * sx, 0.16
+    cylinder(f"Tank{side}", 0.145, 0.56, (tx, ty, 0.07), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.165, 0.07, (tx, ty, 0.385), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.165, 0.07, (tx, ty, -0.245), METAL, torso)
+    torus(f"TankBand1{side}", 0.148, 0.018, (tx, ty, 0.18), METAL, torso)
+    torus(f"TankBand2{side}", 0.148, 0.018, (tx, ty, -0.04), METAL, torso)
+    cylinder(f"TankNozzle{side}", 0.034, 0.07, (tx, ty, 0.455), METAL, torso)
+    sphere(f"Valve{side}", 0.028, (tx, ty, 0.505), COPPER, torso, seg=16)
+    cylinder(f"Connector{side}", 0.038, 0.16, (0.91 * sx, ty - 0.02, 0.25), COPPER, torso, rot=(0, math.pi / 2, 0))
+    cylinder(f"Badge{side}", 0.090, 0.018, (tx, ty - 0.152, 0.07), METAL, torso, rot=(math.pi / 2, 0, 0))
+    sphere(f"FlameBase{side}", 0.036, (tx, ty - 0.174, 0.030), FLAME, torso, scale=(1, 0.3, 1), seg=16)
+    cone(f"FlameTip{side}", 0.036, 0.0, 0.09, (tx, ty - 0.174, 0.092), FLAME, torso, scale=(1, 0.3, 1))
 
 # Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -452,7 +453,8 @@ for i in range(8):
         sphere(f"SuckerCup{i}_{q}", 1.0, (sx, sy - rr * 0.045, sz), PURPLE_DARK, root,
                scale=(rr * 0.14, rr * 0.045, rr * 0.14), seg=16)
     tip_loc = (arm_curve_x(1.0), arm_curve_y(1.0), arm_curve_z(1.0))
-    # The tube itself closes the tip; avoid a separate bulb that reads as a joint.
+    # Round over the tube's flat end cap so the tentacle reads as soft, not cut off.
+    sphere(f"ArmTipCap{i}", arm_radius(1.0), tip_loc, PURPLE, root, seg=24)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
