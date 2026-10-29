@@ -122,14 +122,14 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.38, 0.025, 0.58), rough=0.24, coat=0.72)
-add_skin(PURPLE, scale=18.0, strength=0.09)  # smoother stylized skin; avoid the dense web-like vein pattern
+PURPLE = mat("Purple", (0.38, 0.025, 0.58), rough=0.38, coat=0.28)
+add_skin(PURPLE, scale=18.0, strength=0.025)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (0.95, 0.035, 0.58), rough=0.28, coat=0.45)
+SPOT = mat("Spot", (0.95, 0.035, 0.58), rough=0.38, coat=0.25)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.91, 0.72), rough=0.2, coat=0.25)
 # Smooth cream sclera; no visible vein pattern in the toy style.
-IRIS = mat("Iris", (1.0, 0.19, 0.008), rough=0.22, coat=0.45, emit=(1.0, 0.12, 0.005), strength=0.18)
+IRIS = mat("Iris", (1.0, 0.19, 0.008), rough=0.28, coat=0.25, emit=(1.0, 0.12, 0.005), strength=0.08)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.9)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.10, 0.0, 0.02), rough=0.9)
@@ -146,7 +146,7 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.40, 0.12, 0.32), rough=0.42, coat=0.2)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TANK = mat("Tank", (0.52, 0.018, 0.42), rough=0.26, metal=0.25, coat=0.65)
+TANK = mat("Tank", (0.52, 0.018, 0.42), rough=0.38, metal=0.12, coat=0.3)
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
 
@@ -275,13 +275,13 @@ torus("EyeRim", 0.445, 0.026, (0, -0.045, 0), SPOT, eye, rot=(math.pi / 2, 0, 0)
 
 # פה רחב וחיוך שובב; שיניים קטנות ומעוגלות יחסית
 mouth = empty("Mouth", pivot, loc=(0, -0.78, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.34, (0, 0, 0), MOUTH, mouth, scale=(1.95, 0.32, 0.66), seg=36)]
-for i in range(7):
-    x = -0.46 + i * (0.92 / 6)
+mouth_parts = [sphere("MouthCavity", 0.30, (0, 0, 0), MOUTH, mouth, scale=(1.82, 0.28, 0.52), seg=36)]
+for i in range(5):
+    x = -0.38 + i * (0.76 / 4)
     h = 0.075 + 0.025 * ((i * 5) % 3) / 2
     mouth_parts.append(cone(f"ToothU{i}", 0.045, 0.0, h, (x, -0.07, 0.15 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
-for i in range(6):
-    x = -0.39 + i * (0.78 / 5)
+for i in range(4):
+    x = -0.30 + i * (0.60 / 3)
     h = 0.065 + 0.02 * ((i * 7) % 3) / 2
     mouth_parts.append(cone(f"ToothL{i}", 0.04, 0.0, h, (x, -0.07, -0.15 + h / 2), TEETH, mouth))
 
@@ -335,8 +335,8 @@ for i in range(8):
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     for k in range(4):
-        sphere(f"Seg{i}_{k}", 1.0, (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k], scale=(ARM_RAD[k], ARM_RAD[k], ARM_LEN[k] / 2 + ARM_RAD[k] * 0.35), seg=24)
-        sphere(f"Knee{i}_{k}", ARM_RAD[k], (0, 0, 0), PURPLE, joints[k], seg=20)
+        sphere(f"Seg{i}_{k}", 1.0, (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k], scale=(ARM_RAD[k] * 0.90, ARM_RAD[k] * 0.90, ARM_LEN[k] / 2 + ARM_RAD[k] * 0.55), seg=32)
+        sphere(f"Knee{i}_{k}", ARM_RAD[k] * 0.78, (0, 0, 0), PURPLE, joints[k], seg=24)
         if k < 3:
             for q, f in enumerate((0.38, 0.72)):
                 rr = ARM_RAD[k] + (ARM_RAD[k + 1] - ARM_RAD[k]) * f
