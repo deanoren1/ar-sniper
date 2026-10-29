@@ -122,7 +122,7 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.38, 0.025, 0.58), rough=0.38, coat=0.28)
+PURPLE = mat("Purple", (0.46, 0.025, 0.64), rough=0.36, coat=0.30)
 add_skin(PURPLE, scale=18.0, strength=0.025)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
@@ -279,10 +279,25 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.64, -0.25, 0.14, 0.11, -0.4),
 )):
     x, z = sx, sz
+    rx *= 0.78
+    rz *= 0.78
     radius = shell_radius_at(z)
-    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.022
+    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.010
     sphere(f"BodySpot{i}", 1.0, (x, surface, z), SPOT, pivot,
-           scale=(rx, 0.042, rz), rot=(0, angle, 0), seg=24)
+           scale=(rx, 0.024, rz), rot=(0, angle, 0), seg=24)
+
+# More small, flatter spots around the forehead and outer cheeks; keep the eye area clear.
+for i, (sx, sz, rx, rz) in enumerate((
+    (-0.34, 0.82, 0.085, 0.060), (0.34, 0.82, 0.085, 0.060),
+    (-0.78, 0.34, 0.090, 0.065), (0.78, 0.34, 0.090, 0.065),
+    (-0.72, -0.05, 0.085, 0.060), (0.72, -0.05, 0.085, 0.060),
+    (-0.48, -0.34, 0.075, 0.055), (0.48, -0.34, 0.075, 0.055),
+    (-0.15, 0.88, 0.065, 0.045), (0.15, 0.88, 0.065, 0.045),
+)):
+    radius = shell_radius_at(sz)
+    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.006
+    sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
+           scale=(rx, 0.018, rz), seg=20)
 
 # קוצים קטנים ורודים, בעיקר בחלק העליון; בלי קרניים אפורות גדולות.
 for i in range(5):
@@ -321,7 +336,7 @@ torus("EyeRim", 0.39, 0.028, (0, -0.025, 0), SPOT, eye, rot=(math.pi / 2, 0, 0))
 
 # Compact playful mouth with just a few small teeth (closer to the reference toy expression).
 mouth = empty("Mouth", pivot, loc=(0, -0.80, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.27, (0, 0, 0), MOUTH, mouth, scale=(1.45, 0.30, 0.46), seg=36)]
+mouth_parts = [sphere("MouthCavity", 0.25, (0, 0, 0), MOUTH, mouth, scale=(1.34, 0.30, 0.37), seg=36)]
 for i, x in enumerate((-0.23, 0.0, 0.23)):
     h = (0.060, 0.070, 0.060)[i]
     mouth_parts.append(cone(f"ToothU{i}", 0.038, 0.0, h, (x, -0.075, 0.115 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
@@ -330,10 +345,10 @@ for i, x in enumerate((-0.15, 0.15)):
     mouth_parts.append(cone(f"ToothL{i}", 0.034, 0.0, h, (x, -0.075, -0.115 + h / 2), TEETH, mouth))
 
 # No glass bubble: a visible pink lower collar/band anchors the purple shell.
-torus("LowerPinkBand", 0.76, 0.065, (0, 0, -0.70), RING, torso)
-for i in range(16):
-    a = i * (2 * math.pi / 16)
-    sphere(f"BandRivet{i}", 0.018, (0.76 * math.cos(a), 0.76 * math.sin(a), -0.64), SPOT, torso, seg=12)
+torus("LowerPinkBand", 0.84, 0.075, (0, 0, -0.68), RING, torso)
+for i in range(18):
+    a = i * (2 * math.pi / 18)
+    sphere(f"BandRivet{i}", 0.017, (0.84 * math.cos(a), 0.84 * math.sin(a), -0.59), SPOT, torso, seg=12)
 
 # Compact side tanks, pulled outward so the dark hardware and flame badges read clearly.
 for side, sx in (("L", -1), ("R", 1)):
@@ -352,15 +367,15 @@ for side, sx in (("L", -1), ("R", 1)):
 
 # Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
 ARM_LEN = [0.34, 0.30, 0.25, 0.20]
-ARM_RAD = [0.29, 0.27, 0.23, 0.18, 0.11]
+ARM_RAD = [0.235, 0.21, 0.18, 0.14, 0.075]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
 
 def arm_curve_x(t):
-    # A gentle hook in the last third makes each arm feel curled rather than pointed.
-    u = max(0.0, (t - 0.68) / 0.32)
-    return 0.07 * math.sin(math.pi * t) - 0.06 * t + 0.12 * u * u
+    # Spread the tentacles away from the body, then hook the rounded tips outward.
+    u = max(0.0, (t - 0.66) / 0.34)
+    return 0.16 * math.sin(math.pi * t) - 0.035 * t + 0.24 * u * u
 
 
 def arm_curve_y(t):
@@ -368,13 +383,13 @@ def arm_curve_y(t):
 
 
 def arm_curve_z(t):
-    u = max(0.0, (t - 0.72) / 0.28)
-    return -ARM_TOTAL * t + 0.13 * u * u
+    u = max(0.0, (t - 0.70) / 0.30)
+    return -ARM_TOTAL * t + 0.22 * u * u
 
 
 def arm_radius(t):
-    # Keep the tentacles chunky through most of their length and round at the tip.
-    return 0.11 + 0.18 * (1.0 - t ** 1.7)
+    # Taper the tube more noticeably and let a small sphere make the tip fully round.
+    return 0.075 + 0.16 * (1.0 - t ** 1.5)
 
 
 def make_arm_tube(name, parent):
@@ -431,8 +446,11 @@ for i in range(8):
         rr = arm_radius(t)
         sphere(f"Sucker{i}_{q}", 1.0,
                (arm_curve_x(t), arm_curve_y(t) - rr * 0.94, arm_curve_z(t)),
-               SUCKER, root, scale=(rr * 0.43, rr * 0.16, rr * 0.43), seg=20)
-    tips.append(empty(f"Tip{i}", root, loc=(arm_curve_x(1.0), 0, -ARM_TOTAL)))
+               SUCKER, root, scale=(rr * 0.34, rr * 0.11, rr * 0.34), seg=20)
+    tip_loc = (arm_curve_x(1.0), arm_curve_y(1.0), arm_curve_z(1.0))
+    sphere(f"ArmTip{i}", 1.0, tip_loc, PURPLE, root,
+           scale=(arm_radius(1.0), arm_radius(1.0), arm_radius(1.0)), seg=24)
+    tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
 # ------------------------------------------------------------------ חלקים נסתרים רוב הזמן (אנרגיה, כוכבים, X, שברים)
