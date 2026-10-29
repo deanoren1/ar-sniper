@@ -262,7 +262,8 @@ for i in range(26):
 # עין: אישון אנכי (חתולי) וקשתית אדומה זוהרת, עם עפעפיים נוטים שנותנים מבט כועס
 EYE_Y, EYE_Z = -0.62, 0.20
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.0, 1.0, 1.0)  # keep the large, expressive cyclops eye from the referenceeye_parts = [
+eye.scale = (1.0, 1.0, 1.0)  # keep the large, expressive cyclops eye from the reference
+eye_parts = [
     sphere("EyeWhite", 0.44, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
     sphere("Iris", 0.33, (0, -0.22, 0), IRIS, eye, scale=(1, 0.3, 1), seg=40),
     sphere("Pupil", 0.3, (0, -0.28, 0), PUPIL, eye, scale=(0.3, 0.3, 1.0), seg=28),
