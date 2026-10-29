@@ -52,10 +52,12 @@ fun ArenaStyleLayer(
     /** > 0: השכבה מצוירת בתוך עולם רחב (פנורמה). הערך הוא יחס המסך: כתמי הרצפה והמסגרת נשארים בגודל מסך אמיתי ומונחים לאורך כל העולם */
     worldViewAspect: Float = 0f,
     /** true: רק מה שצמוד למסך (חלקיקים, ערפל, חשכת קצוות), בלי כתמי רצפה ובלי מסגרת */
-    screenOnly: Boolean = false
+    screenOnly: Boolean = false,
+    /** >= 0: ארנה מעוצבת (בלי כתמי רצפה ישנים) עם גרסת מסגרת לבדיקה; גרסה בלי קובץ = בלי מסגרת */
+    frameVariant: Int = -1
 ) {
     val context = LocalContext.current
-    val assets = remember(style, props, frameOnly) { if (props) ArenaAssets.load(context, style, frameOnly) else null }
+    val assets = remember(style, props, frameOnly, frameVariant) { if (props) ArenaAssets.load(context, style, frameOnly, frameVariant) else null }
     val fog = remember(style, props, frameOnly, screenOnly) {
         if (props && !frameOnly && !screenOnly && style.fog > 0f) buildDepthFog(style) else null
     }
@@ -300,16 +302,16 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
     companion object {
         private val FLOOR_LABELS = setOf(3, 6, 9, 11, 13, 28, 29, 46, 52, 91, 94)
 
-        fun load(context: Context, style: ArenaStyle, frameOnly: Boolean = false): ArenaAssets? {
+        fun load(context: Context, style: ArenaStyle, frameOnly: Boolean = false, variant: Int = -1): ArenaAssets? {
             val res = context.resources
             val pkg = context.packageName
             val key = style.name.lowercase()
             fun id(name: String) = res.getIdentifier(name, "drawable", pkg)
-            val frameId = id("arena_frame_$key")
+            val frameId = if (variant >= 0) id("arena_frame_${key}_v$variant") else id("arena_frame_$key")
             val frame = if (frameId != 0) ImageBitmap.imageResource(res, frameId) else null
             val decals = ArrayList<ImageBitmap>()
             var n = 0
-            while (!frameOnly) {
+            while (!frameOnly && variant < 0) {
                 val d = id("arena_decal_${key}_$n")
                 if (d == 0) break
                 decals.add(ImageBitmap.imageResource(res, d))

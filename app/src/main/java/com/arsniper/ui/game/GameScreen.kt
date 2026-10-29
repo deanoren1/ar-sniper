@@ -86,7 +86,7 @@ import kotlinx.coroutines.delay
 /** הניקוד הפנימי מחולק בעשר: כך מטבעות הם מספרים קטנים ונוחים */
 private const val COINS_DIVISOR = 35
 /** מסגרת הקישוטים מעל ארנה מעוצבת (טונדרה): כבויה בזמן הבדיקה; להחזרה: true */
-private const val SHOW_FRAME_ON_THEMED = false
+private const val SHOW_FRAME_ON_THEMED = true
 
 private const val NEW_ARENA_COINS = 60
 private const val NEW_ARENA_MILESTONE_GEMS = 3
@@ -180,6 +180,7 @@ fun GameScreen(
     val isGuest = coop == "guest"
     val isHost = coop == "host"
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
+    val frameVariant = remember { com.arsniper.ml.ThemeBake.nextFrameVariant() }
     var themed by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
@@ -1266,10 +1267,10 @@ fun GameScreen(
                 }
         ) {
             BackgroundLayer(photo = themed ?: photo, colorFilter = remember(style, themed != null) { if (themed != null) null else arenaColorFilter(style) })
-            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, worldViewAspect = if (panoMode) viewAspect else 0f)
+            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, frameVariant = if (themed != null) frameVariant else -1, worldViewAspect = if (panoMode) viewAspect else 0f)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
-            if (!(themed != null && SHOW_FRAME_ON_THEMED.not())) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true, worldViewAspect = if (panoMode) viewAspect else 0f)
+            if (!(themed != null && SHOW_FRAME_ON_THEMED.not())) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true, frameVariant = if (themed != null) frameVariant else -1, worldViewAspect = if (panoMode) viewAspect else 0f)
             CombatLayer(
                 shots = fire.shots.toList(),
                 telegraphs = fire.telegraphViews.toList(),
@@ -1285,6 +1286,9 @@ fun GameScreen(
 
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
         if (panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, drawFrame = false, screenOnly = true)
+
+        // בדיקה: איזו מסגרת מוצגת בארנה המעוצבת (מתחלף בכל כניסה)
+        if (themed != null) OutlinedText(listOf("FRAME 1", "FRAME 2", "FRAME 3", "NO FRAME")[frameVariant], fontSize = 14.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
 
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))

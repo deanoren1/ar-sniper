@@ -35,6 +35,11 @@ object ThemeBake {
     private val NO_SNOW = setOf(0, 1, 2, 5, 8, 14, 22, 27, 36, 43)
     private const val CEILING = 5
 
+    private var frameCounter = 0
+
+    /** בדיקת מסגרות: 0..3 (3 = בלי מסגרת), מתחלף בכל כניסה לארנה מעוצבת */
+    fun nextFrameVariant(): Int = (frameCounter++) % 4
+
     /** מחזיר תמונה מעוצבת, או null אם אין עיצוב לארנה הזאת או שהחישוב נכשל */
     fun bake(context: Context, style: ArenaStyle, source: Bitmap, analysis: SceneAnalysis, key: String): Bitmap? {
         if (style != ArenaStyle.Tundra) return null
