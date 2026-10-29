@@ -31,7 +31,10 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
 bpy.ops.import_scene.gltf(filepath=GLB)
 arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
-mesh = next(o for o in bpy.data.objects if o.type == "MESH")
+mesh = max((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: len(o.data.vertices))
+for o in list(bpy.data.objects):
+    if o.type == "MESH" and o is not mesh:
+        bpy.data.objects.remove(o)  # צורות העצמות שהייבוא מוסיף
 print("bones", len(arm.pose.bones), "mesh", mesh.name, "verts", len(mesh.data.vertices))
 
 monster = bpy.data.objects.new("Monster", None)
