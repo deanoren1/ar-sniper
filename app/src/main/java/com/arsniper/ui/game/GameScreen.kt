@@ -55,6 +55,7 @@ import com.arsniper.game.engine.EnemyFire
 import com.arsniper.game.engine.FireResult
 import com.arsniper.game.engine.GameEngine
 import com.arsniper.game.engine.Loot
+import com.arsniper.game.engine.LootDrop
 import com.arsniper.game.engine.LootKind
 import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.ShotResult
@@ -188,7 +189,10 @@ fun GameScreen(
     val fireRef = remember { arrayOfNulls<() -> Unit>(1) }
     // משחק משותף (מארח): ירייה והקשה של השותף מופעלות דרך אותן פונקציות כמו של השחקן
     val coopShootRef = remember { arrayOfNulls<(Vec2, Int) -> Unit>(1) }
-    val coopTapRef = remember { arrayOfNulls<(Vec2) -> Unit>(1) }
+    // (נקודה, מרווח רחב: האורח לחץ ירי כשהכוונת על פרס)
+    val coopTapRef = remember { arrayOfNulls<(Vec2, Boolean) -> Unit>(1) }
+    // פקודות האורח: shock / revive / retry
+    val coopCmdRef = remember { arrayOfNulls<(String) -> Unit>(1) }
     // משחק משותף: הכוונת של השותף (אצל האורח: של המארח, מתוך תמונת המצב)
     var hostCross by remember { mutableStateOf<Vec2?>(null) }
     // משחק משותף: ניקוד לכל שחקן (0 = מארח, 1 = אורח), ומי יורה כרגע (לשיוך הניקוד)
@@ -537,7 +541,23 @@ fun GameScreen(
                             AttackPose.bossSinceFire = snap.bossSince
                             AttackPose.bossStunned = snap.bossStunned
                             AttackPose.bossEnraged = snap.bossEnraged
+                            // הניקוד ירד = המארח התחיל מחדש: שומרים לפרופיל את מה שנצבר לפני האיפוס
+                            if (snap.score < score) {
+                                bankRun()
+                                sfxMemo.banked = 0
+                            }
                             score = snap.score
+                            // המד והפרסים הם של המארח; מעדכנים רק כשהגיעה תמונת מצב חדשה
+                            if (snap.seq != sfxMemo.guestSeq) {
+                                sfxMemo.guestSeq = snap.seq
+                                shock.applyRemote(snap.shock)
+                                loot.applyRemote(
+                                    snap.loot.map {
+                                        LootDrop(it.id, it.x, it.y, LootKind.values()[it.kind.coerceIn(0, LootKind.values().size - 1)], it.born)
+                                    },
+                                    snap.lootTime
+                                )
+                            }
                             scoreBy[0] = snap.scoreHost
                             scoreBy[1] = snap.scoreGuest
                             hostCross = Vec2(snap.hostX, snap.hostY)
@@ -556,13 +576,20 @@ fun GameScreen(
                                         soundPlayer.play(Sfx.WaveStart)
                                     }
                                     ArenaPhase.Clear -> soundPlayer.play(Sfx.WaveClear)
-                                    ArenaPhase.Won -> soundPlayer.play(Sfx.Win)
-                                    ArenaPhase.Lost -> soundPlayer.play(Sfx.Lose)
+                                    ArenaPhase.Won -> {
+                                        soundPlayer.play(Sfx.Win)
+                                        bankRun()
+                                    }
+                                    ArenaPhase.Lost -> {
+                                        soundPlayer.play(Sfx.Lose)
+                                        bankRun()
+                                    }
                                     else -> Unit
                                 }
                                 sfxMemo.phase = director.phase
                             }
                         }
+                        loot.advanceClock(dt)
                         // אפקטים שהמארח שלח: צלילים, פיצוצים, ניקוד צף
                         while (true) {
                             val ev = CoopSync.events.poll() ?: break
@@ -582,6 +609,42 @@ fun GameScreen(
                                     shake = max(shake, 1.3f)
                                 }
                                 'p' -> poofs = poofs + Poof(ev.x, ev.y, now)
+                                // פרס שהאורח אסף: כדורים למחסנית שלו, או יהלום לפרופיל שלו
+                                'g' -> if (ev.i == 1) {
+                                    soundPlayer.play(Sfx.Pickup)
+                                    gainDiamonds(1, "+1 DIAMOND")
+                                } else {
+                                    soundPlayer.play(Sfx.Pickup)
+                                    weapon.topUp()
+                                    showToast("AMMO FULL")
+                                }
+                                // המארח החיה: ההחייאה נוצלה, ומנקים את האפקטים
+                                'v' -> {
+                                    revives = 1
+                                    blasts = emptyList()
+                                    poofs = emptyList()
+                                    floaters = emptyList()
+                                    flash = 0f
+                                    weapon.refill()
+                                }
+                                // המארח התחיל מחדש
+                                'x' -> {
+                                    revives = 0
+                                    blasts = emptyList()
+                                    poofs = emptyList()
+                                    floaters = emptyList()
+                                    flash = 0f
+                                    diamondsGained = 0
+                                    sfxMemo.banked = 0
+                                    sfxMemo.guestHearts = ArenaDirector.MAX_HEARTS
+                                    combo.reset()
+                                    weapon.reset()
+                                }
+                                // ההחייאה נדחתה אצל המארח: מחזירים את היהלומים
+                                'n' -> {
+                                    PlayerProfile.addDiamonds(REVIVE_COST)
+                                    revives = 0
+                                }
                             }
                         }
                         if (now - lastAimNanos > 100_000_000L) {
@@ -593,9 +656,13 @@ fun GameScreen(
                         // מארח: הירי וההקשות של השותף, ותמונת מצב אליו
                         while (true) {
                             val input = CoopSync.inbox.poll() ?: break
+                            if (input.cmd.isNotEmpty()) {
+                                coopCmdRef[0]?.invoke(input.cmd)
+                                continue
+                            }
                             if (director.phase != ArenaPhase.Fighting) continue
                             if (input.tap) {
-                                coopTapRef[0]?.invoke(Vec2(input.x, input.y))
+                                coopTapRef[0]?.invoke(Vec2(input.x, input.y), input.wide)
                             } else {
                                 coopShootRef[0]?.invoke(Vec2(input.x, input.y), input.damage.coerceIn(1, 20))
                             }
@@ -615,7 +682,8 @@ fun GameScreen(
                             CoopSync.sendSnapshot(
                                 snapSeq++, enemies, fire, director, crosshair, score, nowSeconds(),
                                 AttackPose.ids, AttackPose.progress, AttackPose.bossSinceFire,
-                                AttackPose.bossStunned, AttackPose.bossEnraged, scoreBy[0], scoreBy[1]
+                                AttackPose.bossStunned, AttackPose.bossEnraged, scoreBy[0], scoreBy[1],
+                                shock.fraction, loot
                             )
                         }
                     }
@@ -631,7 +699,8 @@ fun GameScreen(
                             fireRef[0]?.invoke()
                         }
                     }
-                    if (director.phase == ArenaPhase.Fighting && !director.bossDying) shock.update(dt)
+                    // אורח: מד ההלם מגיע מהמארח
+                    if (!isGuest && director.phase == ArenaPhase.Fighting && !director.bossDying) shock.update(dt)
                     if (weapon.ammo != ammoShown) ammoShown = weapon.ammo
                     if (weapon.reloading != reloadingShown) {
                         if (weapon.reloading) soundPlayer.play(Sfx.Reload)
@@ -766,8 +835,12 @@ fun GameScreen(
 
     // הלם: מחסל את כל המפלצות הרגילות וכל הקליעים. הבוס לא מת: מאבד 15% מהחיים ומסוחרר
     fun triggerShock() {
-        if (isGuest) return
         if (director.phase != ArenaPhase.Fighting || director.bossDying) return
+        if (isGuest) {
+            // אורח: המארח מפעיל את ההלם (המד משותף)
+            if (shock.ready) CoopSync.sendCommand("shock")
+            return
+        }
         if (!shock.trigger()) return
         soundPlayer.play(Sfx.Boom)
         if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -794,12 +867,14 @@ fun GameScreen(
         fire.stun(ArenaDirector.BOSS_ID, Shockwave.BOSS_STUN_SECONDS)
         if (kills > 0) {
             score += scaled(kills * SHOCK_KILL_POINTS)
+            scoreBy[shooter[0]] += scaled(kills * SHOCK_KILL_POINTS)
             showToast("SHOCKWAVE  +${kills * SHOCK_KILL_POINTS / COINS_DIVISOR}")
         }
     }
 
     // איסוף פרס: לב מחזיר חיים (אם כבר מלא: נקודות), כדורים ממלאים את המחסנית מיד
-    fun collectLoot(drop: com.arsniper.game.engine.LootDrop) {
+    // byGuest (מארח): האורח אסף. הלב מרפא את הצוות; כדורים ויהלום נשלחים לאורח, לנשק ולפרופיל שלו
+    fun collectLoot(drop: com.arsniper.game.engine.LootDrop, byGuest: Boolean = false) {
         soundPlayer.play(Sfx.Pickup)
         val label: String
         when (drop.kind) {
@@ -809,14 +884,23 @@ fun GameScreen(
                     flash = 0f
                 } else {
                     score += scaled(150)
+                    scoreBy[shooter[0]] += scaled(150)
                     label = "+15"
                 }
             }
             LootKind.Ammo -> {
+                if (byGuest) {
+                    CoopSync.queueGive(0)
+                    return
+                }
                 weapon.topUp()
                 label = "AMMO FULL"
             }
             LootKind.Diamond -> {
+                if (byGuest) {
+                    CoopSync.queueGive(1)
+                    return
+                }
                 gainDiamonds(1, "+1 DIAMOND")
                 return
             }
@@ -952,9 +1036,15 @@ fun GameScreen(
             return
         }
         // כוונת על פרס: אוספים אותו (בלי לצרוך כדור)
-        val picked = if (isGuest) null else loot.collect(crosshair, aspect, FIRE_SLACK + 0.03f)
+        val picked = loot.collect(crosshair, aspect, FIRE_SLACK + 0.03f)
         if (picked != null) {
-            collectLoot(picked)
+            if (isGuest) {
+                // אורח: המארח מאשר את האיסוף (הפרס יוסר גם אצלו בתמונת המצב הבאה)
+                soundPlayer.play(Sfx.Pickup)
+                CoopSync.sendTap(crosshair.x, crosshair.y, wide = true)
+            } else {
+                collectLoot(picked)
+            }
             return
         }
         when (weapon.tryFire()) {
@@ -983,21 +1073,31 @@ fun GameScreen(
         shooter[0] = 1
         try { shootAt(p, d) } finally { shooter[0] = 0 }
     }
-    coopTapRef[0] = { w ->
-        val pickedLoot = loot.collect(w, latestAspect, TAP_SLACK)
-        if (pickedLoot != null) {
-            collectLoot(pickedLoot)
-        } else {
-            val hit = fire.intercept(w, latestAspect, TAP_SLACK)
-            if (hit != null) onIntercept(hit)
+    coopTapRef[0] = { w, wide ->
+        shooter[0] = 1
+        try {
+            val pickedLoot = loot.collect(w, latestAspect, if (wide) FIRE_SLACK + 0.03f else TAP_SLACK)
+            if (pickedLoot != null) {
+                collectLoot(pickedLoot, byGuest = true)
+            } else {
+                val hit = fire.intercept(w, latestAspect, TAP_SLACK)
+                if (hit != null) onIntercept(hit)
+            }
+        } finally {
+            shooter[0] = 0
         }
     }
 
     // החייאה ביהלומים: חוזרים לאותו גל עם 2 לבבות, מחסנית והלם מלאים
-    fun reviveRun() {
-        if (director.phase != ArenaPhase.Lost || revives >= 1) return
-        if (!PlayerProfile.spendDiamonds(REVIVE_COST)) return
+    // byGuest (מארח): האורח כבר שילם מהיהלומים שלו. אם ההחייאה לא אפשרית, הוא מקבל החזר
+    fun reviveRun(byGuest: Boolean = false) {
+        if (director.phase != ArenaPhase.Lost || revives >= 1) {
+            if (byGuest) CoopSync.queueRefund()
+            return
+        }
+        if (!byGuest && !PlayerProfile.spendDiamonds(REVIVE_COST)) return
         revives += 1
+        if (isHost) CoopSync.queueRevived()
         enemies = emptyList()
         blasts = emptyList()
         poofs = emptyList()
@@ -1018,6 +1118,7 @@ fun GameScreen(
 
     fun retry() {
         bankRun()
+        if (isHost) CoopSync.queueRestart()
         revives = 0
         enemies = emptyList()
         blasts = emptyList()
@@ -1042,6 +1143,27 @@ fun GameScreen(
         AttackPose.bossStunned = false
         AttackPose.bossEnraged = false
         director.restart()
+    }
+
+    // משחק משותף (מארח): פקודות האורח. הלם נזקף לאורח, החייאה שולמה כבר על ידו
+    coopCmdRef[0] = { cmd ->
+        when (cmd) {
+            "shock" -> {
+                shooter[0] = 1
+                try { triggerShock() } finally { shooter[0] = 0 }
+            }
+            "revive" -> reviveRun(byGuest = true)
+            "retry" -> retry()
+            else -> Unit
+        }
+    }
+
+    // אורח: החייאה ביהלומים שלו, ובקשת ניסיון חוזר מהמארח
+    fun guestRevive() {
+        if (director.phase != ArenaPhase.Lost || revives >= 1) return
+        if (!PlayerProfile.spendDiamonds(REVIVE_COST)) return
+        revives = 1
+        CoopSync.sendCommand("revive")
     }
 
     // משחק משותף: אם המארח יצא או שהחיבור נפל, חוזרים ללובי
@@ -1375,7 +1497,7 @@ fun GameScreen(
                 onResume = { paused = false },
                 onRestart = {
                     paused = false
-                    if (!isGuest) retry()
+                    if (isGuest) CoopSync.sendCommand("retry") else retry()
                 },
                 onMainMenu = {
                     paused = false
@@ -1394,8 +1516,8 @@ fun GameScreen(
                 totalCoins = PlayerProfile.coins,
                 reviveCost = if (revives < 1) REVIVE_COST else 0,
                 diamonds = PlayerProfile.diamonds,
-                onRevive = { if (!isGuest) reviveRun() },
-                onRetry = { if (!isGuest) retry() },
+                onRevive = { if (isGuest) guestRevive() else reviveRun() },
+                onRetry = { if (isGuest) CoopSync.sendCommand("retry") else retry() },
                 onMenu = { onExit() },
                 onNext = onNextArena,
                 bonusText = listOfNotNull(coopLine?.let { "$it   TEAM ${score / COINS_DIVISOR}" }, photoBonus)
@@ -1422,4 +1544,7 @@ private class SfxMemo {
 
     /** אורח במשחק משותף: כמה לבבות היו בתמונת המצב הקודמת (לזיהוי פגיעה בשחקן) */
     var guestHearts: Int = ArenaDirector.MAX_HEARTS
+
+    /** אורח: מספר תמונת המצב האחרונה שעובדה (מד הלם ופרסים) */
+    var guestSeq: Int = -1
 }

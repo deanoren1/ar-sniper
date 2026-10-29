@@ -37,6 +37,18 @@ class Loot(private val random: Random = Random.Default) {
         drops.removeAll { time - it.born > LIFETIME_SECONDS }
     }
 
+    /** משחק משותף (אורח): מחליף את הפרסים בפרסים שהמארח שלח, ומסנכרן את השעון שלו */
+    fun applyRemote(remote: List<LootDrop>, hostTime: Float) {
+        drops.clear()
+        drops.addAll(remote)
+        time = hostTime
+    }
+
+    /** משחק משותף (אורח): מקדם רק את השעון (לאנימציה), בלי למחוק פרסים. המארח קובע מה נשאר */
+    fun advanceClock(dt: Float) {
+        time += dt
+    }
+
     /** כמה זמן הפרס כבר על הקרקע (שניות) */
     fun ageOf(drop: LootDrop): Float = time - drop.born
 

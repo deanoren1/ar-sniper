@@ -29,6 +29,11 @@ class Shockwave(var chargeSeconds: Float = DEFAULT_CHARGE_SECONDS) {
         return true
     }
 
+    /** משחק משותף (אורח): המד של המארח הוא המד המשותף */
+    fun applyRemote(fraction: Float) {
+        elapsed = fraction.coerceIn(0f, 1f) * chargeSeconds
+    }
+
     /** טעינה מיידית (יהלום) */
     fun chargeNow() {
         elapsed = chargeSeconds

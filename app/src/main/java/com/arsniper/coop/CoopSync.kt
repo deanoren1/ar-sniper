@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.arsniper.game.engine.ArenaDirector
 import com.arsniper.game.engine.EnemyFire
+import com.arsniper.game.engine.Loot
 import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.Vec2
 import org.json.JSONArray
@@ -25,6 +26,7 @@ import kotlin.math.roundToInt
  *  aim    אורח ← מארח: מיקום הכוונת
  *  fire   אורח ← מארח: ירייה בנקודה עם נזק
  *  tap    אורח ← מארח: הקשה על קליע של מפלצת
+ *  cmd    אורח ← מארח: פקודה (c = shock הלם, revive החייאה, retry ניסיון חוזר)
  *  end    מארח ← אורח: המארח יצא מהמשחק
  */
 object CoopSync {
@@ -45,7 +47,8 @@ object CoopSync {
 
     // ---------------------------------------------------------------- קלט האורח אצל המארח
 
-    class GuestInput(val tap: Boolean, val x: Float, val y: Float, val damage: Int)
+    /** cmd לא ריק = פקודה (הלם / החייאה / ניסיון חוזר) ולא ירייה או הקשה. wide (בהקשה) = מרווח רחב לאיסוף פרס בכוונת */
+    class GuestInput(val tap: Boolean, val x: Float, val y: Float, val damage: Int, val cmd: String = "", val wide: Boolean = false)
 
     val inbox = ConcurrentLinkedQueue<GuestInput>()
 
@@ -69,6 +72,8 @@ object CoopSync {
     )
 
     class SnapView(val x: Float, val y: Float, val radius: Float, val progress: Float, val enemyId: Int)
+
+    class SnapLoot(val id: Int, val x: Float, val y: Float, val kind: Int, val born: Float)
 
     class Snapshot(
         val seq: Int,
@@ -95,12 +100,20 @@ object CoopSync {
         val hostX: Float,
         val hostY: Float,
         val scoreHost: Int,
-        val scoreGuest: Int
+        val scoreGuest: Int,
+        /** מד ההלם המשותף (0..1) */
+        val shock: Float,
+        /** פרסים על הקרקע, ושעון הפרסים של המארח */
+        val lootTime: Float,
+        val loot: List<SnapLoot>
     )
 
     // ---------------------------------------------------------------- אפקטים משותפים (פגיעות, ניקוד צף, צלילים)
 
-    /** אפקט שהמארח שולח: s = צליל, b = פיצוץ, f = ניקוד צף, t = הודעה, k = הלם, p = פוף */
+    /**
+     * אפקט שהמארח שולח: s = צליל, b = פיצוץ, f = ניקוד צף, t = הודעה, k = הלם, p = פוף,
+     * g = פרס אישי לאורח (i: 0 = כדורים, 1 = יהלום), v = המארח החיה, x = ניסיון חוזר, n = ההחייאה נדחתה (החזר יהלומים)
+     */
     class GuestEvent(val type: Char, val i: Int, val f: Float, val x: Float, val y: Float, val text: String, val big: Boolean)
 
     private val outEvents = ConcurrentLinkedQueue<JSONArray>()
@@ -119,6 +132,10 @@ object CoopSync {
     fun queueToast(text: String) = queue(JSONArray().put("t").put(text))
     fun queueShock() = queue(JSONArray().put("k"))
     fun queuePoof(x: Float, y: Float) = queue(JSONArray().put("p").put(r4(x)).put(r4(y)))
+    fun queueGive(kind: Int) = queue(JSONArray().put("g").put(kind))
+    fun queueRevived() = queue(JSONArray().put("v"))
+    fun queueRestart() = queue(JSONArray().put("x"))
+    fun queueRefund() = queue(JSONArray().put("n"))
 
     private val buffer = ArrayList<Snapshot>()
     private val lock = Any()
@@ -153,7 +170,9 @@ object CoopSync {
         bossStunned: Boolean,
         bossEnraged: Boolean,
         scoreHost: Int,
-        scoreGuest: Int
+        scoreGuest: Int,
+        shockFraction: Float,
+        loot: Loot
     ) {
         val o = JSONObject()
         o.put("t", "snap").put("n", seq)
@@ -192,6 +211,10 @@ object CoopSync {
         for (id in apIds) ap.put(JSONArray().put(id).put(r4(apProgress[id] ?: 0f)))
         o.put("ap", ap)
         o.put("s1", scoreHost).put("s2", scoreGuest)
+        o.put("sk", r4(shockFraction)).put("lm", r4(loot.time))
+        val lt = JSONArray()
+        for (d in loot.drops) lt.put(JSONArray().put(d.id).put(r4(d.x)).put(r4(d.y)).put(d.kind.ordinal).put(r4(d.born)))
+        o.put("lt", lt)
         val ev = JSONArray()
         var taken = 0
         while (taken < 60) {
@@ -218,8 +241,16 @@ object CoopSync {
         CoopClient.sendText(JSONObject().put("t", "fire").put("x", r4(x)).put("y", r4(y)).put("d", damage).toString())
     }
 
-    fun sendTap(x: Float, y: Float) {
-        CoopClient.sendText(JSONObject().put("t", "tap").put("x", r4(x)).put("y", r4(y)).toString())
+    /** wide: האורח לחץ ירי כשהכוונת על פרס (מרווח איסוף רחב יותר מהקשה רגילה) */
+    fun sendTap(x: Float, y: Float, wide: Boolean = false) {
+        CoopClient.sendText(
+            JSONObject().put("t", "tap").put("x", r4(x)).put("y", r4(y)).put("w", if (wide) 1 else 0).toString()
+        )
+    }
+
+    /** פקודה למארח: shock (הלם), revive (החייאה), retry (ניסיון חוזר) */
+    fun sendCommand(cmd: String) {
+        CoopClient.sendText(JSONObject().put("t", "cmd").put("c", cmd).toString())
     }
 
     fun sendGuestReady() {
@@ -258,7 +289,11 @@ object CoopSync {
                     inbox.add(GuestInput(false, json.getDouble("x").toFloat(), json.getDouble("y").toFloat(), json.optInt("d", 1)))
                 }
                 "tap" -> if (CoopClient.role == "host") {
-                    inbox.add(GuestInput(true, json.getDouble("x").toFloat(), json.getDouble("y").toFloat(), 0))
+                    inbox.add(GuestInput(true, json.getDouble("x").toFloat(), json.getDouble("y").toFloat(), 0, "", json.optInt("w") == 1))
+                }
+                "cmd" -> if (CoopClient.role == "host") {
+                    val c = json.optString("c")
+                    if (c == "shock" || c == "revive" || c == "retry") inbox.add(GuestInput(false, 0f, 0f, 0, c))
                 }
                 "gready" -> if (CoopClient.role == "host") guestReady = true
                 "end" -> if (CoopClient.role != "host") hostEnded = true
@@ -305,12 +340,21 @@ object CoopSync {
             apIds.add(a.getInt(0))
             apProgress[a.getInt(0)] = f(a, 1)
         }
+        val lootList = ArrayList<SnapLoot>()
+        val lta = j.optJSONArray("lt")
+        if (lta != null) {
+            for (i in 0 until lta.length()) {
+                val a = lta.getJSONArray(i)
+                lootList.add(SnapLoot(a.getInt(0), f(a, 1), f(a, 2), a.getInt(3), f(a, 4)))
+            }
+        }
         val snap = Snapshot(
             seq, System.nanoTime(), j.getInt("ph"), j.getInt("w"), j.getInt("h"), j.getInt("l"),
             j.getInt("bh"), j.getInt("bm"), j.getInt("ba") == 1, j.getInt("bd") == 1, j.getInt("hl") == 1,
             j.getInt("sc"), j.getDouble("ft").toFloat(), enemies, shots, views, apIds, apProgress,
             j.getDouble("bs").toFloat(), j.getInt("bst") == 1, j.getInt("ben") == 1,
-            j.getDouble("cx").toFloat(), j.getDouble("cy").toFloat(), j.optInt("s1"), j.optInt("s2")
+            j.getDouble("cx").toFloat(), j.getDouble("cy").toFloat(), j.optInt("s1"), j.optInt("s2"),
+            j.optDouble("sk", 0.0).toFloat(), j.optDouble("lm", 0.0).toFloat(), lootList
         )
         val evArr = j.optJSONArray("ev")
         if (evArr != null) {
@@ -323,6 +367,10 @@ object CoopSync {
                     "t" -> events.add(GuestEvent('t', 0, 0f, 0f, 0f, a.getString(1), false))
                     "k" -> events.add(GuestEvent('k', 0, 0f, 0f, 0f, "", false))
                     "p" -> events.add(GuestEvent('p', 0, 0f, f(a, 1), f(a, 2), "", false))
+                    "g" -> events.add(GuestEvent('g', a.getInt(1), 0f, 0f, 0f, "", false))
+                    "v" -> events.add(GuestEvent('v', 0, 0f, 0f, 0f, "", false))
+                    "x" -> events.add(GuestEvent('x', 0, 0f, 0f, 0f, "", false))
+                    "n" -> events.add(GuestEvent('n', 0, 0f, 0f, 0f, "", false))
                 }
             }
             while (events.size > 300) events.poll()
