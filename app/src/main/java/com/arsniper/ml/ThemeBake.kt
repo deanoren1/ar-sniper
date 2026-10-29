@@ -25,7 +25,7 @@ import kotlin.math.sqrt
  */
 object ThemeBake {
 
-    private const val VERSION = 1
+    private const val VERSION = 2
     private const val MAX_PIXELS = 2_000_000
 
     /** קטגוריות ADE20K של רצפה/קרקע */
@@ -44,7 +44,7 @@ object ThemeBake {
             BitmapFactory.decodeFile(cached.absolutePath)?.let { return it }
         }
         val result = try {
-            tundra(source, analysis)
+            tundra(context, source, analysis)
         } catch (_: Throwable) {
             null
         } ?: return null
@@ -57,7 +57,9 @@ object ThemeBake {
 
     // ------------------------------------------------------------------ טונדרה
 
-    private fun tundra(source: Bitmap, a: SceneAnalysis): Bitmap? {
+    private fun tundra(context: Context, source: Bitmap, a: SceneAnalysis): Bitmap? {
+        val snowTex = loadTex(context, "theme/snow.jpg")
+        val frostTex = loadTex(context, "theme/frost.jpg")
         val scale = min(1f, sqrt(MAX_PIXELS.toFloat() / (source.width.toFloat() * source.height)))
         val w = max(8, (source.width * scale).roundToInt())
         val h = max(8, (source.height * scale).roundToInt())
@@ -134,23 +136,42 @@ object ThemeBake {
                 // כפור על משטחים אנכיים וחפצים (לא שמיים/תקרה)
                 if (label != 2 && label != CEILING) {
                     val frost = (1f - upv) * 0.20f * smoothstep(0.52f, 0.78f, n3)
-                    r = lerp(r, 0.86f, frost)
-                    gg = lerp(gg, 0.94f, frost)
-                    b = lerp(b, 1.0f, frost)
+                    if (frostTex != null) {
+                        val fc = sample(frostTex, x * 0.8f, y * 0.8f)
+                        val fk = (1f - upv) * 0.38f * smoothstep(0.40f, 0.70f, n3)
+                        val shadeF = 0.7f + 0.5f * luma
+                        r = lerp(r, ((fc shr 16) and 0xFF) / 255f * shadeF, fk)
+                        gg = lerp(gg, ((fc shr 8) and 0xFF) / 255f * shadeF, fk)
+                        b = lerp(b, (fc and 0xFF) / 255f * shadeF, fk)
+                    } else {
+                        r = lerp(r, 0.86f, frost)
+                        gg = lerp(gg, 0.94f, frost)
+                        b = lerp(b, 1.0f, frost)
+                    }
                 }
 
                 // שלג: מואר לפי הבהירות המקורית, כחלחל בצל, עם נצנוץ
                 if (snow > 0.01f) {
                     val t = (luma * 1.35f).coerceIn(0f, 1f)
-                    val shade = 0.64f + 0.40f * t + (n2 - 0.5f) * 0.10f
-                    var sr = (0.82f + 0.18f * t) * shade
-                    var sg = (0.89f + 0.11f * t) * shade
-                    var sb = 1.0f * shade
-                    if (n3 > 0.80f) {
-                        val sparkle = (n3 - 0.80f) * 1.6f
-                        sr += sparkle
-                        sg += sparkle
-                        sb += sparkle
+                    val shade = 0.66f + 0.40f * t
+                    var sr: Float
+                    var sg: Float
+                    var sb: Float
+                    if (snowTex != null) {
+                        val c = sample(snowTex, x * 0.9f * f, y * 0.9f * f)
+                        sr = ((c shr 16) and 0xFF) / 255f * shade * 1.05f
+                        sg = ((c shr 8) and 0xFF) / 255f * shade * 1.05f
+                        sb = (c and 0xFF) / 255f * shade * 1.05f
+                    } else {
+                        sr = (0.82f + 0.18f * t) * shade
+                        sg = (0.89f + 0.11f * t) * shade
+                        sb = shade
+                        if (n3 > 0.80f) {
+                            val sparkle = (n3 - 0.80f) * 1.6f
+                            sr += sparkle
+                            sg += sparkle
+                            sb += sparkle
+                        }
                     }
                     val k = snow * 0.95f
                     r = lerp(r, sr, k)
@@ -170,12 +191,15 @@ object ThemeBake {
             }
         }
         out.setPixels(px, 0, w, 0, 0, w, h)
-        drawIcicles(out, a)
+        drawIcicles(context, out, a)
         return out
     }
 
     /** קרחונים שתלויים מקצה התקרה (או מראש התמונה אם אין תקרה בסצנה) */
-    private fun drawIcicles(bitmap: Bitmap, a: SceneAnalysis) {
+    private fun drawIcicles(context: Context, bitmap: Bitmap, a: SceneAnalysis) {
+        val sprites = (0 until 6).mapNotNull { i ->
+            try { context.assets.open("theme/icicle$i.png").use { BitmapFactory.decodeStream(it) } } catch (_: Exception) { null }
+        }
         val w = bitmap.width
         val h = bitmap.height
         val canvas = Canvas(bitmap)
@@ -183,6 +207,7 @@ object ThemeBake {
         val ceilingFraction = a.fraction(CEILING)
         val step = max(5, w / 100)
         val body = Paint(Paint.ANTI_ALIAS_FLAG)
+        val spritePaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
         val shine = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xB4FFFFFF.toInt(); style = Paint.Style.STROKE }
         var x = step / 2
         var column = 0
@@ -214,26 +239,56 @@ object ThemeBake {
                 val half = max(1.5f, length * (0.09f + 0.05f * rnd.nextFloat()))
                 val top = edgeY * h
                 val sway = (rnd.nextFloat() - 0.5f) * half * 0.8f
-                body.shader = LinearGradient(
-                    x.toFloat(), top, x.toFloat(), top + length,
-                    intArrayOf(0xF0EAF6FF.toInt(), 0xC8B8E0FF.toInt(), 0x8CA0D8FF.toInt()),
-                    floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP
-                )
-                val path = Path().apply {
-                    moveTo(x - half, top)
-                    lineTo(x + half, top)
-                    lineTo(x + sway, top + length)
-                    close()
+                if (sprites.isNotEmpty()) {
+                    val sp = sprites[rnd.nextInt(sprites.size)]
+                    val sh = h * (0.07f + 0.10f * rnd.nextFloat()) * depthFactor
+                    val sw = sh * sp.width / sp.height
+                    val dst = android.graphics.RectF(x - sw / 2f, top - sh * 0.04f, x + sw / 2f, top + sh)
+                    canvas.drawBitmap(sp, null, dst, spritePaint)
+                    x += (sw * 0.55f).toInt()
+                } else {
+                    body.shader = LinearGradient(
+                        x.toFloat(), top, x.toFloat(), top + length,
+                        intArrayOf(0xF0EAF6FF.toInt(), 0xC8B8E0FF.toInt(), 0x8CA0D8FF.toInt()),
+                        floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP
+                    )
+                    val path = Path().apply {
+                        moveTo(x - half, top)
+                        lineTo(x + half, top)
+                        lineTo(x + sway, top + length)
+                        close()
+                    }
+                    canvas.drawPath(path, body)
+                    shine.strokeWidth = max(1f, half * 0.35f)
+                    canvas.drawLine(x - half * 0.45f, top + length * 0.05f, x + sway * 0.6f - half * 0.1f, top + length * 0.8f, shine)
                 }
-                canvas.drawPath(path, body)
-                shine.strokeWidth = max(1f, half * 0.35f)
-                canvas.drawLine(x - half * 0.45f, top + length * 0.05f, x + sway * 0.6f - half * 0.1f, top + length * 0.8f, shine)
             }
             x += step
         }
     }
 
     // ------------------------------------------------------------------ עזרים
+
+    private class Tex(val w: Int, val h: Int, val px: IntArray)
+
+    private fun loadTex(context: Context, name: String): Tex? = try {
+        context.assets.open(name).use { BitmapFactory.decodeStream(it) }?.let { bmp ->
+            val px = IntArray(bmp.width * bmp.height)
+            bmp.getPixels(px, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+            Tex(bmp.width, bmp.height, px).also { bmp.recycle() }
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    /** דגימה עם שיקוף בקצוות, כדי שהאריח לא ייראה תפר */
+    private fun sample(t: Tex, u: Float, v: Float): Int {
+        var x = (u.toInt() % (t.w * 2)).let { if (it < 0) it + t.w * 2 else it }
+        var y = (v.toInt() % (t.h * 2)).let { if (it < 0) it + t.h * 2 else it }
+        if (x >= t.w) x = t.w * 2 - 1 - x
+        if (y >= t.h) y = t.h * 2 - 1 - y
+        return t.px[y * t.w + x]
+    }
 
     /** הערך האופייני של השיפוע על הרצפה (חציון); בלי רצפה בסצנה: אחוזון 70 של הערכים החיוביים */
     private fun calibrate(a: SceneAnalysis, g: FloatArray, size: Int): Float {
