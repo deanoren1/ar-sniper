@@ -72,10 +72,10 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = nt.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.8
-    mad.inputs[2].default_value = 0.07
+    mad.inputs[1].default_value = 0.65
+    mad.inputs[2].default_value = 0.035
     for key, value in (("Base Color", (0.55, 0.78, 1.0, 1.0)), ("Roughness", 0.04), ("Metallic", 0.0),
-                       ("Emission Color", (0.35, 0.65, 1.0, 1.0)), ("Emission Strength", 0.35)):
+                       ("Emission Color", (0.35, 0.65, 1.0, 1.0)), ("Emission Strength", 0.12)):
         try:
             glossy.inputs[key].default_value = value
         except Exception:
@@ -88,12 +88,12 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.45, 0.07, 0.78), rough=0.38, coat=0.5)
+PURPLE = mat("Purple", (0.40, 0.05, 0.72), rough=0.38, coat=0.5)
 PURPLE_DARK = mat("PurpleDark", (0.30, 0.04, 0.55), rough=0.3, coat=0.6)
 SPOT = mat("Spot", (0.95, 0.22, 0.65), rough=0.5)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.86, 0.58), rough=0.25, emit=(1.0, 0.8, 0.45), strength=0.25)
-IRIS = mat("Iris", (1.0, 0.3, 0.03), rough=0.25, emit=(1.0, 0.35, 0.05), strength=0.9)
-PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.15)
+IRIS = mat("Iris", (1.0, 0.18, 0.0), rough=0.25, emit=(1.0, 0.2, 0.02), strength=0.35)
+PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.6)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.10, 0.0, 0.12), rough=0.6)
 TEETH = mat("Teeth", (1.0, 0.97, 0.88), rough=0.3)
@@ -101,8 +101,8 @@ METAL = mat("Metal", (0.10, 0.10, 0.13), rough=0.35, metal=0.9)
 RING = mat("Ring", (0.9, 0.4, 0.65), rough=0.3, metal=0.8)
 COPPER = mat("Copper", (0.75, 0.42, 0.14), rough=0.3, metal=1.0)
 FLAME = mat("Flame", (1.0, 0.45, 0.05), emit=(1.0, 0.45, 0.05), strength=3.0)
-ORB = mat("Orb", (0.85, 0.4, 1.0), emit=(0.8, 0.35, 1.0), strength=10.0)
-ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(1, 0.95, 1), strength=25.0)
+ORB = mat("Orb", (0.7, 0.2, 1.0), emit=(0.7, 0.2, 1.0), strength=3.5)
+ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.95, 0.8, 1.0), strength=9.0)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.15, 0.02, 0.1), rough=0.5)
 GLASS = glass_mat()
@@ -201,24 +201,24 @@ for i in range(30):
     sphere(f"Spot{i}", r, p, SPOT, pivot, scale=(1, 1, 0.3), rot=normal_rot(n), seg=16)
 
 # עין
-EYE_Y, EYE_Z = -0.62, 0.10
+EYE_Y, EYE_Z = -0.62, 0.22
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye_parts = [
-    sphere("EyeWhite", 0.52, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
-    sphere("Iris", 0.36, (0, -0.23, 0), IRIS, eye, scale=(1, 0.3, 1), seg=40),
-    sphere("Pupil", 0.18, (0, -0.29, 0), PUPIL, eye, scale=(1, 0.3, 1), seg=28),
-    sphere("Shine", 0.065, (0.11, -0.325, 0.12), SHINE, eye, scale=(1, 0.4, 1), seg=16),
+    sphere("EyeWhite", 0.46, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.55, 1), seg=40),
+    sphere("Iris", 0.34, (0, -0.23, 0), IRIS, eye, scale=(1, 0.3, 1), seg=40),
+    sphere("Pupil", 0.23, (0, -0.29, 0), PUPIL, eye, scale=(1, 0.3, 1), seg=28),
+    sphere("Shine", 0.065, (0.1, -0.325, 0.11), SHINE, eye, scale=(1, 0.4, 1), seg=16),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
 
 # פה עם שיניים
-mouth = empty("Mouth", pivot, loc=(0, -0.70, -0.42))
+mouth = empty("Mouth", pivot, loc=(0, -0.70, -0.40))
 mouth_parts = [sphere("MouthCavity", 0.3, (0, 0, 0), MOUTH, mouth, scale=(1.25, 0.3, 0.5), seg=28)]
 for i, x in enumerate((-0.17, -0.06, 0.06, 0.17)):
     mouth_parts.append(cone(f"Tooth{i}", 0.04, 0.0, 0.1, (x, -0.09, 0.07), TEETH, mouth, rot=(math.pi, 0, 0)))
 
 # כיפת זכוכית עם טבעת נחושת-ורודה
-DOME_R, DOME_Z, DOME_CUT = 1.05, 0.10, -0.55
+DOME_R, DOME_Z, DOME_CUT = 1.05, 0.10, -0.75
 bpy.ops.mesh.primitive_uv_sphere_add(segments=56, ring_count=28, radius=DOME_R, location=(0, 0, DOME_Z))
 dome = bpy.context.active_object
 bm = bmesh.new()
@@ -233,39 +233,40 @@ except Exception:
     pass
 rim_r = math.sqrt(DOME_R ** 2 - DOME_CUT ** 2)
 rim_z = DOME_Z + DOME_CUT
-torus("DomeRing", rim_r, 0.1, (0, 0, rim_z), RING, torso)
+torus("DomeRing", rim_r, 0.09, (0, 0, rim_z), RING, torso)
 for i in range(22):
     a = i * (2 * math.pi / 22)
-    sphere(f"Rivet{i}", 0.032, (rim_r * math.cos(a), rim_r * math.sin(a), rim_z + 0.1), COPPER, torso, seg=12)
+    sphere(f"Rivet{i}", 0.032, (rim_r * math.cos(a), rim_r * math.sin(a), rim_z + 0.09), COPPER, torso, seg=12)
 
-# שני מיכלי אש עם צינור לכיפה
+# שני מיכלי אש בצדדים ומעט מאחור (כדי שמהצד עדיין רואים את הפנים), עם צינור לכיפה
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.4 * sx, 0.05
+    tx, ty = 1.3 * sx, 0.45
     cylinder(f"Tank{side}", 0.3, 1.1, (tx, ty, 0.1), PURPLE_DARK, torso)
     cylinder(f"TankCapTop{side}", 0.335, 0.12, (tx, ty, 0.69), METAL, torso)
     cylinder(f"TankCapBot{side}", 0.335, 0.12, (tx, ty, -0.49), METAL, torso)
     torus(f"TankBand1{side}", 0.305, 0.035, (tx, ty, 0.35), METAL, torso)
     torus(f"TankBand2{side}", 0.305, 0.035, (tx, ty, -0.15), METAL, torso)
     cylinder(f"TankNozzle{side}", 0.08, 0.16, (tx, ty, 0.82), METAL, torso)
-    cylinder(f"PipeUp{side}", 0.05, 0.22, (tx, ty, 0.99), COPPER, torso)
-    sphere(f"Elbow{side}", 0.065, (tx, ty, 1.1), COPPER, torso, seg=16)
-    cylinder(f"PipeIn{side}", 0.05, 0.78, (tx - 0.39 * sx, ty, 1.1), COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.17, 0.03, (tx, ty - 0.29, 0.1), METAL, torso, rot=(math.pi / 2, 0, 0))
-    cone(f"Flame{side}", 0.12, 0.0, 0.3, (tx, ty - 0.32, 0.1), FLAME, torso, scale=(1, 0.25, 1))
+    cylinder(f"PipeUp{side}", 0.05, 0.2, (tx, ty, 0.88), COPPER, torso)
+    sphere(f"Elbow{side}", 0.065, (tx, ty, 0.97), COPPER, torso, seg=16)
+    cylinder(f"PipeIn{side}", 0.05, 0.85, (0.875 * sx, ty, 0.97), COPPER, torso, rot=(0, math.pi / 2, 0))
+    cylinder(f"Badge{side}", 0.17, 0.03, (tx, ty - 0.3, 0.1), METAL, torso, rot=(math.pi / 2, 0, 0))
+    sphere(f"FlameBase{side}", 0.075, (tx, ty - 0.33, 0.04), FLAME, torso, scale=(1, 0.3, 1), seg=16)
+    cone(f"FlameTip{side}", 0.075, 0.0, 0.2, (tx, ty - 0.33, 0.17), FLAME, torso, scale=(1, 0.3, 1))
 
 # שמונה זרועות: שרשרת של 4 מקטעים, כל מפרק מסתובב בקוד
-ARM_LEN = [0.42, 0.38, 0.34, 0.30]
-ARM_RAD = [0.20, 0.17, 0.14, 0.115, 0.085]
-ARM_CURL = 0.2
+ARM_LEN = [0.36, 0.32, 0.28, 0.24]
+ARM_RAD = [0.24, 0.20, 0.17, 0.14, 0.11]
+ARM_CURLS = [0.5, 0.5, 0.3]   # כמה כל מפרק מיישר את הזרוע כלפי מטה במנוחה
 arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שורש)
 tips = []
 for i in range(8):
     theta = math.radians(i * 45 + 22.5)
-    tilt = 0.68 + rng.uniform(-0.1, 0.1)
-    root = empty(f"ArmRoot{i}", torso, loc=(0.55 * math.cos(theta), 0.55 * math.sin(theta), -0.62), rot=(0, -tilt, theta))
+    tilt = 1.0 + rng.uniform(-0.1, 0.1)
+    root = empty(f"ArmRoot{i}", torso, loc=(0.5 * math.cos(theta), 0.5 * math.sin(theta), -0.72), rot=(0, -tilt, theta))
     joints = [root]
     for k in range(1, 4):
-        joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURL, 0)))
+        joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     for k in range(4):
         cone(f"Seg{i}_{k}", ARM_RAD[k + 1], ARM_RAD[k], ARM_LEN[k], (0, 0, -ARM_LEN[k] / 2), PURPLE, joints[k])
         sphere(f"Knee{i}_{k}", ARM_RAD[k], (0, 0, 0), PURPLE, joints[k], seg=20)
@@ -336,7 +337,7 @@ ground.is_shadow_catcher = True
 
 cam_data = bpy.data.cameras.new("Cam")
 cam_data.type = "ORTHO"
-cam_data.ortho_scale = max(4.6, HEIGHT * 1.22)
+cam_data.ortho_scale = max(4.2, HEIGHT * 1.2)
 cam = bpy.data.objects.new("Cam", cam_data)
 bpy.context.collection.objects.link(cam)
 cam.location = (0, -14, HEIGHT * 0.5)
@@ -361,17 +362,17 @@ def add_light(name, kind, energy, loc, rot=None, target=None, size=None, color=(
     return lo
 
 
-sun = add_light("Sun", "SUN", 3.2, (0, 0, 8), rot=(math.radians(50), 0, math.radians(-35)))
+sun = add_light("Sun", "SUN", 2.4, (0, 0, 8), rot=(math.radians(50), 0, math.radians(-35)))
 sun.data.angle = 0.18
-add_light("Fill", "AREA", 450, (3.5, -6, 3.5), target=(0, 0, HEIGHT * 0.5), size=6, color=(1.0, 0.95, 0.9))
-add_light("Rim", "AREA", 330, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.75, 0.6, 1.0))
+add_light("Fill", "AREA", 280, (3.5, -6, 3.5), target=(0, 0, HEIGHT * 0.5), size=6, color=(1.0, 0.95, 0.9))
+add_light("Rim", "AREA", 250, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.75, 0.6, 1.0))
 
 world = bpy.data.worlds.new("World")
 scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes["Background"]
 bg.inputs[0].default_value = (0.55, 0.6, 0.78, 1.0)
-bg.inputs[1].default_value = 0.8
+bg.inputs[1].default_value = 0.5
 
 scene.render.engine = "CYCLES"
 scene.cycles.device = "CPU"
@@ -438,7 +439,7 @@ def arms_wave(t, amp_y, amp_x, lag=0.6, spread=0.785, extra_y=0.0):
         root.rotation_euler.y = -tilt + 0.5 * amp_y * SIN(ph0) + extra_y * 0.5
         for k in range(1, 4):
             ph = ph0 - k * lag
-            joints[k].rotation_euler.y = ARM_CURL + amp_y * (0.55 + 0.3 * k) * SIN(ph) + extra_y
+            joints[k].rotation_euler.y = ARM_CURLS[k - 1] + amp_y * (0.55 + 0.3 * k) * SIN(ph) + extra_y
             joints[k].rotation_euler.x = amp_x * COS(ph)
 
 
@@ -504,13 +505,13 @@ def pose(clip, i, n):
             pivot.scale = (1.12, 1.1, 0.86)
             eye.scale.z = 0.3
             mouth.scale = (1.0, 1.0, 1.6)
-            tint(2.5)
+            tint(0.6)
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.25)
         else:
             torso.rotation_euler.x = -0.12
             pivot.scale = (1.04, 1.04, 0.97)
             eye.scale.z = 0.7
-            tint(0.8)
+            tint(0.25)
             arms_wave(0.0, 0.0, 0.0, extra_y=0.05)
         show(stars, True)
     elif clip == "Death":
@@ -520,20 +521,20 @@ def pose(clip, i, n):
         if i == 0:
             torso.rotation_euler.x = -0.4
             torso.location.z -= 0.1
-            tint(1.5)
+            tint(0.5)
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.45)
         elif i == 1:
             torso.rotation_euler.x = -1.15
             torso.location.z -= 0.55
             torso.location.y += 0.35
-            tint(0.8)
+            tint(0.3)
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
         elif i == 2:
             torso.rotation_euler.x = -1.15
             torso.location.z -= 0.55
             torso.location.y += 0.35
             pivot.scale = (1.3, 1.3, 1.3)
-            tint(6.0, (1.0, 0.8, 1.0))
+            tint(2.5, (1.0, 0.7, 1.0))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
             show([o for o in main_parts if o.name.startswith(("Dome", "Rivet"))], False)
             for f, d, dist in frags:
