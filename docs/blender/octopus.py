@@ -21,8 +21,8 @@ SAMPLES = int(argv[3]) if len(argv) > 3 else 32
 FRAMES_DIR = os.path.join(OUT, "frames")
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
-# סיבוב סביב Z שמציג את הדמות מהצד (פונה ימינה), מקדימה ומאחור
-ANGLE_DEG = {"side": 90.0, "front": 0.0, "back": 180.0}
+# סיבוב סביב Z: "side" = שלושת-רבעי פונה ימינה (כך רואים את הפנים בהליכה), מקדימה ומאחור
+ANGLE_DEG = {"side": 60.0, "front": 0.0, "back": 180.0}
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -93,16 +93,16 @@ PURPLE_DARK = mat("PurpleDark", (0.30, 0.04, 0.55), rough=0.3, coat=0.6)
 SPOT = mat("Spot", (0.95, 0.22, 0.65), rough=0.5)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.86, 0.58), rough=0.25, emit=(1.0, 0.8, 0.45), strength=0.25)
 IRIS = mat("Iris", (1.0, 0.18, 0.0), rough=0.25, emit=(1.0, 0.2, 0.02), strength=0.35)
-PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.6)
+PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.9)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
-MOUTH = mat("Mouth", (0.10, 0.0, 0.12), rough=0.6)
+MOUTH = mat("Mouth", (0.06, 0.0, 0.08), rough=0.9)
 TEETH = mat("Teeth", (1.0, 0.97, 0.88), rough=0.3)
 METAL = mat("Metal", (0.10, 0.10, 0.13), rough=0.35, metal=0.9)
 RING = mat("Ring", (0.9, 0.4, 0.65), rough=0.3, metal=0.8)
 COPPER = mat("Copper", (0.75, 0.42, 0.14), rough=0.3, metal=1.0)
-FLAME = mat("Flame", (1.0, 0.45, 0.05), emit=(1.0, 0.45, 0.05), strength=3.0)
-ORB = mat("Orb", (0.7, 0.2, 1.0), emit=(0.7, 0.2, 1.0), strength=3.5)
-ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.95, 0.8, 1.0), strength=9.0)
+FLAME = mat("Flame", (1.0, 0.4, 0.03), emit=(1.0, 0.35, 0.03), strength=1.6)
+ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
+ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.15, 0.02, 0.1), rough=0.5)
 GLASS = glass_mat()
@@ -240,16 +240,15 @@ for i in range(22):
 
 # שני מיכלי אש בצדדים ומעט מאחור (כדי שמהצד עדיין רואים את הפנים), עם צינור לכיפה
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.3 * sx, 0.45
+    tx, ty = 1.2 * sx, 0.45
     cylinder(f"Tank{side}", 0.3, 1.1, (tx, ty, 0.1), PURPLE_DARK, torso)
     cylinder(f"TankCapTop{side}", 0.335, 0.12, (tx, ty, 0.69), METAL, torso)
     cylinder(f"TankCapBot{side}", 0.335, 0.12, (tx, ty, -0.49), METAL, torso)
     torus(f"TankBand1{side}", 0.305, 0.035, (tx, ty, 0.35), METAL, torso)
     torus(f"TankBand2{side}", 0.305, 0.035, (tx, ty, -0.15), METAL, torso)
     cylinder(f"TankNozzle{side}", 0.08, 0.16, (tx, ty, 0.82), METAL, torso)
-    cylinder(f"PipeUp{side}", 0.05, 0.2, (tx, ty, 0.88), COPPER, torso)
-    sphere(f"Elbow{side}", 0.065, (tx, ty, 0.97), COPPER, torso, seg=16)
-    cylinder(f"PipeIn{side}", 0.05, 0.85, (0.875 * sx, ty, 0.97), COPPER, torso, rot=(0, math.pi / 2, 0))
+    sphere(f"Valve{side}", 0.07, (tx, ty, 0.94), COPPER, torso, seg=16)
+    cylinder(f"Connector{side}", 0.07, 0.3, (0.95 * sx, ty - 0.02, 0.4), COPPER, torso, rot=(0, math.pi / 2, 0))
     cylinder(f"Badge{side}", 0.17, 0.03, (tx, ty - 0.3, 0.1), METAL, torso, rot=(math.pi / 2, 0, 0))
     sphere(f"FlameBase{side}", 0.075, (tx, ty - 0.33, 0.04), FLAME, torso, scale=(1, 0.3, 1), seg=16)
     cone(f"FlameTip{side}", 0.075, 0.0, 0.2, (tx, ty - 0.33, 0.17), FLAME, torso, scale=(1, 0.3, 1))
@@ -305,9 +304,9 @@ puddle = []
 for i in range(9):
     a = rng.uniform(0, 2 * math.pi)
     d = rng.uniform(0.0, 0.85)
-    r = rng.uniform(0.18, 0.34)
+    r = rng.uniform(0.28, 0.48)
     puddle.append(sphere(f"Puddle{i}", r, (d * math.cos(a), d * math.sin(a) * 0.6, 0.04), PURPLE if i % 2 else PURPLE_DARK,
-                         monster, scale=(1, 1, 0.16), seg=16, main=False))
+                         monster, scale=(1, 1, 0.2), seg=16, main=False))
 shards = []
 for i in range(7):
     a = rng.uniform(0, 2 * math.pi)
@@ -427,7 +426,7 @@ def restore():
     show(orb_parts + stars + x_marks + puddle + shards + [f for f, _, _ in frags], False)
     show(eye_parts, True)
     tint(0.0)
-    flame_bsdf.inputs["Emission Strength"].default_value = 3.0
+    flame_bsdf.inputs["Emission Strength"].default_value = 1.6
     for f, _, _ in frags:
         f.location = (0, 0, 0)
         f.scale = (1, 1, 1)
@@ -477,11 +476,11 @@ def pose(clip, i, n):
         pivot.scale = (1 + 0.04 * k, 1 + 0.04 * k, 1 - 0.03 * k)
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.18 * k)
         mouth.scale = (1.0, 1.0, 1.0 + 0.9 * k)
-        flame_bsdf.inputs["Emission Strength"].default_value = 3.0 + 12.0 * k
+        flame_bsdf.inputs["Emission Strength"].default_value = 1.6 + 6.0 * k
         show(orb_parts, True)
         r = 0.12 + 0.2 * k
         orb_halo.scale = (r, r, r)
-        orb_core.scale = (r * 0.55, r * 0.55, r * 0.55)
+        orb_core.scale = (r * 0.45, r * 0.45, r * 0.45)
         for o in orb_parts:
             o.location = (0, -1.25 - 0.05 * k, -0.42)
     elif clip == "Shoot":
@@ -489,12 +488,12 @@ def pose(clip, i, n):
         torso.rotation_euler.x = -0.22 * recoil + 0.1
         torso.location.y += 0.1 * recoil
         mouth.scale = (1.0, 1.0, 1.9 - 0.4 * i)
-        flame_bsdf.inputs["Emission Strength"].default_value = 12.0 - 4.0 * i
+        flame_bsdf.inputs["Emission Strength"].default_value = 7.0 - 2.0 * i
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.1)
         show(orb_parts, True)
         r = (0.42, 0.34, 0.24)[i]
         orb_halo.scale = (r, r, r)
-        orb_core.scale = (r * 0.55, r * 0.55, r * 0.55)
+        orb_core.scale = (r * 0.45, r * 0.45, r * 0.45)
         oy = (-1.5, -1.8, -2.05)[i]
         for o in orb_parts:
             o.location = (0, oy, -0.42)
@@ -505,13 +504,13 @@ def pose(clip, i, n):
             pivot.scale = (1.12, 1.1, 0.86)
             eye.scale.z = 0.3
             mouth.scale = (1.0, 1.0, 1.6)
-            tint(0.6)
+            tint(0.3)
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.25)
         else:
             torso.rotation_euler.x = -0.12
             pivot.scale = (1.04, 1.04, 0.97)
             eye.scale.z = 0.7
-            tint(0.25)
+            tint(0.12)
             arms_wave(0.0, 0.0, 0.0, extra_y=0.05)
         show(stars, True)
     elif clip == "Death":
@@ -521,7 +520,7 @@ def pose(clip, i, n):
         if i == 0:
             torso.rotation_euler.x = -0.4
             torso.location.z -= 0.1
-            tint(0.5)
+            tint(0.25)
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.45)
         elif i == 1:
             torso.rotation_euler.x = -1.15
@@ -534,7 +533,7 @@ def pose(clip, i, n):
             torso.location.z -= 0.55
             torso.location.y += 0.35
             pivot.scale = (1.3, 1.3, 1.3)
-            tint(2.5, (1.0, 0.7, 1.0))
+            tint(0.9, (1.0, 0.75, 1.0))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
             show([o for o in main_parts if o.name.startswith(("Dome", "Rivet"))], False)
             for f, d, dist in frags:
@@ -544,7 +543,7 @@ def pose(clip, i, n):
         else:
             show(main_parts, False)
             show(puddle + shards, True)
-            for f, d, dist in frags[:6]:
+            for f, d, dist in frags[:10]:
                 f.hide_render = False
                 f.location = Vector((d.x * 1.0, d.y * 0.8, 0.0)) * dist * 0.7
                 f.location.z = -TORSO_Z + 0.1
