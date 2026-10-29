@@ -124,7 +124,7 @@ def metal_mat(name, color, rough=0.4, metal=0.9):
 
 DOME_CENTER = Vector((0.0, 0.04, 1.12))
 DOME_SCALE = Vector((0.88, 0.96, 0.72))
-DOME_CUT = -0.28  # חיתוך תחתון ביחידות כדור (-1..1)
+DOME_CUT = -0.53  # חיתוך תחתון ביחידות כדור (-1..1)
 
 bm = bmesh.new()
 bmesh.ops.create_uvsphere(bm, u_segments=56, v_segments=28, radius=1.0)
@@ -142,11 +142,11 @@ for p in dome.data.polygons:
 dome.visible_shadow = False
 
 ring_r = math.sqrt(1 - DOME_CUT ** 2)
-bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.04, major_segments=64, minor_segments=12)
+bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.034, major_segments=64, minor_segments=12)
 ring = bpy.context.active_object
 ring.name = "DomeRing"
 ring.location = DOME_CENTER + Vector((0, 0, DOME_CUT * DOME_SCALE.z))
-ring.scale = Vector((DOME_SCALE.x * ring_r, DOME_SCALE.y * ring_r, 1.0 * 1.6))
+ring.scale = Vector((DOME_SCALE.x * ring_r, DOME_SCALE.y * ring_r, 1.0))
 ring.data.materials.append(metal_mat("RingMetal", (0.42, 0.22, 0.10), rough=0.45))
 ring.visible_shadow = False
 
@@ -244,9 +244,18 @@ for key, names in ARM_NAMES.items():
     h.z = 0
     RADIAL[key] = h.normalized() if h.length > 1e-4 else Vector((0, -1, 0))
 GROUND = Vector((0, 0, 0))
+BASE_LOC = monster.location.copy()
+
+
+def lowest():
+    return min((arm.matrix_world @ pb.tail).z for pb in pbones)
+
+
+REST_LOW = lowest()
 
 
 def reset():
+    monster.location = BASE_LOC.copy()
     monster.rotation_euler = (0, 0, 0)
     monster.scale = (1, 1, 1)
     for pb in pbones:
@@ -301,6 +310,16 @@ def tanks(t, amp):
 
 def pose(clip, i, n):
     reset()
+    _pose(clip, i, n)
+    # בלי חדירה לרצפה: אם משהו ירד מתחת לגובה המנוחה, מרימים את הדמות
+    low = lowest()
+    if low < REST_LOW:
+        monster.location.z += REST_LOW - low
+    if clip == "Death" and i >= 1:
+        monster.location.x += 0.75
+
+
+def _pose(clip, i, n):
     if clip == "Idle":
         t = i / n
         move(ROOT, Vector((0, 0, 0.025 * math.sin(2 * math.pi * t))))
@@ -331,27 +350,24 @@ def pose(clip, i, n):
         set_tint([0.60, 0.28][i])
     elif clip == "Death":
         if i == 0:
-            lean(-0.55)
+            lean(-0.45)
             arms_pose(0.0, 0.0, 0.0, droop=-1.6)
-            set_tint(0.35)
+            set_tint(0.30)
         elif i == 1:
-            lean(-1.45)
-            move(ROOT, Vector((0, 0.0, -0.05)))
+            lean(-1.35)
             arms_pose(0.0, 0.0, 0.0, droop=0.7)
             set_tint(0.40, (0.55, 0.05, 0.1))
         elif i == 2:
-            lean(-1.45)
-            move(ROOT, Vector((0, 0.0, -0.05)))
+            lean(-1.35)
             arms_pose(0.0, 0.0, 0.0, droop=0.5)
-            monster.scale = (1.14, 1.14, 1.14)
-            set_tint(0.85, (1.0, 0.9, 0.7))
+            monster.scale = (1.08, 1.08, 1.08)
+            set_tint(0.55, (1.0, 0.75, 0.4))
         else:
-            lean(-1.45)
-            move(ROOT, Vector((0, 0.0, -0.05)))
+            lean(-1.35)
             arms_pose(0.0, 0.0, 0.0, droop=0.3)
-            monster.scale = (0.45, 0.45, 0.45)
+            monster.scale = (0.5, 0.5, 0.5)
             set_tint(0.5, (1.0, 0.7, 0.4))
-            set_fade(0.75)
+            set_fade(0.7)
 
 
 SHEET = [("Idle", 6, 0, 0), ("Walk", 6, 1, 0), ("Charge", 3, 2, 0), ("Shoot", 3, 2, 3), ("Hit", 2, 3, 0), ("Death", 4, 3, 2)]
