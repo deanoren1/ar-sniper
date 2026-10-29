@@ -122,7 +122,7 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.46, 0.025, 0.64), rough=0.36, coat=0.30)
+PURPLE = mat("Purple", (0.56, 0.022, 0.70), rough=0.34, coat=0.32)
 add_skin(PURPLE, scale=18.0, strength=0.025)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
@@ -302,7 +302,7 @@ for i, (sx, sz, rx, rz) in enumerate((
 
 # קוצים קטנים ורודים, בעיקר בחלק העליון; בלי קרניים אפורות גדולות.
 for i in range(5):
-    az = math.radians(20 + i * 40 + rng.uniform(-8, 8))
+    az = math.radians(205 + i * 37 + rng.uniform(-8, 8))
     if 235 < math.degrees(az) % 360 < 305:
         continue  # לא מול הפנים
     pol = math.radians(rng.uniform(22, 55))
@@ -324,20 +324,20 @@ for i in range(14):
 # עין גדולה ועגולה בסגנון צעצוע, עם קשתית כתומה ואישון שחור עגול.
 EYE_Y, EYE_Z = -0.75, 0.26
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.98, 0.98, 0.98)
+eye.scale = (1.04, 1.04, 1.04)
 eye_parts = [
-    sphere("EyeWhite", 0.42, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1), seg=48),
+    sphere("EyeWhite", 0.47, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1), seg=48),
     sphere("Iris", 0.30, (0, -0.215, 0), IRIS, eye, scale=(1, 0.34, 1), seg=48),
     sphere("Pupil", 0.17, (0, -0.295, 0), PUPIL, eye, scale=(1.0, 0.30, 1.0), seg=40),
     sphere("Shine", 0.050, (0.065, -0.35, 0.105), SHINE, eye, scale=(1, 0.35, 1), seg=20),
 ]
 look_parts = eye_parts[1:]  # הקשתית, האישון והברק זזים יחד כשמסתכלים
 # Thin raised rim; the sclera and orange iris remain visible instead of sinking into the shell.
-torus("EyeRim", 0.405, 0.014, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeRim", 0.455, 0.012, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 
 # Compact playful mouth with just a few small teeth (closer to the reference toy expression).
-mouth = empty("Mouth", pivot, loc=(0, -0.80, -0.45))
-mouth_parts = [sphere("MouthCavity", 0.235, (0, 0, 0), MOUTH, mouth, scale=(1.30, 0.32, 0.40), seg=36)]
+mouth = empty("Mouth", pivot, loc=(0, -0.82, -0.47))
+mouth_parts = [sphere("MouthCavity", 0.255, (0, 0, 0), MOUTH, mouth, scale=(1.48, 0.38, 0.43), seg=36)]
 for i, x in enumerate((-0.18, 0.0, 0.18)):
     h = (0.050, 0.060, 0.050)[i]
     # Seat the upper teeth inside the cavity so they read as a grin, not floating spikes.
@@ -347,27 +347,27 @@ for i, x in enumerate((-0.12, 0.12)):
     mouth_parts.append(cone(f"ToothL{i}", 0.029, 0.0, h, (x, -0.068, -0.055 + h / 2), TEETH, mouth))
 
 # No glass bubble: a visible pink lower collar/band anchors the purple shell.
-torus("LowerPinkBand", 0.68, 0.032, (0, 0, -0.73), RING, torso)
+torus("LowerPinkBand", 0.75, 0.040, (0, 0, -0.69), RING, torso)
 for i in range(12):
     a = i * (2 * math.pi / 12)
-    sphere(f"BandRivet{i}", 0.007, (0.68 * math.cos(a), 0.68 * math.sin(a), -0.71), SPOT, torso, seg=12)
+    sphere(f"BandRivet{i}", 0.012, (0.75 * math.cos(a), 0.75 * math.sin(a), -0.665), SPOT, torso, seg=12)
 
 # Compact side tanks, pulled outward so the dark hardware and flame badges read clearly.
 for side, sx in (("L", -1), ("R", 1)):
     # Keep the tanks compact but move them outward and slightly forward so their
     # magenta shells, dark bands, and orange flame badges remain visible in front view.
-    tx, ty = 1.16 * sx, -0.035
-    cylinder(f"Tank{side}", 0.145, 0.56, (tx, ty, 0.07), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.165, 0.07, (tx, ty, 0.385), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.165, 0.07, (tx, ty, -0.245), METAL, torso)
-    torus(f"TankBand1{side}", 0.148, 0.018, (tx, ty, 0.18), METAL, torso)
-    torus(f"TankBand2{side}", 0.148, 0.018, (tx, ty, -0.04), METAL, torso)
-    cylinder(f"TankNozzle{side}", 0.034, 0.07, (tx, ty, 0.455), METAL, torso)
-    sphere(f"Valve{side}", 0.028, (tx, ty, 0.505), COPPER, torso, seg=16)
-    cylinder(f"Connector{side}", 0.038, 0.19, (1.035 * sx, ty - 0.015, 0.25), COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.090, 0.018, (tx, ty - 0.152, 0.07), METAL, torso, rot=(math.pi / 2, 0, 0))
-    sphere(f"FlameBase{side}", 0.036, (tx, ty - 0.174, 0.030), FLAME, torso, scale=(1, 0.3, 1), seg=16)
-    cone(f"FlameTip{side}", 0.036, 0.0, 0.09, (tx, ty - 0.174, 0.092), FLAME, torso, scale=(1, 0.3, 1))
+    tx, ty = 1.18 * sx, -0.035
+    cylinder(f"Tank{side}", 0.16, 0.68, (tx, ty, 0.015), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.178, 0.075, (tx, ty, 0.392), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.178, 0.075, (tx, ty, -0.362), METAL, torso)
+    torus(f"TankBand1{side}", 0.162, 0.020, (tx, ty, 0.19), METAL, torso)
+    torus(f"TankBand2{side}", 0.162, 0.020, (tx, ty, -0.16), METAL, torso)
+    cylinder(f"TankNozzle{side}", 0.038, 0.075, (tx, ty, 0.455), METAL, torso)
+    sphere(f"Valve{side}", 0.030, (tx, ty, 0.510), COPPER, torso, seg=16)
+    cylinder(f"Connector{side}", 0.040, 0.21, (1.045 * sx, ty - 0.015, 0.25), COPPER, torso, rot=(0, math.pi / 2, 0))
+    cylinder(f"Badge{side}", 0.102, 0.020, (tx, ty - 0.172, 0.015), METAL, torso, rot=(math.pi / 2, 0, 0))
+    sphere(f"FlameBase{side}", 0.046, (tx, ty - 0.194, -0.005), FLAME, torso, scale=(1, 0.24, 1), seg=16)
+    cone(f"FlameTip{side}", 0.046, 0.0, 0.115, (tx, ty - 0.194, 0.072), FLAME, torso, scale=(1, 0.24, 1))
 
 # Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -464,8 +464,8 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 for i in range(8):
     theta = math.radians(i * 45 + 22.5)
-    tilt = 0.95 + rng.uniform(-0.1, 0.1)
-    root = empty(f"ArmRoot{i}", torso, loc=(0.5 * math.cos(theta), 0.5 * math.sin(theta), -0.64), rot=(0, -tilt, theta))
+    tilt = 0.78 + rng.uniform(-0.08, 0.08)
+    root = empty(f"ArmRoot{i}", torso, loc=(0.52 * math.cos(theta), 0.52 * math.sin(theta), -0.68), rot=(0, tilt, theta))
     joints = [root]
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
@@ -652,7 +652,7 @@ def restore():
 def arms_wave(t, amp_y, amp_x, lag=0.6, spread=0.785, extra_y=0.0):
     for i, (root, joints, tilt) in enumerate(arms):
         ph0 = t - i * spread
-        root.rotation_euler.y = -tilt + 0.5 * amp_y * SIN(ph0) + extra_y * 0.5
+        root.rotation_euler.y = tilt + 0.5 * amp_y * SIN(ph0) - extra_y * 0.5
         for k in range(1, 4):
             ph = ph0 - k * lag
             joints[k].rotation_euler.y = ARM_CURLS[k - 1] + amp_y * (0.55 + 0.3 * k) * SIN(ph) + extra_y
