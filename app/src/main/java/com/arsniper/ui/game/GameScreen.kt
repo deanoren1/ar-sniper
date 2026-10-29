@@ -180,7 +180,7 @@ fun GameScreen(
     val isGuest = coop == "guest"
     val isHost = coop == "host"
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
-    val frameVariant = remember { com.arsniper.ml.ThemeBake.nextFrameVariant() }
+    val frameVariant = 0 // מסגרת טונדרה מעוצבת: הפוטוריאליסטית (arena_frame_tundra_v0)
     var themed by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
@@ -1286,9 +1286,6 @@ fun GameScreen(
 
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
         if (panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, drawFrame = false, screenOnly = true)
-
-        // בדיקה: איזו מסגרת מוצגת בארנה המעוצבת (מתחלף בכל כניסה)
-        if (themed != null) OutlinedText(listOf("FRAME 1", "FRAME 2", "FRAME 3", "NO FRAME")[frameVariant], fontSize = 14.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
 
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
