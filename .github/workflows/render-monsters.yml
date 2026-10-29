@@ -1,0 +1,51 @@
+name: Render monsters
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/blender/**"
+      - ".github/workflows/render-monsters.yml"
+  workflow_dispatch:
+    inputs:
+      angles:
+        description: "side,front,back"
+        default: "side"
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Blender
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/blender
+          key: blender-4.2.3
+      - name: Install Blender
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/blender
+          wget -q -O blender.tar.xz https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+          tar -xf blender.tar.xz -C ~/blender --strip-components=1
+      - name: System libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libxi6 libxrender1 libxkbcommon0 libxxf86vm1 libsm6 libxfixes3 libgl1 libegl1
+      - name: Render
+        run: |
+          set -o pipefail
+          mkdir -p out
+          ~/blender/blender -b -noaudio --python-exit-code 1 -P docs/blender/octopus.py -- out "${{ inputs.angles || 'side' }}" 384 32 2>&1 | tee out/render.log | tail -60
+      - name: Assemble sheets
+        run: |
+          pip install --quiet pillow
+          python docs/blender/make_sheet.py out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monsters-octopus
+          path: |
+            out/*.png
+            out/render.log
