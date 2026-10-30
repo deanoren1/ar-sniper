@@ -61,7 +61,17 @@ if links:
     nt.links.new(links[0].from_socket, tint_mix.inputs[1])
 else:
     tint_mix.inputs[1].default_value = bsdf.inputs["Base Color"].default_value
-nt.links.new(tint_mix.outputs[0], bsdf.inputs["Base Color"])
+hue_sat = nt.nodes.new("ShaderNodeHueSaturation")
+hue_sat.inputs["Saturation"].default_value = 1.25  # צבעים עמוקים יותר: סגול וורוד כמו בדגם המקורי
+hue_sat.inputs["Value"].default_value = 0.86
+nt.links.new(tint_mix.outputs[0], hue_sat.inputs["Color"])
+nt.links.new(hue_sat.outputs[0], bsdf.inputs["Base Color"])
+for key, value in (("Specular IOR Level", 0.3), ("Roughness", 0.42)):
+    try:
+        if not bsdf.inputs[key].links:
+            bsdf.inputs[key].default_value = value
+    except Exception:
+        pass
 tint_mix.inputs[0].default_value = 0.0
 fade_tr = nt.nodes.new("ShaderNodeBsdfTransparent")
 fade_mix = nt.nodes.new("ShaderNodeMixShader")
@@ -96,8 +106,8 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = t.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.55
-    mad.inputs[2].default_value = 0.015
+    mad.inputs[1].default_value = 0.30
+    mad.inputs[2].default_value = 0.006
     for key, value in (("Base Color", (0.45, 0.7, 1.0, 1.0)), ("Roughness", 0.02), ("Metallic", 0.0),
                        ("Emission Color", (0.5, 0.7, 1.0, 1.0)), ("Emission Strength", 0.0)):
         try:
@@ -125,7 +135,7 @@ def metal_mat(name, color, rough=0.4, metal=0.9):
 DOME_CENTER = Vector((0.0, 0.04, 1.114))
 DOME_SCALE = Vector((0.72, 0.78, 0.765))
 DOME_CUT = -0.41  # חיתוך תחתון ביחידות כדור (-1..1)
-DOME_TILT = 0.549  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
+DOME_TILT = 0.427  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
 
 bm = bmesh.new()
 bmesh.ops.create_uvsphere(bm, u_segments=56, v_segments=28, radius=1.0)
@@ -210,12 +220,12 @@ def add_light(name, kind, energy, loc, rot=None, target=None, size=None, color=(
     return lo
 
 
-sun = add_light("Sun", "SUN", 4.6, (0, 0, 8), rot=(math.radians(58), 0, math.radians(-40)), color=(1.0, 0.94, 0.86))
+sun = add_light("Sun", "SUN", 2.6, (0, 0, 8), rot=(math.radians(58), 0, math.radians(-40)), color=(1.0, 0.94, 0.86))
 sun.data.angle = 0.12
-add_light("Key", "AREA", 320, (-3.0, -5.0, 5.5), target=(0, 0, HEIGHT * 0.5), size=2.5, color=(1.0, 0.96, 0.9))
+add_light("Key", "AREA", 190, (-3.0, -5.0, 5.5), target=(0, 0, HEIGHT * 0.5), size=2.5, color=(1.0, 0.96, 0.9))
 add_light("Fill", "AREA", 90, (4.5, -6, 2.0), target=(0, 0, HEIGHT * 0.5), size=6, color=(0.7, 0.8, 1.0))
 add_light("Rim", "AREA", 520, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=4, color=(0.95, 0.45, 1.0))
-add_light("Top", "AREA", 160, (2.0, -2.0, 7.0), target=(0, 0, HEIGHT * 0.5), size=2.0, color=(0.85, 0.9, 1.0))
+add_light("Top", "AREA", 90, (2.0, -2.0, 7.0), target=(0, 0, HEIGHT * 0.5), size=2.0, color=(0.85, 0.9, 1.0))
 
 world = bpy.data.worlds.new("World")
 scene.world = world
