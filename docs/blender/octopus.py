@@ -7,6 +7,7 @@
 import math
 import os
 import random
+import shutil
 import sys
 
 import bmesh
@@ -111,8 +112,8 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = nt.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.22
-    mad.inputs[2].default_value = 0.012
+    mad.inputs[1].default_value = 0.29
+    mad.inputs[2].default_value = 0.016
     for key, value in (("Base Color", (0.12, 0.30, 0.52, 1.0)), ("Roughness", 0.07), ("Metallic", 0.0),
                        ("Emission Color", (0.05, 0.16, 0.42, 1.0)), ("Emission Strength", 0.035)):
         try:
@@ -127,7 +128,7 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.50, 0.012, 0.70), rough=0.31, coat=0.40)
+PURPLE = mat("Purple", (0.62, 0.018, 0.76), rough=0.30, coat=0.42)
 add_skin(PURPLE, scale=18.0, strength=0.025)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
@@ -160,8 +161,8 @@ TANK = mat("Tank", (0.82, 0.03, 0.58), rough=0.36, metal=0.05, coat=0.28)
 GLASS = glass_mat()
 DOME_RIM = mat("DomeRim", (0.06, 0.34, 0.96), rough=0.18, metal=0.16,
                emit=(0.02, 0.16, 0.88), strength=1.0, coat=0.42)
-DOME_HIGHLIGHT = mat("DomeHighlight", (0.58, 0.82, 1.0), rough=0.13,
-                     emit=(0.22, 0.48, 1.0), strength=0.32, coat=0.48)
+DOME_HIGHLIGHT = mat("DomeHighlight", (0.68, 0.88, 1.0), rough=0.11,
+                     emit=(0.28, 0.56, 1.0), strength=0.42, coat=0.52)
 
 # ------------------------------------------------------------------ עזרים
 
@@ -511,7 +512,7 @@ def arm_curve_x(t):
     # Sweep outward, then turn back earlier so the hook reads clearly in the front view.
     u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
-    return 1.15 * math.sin(math.pi * 0.60 * t) - 0.42 * hook
+    return 1.15 * math.sin(math.pi * 0.60 * t) - 0.52 * hook
 
 
 def arm_curve_y(t):
@@ -525,7 +526,7 @@ def arm_curve_z(t):
     u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
     # The arm drops into a compact loop and lifts its rounded tip back toward the body.
-    return -1.00 * t + 1.10 * hook
+    return -1.00 * t + 1.20 * hook
 
 
 def arm_radius(t):
@@ -928,6 +929,14 @@ pose("Idle", 0, 6)
 for name, deg in (("hero_34", 35.0), ("hero_front", 0.0)):
     monster.rotation_euler[2] = math.radians(deg)
     render(os.path.join(OUT, name + ".png"), 768)
+
+# Keep run-specific hero copies on the renders branch so a later main-branch
+# render cannot overwrite the images needed to inspect this work-branch result.
+RUN_TAG = os.environ.get("GITHUB_SHA", "local")[:8]
+for name in ("hero_front", "hero_34"):
+    source = os.path.join(OUT, name + ".png")
+    if os.path.exists(source):
+        shutil.copy2(source, os.path.join(OUT, f"{name}_{RUN_TAG}.png"))
 
 for angle in ANGLES:
     monster.rotation_euler[2] = math.radians(ANGLE_DEG[angle])
