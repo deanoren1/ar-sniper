@@ -111,10 +111,10 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = nt.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.34
-    mad.inputs[2].default_value = 0.025
-    for key, value in (("Base Color", (0.35, 0.6, 0.5, 1.0)), ("Roughness", 0.06), ("Metallic", 0.0),
-                       ("Emission Color", (0.2, 0.5, 0.4, 1.0)), ("Emission Strength", 0.1)):
+    mad.inputs[1].default_value = 0.22
+    mad.inputs[2].default_value = 0.012
+    for key, value in (("Base Color", (0.12, 0.30, 0.52, 1.0)), ("Roughness", 0.07), ("Metallic", 0.0),
+                       ("Emission Color", (0.05, 0.16, 0.42, 1.0)), ("Emission Strength", 0.035)):
         try:
             glossy.inputs[key].default_value = value
         except Exception:
@@ -127,12 +127,12 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.68, 0.025, 0.78), rough=0.34, coat=0.32)
+PURPLE = mat("Purple", (0.50, 0.012, 0.70), rough=0.31, coat=0.40)
 add_skin(PURPLE, scale=18.0, strength=0.025)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (1.0, 0.075, 0.62), rough=0.34, coat=0.30)
-SPOT_DARK = mat("SpotDark", (0.62, 0.025, 0.72), rough=0.40, coat=0.20)
+SPOT = mat("Spot", (1.0, 0.045, 0.43), rough=0.31, coat=0.34)
+SPOT_DARK = mat("SpotDark", (0.30, 0.008, 0.48), rough=0.36, coat=0.24)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.91, 0.72), rough=0.2, coat=0.25)
 # Smooth cream sclera; no visible vein pattern in the toy style.
 IRIS = mat("Iris", (1.0, 0.19, 0.008), rough=0.28, coat=0.25, emit=(1.0, 0.12, 0.005), strength=0.08)
@@ -143,7 +143,7 @@ TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
 TONGUE = mat("Tongue", (1.0, 0.08, 0.34), rough=0.28, coat=0.35)
 METAL = mat("Metal", (0.22, 0.24, 0.29), rough=0.38, metal=0.82)
 add_skin(METAL, scale=25.0, strength=0.08)
-RING = mat("Ring", (0.98, 0.16, 0.52), rough=0.32, metal=0.18, coat=0.35)
+RING = mat("Ring", (0.92, 0.045, 0.38), rough=0.34, metal=0.10, coat=0.38)
 add_skin(RING, scale=30.0, strength=0.08)
 COPPER = mat("Copper", (0.90, 0.48, 0.15), rough=0.30, metal=0.78, coat=0.22)
 BADGE_YELLOW = mat("BadgeYellow", (1.0, 0.62, 0.025), rough=0.34, metal=0.12, coat=0.25)
@@ -153,15 +153,15 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.20, 0.012, 0.34), rough=0.45, coat=0.16)
+SUCKER = mat("Sucker", (0.11, 0.004, 0.22), rough=0.42, coat=0.20)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TANK = mat("Tank", (0.82, 0.03, 0.58), rough=0.36, metal=0.05, coat=0.28)
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
-DOME_RIM = mat("DomeRim", (0.22, 0.62, 1.0), rough=0.20, metal=0.12,
-               emit=(0.08, 0.32, 1.0), strength=0.75, coat=0.35)
-DOME_HIGHLIGHT = mat("DomeHighlight", (0.72, 0.90, 1.0), rough=0.14,
-                     emit=(0.28, 0.58, 1.0), strength=0.45, coat=0.45)
+DOME_RIM = mat("DomeRim", (0.06, 0.34, 0.96), rough=0.18, metal=0.16,
+               emit=(0.02, 0.16, 0.88), strength=1.0, coat=0.42)
+DOME_HIGHLIGHT = mat("DomeHighlight", (0.58, 0.82, 1.0), rough=0.13,
+                     emit=(0.22, 0.48, 1.0), strength=0.32, coat=0.48)
 
 # ------------------------------------------------------------------ עזרים
 
@@ -372,8 +372,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.02, 0.84, 0.075, 0.050, 0.0),
 )):
     x, z = sx, sz
-    rx *= 0.98
-    rz *= 0.96
+    rx *= 1.12
+    rz *= 1.10
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     spot_material = SPOT_DARK if i in (1, 5, 7) else SPOT
@@ -388,8 +388,8 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.18, -0.41, 0.050, 0.035), (0.52, 0.46, 0.060, 0.045),
     (-0.52, 0.38, 0.060, 0.045),
 )):
-    rx *= 0.96
-    rz *= 0.94
+    rx *= 1.04
+    rz *= 1.02
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
@@ -417,75 +417,83 @@ for i in range(14):
     cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
 # Large exposed cyclopean eye seated in a raised purple socket.
-EYE_Y, EYE_Z = -0.75, 0.26
+EYE_Y, EYE_Z = -0.76, 0.25
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.88, 0.88, 0.88)
+eye.scale = (1.06, 1.0, 1.06)
 eye_parts = [
-    sphere("EyeWhite", 0.56, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1), seg=56),
-    sphere("Iris", 0.365, (0, -0.225, 0), IRIS, eye, scale=(1, 0.34, 1), seg=56),
-    sphere("Pupil", 0.205, (0, -0.315, 0), PUPIL, eye, scale=(1.0, 0.30, 1.0), seg=48),
-    sphere("Shine", 0.060, (0.080, -0.375, 0.125), SHINE, eye, scale=(1, 0.35, 1), seg=24),
+    sphere("EyeWhite", 0.62, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1.02), seg=56),
+    sphere("Iris", 0.405, (0, -0.245, 0), IRIS, eye, scale=(1, 0.36, 1), seg=56),
+    sphere("Pupil", 0.22, (0, -0.345, 0), PUPIL, eye, scale=(1.0, 0.32, 1.0), seg=48),
+    sphere("Shine", 0.068, (0.085, -0.405, 0.135), SHINE, eye, scale=(1, 0.35, 1), seg=24),
 ]
-look_parts = eye_parts[1:]  # iris, pupil and highlight move together
-# Thick purple skin lip around the exposed eye; no glass dome and no upper eyelid.
-torus("EyeSocket", 0.585, 0.024, (0, -0.025, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
-torus("EyeRim", 0.557, 0.009, (0, -0.045, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+# Thick upper eyelid/brow gives the eye the heavy, slightly aggressive silhouette of the reference.
+upper_lid = sphere("EyeUpperLid", 0.62, (0, -0.205, 0.34), PURPLE, eye,
+                   scale=(1.04, 0.30, 0.38), seg=48)
+eye_parts.append(upper_lid)
+eye_parts.append(pipe_curve("EyeLidCrease", (
+    (-0.56, -0.22, 0.12), (-0.43, -0.29, 0.31),
+    (0.0, -0.31, 0.43), (0.43, -0.29, 0.31), (0.56, -0.22, 0.12)
+), PURPLE_DARK, eye, bevel=0.045))
+look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
+# A thick skin socket and a bright lower rim frame the exposed eye.
+torus("EyeSocket", 0.65, 0.050, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeRim", 0.615, 0.015, (0, -0.050, 0), RING, eye, rot=(math.pi / 2, 0, 0))
 
 # Wider open grin with four readable ivory teeth and a small pink tongue.
-mouth = empty("Mouth", pivot, loc=(0, -0.82, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.30, (0, 0, 0), MOUTH, mouth, scale=(1.45, 0.36, 0.50), seg=40)]
-for i, x in enumerate((-0.24, 0.24)):
-    h = 0.088
-    mouth_parts.append(cone(f"ToothU{i}", 0.060, 0.0, h, (x, -0.072, 0.060 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.16, 0.16)):
-    h = 0.072
-    mouth_parts.append(cone(f"ToothL{i}", 0.050, 0.0, h, (x, -0.074, -0.065 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.14, (0, -0.094, -0.102), TONGUE, mouth,
-                          scale=(1.10, 0.22, 0.34), seg=28))
+mouth = empty("Mouth", pivot, loc=(0, -0.88, -0.47))
+mouth_parts = [sphere("MouthCavity", 0.36, (0, 0, 0), MOUTH, mouth, scale=(1.70, 0.42, 0.70), seg=48)]
+for i, x in enumerate((-0.34, 0.0, 0.34)):
+    h = 0.145 if i == 1 else 0.13
+    mouth_parts.append(cone(f"ToothU{i}", 0.082, 0.0, h, (x, -0.115, 0.135 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
+for i, x in enumerate((-0.23, 0.23)):
+    h = 0.11
+    mouth_parts.append(cone(f"ToothL{i}", 0.070, 0.0, h, (x, -0.12, -0.16 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.17, (0, -0.145, -0.19), TONGUE, mouth,
+                          scale=(1.18, 0.24, 0.38), seg=32))
 
 # Broad pink collar with visible warm-metal rivets, like the reference harness.
-body_band("LowerPinkBand", pivot, -0.78, -0.53, RING)
+body_band("LowerPinkBand", pivot, -0.80, -0.47, RING)
 for i in range(12):
     a = i * (2 * math.pi / 12)
     r = shell_radius_at(-0.65) + 0.075
-    sphere(f"BandRivet{i}", 0.025, (r * math.cos(a), r * 0.88 * math.sin(a), -0.65),
-           COPPER, pivot, scale=(1.0, 0.75, 1.0), seg=20)
+    sphere(f"BandRivet{i}", 0.030, (r * math.cos(a), r * 0.88 * math.sin(a), -0.64),
+           METAL, pivot, scale=(1.0, 0.75, 1.0), seg=20)
 
 # Twin magenta tanks with gunmetal straps, yellow/black flame badges and copper elbows.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.18 * sx, 0.10
-    cylinder(f"Tank{side}", 0.22, 0.84, (tx, ty, 0.015), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.238, 0.080, (tx, ty, 0.475), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.238, 0.080, (tx, ty, -0.445), METAL, torso)
-    torus(f"TankBand1{side}", 0.224, 0.022, (tx, ty, 0.215), METAL, torso)
-    torus(f"TankBand2{side}", 0.224, 0.022, (tx, ty, -0.185), METAL, torso)
-    torus(f"TankGoldRing{side}", 0.224, 0.020, (tx, ty, 0.405), COPPER, torso)
-    cylinder(f"TankNozzle{side}", 0.052, 0.090, (tx, ty, 0.565), METAL, torso)
-    sphere(f"Valve{side}", 0.038, (tx, ty, 0.635), COPPER, torso, seg=20)
-    cylinder(f"Connector{side}", 0.052, 0.20, (0.99 * sx, ty - 0.005, 0.175),
+    tx, ty = 1.28 * sx, 0.08
+    cylinder(f"Tank{side}", 0.255, 0.96, (tx, ty, 0.015), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.274, 0.090, (tx, ty, 0.525), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.274, 0.090, (tx, ty, -0.495), METAL, torso)
+    torus(f"TankBand1{side}", 0.258, 0.026, (tx, ty, 0.245), METAL, torso)
+    torus(f"TankBand2{side}", 0.258, 0.026, (tx, ty, -0.205), METAL, torso)
+    torus(f"TankGoldRing{side}", 0.258, 0.024, (tx, ty, 0.455), COPPER, torso)
+    cylinder(f"TankNozzle{side}", 0.060, 0.100, (tx, ty, 0.610), METAL, torso)
+    sphere(f"Valve{side}", 0.045, (tx, ty, 0.690), COPPER, torso, seg=20)
+    cylinder(f"Connector{side}", 0.060, 0.22, (1.05 * sx, ty - 0.005, 0.175),
              COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.145, 0.026, (tx, ty - 0.228, 0.005),
+    cylinder(f"Badge{side}", 0.170, 0.030, (tx, ty - 0.265, 0.015),
              BADGE_YELLOW, torso, rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, ty - 0.247, 0.005, torso)
-    for j, (bx, bz) in enumerate(((-0.170, 0.15), (0.170, 0.15), (-0.170, -0.15), (0.170, -0.15))):
-        sphere(f"TankBolt{side}{j}", 0.016, (tx + bx, ty - 0.232, bz),
+    flame_icon(f"FlameIcon{side}", tx, ty - 0.286, 0.015, torso)
+    for j, (bx, bz) in enumerate(((-0.190, 0.17), (0.190, 0.17), (-0.190, -0.17), (0.190, -0.17))):
+        sphere(f"TankBolt{side}{j}", 0.018, (tx + bx, ty - 0.270, bz),
                COPPER, torso, scale=(1, 0.35, 1), seg=16)
     pipe_curve(f"TankPipe{side}", (
-        (tx, ty, 0.55), (tx, ty, 0.67), (tx - 0.10 * sx, ty, 0.78),
-        (tx - 0.23 * sx, ty, 0.78), (tx - 0.30 * sx, ty, 0.67)
-    ), COPPER, torso, bevel=0.036)
+        (tx, ty, 0.62), (tx, ty, 0.74), (tx - 0.11 * sx, ty, 0.86),
+        (tx - 0.25 * sx, ty, 0.86), (tx - 0.32 * sx, ty, 0.74)
+    ), COPPER, torso, bevel=0.040)
 
 # Clear pressure dome around the head. The body and tanks remain readable through it.
 # The broad transparent shell and its blue front arc reproduce the user's bubble-helmet silhouette.
 sphere("GlassDome", 1.0, (0.0, 0.0, 0.12), GLASS, torso,
-       scale=(1.25, 1.14, 1.30), seg=64)
-torus("DomeBaseRim", 1.04, 0.016, (0.0, 0.0, -0.48), DOME_RIM, torso)
+       scale=(1.30, 1.18, 1.36), seg=64)
+torus("DomeBaseRim", 1.08, 0.022, (0.0, 0.0, -0.54), DOME_RIM, torso)
 pipe_curve("DomeFrontArc", (
     (-1.00, -0.44, -0.42), (-1.16, -0.50, 0.12), (-1.05, -0.62, 0.72),
     (-0.65, -0.70, 1.13), (0.0, -0.46, 1.39),
     (0.65, -0.70, 1.13), (1.05, -0.62, 0.72),
     (1.16, -0.50, 0.12), (1.00, -0.44, -0.42)
-), DOME_RIM, torso, bevel=0.014)
+), DOME_RIM, torso, bevel=0.024)
 # Soft elongated reflections make the clear shell legible against the transparent render background.
 sphere("DomeReflectionL", 1.0, (-0.66, -0.76, 0.88), DOME_HIGHLIGHT, torso,
        scale=(0.105, 0.018, 0.235), rot=(0.0, -0.28, -0.18), seg=32)
@@ -503,21 +511,21 @@ def arm_curve_x(t):
     # Sweep outward, then turn back earlier so the hook reads clearly in the front view.
     u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
-    return 0.98 * math.sin(math.pi * 0.56 * t) - 0.18 * hook
+    return 1.15 * math.sin(math.pi * 0.60 * t) - 0.42 * hook
 
 
 def arm_curve_y(t):
     # Curl around the torso tangent so the hooks remain visible in the front view.
     u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
-    return 0.40 * hook
+    return 0.48 * hook
 
 
 def arm_curve_z(t):
     u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
     # The arm drops into a compact loop and lifts its rounded tip back toward the body.
-    return -0.88 * t + 0.88 * hook
+    return -1.00 * t + 1.10 * hook
 
 
 def arm_radius(t):
@@ -609,11 +617,11 @@ for i in range(8):
         cup_normal.normalize()
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.025
-        torus(f"SuckerRim{i}_{q}", rr * 0.36, rr * 0.095, tuple(cup_pos), SUCKER, root,
+        torus(f"SuckerRim{i}_{q}", rr * 0.42, rr * 0.10, tuple(cup_pos), SUCKER, root,
               rot=normal_rot(cup_normal))
         inset_pos = cup_pos + cup_normal * rr * 0.018
         sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), PURPLE_DARK, root,
-               scale=(rr * 0.22, rr * 0.22, rr * 0.060), rot=normal_rot(cup_normal), seg=18)
+               scale=(rr * 0.27, rr * 0.27, rr * 0.070), rot=normal_rot(cup_normal), seg=18)
     for q, t in enumerate((0.40, 0.70)):
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
@@ -626,7 +634,7 @@ for i in range(8):
         rr = arm_radius(t)
         spot_pos = center + spot_normal * rr * 1.018
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.36, rr * 0.24, rr * 0.050), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.42, rr * 0.28, rr * 0.055), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0))
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
@@ -695,7 +703,7 @@ ground.is_shadow_catcher = True
 
 cam_data = bpy.data.cameras.new("Cam")
 cam_data.type = "ORTHO"
-cam_data.ortho_scale = max(4.2, HEIGHT * 1.2)
+cam_data.ortho_scale = max(3.0, HEIGHT * 0.95)
 cam = bpy.data.objects.new("Cam", cam_data)
 bpy.context.collection.objects.link(cam)
 cam.location = (0, -14, HEIGHT * 0.5)
