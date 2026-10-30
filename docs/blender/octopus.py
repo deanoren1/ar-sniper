@@ -17,9 +17,9 @@ from mathutils import Euler, Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = argv[0] if argv else "out"
 ANGLES = (argv[1] if len(argv) > 1 else "side").split(",")
-# 256px cells produce the requested 1536x1024 sheet (6x4) and keep CI below its 40-minute limit.
+# 256px cells preserve the 1536x1024 sheet; 8 EEVEE samples keep the full 24-frame render below CI's 40-minute limit.
 CELL = min(int(argv[2]) if len(argv) > 2 else 256, 256)
-SAMPLES = min(int(argv[3]) if len(argv) > 3 else 24, 24)
+SAMPLES = min(int(argv[3]) if len(argv) > 3 else 8, 8)
 FRAMES_DIR = os.path.join(OUT, "frames")
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
@@ -115,29 +115,30 @@ def glass_mat():
     shell.inputs["Base Color"].default_value = (0.24, 0.52, 0.94, 1.0)
     shell.inputs["Roughness"].default_value = 0.075
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.82
+    shell.inputs["Coat Weight"].default_value = 0.55
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.08
+    mix.inputs[0].default_value = 0.04
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
-PURPLE = mat("Purple", (0.72, 0.018, 0.98), rough=0.23, coat=0.60)
+PURPLE = mat("Purple", (0.62, 0.016, 0.94), rough=0.23, coat=0.60)
 add_skin(PURPLE, scale=18.0, strength=0.025)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
+LID = mat("Lid", (0.44, 0.012, 0.76), rough=0.22, coat=0.58)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (1.0, 0.045, 0.43), rough=0.31, coat=0.34)
 SPOT_DARK = mat("SpotDark", (0.30, 0.008, 0.48), rough=0.36, coat=0.24)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.78, 0.42), rough=0.22, coat=0.30,
-                emit=(0.35, 0.15, 0.02), strength=0.10)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.60, 0.17), rough=0.22, coat=0.34,
+                emit=(0.22, 0.075, 0.005), strength=0.07)
 # Warm golden sclera and a saturated orange iris, closer to the supplied cyclops reference.
-IRIS = mat("Iris", (1.0, 0.22, 0.005), rough=0.25, coat=0.32, emit=(1.0, 0.10, 0.0), strength=0.12)
-PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.9)
+IRIS = mat("Iris", (1.0, 0.14, 0.002), rough=0.20, coat=0.42, emit=(1.0, 0.075, 0.0), strength=0.12)
+PUPIL = mat("Pupil", (0.001, 0.0003, 0.001), rough=0.18, coat=0.38)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
-MOUTH = mat("Mouth", (0.012, 0.001, 0.008), rough=0.92)
+MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
 TONGUE = mat("Tongue", (1.0, 0.08, 0.34), rough=0.28, coat=0.35)
 METAL = mat("Metal", (0.46, 0.50, 0.58), rough=0.31, metal=0.78, coat=0.18)
@@ -154,16 +155,16 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.20, 0.008, 0.34), rough=0.48, coat=0.16)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.76, 0.025, 0.94), rough=0.24, coat=0.72,
-               emit=(0.30, 0.012, 0.28), strength=0.20)
+TENTACLE = mat("Tentacle", (0.58, 0.018, 0.91), rough=0.22, coat=0.72,
+               emit=(0.26, 0.012, 0.34), strength=0.24)
 TANK = mat("Tank", (0.82, 0.03, 0.58), rough=0.34, metal=0.08, coat=0.34)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
 DOME_RIM = mat("DomeRim", (0.06, 0.34, 0.96), rough=0.18, metal=0.08,
                emit=(0.02, 0.16, 0.88), strength=0.35, coat=0.42)
-DOME_HIGHLIGHT = mat("DomeHighlight", (0.84, 0.93, 1.0), rough=0.10,
-                     emit=(0.48, 0.66, 1.0), strength=0.28, coat=0.58)
+DOME_HIGHLIGHT = mat("DomeHighlight", (0.92, 0.97, 1.0), rough=0.08,
+                     emit=(0.62, 0.78, 1.0), strength=0.45, coat=0.58)
 
 # ------------------------------------------------------------------ עזרים
 
@@ -427,25 +428,25 @@ eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye.scale = (1.0, 1.0, 1.0)
 eye_parts = [
     # Large horizontal golden eye with a broad iris and deep black pupil.
-    sphere("EyeWhite", 0.63, (0, 0, 0), EYE_WHITE, eye, scale=(1.32, 0.52, 0.95), seg=64),
-    sphere("Iris", 0.40, (0, -0.305, -0.015), IRIS, eye, scale=(1.0, 0.45, 1.0), seg=64),
-    sphere("Pupil", 0.255, (0, -0.435, -0.015), PUPIL, eye, scale=(1.0, 0.36, 1.0), seg=56),
-    sphere("Shine", 0.074, (0.09, -0.505, 0.11), SHINE, eye, scale=(1.0, 0.28, 1.0), seg=28),
+    sphere("EyeWhite", 0.63, (0, 0, 0), EYE_WHITE, eye, scale=(1.38, 0.56, 0.98), seg=64),
+    sphere("Iris", 0.47, (0, -0.345, -0.015), IRIS, eye, scale=(1.0, 0.48, 1.0), seg=64),
+    sphere("Pupil", 0.30, (0, -0.485, -0.015), PUPIL, eye, scale=(1.0, 0.40, 1.0), seg=56),
+    sphere("Shine", 0.088, (0.10, -0.555, 0.12), SHINE, eye, scale=(1.0, 0.30, 1.0), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.665, 0.035, (0, -0.018, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale = (1.24, 1.0, 0.93)
+eye_socket = torus("EyeSocket", 0.70, 0.040, (0, -0.018, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale = (1.28, 1.0, 0.96)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
 def make_upper_eyelid(parent):
-    rx, ry, rz = 0.63 * 1.32, 0.63 * 0.52, 0.63 * 0.95
+    rx, ry, rz = 0.63 * 1.38, 0.63 * 0.56, 0.63 * 0.98
     cols, rows = 40, 10
     verts, faces, lower_edge = [], [], []
     for i in range(cols + 1):
         x = -rx * 0.91 + (2.0 * rx * 0.91 * i / cols)
         xn = x / (rx * 0.91)
         z_top = rz * math.sqrt(max(0.0, 1.0 - (x / rx) ** 2))
-        z_bottom = 0.20 + 0.12 * (1.0 - xn * xn) - 0.07 * xn
+        z_bottom = 0.29 + 0.10 * (1.0 - xn * xn) - 0.12 * xn
         z_bottom = min(z_bottom, z_top - 0.015)
         for j in range(rows + 1):
             v = j / rows
@@ -471,7 +472,7 @@ def make_upper_eyelid(parent):
     obj = bpy.data.objects.new("UpperEyelid", mesh)
     bpy.context.collection.objects.link(obj)
     obj.parent = parent
-    obj.data.materials.append(PURPLE)
+    obj.data.materials.append(LID)
     smooth(obj)
     solid = obj.modifiers.new("LidThickness", "SOLIDIFY")
     solid.thickness = 0.045
@@ -487,30 +488,30 @@ upper_lid, upper_lid_edge = make_upper_eyelid(eye)
 eye_parts.extend([eye_socket, upper_lid, upper_lid_edge])
 
 # Broad open snarl with a dark cavity, a curved magenta lip and uneven ivory teeth.
-mouth = empty("Mouth", pivot, loc=(0, -0.985, -0.49))
-mouth_parts = [sphere("MouthCavity", 0.38, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.68, 0.24, 0.72), seg=64)]
-mouth_lip = torus("MouthLip", 0.38, 0.045, (0, -1.075, -0.49), RING, pivot,
+mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.42))
+mouth_parts = [sphere("MouthCavity", 0.42, (0, 0, 0), MOUTH, mouth,
+                      scale=(1.68, 0.26, 0.92), seg=64)]
+mouth_lip = torus("MouthLip", 0.42, 0.052, (0, -1.095, -0.42), RING, pivot,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.68, 0.82, 1.0)
-for i, x in enumerate((-0.47, -0.24, 0.0, 0.24, 0.47)):
-    h = (0.27, 0.18, 0.22, 0.18, 0.29)[i]
-    mouth_parts.append(cone(f"ToothU{i}", 0.088, 0.0, h,
-                            (x, -0.085, 0.155 - h / 2), TEETH, mouth,
+mouth_lip.scale = (1.68, 0.88, 1.0)
+for i, x in enumerate((-0.48, -0.24, 0.0, 0.24, 0.48)):
+    h = (0.32, 0.23, 0.27, 0.23, 0.32)[i]
+    mouth_parts.append(cone(f"ToothU{i}", 0.10, 0.0, h,
+                            (x, -0.11, 0.18 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.28, 0.28)):
-    h = 0.16
-    mouth_parts.append(cone(f"ToothL{i}", 0.070, 0.0, h,
-                            (x, -0.095, -0.17 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.18, (0, -0.14, -0.16), TONGUE,
+for i, x in enumerate((-0.34, 0.0, 0.34)):
+    h = 0.18
+    mouth_parts.append(cone(f"ToothL{i}", 0.078, 0.0, h,
+                            (x, -0.12, -0.20 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.20, (0, -0.16, -0.18), TONGUE,
                           scale=(1.55, 0.30, 0.36), seg=40))
 
 # Wide slanted pink collar, placed in front of the lower head with readable brass rivets.
-body_band("LowerPinkBand", pivot, -0.80, -0.53, RING)
+body_band("LowerPinkBand", pivot, -0.98, -0.64, RING)
 for i in range(14):
     a = i * (2 * math.pi / 14)
-    z = -0.665 + 0.045 * math.cos(a)
-    r = shell_radius_at(-0.665) + 0.185
+    z = -0.81 + 0.045 * math.cos(a)
+    r = shell_radius_at(-0.81) + 0.185
     sphere(f"BandRivet{i}", 0.043, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
@@ -607,8 +608,8 @@ def add_dome_reflection(name, x, z, width, height):
     return sphere(name, 1.0, (x, y, z), DOME_HIGHLIGHT, torso,
                   scale=(width, height, 0.014), rot=normal_rot(normal), seg=48)
 
-add_dome_reflection("DomeReflectionL", -0.70, 0.72, 0.12, 0.25)
-add_dome_reflection("DomeReflectionR", 0.70, 0.72, 0.11, 0.23)
+add_dome_reflection("DomeReflectionL", -0.72, 0.78, 0.16, 0.31)
+add_dome_reflection("DomeReflectionR", 0.72, 0.78, 0.15, 0.29)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -621,20 +622,20 @@ def arm_curve_x(t):
     # Push outward first, then return slightly while the rounded tip curls upward.
     u = max(0.0, min(1.0, (t - 0.28) / 0.72))
     hook = u * u * (3.0 - 2.0 * u)
-    return 1.45 * math.sin(math.pi * 0.55 * t) - 0.50 * hook
+    return 1.72 * math.sin(math.pi * 0.55 * t) - 0.72 * hook
 
 
 def arm_curve_y(t):
     u = max(0.0, min(1.0, (t - 0.28) / 0.72))
     hook = u * u * (3.0 - 2.0 * u)
-    return 0.08 * hook
+    return 0.10 * hook
 
 
 def arm_curve_z(t):
     u = max(0.0, min(1.0, (t - 0.28) / 0.72))
     hook = u * u * (3.0 - 2.0 * u)
     # A deeper drop followed by a clear upward return forms a broad C-hook.
-    return -1.35 * t + 2.00 * hook
+    return -1.55 * t + 2.45 * hook
 
 
 def arm_radius(t):
@@ -718,7 +719,7 @@ for i in range(8):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.38, 0.62, 0.84, 0.94)):
+    for q, t in enumerate((0.56, 0.77, 0.93)):
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
         after = arm_center(min(1.0, t + 0.002))
@@ -731,8 +732,8 @@ for i in range(8):
         cup_pos = center + cup_normal * rr * 1.025
         inset_pos = cup_pos + cup_normal * rr * 0.018
         sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), SUCKER, root,
-               scale=(rr * 0.50, rr * 0.50, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerLip{i}_{q}", rr * 0.35, rr * 0.075, tuple(inset_pos), SPOT, root,
+               scale=(rr * 0.42, rr * 0.42, rr * 0.065), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerLip{i}_{q}", rr * 0.29, rr * 0.065, tuple(inset_pos), SPOT, root,
               rot=normal_rot(cup_normal))
         hole_pos = inset_pos + cup_normal * rr * 0.012
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), PURPLE_DARK, root,
@@ -872,6 +873,7 @@ def add_light(name, kind, energy, loc, rot=None, target=None, size=None, color=(
 sun = add_light("Sun", "SUN", 2.8, (0, 0, 8), rot=(math.radians(50), 0, math.radians(-35)), color=(1.0, 0.92, 0.82))
 sun.data.angle = 0.18
 add_light("Fill", "AREA", 150, (3.5, -6, 3.5), target=(0, 0, HEIGHT * 0.5), size=6, color=(0.7, 0.8, 1.0))
+add_light("TentacleFill", "AREA", 210, (0, -4.5, 0.55), target=(0, -0.1, 0.35), size=4.5, color=(0.78, 0.48, 1.0))
 add_light("Rim", "AREA", 420, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.95, 0.3, 1.0))
 
 world = bpy.data.worlds.new("World")
@@ -883,7 +885,7 @@ bg.inputs[1].default_value = 0.4
 
 # Eevee avoids a reproducible native Cycles BVH crash in the headless GitHub runner.
 scene.render.engine = "BLENDER_EEVEE_NEXT"
-scene.eevee.taa_render_samples = max(24, SAMPLES)
+scene.eevee.taa_render_samples = max(8, SAMPLES)
 scene.render.image_settings.file_format = "PNG"
 scene.render.film_transparent = True
 scene.render.image_settings.file_format = "PNG"
