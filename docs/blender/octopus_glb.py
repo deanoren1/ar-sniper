@@ -85,7 +85,10 @@ eye_mix = nt.nodes.new("ShaderNodeMixRGB")
 eye_mix.blend_type = "MIX"
 nt.links.new(eye_mask.outputs[0], eye_mix.inputs[0])
 nt.links.new(hue_sat.outputs[0], eye_mix.inputs[1])
-nt.links.new(tint_mix.outputs[0], eye_mix.inputs[2])
+eye_bright = nt.nodes.new("ShaderNodeHueSaturation")
+eye_bright.inputs["Value"].default_value = 1.2  # הצהוב בעין בהיר ב-20%
+nt.links.new(tint_mix.outputs[0], eye_bright.inputs["Color"])
+nt.links.new(eye_bright.outputs[0], eye_mix.inputs[2])
 nt.links.new(eye_mix.outputs[0], bsdf.inputs["Base Color"])
 for key, value in (("Specular IOR Level", 0.3), ("Roughness", 0.42)):
     try:
@@ -165,8 +168,17 @@ def bulb(z):
     return 1.0 - 0.10 * ((-z) ** 1.5) if z < 0 else 1.0
 
 
+DOME_BELLY = 0.07  # ניפוח אופקי באמצע הכיפה בלבד; בבסיס (הקולר) ובקודקוד הגודל לא משתנה
+
+
+def belly(z):
+    if z <= DOME_CUT or z >= 1.0:
+        return 1.0
+    return 1.0 + DOME_BELLY * math.sin(math.pi * (z - DOME_CUT) / (1.0 - DOME_CUT))
+
+
 for v in bm.verts:
-    f = bulb(v.co.z)
+    f = bulb(v.co.z) * belly(v.co.z)
     v.co.x *= f
     v.co.y *= f
 bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < DOME_CUT], context="VERTS")
