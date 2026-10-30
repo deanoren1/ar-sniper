@@ -127,11 +127,11 @@ def glass_mat():
     clear = t.nodes.new("ShaderNodeBsdfTransparent")
     glossy = t.nodes.new("ShaderNodeBsdfPrincipled")
     lw = t.nodes.new("ShaderNodeLayerWeight")
-    lw.inputs["Blend"].default_value = 0.3
+    lw.inputs["Blend"].default_value = 0.5
     mad = t.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.18
-    mad.inputs[2].default_value = 0.002
+    mad.inputs[1].default_value = 0.30
+    mad.inputs[2].default_value = 0.006
     for key, value in (("Base Color", (0.45, 0.7, 1.0, 1.0)), ("Roughness", 0.02), ("Metallic", 0.0),
                        ("Emission Color", (0.5, 0.7, 1.0, 1.0)), ("Emission Strength", 0.0)):
         try:
@@ -195,9 +195,6 @@ dome.data.materials.append(glass_mat())
 for p in dome.data.polygons:
     p.use_smooth = True
 dome.visible_shadow = False
-sol = dome.modifiers.new('Shell', 'SOLIDIFY')
-sol.thickness = 0.008
-sol.offset = 1.0
 
 ring_r = math.sqrt(1 - DOME_CUT ** 2) * bulb(DOME_CUT)
 bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.034, major_segments=64, minor_segments=12)
