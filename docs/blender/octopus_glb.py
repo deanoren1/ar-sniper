@@ -125,7 +125,7 @@ def metal_mat(name, color, rough=0.4, metal=0.9):
 DOME_CENTER = Vector((0.0, 0.04, 1.152))
 DOME_SCALE = Vector((0.88, 0.96, 0.66))
 DOME_CUT = -0.64  # חיתוך תחתון ביחידות כדור (-1..1)
-DOME_TILT = 0.20  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
+DOME_TILT = 0.3745  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
 
 bm = bmesh.new()
 bmesh.ops.create_uvsphere(bm, u_segments=56, v_segments=28, radius=1.0)
