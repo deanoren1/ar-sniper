@@ -96,9 +96,9 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = t.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.55
-    mad.inputs[2].default_value = 0.05
-    for key, value in (("Base Color", (0.6, 0.8, 1.0, 1.0)), ("Roughness", 0.04), ("Metallic", 0.0),
+    mad.inputs[1].default_value = 0.8
+    mad.inputs[2].default_value = 0.04
+    for key, value in (("Base Color", (0.45, 0.7, 1.0, 1.0)), ("Roughness", 0.02), ("Metallic", 0.0),
                        ("Emission Color", (0.5, 0.7, 1.0, 1.0)), ("Emission Strength", 0.08)):
         try:
             glossy.inputs[key].default_value = value
@@ -122,9 +122,9 @@ def metal_mat(name, color, rough=0.4, metal=0.9):
     return m
 
 
-DOME_CENTER = Vector((0.0, 0.04, 1.152))
-DOME_SCALE = Vector((0.88, 0.96, 0.66))
-DOME_CUT = -0.64  # חיתוך תחתון ביחידות כדור (-1..1)
+DOME_CENTER = Vector((0.0, 0.04, 1.276))
+DOME_SCALE = Vector((0.86, 0.90, 0.78))
+DOME_CUT = -0.70  # חיתוך תחתון ביחידות כדור (-1..1)
 DOME_TILT = 0.3745  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
 
 bm = bmesh.new()
@@ -172,10 +172,10 @@ ground = bpy.context.active_object
 ground.name = "Ground"
 ground.is_shadow_catcher = True
 
-HEIGHT = top_z + 0.2
+HEIGHT = max(top_z, 2.0) + 0.2
 cam_data = bpy.data.cameras.new("Cam")
 cam_data.type = "ORTHO"
-cam_data.ortho_scale = max(3.2, HEIGHT * 1.7)
+cam_data.ortho_scale = max(3.2, HEIGHT * 1.55)
 cam = bpy.data.objects.new("Cam", cam_data)
 bpy.context.collection.objects.link(cam)
 cam.location = (0, -14, HEIGHT * 0.56)
@@ -200,17 +200,19 @@ def add_light(name, kind, energy, loc, rot=None, target=None, size=None, color=(
     return lo
 
 
-sun = add_light("Sun", "SUN", 3.2, (0, 0, 8), rot=(math.radians(50), 0, math.radians(-35)), color=(1.0, 0.95, 0.88))
-sun.data.angle = 0.2
-add_light("Fill", "AREA", 220, (3.5, -6, 3.5), target=(0, 0, HEIGHT * 0.5), size=6, color=(0.8, 0.88, 1.0))
-add_light("Rim", "AREA", 380, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.95, 0.5, 1.0))
+sun = add_light("Sun", "SUN", 4.6, (0, 0, 8), rot=(math.radians(58), 0, math.radians(-40)), color=(1.0, 0.94, 0.86))
+sun.data.angle = 0.12
+add_light("Key", "AREA", 320, (-3.0, -5.0, 5.5), target=(0, 0, HEIGHT * 0.5), size=2.5, color=(1.0, 0.96, 0.9))
+add_light("Fill", "AREA", 90, (4.5, -6, 2.0), target=(0, 0, HEIGHT * 0.5), size=6, color=(0.7, 0.8, 1.0))
+add_light("Rim", "AREA", 520, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=4, color=(0.95, 0.45, 1.0))
+add_light("Top", "AREA", 160, (2.0, -2.0, 7.0), target=(0, 0, HEIGHT * 0.5), size=2.0, color=(0.85, 0.9, 1.0))
 
 world = bpy.data.worlds.new("World")
 scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes["Background"]
-bg.inputs[0].default_value = (0.4, 0.45, 0.6, 1.0)
-bg.inputs[1].default_value = 0.8
+bg.inputs[0].default_value = (0.35, 0.38, 0.55, 1.0)
+bg.inputs[1].default_value = 0.45
 
 scene.render.engine = "CYCLES"
 scene.cycles.device = "CPU"
