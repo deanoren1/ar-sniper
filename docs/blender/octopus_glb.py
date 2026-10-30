@@ -127,8 +127,8 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.3
     mad = t.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.55
-    mad.inputs[2].default_value = 0.002
+    mad.inputs[1].default_value = 0.28
+    mad.inputs[2].default_value = 0.003
     for key, value in (("Base Color", (0.45, 0.7, 1.0, 1.0)), ("Roughness", 0.02), ("Metallic", 0.0),
                        ("Emission Color", (0.5, 0.7, 1.0, 1.0)), ("Emission Strength", 0.0)):
         try:
@@ -153,8 +153,8 @@ def metal_mat(name, color, rough=0.4, metal=0.9):
     return m
 
 
-DOME_CENTER = Vector((0.0, 0.04, 1.114))
-DOME_SCALE = Vector((0.72, 0.78, 0.765))
+DOME_CENTER = Vector((0.0, 0.04, 1.098))
+DOME_SCALE = Vector((0.684, 0.741, 0.727))
 DOME_CUT = -0.41  # חיתוך תחתון ביחידות כדור (-1..1)
 DOME_TILT = 0.427  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
 
@@ -184,7 +184,7 @@ for p in dome.data.polygons:
     p.use_smooth = True
 dome.visible_shadow = False
 sol = dome.modifiers.new('Shell', 'SOLIDIFY')
-sol.thickness = 0.02
+sol.thickness = 0.012
 sol.offset = 1.0
 
 ring_r = math.sqrt(1 - DOME_CUT ** 2) * bulb(DOME_CUT)
