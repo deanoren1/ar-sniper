@@ -108,12 +108,30 @@ nt.links.new(tint_emit.outputs[0], emis_add.inputs[2])
 nt.links.new(emis_add.outputs[0], bsdf.inputs["Emission Color"])
 bsdf.inputs["Emission Strength"].default_value = 1.0
 nt.links.new(eye_mix.outputs[0], bsdf.inputs["Base Color"])
-for key, value in (("Specular IOR Level", 0.3), ("Roughness", 0.42)):
+# מט יותר: מגדילים את החספוס (גם כשהוא מגיע מטקסטורה) ומקטינים את הברק ואת החזר המתכת
+MATTE = 0.62  # החספוס המינימלי (0 = מראה, 1 = מט לגמרי)
+rough_links = bsdf.inputs["Roughness"].links
+if rough_links:
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs["To Min"].default_value = MATTE
+    mr.inputs["To Max"].default_value = 1.0
+    nt.links.new(rough_links[0].from_socket, mr.inputs["Value"])
+    nt.links.new(mr.outputs["Result"], bsdf.inputs["Roughness"])
+else:
+    bsdf.inputs["Roughness"].default_value = max(MATTE, 0.7)
+for key, value in (("Specular IOR Level", 0.12), ("Coat Weight", 0.0)):
     try:
         if not bsdf.inputs[key].links:
             bsdf.inputs[key].default_value = value
     except Exception:
         pass
+mt_links = bsdf.inputs["Metallic"].links
+if mt_links:
+    mm = nt.nodes.new("ShaderNodeMath")
+    mm.operation = "MULTIPLY"
+    mm.inputs[1].default_value = 0.7
+    nt.links.new(mt_links[0].from_socket, mm.inputs[0])
+    nt.links.new(mm.outputs[0], bsdf.inputs["Metallic"])
 tint_mix.inputs[0].default_value = 0.0
 fade_tr = nt.nodes.new("ShaderNodeBsdfTransparent")
 fade_mix = nt.nodes.new("ShaderNodeMixShader")
