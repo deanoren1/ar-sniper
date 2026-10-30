@@ -122,9 +122,10 @@ def metal_mat(name, color, rough=0.4, metal=0.9):
     return m
 
 
-DOME_CENTER = Vector((0.0, 0.04, 1.12))
-DOME_SCALE = Vector((0.88, 0.96, 0.72))
-DOME_CUT = -0.53  # חיתוך תחתון ביחידות כדור (-1..1)
+DOME_CENTER = Vector((0.0, 0.04, 1.152))
+DOME_SCALE = Vector((0.88, 0.96, 0.66))
+DOME_CUT = -0.64  # חיתוך תחתון ביחידות כדור (-1..1)
+DOME_TILT = 0.20  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
 
 bm = bmesh.new()
 bmesh.ops.create_uvsphere(bm, u_segments=56, v_segments=28, radius=1.0)
@@ -134,7 +135,9 @@ bm.to_mesh(dome_mesh)
 bm.free()
 dome = bpy.data.objects.new("Dome", dome_mesh)
 bpy.context.collection.objects.link(dome)
-dome.location = DOME_CENTER
+ring_c = DOME_CENTER + Vector((0, 0, DOME_CUT * DOME_SCALE.z))
+dome.location = ring_c + Matrix.Rotation(DOME_TILT, 3, "X") @ (DOME_CENTER - ring_c)
+dome.rotation_euler = (DOME_TILT, 0, 0)
 dome.scale = DOME_SCALE
 dome.data.materials.append(glass_mat())
 for p in dome.data.polygons:
@@ -145,7 +148,8 @@ ring_r = math.sqrt(1 - DOME_CUT ** 2)
 bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.034, major_segments=64, minor_segments=12)
 ring = bpy.context.active_object
 ring.name = "DomeRing"
-ring.location = DOME_CENTER + Vector((0, 0, DOME_CUT * DOME_SCALE.z))
+ring.location = ring_c
+ring.rotation_euler = (DOME_TILT, 0, 0)
 ring.scale = Vector((DOME_SCALE.x * ring_r, DOME_SCALE.y * ring_r, 1.0))
 ring.data.materials.append(metal_mat("RingMetal", (0.42, 0.22, 0.10), rough=0.45))
 ring.visible_shadow = False
@@ -324,13 +328,13 @@ def _pose(clip, i, n):
         t = i / n
         move(ROOT, Vector((0, 0, 0.025 * math.sin(2 * math.pi * t))))
         lean(0.025 * math.sin(2 * math.pi * t + 0.6))
-        arms_pose(t, 0.16, 0.12, lag=0.7)
+        arms_pose(t, 0.22, 0.16, lag=0.7)
         tanks(t, 0.02)
     elif clip == "Walk":
         t = i / n
-        move(ROOT, Vector((0, 0, 0.055 * abs(math.sin(2 * math.pi * t)))))
+        move(ROOT, Vector((0, 0, 0.07 * abs(math.sin(2 * math.pi * t)))))
         lean(0.10 + 0.03 * math.sin(4 * math.pi * t))
-        arms_pose(t, 0.5, 0.28, lag=0.9)
+        arms_pose(t, 0.7, 0.4, lag=0.9)
         tanks(t, 0.05)
     elif clip == "Charge":
         k = (i + 1) / n
@@ -361,7 +365,7 @@ def _pose(clip, i, n):
             lean(-1.35)
             arms_pose(0.0, 0.0, 0.0, droop=0.5)
             monster.scale = (1.08, 1.08, 1.08)
-            set_tint(0.55, (1.0, 0.75, 0.4))
+            set_tint(0.30, (1.0, 0.6, 0.3))
         else:
             lean(-1.35)
             arms_pose(0.0, 0.0, 0.0, droop=0.3)
