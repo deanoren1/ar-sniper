@@ -52,12 +52,18 @@ jobs:
           cp out/*.png out/render.log /tmp/pub/ || true
           tail -c 20000 out/render.log > /tmp/pub/render_tail.log || true
           cd /tmp/pub
-          git init -q -b renders
+          # Keep work-branch renders isolated so a later main render cannot overwrite them.
+          if [[ "${GITHUB_REF_NAME}" == "work/octopus-visual-pass" ]]; then
+            RENDER_BRANCH="renders-octopus"
+          else
+            RENDER_BRANCH="renders"
+          fi
+          git init -q -b "$RENDER_BRANCH"
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add .
           git commit -q -m "Renders from ${{ github.sha }}"
-          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" renders
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$RENDER_BRANCH"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -65,3 +71,5 @@ jobs:
           path: |
             out/*.png
             out/render.log
+          retention-days: 90
+          if-no-files-found: error
