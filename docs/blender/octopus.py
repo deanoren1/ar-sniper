@@ -148,7 +148,7 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.98, 0.08, 0.50), rough=0.34, coat=0.3)
+SUCKER = mat("Sucker", (1.0, 0.10, 0.58), rough=0.30, coat=0.38, emit=(1.0, 0.08, 0.40), strength=0.24)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TANK = mat("Tank", (0.72, 0.025, 0.46), rough=0.4, metal=0.05, coat=0.22)
 # Smooth enamel tanks, matching the bright magenta body.
@@ -402,11 +402,11 @@ mouth_parts.append(sphere("Tongue", 0.12, (0, -0.094, -0.102), TONGUE, mouth,
                           scale=(1.10, 0.22, 0.34), seg=28))
 
 # Broad pink collar with visible warm-metal rivets, like the reference harness.
-torus("LowerPinkBand", 0.76, 0.066, (0, 0, -0.65), RING, torso)
-torus("BandEdge", 0.76, 0.014, (0, 0, -0.715), PURPLE_DARK, torso)
-for i in range(14):
-    a = i * (2 * math.pi / 14)
-    sphere(f"BandRivet{i}", 0.022, (0.76 * math.cos(a), 0.76 * math.sin(a), -0.65),
+torus("LowerPinkBand", 0.73, 0.045, (0, 0, -0.66), RING, torso)
+torus("BandEdge", 0.73, 0.010, (0, 0, -0.708), PURPLE_DARK, torso)
+for i in range(12):
+    a = i * (2 * math.pi / 12)
+    sphere(f"BandRivet{i}", 0.016, (0.73 * math.cos(a), 0.73 * math.sin(a), -0.66),
            COPPER, torso, seg=16)
 
 # Twin magenta tanks with gunmetal straps, yellow/black flame badges and copper elbows.
@@ -441,29 +441,30 @@ ARM_TOTAL = sum(ARM_LEN)
 
 
 def arm_curve_x(t):
-    # Sweep well out from the body, then curl the rounded tip back toward the root.
-    u = max(0.0, min(1.0, (t - 0.58) / 0.42))
+    # Sweep outward, then turn back earlier so the hook reads clearly in the front view.
+    u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
-    return 1.05 * math.sin(math.pi * 0.58 * t) - 0.95 * hook
+    return 0.95 * math.sin(math.pi * 0.58 * t) - 0.88 * hook
 
 
 def arm_curve_y(t):
-    return 0.035 * math.sin(2.0 * math.pi * t)
+    # A little depth variation prevents all eight curls from stacking into one plane.
+    return 0.055 * math.sin(2.0 * math.pi * t)
 
 
 def arm_curve_z(t):
-    u = max(0.0, min(1.0, (t - 0.58) / 0.42))
+    u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
-    # The arm drops, then rises strongly at the tip to form a clear C-shaped curl.
-    return -0.90 * t + 0.85 * hook
+    # The arm drops into a compact loop and lifts its rounded tip back toward the body.
+    return -0.86 * t + 1.05 * hook
 
 
 def arm_radius(t):
-    # Plush, bulbous tentacles with a rounded taper at the curled tip.
-    if t < 0.70:
-        return 0.265 - 0.045 * (t / 0.70)
-    u = min(1.0, max(0.0, (t - 0.70) / 0.30))
-    return 0.22 * (0.48 + 0.52 * math.cos(u * math.pi * 0.5))
+    # Keep the arms plush and give each curled tip enough volume to stay rounded.
+    if t < 0.68:
+        return 0.25 - 0.025 * (t / 0.68)
+    u = min(1.0, max(0.0, (t - 0.68) / 0.32))
+    return 0.225 * (0.68 + 0.32 * math.cos(u * math.pi * 0.5))
 
 
 def arm_center(t):
@@ -526,7 +527,7 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 for i in range(8):
     theta = math.radians(i * 45 + 22.5)
-    tilt = 0.78 + rng.uniform(-0.08, 0.08)
+    tilt = 0.62 + rng.uniform(-0.06, 0.06)
     root = empty(f"ArmRoot{i}", torso, loc=(0.52 * math.cos(theta), 0.52 * math.sin(theta), -0.68), rot=(0, tilt, theta))
     joints = [root]
     for k in range(1, 4):
@@ -547,11 +548,11 @@ for i in range(8):
         cup_normal.normalize()
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 0.93
-        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.080, tuple(cup_pos), SUCKER, root,
+        torus(f"SuckerRim{i}_{q}", rr * 0.40, rr * 0.115, tuple(cup_pos), SUCKER, root,
               rot=normal_rot(cup_normal))
         inset_pos = cup_pos + cup_normal * rr * 0.025
         sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), PURPLE_DARK, root,
-               scale=(rr * 0.23, rr * 0.23, rr * 0.055), rot=normal_rot(cup_normal), seg=18)
+               scale=(rr * 0.20, rr * 0.20, rr * 0.050), rot=normal_rot(cup_normal), seg=18)
     # Two soft pink skin patches break up the otherwise solid-purple tentacle surface.
     for q, t in enumerate((0.34, 0.66)):
         center = arm_center(t)
@@ -565,7 +566,7 @@ for i in range(8):
         rr = arm_radius(t)
         patch_pos = center + patch_normal * rr * 0.94
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(patch_pos), SPOT, root,
-               scale=(rr * 0.62, rr * 0.055, rr * 0.34),
+               scale=(rr * 0.30, rr * 0.045, rr * 0.22),
                rot=normal_rot(patch_normal), seg=20)
     tip_loc = tuple(arm_center(1.0))
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
