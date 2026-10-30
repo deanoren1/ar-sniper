@@ -181,7 +181,7 @@ ground = bpy.context.active_object
 ground.name = "Ground"
 ground.is_shadow_catcher = True
 
-HEIGHT = max(top_z, 2.0) + 0.2
+HEIGHT = top_z + 0.3
 cam_data = bpy.data.cameras.new("Cam")
 cam_data.type = "ORTHO"
 cam_data.ortho_scale = max(3.2, HEIGHT * 1.55)
