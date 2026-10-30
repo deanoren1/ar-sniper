@@ -96,6 +96,11 @@ def add_skin(m, scale=14.0, strength=0.6, vein=None, vein_scale=5.0, vein_width=
 def glass_mat():
     m = bpy.data.materials.new("Glass")
     m.use_nodes = True
+    try:
+        # EEVEE Next needs an explicit transparent surface mode for the bubble shell.
+        m.surface_render_method = "DITHERED"
+    except Exception:
+        pass
     nt = m.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -153,6 +158,10 @@ BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TANK = mat("Tank", (0.82, 0.03, 0.58), rough=0.36, metal=0.05, coat=0.28)
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
+DOME_RIM = mat("DomeRim", (0.22, 0.62, 1.0), rough=0.20, metal=0.12,
+               emit=(0.08, 0.32, 1.0), strength=0.75, coat=0.35)
+DOME_HIGHLIGHT = mat("DomeHighlight", (0.72, 0.90, 1.0), rough=0.14,
+                     emit=(0.28, 0.58, 1.0), strength=0.45, coat=0.45)
 
 # ------------------------------------------------------------------ עזרים
 
@@ -410,7 +419,7 @@ for i in range(14):
 # Large exposed cyclopean eye seated in a raised purple socket.
 EYE_Y, EYE_Z = -0.75, 0.26
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.04, 1.04, 1.04)
+eye.scale = (0.88, 0.88, 0.88)
 eye_parts = [
     sphere("EyeWhite", 0.56, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1), seg=56),
     sphere("Iris", 0.365, (0, -0.225, 0), IRIS, eye, scale=(1, 0.34, 1), seg=56),
@@ -424,7 +433,7 @@ torus("EyeRim", 0.557, 0.009, (0, -0.045, 0), RING, eye, rot=(math.pi / 2, 0, 0)
 
 # Wider open grin with four readable ivory teeth and a small pink tongue.
 mouth = empty("Mouth", pivot, loc=(0, -0.82, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.30, (0, 0, 0), MOUTH, mouth, scale=(1.80, 0.36, 0.50), seg=40)]
+mouth_parts = [sphere("MouthCavity", 0.30, (0, 0, 0), MOUTH, mouth, scale=(1.45, 0.36, 0.50), seg=40)]
 for i, x in enumerate((-0.24, 0.24)):
     h = 0.088
     mouth_parts.append(cone(f"ToothU{i}", 0.060, 0.0, h, (x, -0.072, 0.060 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
@@ -466,7 +475,24 @@ for side, sx in (("L", -1), ("R", 1)):
         (tx - 0.23 * sx, ty, 0.78), (tx - 0.30 * sx, ty, 0.67)
     ), COPPER, torso, bevel=0.036)
 
-# Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
+# Clear pressure dome around the head. The body and tanks remain readable through it.
+# The broad transparent shell and its blue front arc reproduce the user's bubble-helmet silhouette.
+sphere("GlassDome", 1.0, (0.0, 0.0, 0.12), GLASS, torso,
+       scale=(1.25, 1.14, 1.30), seg=64)
+torus("DomeBaseRim", 1.04, 0.016, (0.0, 0.0, -0.48), DOME_RIM, torso)
+pipe_curve("DomeFrontArc", (
+    (-1.00, -0.44, -0.42), (-1.16, -0.50, 0.12), (-1.05, -0.62, 0.72),
+    (-0.65, -0.70, 1.13), (0.0, -0.46, 1.39),
+    (0.65, -0.70, 1.13), (1.05, -0.62, 0.72),
+    (1.16, -0.50, 0.12), (1.00, -0.44, -0.42)
+), DOME_RIM, torso, bevel=0.014)
+# Soft elongated reflections make the clear shell legible against the transparent render background.
+sphere("DomeReflectionL", 1.0, (-0.66, -0.76, 0.88), DOME_HIGHLIGHT, torso,
+       scale=(0.105, 0.018, 0.235), rot=(0.0, -0.28, -0.18), seg=32)
+sphere("DomeReflectionR", 1.0, (0.70, -0.74, 0.94), DOME_HIGHLIGHT, torso,
+       scale=(0.085, 0.016, 0.190), rot=(0.0, 0.22, 0.18), seg=32)
+
+# Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
 ARM_RAD = [0.22, 0.19, 0.16, 0.125, 0.065]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
@@ -491,15 +517,15 @@ def arm_curve_z(t):
     u = max(0.0, min(1.0, (t - 0.46) / 0.54))
     hook = u * u * (3.0 - 2.0 * u)
     # The arm drops into a compact loop and lifts its rounded tip back toward the body.
-    return -1.05 * t + 1.05 * hook
+    return -0.88 * t + 0.88 * hook
 
 
 def arm_radius(t):
     # Keep the arms plush and give each curled tip enough volume to stay rounded.
     if t < 0.70:
-        return 0.205 - 0.025 * (t / 0.70)
+        return 0.178 - 0.018 * (t / 0.70)
     u = min(1.0, max(0.0, (t - 0.70) / 0.30))
-    return 0.180 * (0.72 + 0.28 * math.cos(u * math.pi * 0.5))
+    return 0.160 * (0.78 + 0.22 * math.cos(u * math.pi * 0.5))
 
 
 def arm_center(t):
@@ -583,11 +609,11 @@ for i in range(8):
         cup_normal.normalize()
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.025
-        torus(f"SuckerRim{i}_{q}", rr * 0.30, rr * 0.080, tuple(cup_pos), SUCKER, root,
+        torus(f"SuckerRim{i}_{q}", rr * 0.36, rr * 0.095, tuple(cup_pos), SUCKER, root,
               rot=normal_rot(cup_normal))
         inset_pos = cup_pos + cup_normal * rr * 0.018
         sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), PURPLE_DARK, root,
-               scale=(rr * 0.18, rr * 0.18, rr * 0.055), rot=normal_rot(cup_normal), seg=18)
+               scale=(rr * 0.22, rr * 0.22, rr * 0.060), rot=normal_rot(cup_normal), seg=18)
     for q, t in enumerate((0.40, 0.70)):
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
