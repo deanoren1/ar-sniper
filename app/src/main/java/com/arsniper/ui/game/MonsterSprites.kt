@@ -72,7 +72,9 @@ class MonsterSheet(
     /** מפלצת הבלונים עם פחות בלונים: המפתח הוא מספר הבלונים שנשארו (2 או 1). ריק אם אין ציורים */
     val fewer: Map<Int, WalkSet> = emptyMap(),
     /** רק לבוס: אנימציות מלאות */
-    val bossAnim: BossAnim? = null
+    val bossAnim: BossAnim? = null,
+    /** מפלצת rig עם גיליון חזית: כשהיא מציצה מאחורי עצם מציירים אותה מלפנים ולא מהצד */
+    val frontPeek: Boolean = false
 )
 
 /** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
@@ -306,7 +308,8 @@ class MonsterSprites private constructor(
                 peek = frame(2, 2),
                 hit = frame(3, 0),
                 sizeScale = 1.0f,
-                moves = moves
+                moves = moves,
+                frontPeek = frontId != null
             )
         }
 

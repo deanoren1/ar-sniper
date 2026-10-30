@@ -398,6 +398,9 @@ private fun DrawScope.drawMonster(
             val raw = (gait.phase / (2f * PI.toFloat()) * list.size).toInt()
             list[((raw % list.size) + list.size) % list.size]
         } else if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
+    } else if (sheet.frontPeek && (enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window)) {
+        // מציץ מאחורי עצם או חלון: רק מבט קדמי (נושם בלולאת העמידה של הגיליון הקדמי)
+        movesFor(sheet, enemy)?.front?.firstOrNull() ?: sheet.idle
     } else if (sheet.bossAnim != null) {
         bossFrame(sheet.bossAnim, enemy, anim, hurt)
     } else if (AttackPose.ids.contains(enemy.id)) {

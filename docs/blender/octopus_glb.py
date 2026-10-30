@@ -166,8 +166,8 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = t.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.30
-    mad.inputs[2].default_value = 0.006
+    mad.inputs[1].default_value = 0.14
+    mad.inputs[2].default_value = 0.003
     for key, value in (("Base Color", (0.45, 0.7, 1.0, 1.0)), ("Roughness", 0.02), ("Metallic", 0.0),
                        ("Emission Color", (0.5, 0.7, 1.0, 1.0)), ("Emission Strength", 0.0)):
         try:
