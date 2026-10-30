@@ -288,7 +288,8 @@ class MonsterSprites private constructor(
                 walk = walkSide,
                 peek = cell(6, 2),
                 hit = cell(7, 1),
-                sizeScale = 1.0f,
+                // התא כולל מקום לאפקטים מעל הראש (כוכבים, ברק): מגדילים מעט כדי שהגוף יהיה בגובה של שאר המפלצות
+                sizeScale = 1.08f,
                 moves = WalkSet(walkSide, walkFront, walkBack, walkSide),
                 rig = RigAnim(
                     idleFront = views[0],
