@@ -89,6 +89,24 @@ eye_bright = nt.nodes.new("ShaderNodeHueSaturation")
 eye_bright.inputs["Value"].default_value = 1.2  # הצהוב בעין בהיר ב-20%
 nt.links.new(tint_mix.outputs[0], eye_bright.inputs["Color"])
 nt.links.new(eye_bright.outputs[0], eye_mix.inputs[2])
+# הארה עצמית רק בעין (והצהוב-כתום), כך שהיא בהירה גם בצל; מתחברת לזוהר הצבע של פגיעה/הכנה
+eye_emit = nt.nodes.new("ShaderNodeHueSaturation")
+eye_emit.inputs["Value"].default_value = 0.30
+nt.links.new(eye_bright.outputs[0], eye_emit.inputs["Color"])
+eye_glow = nt.nodes.new("ShaderNodeMixRGB")
+eye_glow.blend_type = "MIX"
+eye_glow.inputs[1].default_value = (0.0, 0.0, 0.0, 1.0)
+nt.links.new(eye_mask.outputs[0], eye_glow.inputs[0])
+nt.links.new(eye_emit.outputs[0], eye_glow.inputs[2])
+tint_emit = nt.nodes.new("ShaderNodeRGB")
+tint_emit.outputs[0].default_value = (0.0, 0.0, 0.0, 1.0)
+emis_add = nt.nodes.new("ShaderNodeMixRGB")
+emis_add.blend_type = "ADD"
+emis_add.inputs[0].default_value = 1.0
+nt.links.new(eye_glow.outputs[0], emis_add.inputs[1])
+nt.links.new(tint_emit.outputs[0], emis_add.inputs[2])
+nt.links.new(emis_add.outputs[0], bsdf.inputs["Emission Color"])
+bsdf.inputs["Emission Strength"].default_value = 1.0
 nt.links.new(eye_mix.outputs[0], bsdf.inputs["Base Color"])
 for key, value in (("Specular IOR Level", 0.3), ("Roughness", 0.42)):
     try:
@@ -108,8 +126,8 @@ fade_mix.inputs[0].default_value = 1.0
 def set_tint(amount, color=(1.0, 0.12, 0.08)):
     tint_mix.inputs[0].default_value = amount
     tint_mix.inputs[2].default_value = (*color, 1.0)
-    bsdf.inputs["Emission Color"].default_value = (*color, 1.0)
-    bsdf.inputs["Emission Strength"].default_value = amount * 1.3
+    k = amount * 1.3
+    tint_emit.outputs[0].default_value = (color[0] * k, color[1] * k, color[2] * k, 1.0)
 
 
 def set_fade(f):
