@@ -378,6 +378,8 @@ private fun DrawScope.drawMonster(
     val walking = !dead && gait.swing > 0f
     val sprite: MonsterSprite = if (dead && sheet.bossAnim != null) {
         sheet.bossAnim.death[(progress * 6f).toInt().coerceIn(0, 5)]
+    } else if (dead && sheet.rig != null) {
+        rigDeath(sheet.rig, enemy, progress)
     } else if (dead) {
         sheet.hit
     } else if (walking) {
@@ -398,6 +400,8 @@ private fun DrawScope.drawMonster(
             val raw = (gait.phase / (2f * PI.toFloat()) * list.size).toInt()
             list[((raw % list.size) + list.size) % list.size]
         } else if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
+    } else if (sheet.rig != null) {
+        rigFrame(sheet.rig, enemy, hurt)
     } else if (sheet.frontPeek && (enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window)) {
         // מציץ מאחורי עצם או חלון: רק מבט קדמי (נושם בלולאת העמידה של הגיליון הקדמי)
         movesFor(sheet, enemy)?.front?.firstOrNull() ?: sheet.idle
@@ -455,6 +459,9 @@ private fun DrawScope.drawMonster(
     }
     val alpha = if (dead && sheet.bossAnim != null) {
         if (progress < 0.9f) 1f else (1f - (progress - 0.9f) * 10f).coerceIn(0f, 1f)
+    } else if (dead && sheet.rig != null) {
+        // פריימי המוות כבר מתפוגגים בציור עצמו: דוהים רק בסוף
+        if (progress < 0.92f) 1f else (1f - (progress - 0.92f) * 12f).coerceIn(0f, 1f)
     } else if (dead) {
         if (progress < 0.5f) 1f else (1f - (progress - 0.5f) * 2f).coerceIn(0f, 1f)
     } else {
@@ -567,6 +574,28 @@ private fun balloonsLeft(sheet: MonsterSheet, enemy: Enemy): Int {
 }
 
 /** לולאות ההליכה של המפלצת: של מספר הבלונים שנשאר אם יש ציור כזה, אחרת הרגילות */
+/** מפלצת שהולכת או רצה לרוחב מוצגת מהצד; כל השאר (עומדת, מתכוננת, מציצה, מתקרבת) מלפנים */
+private fun facesSide(enemy: Enemy): Boolean =
+    enemy.kind == EnemyKind.Open &&
+        (enemy.state == EnemyState.Walking || enemy.state == EnemyState.Running) &&
+        abs(enemy.dirY) <= 0.5f
+
+private fun rigDeath(rig: RigAnim, enemy: Enemy, progress: Float): MonsterSprite {
+    val frames = if (facesSide(enemy)) rig.deathSide else rig.deathFront
+    return frames[(progress * frames.size).toInt().coerceIn(0, frames.size - 1)]
+}
+
+/** מפלצת rig2 שלא הולכת ולא מתה: הכנה לירי לפי ההתקדמות, פגיעה לפי עוצמת ההבהוב, אחרת עמידה מלפנים */
+private fun rigFrame(rig: RigAnim, enemy: Enemy, hurt: Float): MonsterSprite {
+    if (AttackPose.ids.contains(enemy.id)) {
+        val p = AttackPose.progress[enemy.id] ?: 1f
+        return rig.chargeFront[(p * rig.chargeFront.size).toInt().coerceIn(0, rig.chargeFront.size - 1)]
+    }
+    if (hurt > 0.55f) return rig.hitFront[1]
+    if (hurt > 0.1f) return rig.hitFront[0]
+    return rig.idleFront
+}
+
 private fun movesFor(sheet: MonsterSheet, enemy: Enemy): WalkSet? =
     sheet.fewer[balloonsLeft(sheet, enemy)] ?: sheet.moves
 

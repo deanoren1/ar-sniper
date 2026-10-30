@@ -74,7 +74,22 @@ class MonsterSheet(
     /** רק לבוס: אנימציות מלאות */
     val bossAnim: BossAnim? = null,
     /** מפלצת rig עם גיליון חזית: כשהיא מציצה מאחורי עצם מציירים אותה מלפנים ולא מהצד */
-    val frontPeek: Boolean = false
+    val frontPeek: Boolean = false,
+    /** מפלצת בפורמט rig2 (רב-זוויתי): הכנה, פגיעה, מוות וירייה בזווית קדמית ובצד */
+    val rig: RigAnim? = null
+)
+
+/** פריימים של מפלצת rig2, לפי הזווית: front = אל המצלמה, side = מהצד (פונה ימינה) */
+class RigAnim(
+    val idleFront: MonsterSprite,
+    val idleSide: MonsterSprite,
+    val chargeFront: List<MonsterSprite>,
+    val chargeSide: List<MonsterSprite>,
+    val hitFront: List<MonsterSprite>,
+    val hitSide: List<MonsterSprite>,
+    val deathFront: List<MonsterSprite>,
+    val deathSide: List<MonsterSprite>,
+    val fireFront: List<MonsterSprite>
 )
 
 /** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
@@ -231,7 +246,64 @@ class MonsterSprites private constructor(
                     loadRig(context, id, front, back)?.let { pools[foe].add(it) }
                     n++
                 }
+                // פורמט רב-זוויתי: rig2_<ארנה>_<סוג>_<n> (גיליון אחד, 6 עמודות על 8 שורות, ראו docs/tools/build_rig2.py)
+                var m = 0
+                while (true) {
+                    val id2 = context.resources.getIdentifier("rig2_${arena}_${foe}_$m", "drawable", context.packageName)
+                    if (id2 == 0) break
+                    loadRig2(context, id2)?.let { pools[foe].add(it) }
+                    m++
+                }
             }
+        }
+
+        private const val RIG2_ROWS = 8
+
+        /**
+         * גיליון rig2: 6 עמודות על 8 שורות, כל התאים באותו גודל והרגליים על אותו קו.
+         * שורות: 0 מבטים (חזית, 3/4 קדמי, צד, 3/4 אחורי, גב, צד שמאל), 1 הליכה צד, 2 הליכה אל המצלמה, 3 הליכה מהמצלמה,
+         * 4 הכנה (3) ופגיעה (3) מהצד, 5 מוות מהצד (6), 6 הכנה (3) ומוות (3) מלפנים, 7 פגיעה (3) וירייה (3) מלפנים.
+         */
+        private fun loadRig2(context: Context, id: Int): MonsterSheet? {
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            val cw = bitmap.width / RIG_COLUMNS
+            val ch = bitmap.height / RIG2_ROWS
+            if (cw < 8 || ch < 8) return null
+            fun cell(row: Int, col: Int): MonsterSprite {
+                val f = Bitmap.createBitmap(bitmap, col * cw, row * ch, cw, ch)
+                f.density = Bitmap.DENSITY_NONE
+                return MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
+            }
+            fun row(r: Int, from: Int = 0, count: Int = RIG_COLUMNS) = (from until from + count).map { cell(r, it) }
+            val views = row(0)
+            val walkSide = row(1)
+            val walkFront = row(2)
+            val walkBack = row(3)
+            val sheet = MonsterSheet(
+                idle = views[0],
+                walk = walkSide,
+                peek = cell(6, 2),
+                hit = cell(7, 1),
+                sizeScale = 1.0f,
+                moves = WalkSet(walkSide, walkFront, walkBack, walkSide),
+                rig = RigAnim(
+                    idleFront = views[0],
+                    idleSide = views[2],
+                    chargeFront = row(6, 0, 3),
+                    chargeSide = row(4, 0, 3),
+                    hitFront = row(7, 0, 3),
+                    hitSide = row(4, 3, 3),
+                    deathFront = row(6, 3, 3),
+                    deathSide = row(5),
+                    fireFront = row(7, 3, 3)
+                )
+            )
+            bitmap.recycle()
+            return sheet
         }
 
         /**
