@@ -167,7 +167,8 @@ ring.visible_shadow = False
 bpy.context.view_layer.update()
 head_pb = arm.pose.bones["Bone_001"]
 parent_m = arm.matrix_world @ head_pb.matrix @ Matrix.Translation((0, head_pb.bone.length, 0))
-for o in (dome, ring):
+bpy.data.objects.remove(ring)  # בלי טבעת: היא הסתירה את הפה
+for o in (dome,):
     world = o.matrix_world.copy()
     o.parent = arm
     o.parent_type = "BONE"
