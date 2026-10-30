@@ -123,12 +123,21 @@ def metal_mat(name, color, rough=0.4, metal=0.9):
 
 
 DOME_CENTER = Vector((0.0, 0.04, 1.276))
-DOME_SCALE = Vector((0.86, 0.90, 0.78))
+DOME_SCALE = Vector((1.15, 0.95, 0.78))
 DOME_CUT = -0.70  # חיתוך תחתון ביחידות כדור (-1..1)
 DOME_TILT = 0.3745  # הטיה קדימה (רדיאנים): הטבעת יושבת על האבזם המשופע
 
 bm = bmesh.new()
 bmesh.ops.create_uvsphere(bm, u_segments=56, v_segments=28, radius=1.0)
+def bulb(z):
+    # החצי התחתון מצטמצם לקראת הטבעת, כך שהכיפה רחבה סביב הראש והצינורות וצרה בבסיס
+    return 1.0 - 0.38 * ((-z) ** 1.5) if z < 0 else 1.0
+
+
+for v in bm.verts:
+    f = bulb(v.co.z)
+    v.co.x *= f
+    v.co.y *= f
 bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < DOME_CUT], context="VERTS")
 dome_mesh = bpy.data.meshes.new("Dome")
 bm.to_mesh(dome_mesh)
@@ -144,7 +153,7 @@ for p in dome.data.polygons:
     p.use_smooth = True
 dome.visible_shadow = False
 
-ring_r = math.sqrt(1 - DOME_CUT ** 2)
+ring_r = math.sqrt(1 - DOME_CUT ** 2) * bulb(DOME_CUT)
 bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.034, major_segments=64, minor_segments=12)
 ring = bpy.context.active_object
 ring.name = "DomeRing"
