@@ -65,7 +65,28 @@ hue_sat = nt.nodes.new("ShaderNodeHueSaturation")
 hue_sat.inputs["Saturation"].default_value = 1.25  # צבעים עמוקים יותר: סגול וורוד כמו בדגם המקורי
 hue_sat.inputs["Value"].default_value = 0.86
 nt.links.new(tint_mix.outputs[0], hue_sat.inputs["Color"])
-nt.links.new(hue_sat.outputs[0], bsdf.inputs["Base Color"])
+# העין (קרם/כתום/צהוב) נשארת בצבע המקורי: מסכה לפי גוון (hue) של הטקסטורה, בלי הגברת הרוויה
+sep = nt.nodes.new("ShaderNodeSeparateColor")
+sep.mode = "HSV"
+nt.links.new(tint_mix.outputs[0], sep.inputs[0])
+gt = nt.nodes.new("ShaderNodeMath")
+gt.operation = "GREATER_THAN"
+gt.inputs[1].default_value = 0.02
+nt.links.new(sep.outputs[0], gt.inputs[0])
+lt = nt.nodes.new("ShaderNodeMath")
+lt.operation = "LESS_THAN"
+lt.inputs[1].default_value = 0.2
+nt.links.new(sep.outputs[0], lt.inputs[0])
+eye_mask = nt.nodes.new("ShaderNodeMath")
+eye_mask.operation = "MULTIPLY"
+nt.links.new(gt.outputs[0], eye_mask.inputs[0])
+nt.links.new(lt.outputs[0], eye_mask.inputs[1])
+eye_mix = nt.nodes.new("ShaderNodeMixRGB")
+eye_mix.blend_type = "MIX"
+nt.links.new(eye_mask.outputs[0], eye_mix.inputs[0])
+nt.links.new(hue_sat.outputs[0], eye_mix.inputs[1])
+nt.links.new(tint_mix.outputs[0], eye_mix.inputs[2])
+nt.links.new(eye_mix.outputs[0], bsdf.inputs["Base Color"])
 for key, value in (("Specular IOR Level", 0.3), ("Roughness", 0.42)):
     try:
         if not bsdf.inputs[key].links:
@@ -103,11 +124,11 @@ def glass_mat():
     clear = t.nodes.new("ShaderNodeBsdfTransparent")
     glossy = t.nodes.new("ShaderNodeBsdfPrincipled")
     lw = t.nodes.new("ShaderNodeLayerWeight")
-    lw.inputs["Blend"].default_value = 0.5
+    lw.inputs["Blend"].default_value = 0.3
     mad = t.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.30
-    mad.inputs[2].default_value = 0.006
+    mad.inputs[1].default_value = 0.95
+    mad.inputs[2].default_value = 0.004
     for key, value in (("Base Color", (0.45, 0.7, 1.0, 1.0)), ("Roughness", 0.02), ("Metallic", 0.0),
                        ("Emission Color", (0.5, 0.7, 1.0, 1.0)), ("Emission Strength", 0.0)):
         try:
@@ -162,6 +183,9 @@ dome.data.materials.append(glass_mat())
 for p in dome.data.polygons:
     p.use_smooth = True
 dome.visible_shadow = False
+sol = dome.modifiers.new('Shell', 'SOLIDIFY')
+sol.thickness = 0.03
+sol.offset = 1.0
 
 ring_r = math.sqrt(1 - DOME_CUT ** 2) * bulb(DOME_CUT)
 bpy.ops.mesh.primitive_torus_add(major_radius=1.0, minor_radius=0.034, major_segments=64, minor_segments=12)
