@@ -375,7 +375,10 @@ private fun DrawScope.drawMonster(
     groundLift: Float = 0f
 ) {
     val gait = Gait.of(enemy)
-    val walking = !dead && gait.swing > 0f
+    // דמות rig2 שמתכוננת לירות או שזה עתה ירתה: תמיד מלפנים, גם אם היא באמצע הליכה (לא יורה עם הגב אל השחקן)
+    val rigAttacking = !dead && sheet.rig != null &&
+        (AttackPose.ids.contains(enemy.id) || AttackPose.sinceLaunch.containsKey(enemy.id))
+    val walking = !dead && !rigAttacking && gait.swing > 0f
     val sprite: MonsterSprite = if (dead && sheet.bossAnim != null) {
         sheet.bossAnim.death[(progress * 6f).toInt().coerceIn(0, 5)]
     } else if (dead && sheet.rig != null) {

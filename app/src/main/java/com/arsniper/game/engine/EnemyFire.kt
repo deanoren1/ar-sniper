@@ -116,7 +116,8 @@ class EnemyFire(private val random: Random = Random.Default) {
         if (e.position.x < Shot.attackMinX || e.position.x > Shot.attackMaxX) return false
         return when (e.kind) {
             EnemyKind.Peek, EnemyKind.Window -> e.state == EnemyState.Exposed && e.exposure >= 0.95f
-            EnemyKind.Open -> e.spot == null && e.exposure >= 0.95f
+            // דמות שהולכת הרחק מהשחקן (גבה אליו) לא מתחילה הכנה לירי; היא תירה כשתפנה לצד או אליו
+            EnemyKind.Open -> e.spot == null && e.exposure >= 0.95f && e.dirY >= -0.5f
             EnemyKind.Static -> true
         }
     }
