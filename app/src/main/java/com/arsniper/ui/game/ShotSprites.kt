@@ -58,7 +58,7 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
         /** מרכז הכדור (x, y) וקוטרו בתמונות shot_<סוג>_side */
         private val SIDE_ANCHORS = mapOf(
             "bomb" to floatArrayOf(69.2f, 57.3f, 88.7f, -12.7f),
-            "orb" to floatArrayOf(74.1f, 72.1f, 114.8f, -36.2f),
+            "orb" to floatArrayOf(87.0f, 95.5f, 162.0f, 0f),
             "gas" to floatArrayOf(81.0f, 72.5f, 112.0f, -31.3f),
             "rock" to floatArrayOf(95.2f, 72.0f, 113.9f, -37.8f),
             "spike" to floatArrayOf(92.1f, 71.4f, 140.3f, -24.7f),

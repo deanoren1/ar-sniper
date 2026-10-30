@@ -263,6 +263,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     )
     val spin = when (s.kind) {
         ShotKind.Rock, ShotKind.Bomb, ShotKind.Spike -> time * 24f + s.id * 37f
+        // כדור האנרגיה: פני הכדור מסתובבים (בקליע מהצד הכדור מסתובב והשובל נשאר בכיוון התנועה)
+        ShotKind.Orb -> time * 150f + s.id * 50f
         else -> 0f
     }
     val mix = ((p - 0.42f) / 0.16f).coerceIn(0f, 1f)
@@ -290,6 +292,10 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
                     dstSize = androidx.compose.ui.unit.IntSize(w, h)
                 )
             }
+        }
+        if (s.kind == ShotKind.Orb) {
+            // השובל מצויר בלי הכדור; הכדור עצמו מצויר מעליו ומסתובב
+            rotate(spin, center) { drawSprite(pair.big, center, diameter * 1.02f, 1f) }
         }
         if (s.hp < s.maxHp) {
             drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
