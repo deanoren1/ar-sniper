@@ -597,7 +597,10 @@ private fun rigFrame(rig: RigAnim, enemy: Enemy, hurt: Float): MonsterSprite {
     // שחרור הקליע: שיא ההכנה, אחר כך רתיעה ונחיתה (פריימי הלהבה לא בשימוש: צבעם לא מתאים לקליע הסגול)
     val since = AttackPose.sinceLaunch[enemy.id]
     if (since != null) {
-        return if (since < 0.12f) rig.chargeFront.last() else if (since < 0.3f) rig.fireFront[1] else rig.fireFront[2]
+        val release = rig.releaseFront
+        return if (since < 0.12f) rig.chargeFront.last()
+        else if (release != null) { if (since < 0.4f) release else rig.idleFront }
+        else if (since < 0.3f) rig.fireFront[1] else rig.fireFront[2]
     }
     if (hurt > 0.55f) return rig.hitFront[1]
     if (hurt > 0.1f) return rig.hitFront[0]

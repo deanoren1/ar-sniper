@@ -95,7 +95,9 @@ class RigAnim(
     val hitSide: List<MonsterSprite>,
     val deathFront: List<MonsterSprite>,
     val deathSide: List<MonsterSprite>,
-    val fireFront: List<MonsterSprite>
+    val fireFront: List<MonsterSprite>,
+    /** פריים שחרור הקליע (הרתיעה) אחרי הכנת הגז; null אם אין */
+    val releaseFront: MonsterSprite? = null
 )
 
 /** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
@@ -267,15 +269,15 @@ class MonsterSprites private constructor(
             }
         }
 
-        private const val RIG2_ROWS = 8
+        private const val RIG2_ROWS = 9
 
         /** true: כשיש גיליון rig2 לסוג מפלצת, הוא מחליף את הציור הישן שלה (אפשר להחזיר ל-false כדי לערבב) */
         private const val REPLACE_ORIGINAL_WITH_RIG2 = true
 
         /**
-         * גיליון rig2: 6 עמודות על 8 שורות, כל התאים באותו גודל והרגליים על אותו קו.
+         * גיליון rig2: 6 עמודות על 9 שורות, כל התאים באותו גודל והרגליים על אותו קו.
          * שורות: 0 מבטים (חזית, 3/4 קדמי, צד, 3/4 אחורי, גב, צד שמאל), 1 הליכה צד, 2 הליכה אל המצלמה, 3 הליכה מהמצלמה,
-         * 4 הכנה (3) ופגיעה (3) מהצד, 5 מוות מהצד (6), 6 הכנה (3) ומוות (3) מלפנים, 7 פגיעה (3) וירייה (3) מלפנים.
+         * 4 הכנה (3) ופגיעה (3) מהצד, 5 מוות מהצד (6), 6 הכנה (3) ומוות (3) מלפנים, 7 פגיעה (3) וירייה (3) מלפנים, 8 הכנה בגז (5: מיכלים נדלקים, צינורות, כדור בבטן) ושחרור (1).
          */
         private fun loadRig2(context: Context, id: Int): MonsterSheet? {
             val options = BitmapFactory.Options().apply {
@@ -307,13 +309,14 @@ class MonsterSprites private constructor(
                 rig = RigAnim(
                     idleFront = views[0],
                     idleSide = views[2],
-                    chargeFront = row(6, 0, 3),
+                    chargeFront = row(8, 0, 5),
                     chargeSide = row(4, 0, 3),
                     hitFront = row(7, 0, 3),
                     hitSide = row(4, 3, 3),
                     deathFront = row(6, 3, 3),
                     deathSide = row(5),
-                    fireFront = row(7, 3, 3)
+                    fireFront = row(7, 3, 3),
+                    releaseFront = cell(8, 5)
                 )
             )
             bitmap.recycle()

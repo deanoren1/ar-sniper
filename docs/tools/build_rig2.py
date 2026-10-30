@@ -14,11 +14,13 @@ Usage:
     side_death.png        6 death frames, side view
     front_charge_death.png 3 charge frames + 3 death frames, front view
     front_hit_fire.png    3 hit frames + 3 fire frames, front view
+    front_charge_release.png  5 gas-charge frames + 1 release frame, front view (see split_row.py if the source is in a wrong format)
 
-Output sheet: 6 columns x 8 rows, every cell the same size (cropped to the union of all frames, feet on the bottom line):
+Output sheet: 6 columns x 9 rows, every cell the same size (cropped to the union of all frames, feet on the bottom line):
     row 0 views   row 1 walk side   row 2 walk front   row 3 walk back
     row 4 side: charge x3, hit x3   row 5 side: death x6
     row 6 front: charge x3, death x3   row 7 front: hit x3, fire x3
+    row 8 front: gas charge x5, release x1
 The game reads this layout in MonsterSprites.loadRig2.
 """
 import sys
@@ -39,6 +41,7 @@ ROWS = [
     ("side_death", 1.0, 640),
     ("front_charge_death", 1.0, 640),
     ("front_hit_fire", 1.0, 640),
+    ("front_charge_release", 1.0, 640),
 ]
 EDGE_MARGIN = 100      # small stray fragments inside this margin from the left/right cell edge are removed
 FRAGMENT_AREA = 4000
@@ -88,6 +91,7 @@ ROW_LABELS = [
     "SIDE: defeat x6",
     "FRONT: charge up x3, then defeat x3",
     "FRONT: hit x3, then fire/release x3",
+    "FRONT: gas charge x5 (canisters glow, tubes, orb at belly), release x1",
 ]
 
 
