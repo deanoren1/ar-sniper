@@ -127,8 +127,8 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.3
     mad = t.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.95
-    mad.inputs[2].default_value = 0.004
+    mad.inputs[1].default_value = 0.55
+    mad.inputs[2].default_value = 0.002
     for key, value in (("Base Color", (0.45, 0.7, 1.0, 1.0)), ("Roughness", 0.02), ("Metallic", 0.0),
                        ("Emission Color", (0.5, 0.7, 1.0, 1.0)), ("Emission Strength", 0.0)):
         try:
@@ -184,7 +184,7 @@ for p in dome.data.polygons:
     p.use_smooth = True
 dome.visible_shadow = False
 sol = dome.modifiers.new('Shell', 'SOLIDIFY')
-sol.thickness = 0.03
+sol.thickness = 0.02
 sol.offset = 1.0
 
 ring_r = math.sqrt(1 - DOME_CUT ** 2) * bulb(DOME_CUT)
