@@ -153,15 +153,15 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.20, 0.008, 0.34), rough=0.48, coat=0.16)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.94, 0.045, 0.94), rough=0.25, coat=0.62,
-               emit=(0.24, 0.012, 0.20), strength=0.10)
+TENTACLE = mat("Tentacle", (0.76, 0.025, 0.94), rough=0.24, coat=0.72,
+               emit=(0.30, 0.012, 0.28), strength=0.20)
 TANK = mat("Tank", (0.82, 0.03, 0.58), rough=0.36, metal=0.05, coat=0.28)
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
 DOME_RIM = mat("DomeRim", (0.06, 0.34, 0.96), rough=0.18, metal=0.08,
                emit=(0.02, 0.16, 0.88), strength=0.35, coat=0.42)
-DOME_HIGHLIGHT = mat("DomeHighlight", (0.68, 0.88, 1.0), rough=0.11,
-                     emit=(0.28, 0.56, 1.0), strength=0.42, coat=0.52)
+DOME_HIGHLIGHT = mat("DomeHighlight", (0.84, 0.93, 1.0), rough=0.10,
+                     emit=(0.48, 0.66, 1.0), strength=0.28, coat=0.58)
 
 # ------------------------------------------------------------------ עזרים
 
@@ -243,7 +243,7 @@ def flame_icon(name, x, y, z, parent):
     ]
 
     def add_flame_layer(layer_name, points, layer_y, material):
-        verts = [(x + px * 1.75, layer_y, z + pz * 1.75) for px, pz in points]
+        verts = [(x + px * 1.45, layer_y, z + pz * 1.45) for px, pz in points]
         mesh = bpy.data.meshes.new(layer_name + "Mesh")
         mesh.from_pydata(verts, [], [tuple(range(len(verts)))])
         mesh.update()
@@ -418,31 +418,31 @@ for i in range(14):
     h = rng.uniform(0.045, 0.09)
     cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
-# Large, nearly circular cyclopean eye; the reference has no heavy upper eyelid.
-EYE_Y, EYE_Z = -0.78, 0.27
+# Compact round cyclopean eye: a cream sclera, circular orange iris and round black pupil.
+# The reference eye is prominent but leaves a generous purple cheek/head silhouette.
+EYE_Y, EYE_Z = -0.73, 0.27
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.28, 1.0, 1.22)
+eye.scale = (1.0, 1.0, 1.0)
 eye_parts = [
-    sphere("EyeWhite", 0.54, (0, 0, 0), EYE_WHITE, eye, scale=(1.10, 0.46, 0.88), seg=64),
-    sphere("Iris", 0.30, (0, -0.225, -0.015), IRIS, eye, scale=(1, 0.36, 0.84), seg=64),
-    sphere("Pupil", 0.178, (0, -0.315, -0.015), PUPIL, eye, scale=(1.0, 0.32, 0.84), seg=56),
-    sphere("Shine", 0.052, (0.065, -0.382, 0.085), SHINE, eye, scale=(1, 0.32, 1), seg=28),
+    sphere("EyeWhite", 0.49, (0, 0, 0), EYE_WHITE, eye, scale=(1.0, 0.52, 1.0), seg=64),
+    sphere("Iris", 0.245, (0, -0.225, -0.005), IRIS, eye, scale=(1.0, 0.46, 1.0), seg=64),
+    sphere("Pupil", 0.150, (0, -0.310, -0.005), PUPIL, eye, scale=(1.0, 0.34, 1.0), seg=56),
+    sphere("Shine", 0.048, (0.052, -0.365, 0.070), SHINE, eye, scale=(1.0, 0.30, 1.0), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.595, 0.022, (0, -0.018, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale.z = 0.78
+eye_socket = torus("EyeSocket", 0.505, 0.022, (0, -0.012, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
 
-# Wide black grin with six irregular ivory teeth and a visible pink tongue.
-mouth = empty("Mouth", pivot, loc=(0, -0.94, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.35, (0, 0, 0), MOUTH, mouth, scale=(1.50, 0.38, 0.60), seg=64)]
-for i, x in enumerate((-0.39, 0.0, 0.39)):
-    h = 0.12 if i != 1 else 0.15
-    mouth_parts.append(cone(f"ToothU{i}", 0.075, 0.0, h, (x, -0.105, 0.13 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.25, 0.25)):
-    h = 0.095
-    mouth_parts.append(cone(f"ToothL{i}", 0.060, 0.0, h, (x, -0.11, -0.16 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.15, (0, -0.14, -0.16), TONGUE,
-                          scale=(1.15, 0.24, 0.30), seg=40))
+# Small, integrated black grin with five ivory teeth and a visible pink tongue.
+mouth = empty("Mouth", pivot, loc=(0, -0.96, -0.47))
+mouth_parts = [sphere("MouthCavity", 0.26, (0, 0, 0), MOUTH, mouth, scale=(1.30, 0.22, 0.55), seg=64)]
+for i, x in enumerate((-0.23, 0.0, 0.23)):
+    h = 0.095 if i != 1 else 0.12
+    mouth_parts.append(cone(f"ToothU{i}", 0.060, 0.0, h, (x, -0.070, 0.095 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
+for i, x in enumerate((-0.16, 0.16)):
+    h = 0.075
+    mouth_parts.append(cone(f"ToothL{i}", 0.050, 0.0, h, (x, -0.075, -0.115 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.12, (0, -0.095, -0.105), TONGUE,
+                          scale=(1.05, 0.22, 0.28), seg=40))
 
 # Wide slanted pink collar, placed in front of the lower head with readable brass rivets.
 body_band("LowerPinkBand", pivot, -0.80, -0.53, RING)
@@ -466,7 +466,7 @@ for side, sx in (("L", -1), ("R", 1)):
     sphere(f"Valve{side}", 0.045, (tx, ty, 0.710), COPPER, torso, seg=20)
     cylinder(f"Connector{side}", 0.060, 0.22, (1.10 * sx, ty - 0.005, 0.175),
              COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.205, 0.036, (tx, ty - 0.270, 0.015),
+    cylinder(f"Badge{side}", 0.165, 0.036, (tx, ty - 0.270, 0.015),
              BADGE_YELLOW, torso, rot=(math.pi / 2, 0, 0))
     # Place the emblem in front of the badge face (not coplanar/behind it).
     flame_icon(f"FlameIcon{side}", tx, ty - 0.315, 0.015, torso)
@@ -528,12 +528,12 @@ for i in range(9):
     x = -DOME_RADII[0] + (2.0 * DOME_RADII[0] * i / 8.0)
     z = DOME_CENTER_Z + DOME_RADII[2] * math.sqrt(max(0.0, 1.0 - (x / DOME_RADII[0]) ** 2))
     dome_arch.append((x, -0.02, z))
-pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.026)
-# Soft diagonal studio reflections, like the reference bubble.
-sphere("DomeReflectionL", 1.0, (-0.72, -0.66, 0.78), DOME_HIGHLIGHT, torso,
-       scale=(0.30, 0.018, 0.095), rot=(0.0, 0.0, -0.62), seg=40)
-sphere("DomeReflectionR", 1.0, (0.72, -0.66, 0.78), DOME_HIGHLIGHT, torso,
-       scale=(0.25, 0.018, 0.085), rot=(0.0, 0.0, 0.62), seg=40)
+pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.014)
+# Restrained soft-white reflections: visible glass, not opaque cyan patches.
+sphere("DomeReflectionL", 1.0, (-0.74, -0.66, 0.80), DOME_HIGHLIGHT, torso,
+       scale=(0.23, 0.014, 0.070), rot=(0.0, 0.0, -0.62), seg=40)
+sphere("DomeReflectionR", 1.0, (0.74, -0.66, 0.80), DOME_HIGHLIGHT, torso,
+       scale=(0.20, 0.014, 0.065), rot=(0.0, 0.0, 0.62), seg=40)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
