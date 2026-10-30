@@ -227,16 +227,26 @@ def flame_icon(name, x, y, z, parent):
         (-0.025, 0.012), (0.000, 0.115), (0.038, 0.052),
         (0.075, 0.010), (0.058, -0.052), (0.025, -0.085)
     ]
-    verts = [(x + px, y, z + pz) for px, pz in outline]
-    mesh = bpy.data.meshes.new(name + "Mesh")
-    mesh.from_pydata(verts, [], [tuple(range(len(verts)))])
-    mesh.update()
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.collection.objects.link(obj)
-    obj.parent = parent
-    obj.data.materials.append(FLAME_BLACK)
-    main_parts.append(obj)
-    return obj
+    inner = [
+        (0.000, -0.050), (-0.030, -0.010), (-0.025, 0.024),
+        (-0.010, 0.008), (0.000, 0.064), (0.018, 0.028),
+        (0.036, 0.006), (0.027, -0.025), (0.010, -0.043)
+    ]
+
+    def add_flame_layer(layer_name, points, layer_y, material):
+        verts = [(x + px, layer_y, z + pz) for px, pz in points]
+        mesh = bpy.data.meshes.new(layer_name + "Mesh")
+        mesh.from_pydata(verts, [], [tuple(range(len(verts)))])
+        mesh.update()
+        obj = bpy.data.objects.new(layer_name, mesh)
+        bpy.context.collection.objects.link(obj)
+        obj.parent = parent
+        obj.data.materials.append(material)
+        main_parts.append(obj)
+        return obj
+
+    add_flame_layer(name + "Outline", outline, y, FLAME_BLACK)
+    return add_flame_layer(name, inner, y - 0.004, FLAME)
 
 
 def empty(name, parent=None, loc=(0, 0, 0), rot=(0, 0, 0)):
@@ -380,48 +390,48 @@ torus("EyeSocket", 0.605, 0.065, (0, -0.025, 0), PURPLE, eye, rot=(math.pi / 2, 
 torus("EyeRim", 0.565, 0.018, (0, -0.045, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 
 # Wider open grin with four readable ivory teeth and a small pink tongue.
-mouth = empty("Mouth", pivot, loc=(0, -0.82, -0.47))
-mouth_parts = [sphere("MouthCavity", 0.29, (0, 0, 0), MOUTH, mouth, scale=(1.78, 0.40, 0.55), seg=40)]
-for i, x in enumerate((-0.27, 0.27)):
-    h = 0.105
-    mouth_parts.append(cone(f"ToothU{i}", 0.072, 0.0, h, (x, -0.078, 0.075 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.18, 0.18)):
-    h = 0.090
-    mouth_parts.append(cone(f"ToothL{i}", 0.062, 0.0, h, (x, -0.080, -0.080 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.16, (0, -0.105, -0.125), TONGUE, mouth,
-                          scale=(1.25, 0.24, 0.38), seg=28))
+mouth = empty("Mouth", pivot, loc=(0, -0.82, -0.43))
+mouth_parts = [sphere("MouthCavity", 0.27, (0, 0, 0), MOUTH, mouth, scale=(1.45, 0.36, 0.48), seg=40)]
+for i, x in enumerate((-0.20, 0.20)):
+    h = 0.078
+    mouth_parts.append(cone(f"ToothU{i}", 0.054, 0.0, h, (x, -0.072, 0.060 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
+for i, x in enumerate((-0.13, 0.13)):
+    h = 0.064
+    mouth_parts.append(cone(f"ToothL{i}", 0.046, 0.0, h, (x, -0.074, -0.065 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.12, (0, -0.094, -0.102), TONGUE, mouth,
+                          scale=(1.10, 0.22, 0.34), seg=28))
 
 # Broad pink collar with visible warm-metal rivets, like the reference harness.
-torus("LowerPinkBand", 0.79, 0.090, (0, 0, -0.63), RING, torso)
-torus("BandEdge", 0.79, 0.018, (0, 0, -0.71), PURPLE_DARK, torso)
-for i in range(16):
-    a = i * (2 * math.pi / 16)
-    sphere(f"BandRivet{i}", 0.027, (0.79 * math.cos(a), 0.79 * math.sin(a), -0.63),
+torus("LowerPinkBand", 0.76, 0.066, (0, 0, -0.65), RING, torso)
+torus("BandEdge", 0.76, 0.014, (0, 0, -0.715), PURPLE_DARK, torso)
+for i in range(14):
+    a = i * (2 * math.pi / 14)
+    sphere(f"BandRivet{i}", 0.022, (0.76 * math.cos(a), 0.76 * math.sin(a), -0.65),
            COPPER, torso, seg=16)
 
 # Twin magenta tanks with gunmetal straps, yellow/black flame badges and copper elbows.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.18 * sx, 0.10
-    cylinder(f"Tank{side}", 0.225, 0.88, (tx, ty, 0.015), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.248, 0.095, (tx, ty, 0.502), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.248, 0.095, (tx, ty, -0.472), METAL, torso)
-    torus(f"TankBand1{side}", 0.226, 0.026, (tx, ty, 0.245), METAL, torso)
-    torus(f"TankBand2{side}", 0.226, 0.026, (tx, ty, -0.235), METAL, torso)
-    torus(f"TankGoldRing{side}", 0.226, 0.025, (tx, ty, 0.435), COPPER, torso)
-    cylinder(f"TankNozzle{side}", 0.065, 0.105, (tx, ty, 0.595), METAL, torso)
-    sphere(f"Valve{side}", 0.043, (tx, ty, 0.665), COPPER, torso, seg=20)
-    cylinder(f"Connector{side}", 0.055, 0.24, (1.015 * sx, ty - 0.005, 0.23),
+    tx, ty = 1.14 * sx, 0.10
+    cylinder(f"Tank{side}", 0.205, 0.80, (tx, ty, 0.015), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.226, 0.085, (tx, ty, 0.462), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.226, 0.085, (tx, ty, -0.432), METAL, torso)
+    torus(f"TankBand1{side}", 0.206, 0.022, (tx, ty, 0.220), METAL, torso)
+    torus(f"TankBand2{side}", 0.206, 0.022, (tx, ty, -0.205), METAL, torso)
+    torus(f"TankGoldRing{side}", 0.206, 0.021, (tx, ty, 0.400), COPPER, torso)
+    cylinder(f"TankNozzle{side}", 0.055, 0.095, (tx, ty, 0.535), METAL, torso)
+    sphere(f"Valve{side}", 0.038, (tx, ty, 0.600), COPPER, torso, seg=20)
+    cylinder(f"Connector{side}", 0.050, 0.21, (0.985 * sx, ty - 0.005, 0.205),
              COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.158, 0.026, (tx, ty - 0.232, 0.005),
+    cylinder(f"Badge{side}", 0.142, 0.024, (tx, ty - 0.212, 0.005),
              BADGE_YELLOW, torso, rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, ty - 0.249, 0.005, torso)
-    for j, (bx, bz) in enumerate(((-0.185, 0.17), (0.185, 0.17), (-0.185, -0.17), (0.185, -0.17))):
-        sphere(f"TankBolt{side}{j}", 0.020, (tx + bx, ty - 0.235, bz),
+    flame_icon(f"FlameIcon{side}", tx, ty - 0.229, 0.005, torso)
+    for j, (bx, bz) in enumerate(((-0.165, 0.15), (0.165, 0.15), (-0.165, -0.15), (0.165, -0.15))):
+        sphere(f"TankBolt{side}{j}", 0.018, (tx + bx, ty - 0.215, bz),
                COPPER, torso, scale=(1, 0.35, 1), seg=16)
     pipe_curve(f"TankPipe{side}", (
-        (tx, ty, 0.56), (tx, ty, 0.70), (tx - 0.10 * sx, ty, 0.82),
-        (tx - 0.28 * sx, ty, 0.82), (tx - 0.36 * sx, ty, 0.70)
-    ), COPPER, torso, bevel=0.052)
+        (tx, ty, 0.50), (tx, ty, 0.62), (tx - 0.09 * sx, ty, 0.73),
+        (tx - 0.25 * sx, ty, 0.73), (tx - 0.32 * sx, ty, 0.63)
+    ), COPPER, torso, bevel=0.040)
 
 # Eight organic arms: one continuous tapered tube per arm instead of visible sausage segments.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
