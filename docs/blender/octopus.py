@@ -19,7 +19,7 @@ OUT = argv[0] if argv else "out"
 ANGLES = (argv[1] if len(argv) > 1 else "side").split(",")
 # 256px cells produce the requested 1536x1024 sheet (6x4) and keep CI below its 40-minute limit.
 CELL = min(int(argv[2]) if len(argv) > 2 else 256, 256)
-SAMPLES = min(int(argv[3]) if len(argv) > 3 else 16, 16)
+SAMPLES = min(int(argv[3]) if len(argv) > 3 else 24, 24)
 FRAMES_DIR = os.path.join(OUT, "frames")
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
@@ -96,16 +96,13 @@ def add_skin(m, scale=14.0, strength=0.6, vein=None, vein_scale=5.0, vein_width=
 
 
 def glass_mat():
+    """A genuinely see-through EEVEE shell with a restrained blue glossy component."""
     m = bpy.data.materials.new("Glass")
     m.use_nodes = True
     try:
-        # Use an explicit EEVEE alpha mode; a low-alpha Principled shell keeps the creature readable.
         m.surface_render_method = "BLENDED"
     except Exception:
-        try:
-            m.surface_render_method = "DITHERED"
-        except Exception:
-            pass
+        pass
     try:
         m.use_transparency_overlap = False
     except Exception:
@@ -113,24 +110,18 @@ def glass_mat():
     nt = m.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
-    glass = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    settings = (
-        ("Base Color", (0.72, 0.88, 1.0, 1.0)),
-        ("Roughness", 0.018),
-        ("Metallic", 0.0),
-        ("Alpha", 0.008),
-        ("Coat Weight", 0.72),
-        ("Coat Roughness", 0.018),
-        ("Emission Color", (0.08, 0.22, 0.55, 1.0)),
-        ("Emission Strength", 0.008),
-        ("Transmission Weight", 0.62),
-    )
-    for key, value in settings:
-        try:
-            glass.inputs[key].default_value = value
-        except Exception:
-            pass
-    nt.links.new(glass.outputs["BSDF"], out.inputs["Surface"])
+    transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
+    shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    shell.inputs["Base Color"].default_value = (0.24, 0.52, 0.94, 1.0)
+    shell.inputs["Roughness"].default_value = 0.075
+    shell.inputs["Metallic"].default_value = 0.0
+    shell.inputs["Coat Weight"].default_value = 0.82
+    shell.inputs["Coat Roughness"].default_value = 0.025
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    mix.inputs[0].default_value = 0.13
+    nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
+    nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
+    nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
@@ -252,7 +243,7 @@ def flame_icon(name, x, y, z, parent):
     ]
 
     def add_flame_layer(layer_name, points, layer_y, material):
-        verts = [(x + px * 1.45, layer_y, z + pz * 1.45) for px, pz in points]
+        verts = [(x + px * 1.75, layer_y, z + pz * 1.75) for px, pz in points]
         mesh = bpy.data.meshes.new(layer_name + "Mesh")
         mesh.from_pydata(verts, [], [tuple(range(len(verts)))])
         mesh.update()
@@ -288,7 +279,7 @@ TORSO_Z = 1.55
 monster = empty("Monster")
 torso = empty("Torso", monster, loc=(0, 0, TORSO_Z))
 pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, ובתוכו הגוף, העין והפה
-pivot.scale = (1.0, 1.0, 1.08)  # slightly rounder head, closer to the reference silhouette
+pivot.scale = (1.0, 1.0, 1.20)  # taller, rounder head like the reference
 
 # גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
 BODY_R = 0.9
@@ -343,14 +334,14 @@ make_shell("Body", pivot, PURPLE)
 
 
 def body_band(name, parent, z_bottom, z_top, material):
-    """Wide, slightly swept collar with a visible front lip and slanted silhouette."""
+    """Even-width circular collar; avoid the oversized triangular flare of the old band."""
     sides = 128
     verts, faces = [], []
+    radius = shell_radius_at((z_bottom + z_top) * 0.5) + 0.13
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
-            z = z_base + 0.105 * math.cos(a)
-            radius = shell_radius_at(z_base) + 0.105
+            z = z_base + 0.045 * math.cos(a)
             verts.append((radius * math.cos(a), radius * 0.90 * math.sin(a), z))
     for j in range(sides):
         nxt = (j + 1) % sides
@@ -427,25 +418,23 @@ for i in range(14):
     h = rng.uniform(0.045, 0.09)
     cone(f"Thorn{i}", 0.04, 0.0, h, p + n * (h / 2), BONE, pivot, rot=normal_rot(n))
 
-# Broad almond-shaped cyclopean eye with the characteristic heavy purple upper lid.
-EYE_Y, EYE_Z = -0.76, 0.24
+# Large, nearly circular cyclopean eye; the reference has no heavy upper eyelid.
+EYE_Y, EYE_Z = -0.78, 0.27
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.0, 1.0, 1.0)
+eye.scale = (1.28, 1.0, 1.22)
 eye_parts = [
-    sphere("EyeWhite", 0.54, (0, 0, 0), EYE_WHITE, eye, scale=(1.04, 0.46, 0.64), seg=64),
+    sphere("EyeWhite", 0.54, (0, 0, 0), EYE_WHITE, eye, scale=(1.10, 0.46, 0.88), seg=64),
     sphere("Iris", 0.30, (0, -0.225, -0.015), IRIS, eye, scale=(1, 0.36, 0.84), seg=64),
     sphere("Pupil", 0.178, (0, -0.315, -0.015), PUPIL, eye, scale=(1.0, 0.32, 0.84), seg=56),
     sphere("Shine", 0.052, (0.065, -0.382, 0.085), SHINE, eye, scale=(1, 0.32, 1), seg=28),
 ]
-sphere("UpperEyelid", 0.50, (0.0, -0.205, 0.235), PURPLE, eye,
-       scale=(1.08, 0.22, 0.31), seg=64)
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.548, 0.018, (0, -0.018, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale.z = 0.66
+eye_socket = torus("EyeSocket", 0.595, 0.022, (0, -0.018, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale.z = 0.78
 
 # Wide black grin with six irregular ivory teeth and a visible pink tongue.
 mouth = empty("Mouth", pivot, loc=(0, -0.94, -0.43))
-mouth_parts = [sphere("MouthCavity", 0.39, (0, 0, 0), MOUTH, mouth, scale=(1.68, 0.38, 0.58), seg=64)]
+mouth_parts = [sphere("MouthCavity", 0.35, (0, 0, 0), MOUTH, mouth, scale=(1.50, 0.38, 0.60), seg=64)]
 for i, x in enumerate((-0.39, 0.0, 0.39)):
     h = 0.12 if i != 1 else 0.15
     mouth_parts.append(cone(f"ToothU{i}", 0.075, 0.0, h, (x, -0.105, 0.13 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
@@ -456,37 +445,38 @@ mouth_parts.append(sphere("Tongue", 0.15, (0, -0.14, -0.16), TONGUE,
                           scale=(1.15, 0.24, 0.30), seg=40))
 
 # Wide slanted pink collar, placed in front of the lower head with readable brass rivets.
-body_band("LowerPinkBand", pivot, -0.82, -0.48, RING)
+body_band("LowerPinkBand", pivot, -0.80, -0.53, RING)
 for i in range(14):
     a = i * (2 * math.pi / 14)
-    z = -0.65 + 0.105 * math.cos(a)
-    r = shell_radius_at(z) + 0.155
+    z = -0.665 + 0.045 * math.cos(a)
+    r = shell_radius_at(-0.665) + 0.185
     sphere(f"BandRivet{i}", 0.043, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
 # Twin magenta tanks with gunmetal straps, yellow/black flame badges and copper elbows.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 1.28 * sx, 0.08
-    cylinder(f"Tank{side}", 0.255, 0.96, (tx, ty, 0.015), TANK, torso)
-    cylinder(f"TankCapTop{side}", 0.300, 0.135, (tx, ty, 0.525), METAL, torso)
-    cylinder(f"TankCapBot{side}", 0.300, 0.135, (tx, ty, -0.495), METAL, torso)
-    torus(f"TankBand1{side}", 0.278, 0.043, (tx, ty, 0.245), METAL, torso)
-    torus(f"TankBand2{side}", 0.278, 0.043, (tx, ty, -0.205), METAL, torso)
-    torus(f"TankGoldRing{side}", 0.258, 0.024, (tx, ty, 0.455), COPPER, torso)
-    cylinder(f"TankNozzle{side}", 0.060, 0.100, (tx, ty, 0.610), METAL, torso)
-    sphere(f"Valve{side}", 0.045, (tx, ty, 0.690), COPPER, torso, seg=20)
-    cylinder(f"Connector{side}", 0.060, 0.22, (1.05 * sx, ty - 0.005, 0.175),
+    tx, ty = 1.34 * sx, 0.08
+    cylinder(f"Tank{side}", 0.285, 1.02, (tx, ty, 0.015), TANK, torso)
+    cylinder(f"TankCapTop{side}", 0.330, 0.135, (tx, ty, 0.545), METAL, torso)
+    cylinder(f"TankCapBot{side}", 0.330, 0.135, (tx, ty, -0.515), METAL, torso)
+    torus(f"TankBand1{side}", 0.302, 0.043, (tx, ty, 0.245), METAL, torso)
+    torus(f"TankBand2{side}", 0.302, 0.043, (tx, ty, -0.205), METAL, torso)
+    torus(f"TankGoldRing{side}", 0.282, 0.024, (tx, ty, 0.475), COPPER, torso)
+    cylinder(f"TankNozzle{side}", 0.060, 0.100, (tx, ty, 0.630), METAL, torso)
+    sphere(f"Valve{side}", 0.045, (tx, ty, 0.710), COPPER, torso, seg=20)
+    cylinder(f"Connector{side}", 0.060, 0.22, (1.10 * sx, ty - 0.005, 0.175),
              COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.195, 0.036, (tx, ty - 0.270, 0.015),
+    cylinder(f"Badge{side}", 0.205, 0.036, (tx, ty - 0.270, 0.015),
              BADGE_YELLOW, torso, rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, ty - 0.286, 0.015, torso)
-    for j, (bx, bz) in enumerate(((-0.190, 0.17), (0.190, 0.17), (-0.190, -0.17), (0.190, -0.17))):
-        sphere(f"TankBolt{side}{j}", 0.018, (tx + bx, ty - 0.270, bz),
+    # Place the emblem in front of the badge face (not coplanar/behind it).
+    flame_icon(f"FlameIcon{side}", tx, ty - 0.315, 0.015, torso)
+    for j, (bx, bz) in enumerate(((-0.205, 0.17), (0.205, 0.17), (-0.205, -0.17), (0.205, -0.17))):
+        sphere(f"TankBolt{side}{j}", 0.018, (tx + bx, ty - 0.300, bz),
                COPPER, torso, scale=(1, 0.35, 1), seg=16)
     pipe_curve(f"TankPipe{side}", (
-        (tx, ty, 0.62), (tx, ty, 0.74), (tx - 0.11 * sx, ty, 0.86),
-        (tx - 0.25 * sx, ty, 0.86), (tx - 0.32 * sx, ty, 0.74)
-    ), METAL, torso, bevel=0.060)
+        (tx, ty, 0.62), (tx, ty, 0.76), (tx - 0.11 * sx, ty, 0.89),
+        (tx - 0.25 * sx, ty, 0.89), (tx - 0.32 * sx, ty, 0.76)
+    ), COPPER, torso, bevel=0.052)
 
 # Open-bottom transparent glass hemisphere: the head stays crisp and visible inside the bubble.
 def make_dome_hemisphere(name, parent, center_z, radii, material):
@@ -530,14 +520,20 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -0.78
-DOME_RADII = (1.30, 1.18, 1.82)
+DOME_RADII = (1.42, 1.28, 1.95)
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
-# No complete horizontal rim: it used to cut straight across the eye and grin.
-# Two soft reflections define the transparent bubble without obscuring the face.
-sphere("DomeReflectionL", 1.0, (-0.68, -0.60, 0.72), DOME_HIGHLIGHT, torso,
-       scale=(0.25, 0.014, 0.075), rot=(0.0, 0.0, -0.55), seg=40)
-sphere("DomeReflectionR", 1.0, (0.68, -0.60, 0.72), DOME_HIGHLIGHT, torso,
-       scale=(0.22, 0.014, 0.065), rot=(0.0, 0.0, 0.55), seg=40)
+# A thin blue arch traces the outer silhouette without crossing the eye or mouth.
+dome_arch = []
+for i in range(9):
+    x = -DOME_RADII[0] + (2.0 * DOME_RADII[0] * i / 8.0)
+    z = DOME_CENTER_Z + DOME_RADII[2] * math.sqrt(max(0.0, 1.0 - (x / DOME_RADII[0]) ** 2))
+    dome_arch.append((x, -0.02, z))
+pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.026)
+# Soft diagonal studio reflections, like the reference bubble.
+sphere("DomeReflectionL", 1.0, (-0.72, -0.66, 0.78), DOME_HIGHLIGHT, torso,
+       scale=(0.30, 0.018, 0.095), rot=(0.0, 0.0, -0.62), seg=40)
+sphere("DomeReflectionR", 1.0, (0.72, -0.66, 0.78), DOME_HIGHLIGHT, torso,
+       scale=(0.25, 0.018, 0.085), rot=(0.0, 0.0, 0.62), seg=40)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -550,28 +546,28 @@ def arm_curve_x(t):
     # Push outward first, then return slightly while the rounded tip curls upward.
     u = max(0.0, min(1.0, (t - 0.28) / 0.72))
     hook = u * u * (3.0 - 2.0 * u)
-    return 1.30 * math.sin(math.pi * 0.55 * t) - 0.16 * hook
+    return 1.35 * math.sin(math.pi * 0.55 * t) - 0.32 * hook
 
 
 def arm_curve_y(t):
     u = max(0.0, min(1.0, (t - 0.28) / 0.72))
     hook = u * u * (3.0 - 2.0 * u)
-    return 0.16 * hook
+    return 0.18 * hook
 
 
 def arm_curve_z(t):
     u = max(0.0, min(1.0, (t - 0.28) / 0.72))
     hook = u * u * (3.0 - 2.0 * u)
     # A deeper drop followed by a clear upward return forms a broad C-hook.
-    return -1.35 * t + 1.95 * hook
+    return -1.20 * t + 1.80 * hook
 
 
 def arm_radius(t):
     # Thick plush arms with a blunt rounded end rather than a narrow tube tip.
     if t < 0.72:
-        return 0.185 - 0.020 * (t / 0.72)
+        return 0.220 - 0.025 * (t / 0.72)
     u = min(1.0, max(0.0, (t - 0.72) / 0.28))
-    return 0.165 * (0.92 + 0.08 * math.cos(u * math.pi * 0.5))
+    return 0.195 * (0.92 + 0.08 * math.cos(u * math.pi * 0.5))
 
 
 def arm_center(t):
@@ -655,11 +651,12 @@ for i in range(8):
         cup_normal.normalize()
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.025
-        torus(f"SuckerRim{i}_{q}", rr * 0.47, rr * 0.11, tuple(cup_pos), SUCKER, root,
-              rot=normal_rot(cup_normal))
         inset_pos = cup_pos + cup_normal * rr * 0.018
-        sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), PURPLE_DARK, root,
-               scale=(rr * 0.29, rr * 0.29, rr * 0.060), rot=normal_rot(cup_normal), seg=20)
+        sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), SUCKER, root,
+               scale=(rr * 0.36, rr * 0.36, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
+        hole_pos = inset_pos + cup_normal * rr * 0.012
+        sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), PURPLE_DARK, root,
+               scale=(rr * 0.15, rr * 0.15, rr * 0.035), rot=normal_rot(cup_normal), seg=16)
     for q, t in enumerate((0.34, 0.58, 0.80)):
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
@@ -672,9 +669,9 @@ for i in range(8):
         rr = arm_radius(t)
         spot_pos = center + spot_normal * rr * 1.018
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.56, rr * 0.38, rr * 0.060), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.62, rr * 0.45, rr * 0.075), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0))
-    sphere(f"ArmRoundedTip{i}", 0.165, tip_loc, TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.195, tip_loc, TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
@@ -770,7 +767,7 @@ def fit_character_camera():
     monster.rotation_euler[2] = original_angle
     bpy.context.view_layer.update()
     # Leave breathing room: the previous 0.92 scale clipped both the dome and arm tips.
-    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.20
+    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.14
     cam.location.x = sum(centers_x) / len(centers_x)
     cam.location.z = sum(centers_z) / len(centers_z)
     bpy.context.view_layer.update()
@@ -806,7 +803,7 @@ bg.inputs[1].default_value = 0.4
 
 # Eevee avoids a reproducible native Cycles BVH crash in the headless GitHub runner.
 scene.render.engine = "BLENDER_EEVEE_NEXT"
-scene.eevee.taa_render_samples = max(16, SAMPLES)
+scene.eevee.taa_render_samples = max(24, SAMPLES)
 scene.render.image_settings.file_format = "PNG"
 scene.render.film_transparent = True
 scene.render.image_settings.file_format = "PNG"
