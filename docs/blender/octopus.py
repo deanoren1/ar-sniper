@@ -131,9 +131,10 @@ PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (1.0, 0.045, 0.43), rough=0.31, coat=0.34)
 SPOT_DARK = mat("SpotDark", (0.30, 0.008, 0.48), rough=0.36, coat=0.24)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.91, 0.72), rough=0.2, coat=0.25)
-# Smooth cream sclera; no visible vein pattern in the toy style.
-IRIS = mat("Iris", (1.0, 0.27, 0.012), rough=0.28, coat=0.25, emit=(1.0, 0.12, 0.005), strength=0.08)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.78, 0.42), rough=0.22, coat=0.30,
+                emit=(0.35, 0.15, 0.02), strength=0.10)
+# Warm golden sclera and a saturated orange iris, closer to the supplied cyclops reference.
+IRIS = mat("Iris", (1.0, 0.22, 0.005), rough=0.25, coat=0.32, emit=(1.0, 0.10, 0.0), strength=0.12)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.9)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.012, 0.001, 0.008), rough=0.92)
@@ -400,8 +401,8 @@ for i, (sx, sz, rx, rz) in enumerate((
 
 # A visible crown of rounded pink spikes, including the front silhouette.
 for i, (az_deg, pol_deg, height) in enumerate((
-    (218, 42, 0.28), (242, 34, 0.31), (270, 29, 0.34),
-    (298, 34, 0.31), (322, 42, 0.28)
+    (218, 42, 0.38), (242, 34, 0.42), (270, 29, 0.45),
+    (298, 34, 0.42), (322, 42, 0.38)
 )):
     az = math.radians(az_deg)
     pol = math.radians(pol_deg)
@@ -425,20 +426,65 @@ EYE_Y, EYE_Z = -0.73, 0.27
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye.scale = (1.0, 1.0, 1.0)
 eye_parts = [
-    # Broad horizontal cream eye, with a clearly readable orange iris and black pupil.
-    sphere("EyeWhite", 0.63, (0, 0, 0), EYE_WHITE, eye, scale=(1.28, 0.50, 0.82), seg=64),
-    sphere("Iris", 0.365, (0, -0.292, -0.015), IRIS, eye, scale=(1.0, 0.43, 1.0), seg=64),
-    sphere("Pupil", 0.235, (0, -0.425, -0.015), PUPIL, eye, scale=(1.0, 0.34, 1.0), seg=56),
-    sphere("Shine", 0.070, (0.085, -0.485, 0.105), SHINE, eye, scale=(1.0, 0.28, 1.0), seg=28),
+    # Large horizontal golden eye with a broad iris and deep black pupil.
+    sphere("EyeWhite", 0.63, (0, 0, 0), EYE_WHITE, eye, scale=(1.32, 0.52, 0.95), seg=64),
+    sphere("Iris", 0.40, (0, -0.305, -0.015), IRIS, eye, scale=(1.0, 0.45, 1.0), seg=64),
+    sphere("Pupil", 0.255, (0, -0.435, -0.015), PUPIL, eye, scale=(1.0, 0.36, 1.0), seg=56),
+    sphere("Shine", 0.074, (0.09, -0.505, 0.11), SHINE, eye, scale=(1.0, 0.28, 1.0), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.650, 0.050, (0, -0.018, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale = (1.22, 1.0, 0.82)
-# Thick purple brow/lid sits into the top of the eye instead of floating as a pink capsule.
-sphere("UpperEyelid", 1.0, (0.0, -0.285, 0.355), PURPLE, eye,
-       scale=(0.735, 0.175, 0.255), rot=(0.0, -0.18, 0.0), seg=56)
-sphere("UpperLidShadow", 1.0, (0.0, -0.325, 0.285), PURPLE_DARK, eye,
-       scale=(0.710, 0.085, 0.085), rot=(0.0, -0.18, 0.0), seg=48)
+eye_socket = torus("EyeSocket", 0.665, 0.035, (0, -0.018, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale = (1.24, 1.0, 0.93)
+
+# A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
+def make_upper_eyelid(parent):
+    rx, ry, rz = 0.63 * 1.32, 0.63 * 0.52, 0.63 * 0.95
+    cols, rows = 40, 10
+    verts, faces, lower_edge = [], [], []
+    for i in range(cols + 1):
+        x = -rx * 0.91 + (2.0 * rx * 0.91 * i / cols)
+        xn = x / (rx * 0.91)
+        z_top = rz * math.sqrt(max(0.0, 1.0 - (x / rx) ** 2))
+        z_bottom = 0.20 + 0.12 * (1.0 - xn * xn) - 0.07 * xn
+        z_bottom = min(z_bottom, z_top - 0.015)
+        for j in range(rows + 1):
+            v = j / rows
+            z = z_bottom + (z_top - z_bottom) * v
+            inside = max(0.015, 1.0 - (x / rx) ** 2 - (z / rz) ** 2)
+            y = -ry * math.sqrt(inside) - 0.18
+            verts.append((x, y, z))
+        edge_inside = max(0.015, 1.0 - (x / rx) ** 2 - (z_bottom / rz) ** 2)
+        lower_edge.append((x, -ry * math.sqrt(edge_inside) - 0.205, z_bottom))
+    for i in range(cols):
+        for j in range(rows):
+            a = i * (rows + 1) + j
+            b = (i + 1) * (rows + 1) + j
+            faces.append((a, b, b + 1, a + 1))
+    mesh = bpy.data.meshes.new("UpperEyelidMesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new("UpperEyelid", mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.parent = parent
+    obj.data.materials.append(PURPLE)
+    smooth(obj)
+    solid = obj.modifiers.new("LidThickness", "SOLIDIFY")
+    solid.thickness = 0.045
+    solid.offset = 0.0
+    bevel = obj.modifiers.new("LidSoftEdge", "BEVEL")
+    bevel.width = 0.018
+    bevel.segments = 3
+    main_parts.append(obj)
+    edge = pipe_curve("UpperLidEdge", lower_edge, PURPLE_DARK, parent, bevel=0.026)
+    return obj, edge
+
+upper_lid, upper_lid_edge = make_upper_eyelid(eye)
+eye_parts.extend([eye_socket, upper_lid, upper_lid_edge])
 
 # Broad open snarl with a dark cavity, a curved magenta lip and uneven ivory teeth.
 mouth = empty("Mouth", pivot, loc=(0, -0.985, -0.49))
@@ -447,17 +493,17 @@ mouth_parts = [sphere("MouthCavity", 0.38, (0, 0, 0), MOUTH, mouth,
 mouth_lip = torus("MouthLip", 0.38, 0.045, (0, -1.075, -0.49), RING, pivot,
                   rot=(math.pi / 2, 0, 0))
 mouth_lip.scale = (1.68, 0.82, 1.0)
-for i, x in enumerate((-0.46, -0.23, 0.0, 0.23, 0.46)):
-    h = (0.22, 0.27, 0.19, 0.27, 0.22)[i]
-    mouth_parts.append(cone(f"ToothU{i}", 0.082, 0.0, h,
+for i, x in enumerate((-0.47, -0.24, 0.0, 0.24, 0.47)):
+    h = (0.27, 0.18, 0.22, 0.18, 0.29)[i]
+    mouth_parts.append(cone(f"ToothU{i}", 0.088, 0.0, h,
                             (x, -0.085, 0.155 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.30, 0.0, 0.30)):
-    h = (0.14, 0.17, 0.14)[i]
-    mouth_parts.append(cone(f"ToothL{i}", 0.066, 0.0, h,
-                            (x, -0.085, -0.17 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.17, (0, -0.105, -0.17), TONGUE,
-                          scale=(1.45, 0.24, 0.32), seg=40))
+for i, x in enumerate((-0.28, 0.28)):
+    h = 0.16
+    mouth_parts.append(cone(f"ToothL{i}", 0.070, 0.0, h,
+                            (x, -0.095, -0.17 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.18, (0, -0.14, -0.16), TONGUE,
+                          scale=(1.55, 0.30, 0.36), seg=40))
 
 # Wide slanted pink collar, placed in front of the lower head with readable brass rivets.
 body_band("LowerPinkBand", pivot, -0.80, -0.53, RING)
@@ -543,18 +589,26 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
 DOME_CENTER_Z = -0.78
 DOME_RADII = (1.50, 1.38, 2.02)
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
-# A thin blue arch traces the outer silhouette without crossing the eye or mouth.
+# A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
-for i in range(9):
-    x = -DOME_RADII[0] + (2.0 * DOME_RADII[0] * i / 8.0)
+for i in range(33):
+    x = -DOME_RADII[0] + (2.0 * DOME_RADII[0] * i / 32.0)
     z = DOME_CENTER_Z + DOME_RADII[2] * math.sqrt(max(0.0, 1.0 - (x / DOME_RADII[0]) ** 2))
     dome_arch.append((x, -0.02, z))
-pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.022)
-# Long studio-strip reflections follow the upper glass curvature without clouding the face.
-sphere("DomeReflectionL", 1.0, (-0.90, -0.50, 1.00), DOME_HIGHLIGHT, torso,
-       scale=(0.15, 0.018, 0.31), rot=(0.0, 0.0, -0.38), seg=48)
-sphere("DomeReflectionR", 1.0, (0.90, -0.50, 1.00), DOME_HIGHLIGHT, torso,
-       scale=(0.15, 0.018, 0.31), rot=(0.0, 0.0, 0.38), seg=48)
+pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.014)
+# Reflections are placed mathematically on the ellipsoid surface; this prevents the old floating white ovals.
+def add_dome_reflection(name, x, z, width, height):
+    nx = x / DOME_RADII[0]
+    nz = (z - DOME_CENTER_Z) / DOME_RADII[2]
+    y = -DOME_RADII[1] * math.sqrt(max(0.02, 1.0 - nx * nx - nz * nz))
+    normal = Vector((x / (DOME_RADII[0] ** 2),
+                     y / (DOME_RADII[1] ** 2),
+                     (z - DOME_CENTER_Z) / (DOME_RADII[2] ** 2))).normalized()
+    return sphere(name, 1.0, (x, y, z), DOME_HIGHLIGHT, torso,
+                  scale=(width, height, 0.014), rot=normal_rot(normal), seg=48)
+
+add_dome_reflection("DomeReflectionL", -0.70, 0.72, 0.12, 0.25)
+add_dome_reflection("DomeReflectionR", 0.70, 0.72, 0.11, 0.23)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -652,9 +706,9 @@ tips = []
 ARM_ANGLES = (205, 235, 255, 285, 305, 335, 75, 105)  # six front arms plus two rear supports
 for i in range(8):
     theta = math.radians(ARM_ANGLES[i])
-    tilt = 0.42 + rng.uniform(-0.035, 0.035)
-    # Curl each front tentacle tangentially, so its C-hook reads left/right in the hero camera.
-    curl_heading = theta - math.pi / 2 if math.cos(theta) < -1e-5 else theta + math.pi / 2
+    tilt = 0.25 + rng.uniform(-0.025, 0.025)
+    # Keep the local curl plane aligned with the hero camera: left arms curl left, right arms curl right.
+    curl_heading = math.pi if math.cos(theta) < 0.0 else 0.0
     root = empty(f"ArmRoot{i}", torso, loc=(0.52 * math.cos(theta), 0.52 * math.sin(theta), -0.96), rot=(0, tilt, curl_heading))
     joints = [root]
     for k in range(1, 4):
@@ -677,12 +731,12 @@ for i in range(8):
         cup_pos = center + cup_normal * rr * 1.025
         inset_pos = cup_pos + cup_normal * rr * 0.018
         sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), SUCKER, root,
-               scale=(rr * 0.42, rr * 0.42, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerLip{i}_{q}", rr * 0.29, rr * 0.070, tuple(inset_pos), SPOT, root,
+               scale=(rr * 0.50, rr * 0.50, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerLip{i}_{q}", rr * 0.35, rr * 0.075, tuple(inset_pos), SPOT, root,
               rot=normal_rot(cup_normal))
         hole_pos = inset_pos + cup_normal * rr * 0.012
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), PURPLE_DARK, root,
-               scale=(rr * 0.17, rr * 0.17, rr * 0.035), rot=normal_rot(cup_normal), seg=16)
+               scale=(rr * 0.21, rr * 0.21, rr * 0.035), rot=normal_rot(cup_normal), seg=16)
     for q, t in enumerate((0.34, 0.58, 0.80)):
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
@@ -695,7 +749,7 @@ for i in range(8):
         rr = arm_radius(t)
         spot_pos = center + spot_normal * rr * 1.018
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.62, rr * 0.45, rr * 0.075), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.72, rr * 0.54, rr * 0.075), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0))
     sphere(f"ArmRoundedTip{i}", 0.215, tip_loc, TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
