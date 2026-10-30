@@ -99,7 +99,7 @@ def glass_mat():
     m.use_nodes = True
     try:
         # EEVEE Next needs an explicit transparent surface mode for the bubble shell.
-        m.surface_render_method = "DITHERED"
+        m.surface_render_method = "BLENDED"
     except Exception:
         pass
     nt = m.node_tree
@@ -112,10 +112,10 @@ def glass_mat():
     lw.inputs["Blend"].default_value = 0.5
     mad = nt.nodes.new("ShaderNodeMath")
     mad.operation = "MULTIPLY_ADD"
-    mad.inputs[1].default_value = 0.29
-    mad.inputs[2].default_value = 0.016
-    for key, value in (("Base Color", (0.12, 0.30, 0.52, 1.0)), ("Roughness", 0.07), ("Metallic", 0.0),
-                       ("Emission Color", (0.05, 0.16, 0.42, 1.0)), ("Emission Strength", 0.035)):
+    mad.inputs[1].default_value = 0.14
+    mad.inputs[2].default_value = 0.008
+    for key, value in (("Base Color", (0.30, 0.50, 0.78, 1.0)), ("Roughness", 0.055), ("Metallic", 0.0),
+                       ("Emission Color", (0.12, 0.28, 0.65, 1.0)), ("Emission Strength", 0.02)):
         try:
             glossy.inputs[key].default_value = value
         except Exception:
@@ -128,7 +128,7 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.62, 0.018, 0.76), rough=0.30, coat=0.42)
+PURPLE = mat("Purple", (0.50, 0.020, 0.82), rough=0.28, coat=0.48)
 add_skin(PURPLE, scale=18.0, strength=0.025)  # smoother stylized skin; avoid the dense web-like vein pattern
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
@@ -280,6 +280,7 @@ TORSO_Z = 1.55
 monster = empty("Monster")
 torso = empty("Torso", monster, loc=(0, 0, TORSO_Z))
 pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, ובתוכו הגוף, העין והפה
+pivot.scale = (1.0, 1.0, 1.08)  # slightly rounder head, closer to the reference silhouette
 
 # גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
 BODY_R = 0.9
@@ -373,8 +374,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.02, 0.84, 0.075, 0.050, 0.0),
 )):
     x, z = sx, sz
-    rx *= 1.12
-    rz *= 1.10
+    rx *= 1.25
+    rz *= 1.20
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     spot_material = SPOT_DARK if i in (1, 5, 7) else SPOT
@@ -389,8 +390,8 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.18, -0.41, 0.050, 0.035), (0.52, 0.46, 0.060, 0.045),
     (-0.52, 0.38, 0.060, 0.045),
 )):
-    rx *= 1.04
-    rz *= 1.02
+    rx *= 1.12
+    rz *= 1.10
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
@@ -420,44 +421,44 @@ for i in range(14):
 # Large exposed cyclopean eye seated in a raised purple socket.
 EYE_Y, EYE_Z = -0.76, 0.25
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.06, 1.0, 1.06)
+eye.scale = (0.96, 1.0, 0.96)
 eye_parts = [
-    sphere("EyeWhite", 0.62, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1.02), seg=56),
-    sphere("Iris", 0.405, (0, -0.245, 0), IRIS, eye, scale=(1, 0.36, 1), seg=56),
-    sphere("Pupil", 0.22, (0, -0.345, 0), PUPIL, eye, scale=(1.0, 0.32, 1.0), seg=48),
-    sphere("Shine", 0.068, (0.085, -0.405, 0.135), SHINE, eye, scale=(1, 0.35, 1), seg=24),
+    sphere("EyeWhite", 0.60, (0, 0, 0), EYE_WHITE, eye, scale=(1, 0.50, 1.02), seg=56),
+    sphere("Iris", 0.37, (0, -0.235, 0), IRIS, eye, scale=(1, 0.36, 1), seg=56),
+    sphere("Pupil", 0.20, (0, -0.325, 0), PUPIL, eye, scale=(1.0, 0.32, 1.0), seg=48),
+    sphere("Shine", 0.060, (0.078, -0.385, 0.125), SHINE, eye, scale=(1, 0.35, 1), seg=24),
 ]
 # Thick upper eyelid/brow gives the eye the heavy, slightly aggressive silhouette of the reference.
-upper_lid = sphere("EyeUpperLid", 0.62, (0, -0.205, 0.34), PURPLE, eye,
-                   scale=(1.04, 0.30, 0.38), seg=48)
+upper_lid = sphere("EyeUpperLid", 0.60, (0, -0.205, 0.43), PURPLE, eye,
+                   scale=(1.02, 0.30, 0.16), seg=48)
 eye_parts.append(upper_lid)
 eye_parts.append(pipe_curve("EyeLidCrease", (
     (-0.56, -0.22, 0.12), (-0.43, -0.29, 0.31),
     (0.0, -0.31, 0.43), (0.43, -0.29, 0.31), (0.56, -0.22, 0.12)
-), PURPLE_DARK, eye, bevel=0.045))
+), PURPLE_DARK, eye, bevel=0.025))
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 # A thick skin socket and a bright lower rim frame the exposed eye.
-torus("EyeSocket", 0.65, 0.050, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
-torus("EyeRim", 0.615, 0.015, (0, -0.050, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeSocket", 0.61, 0.035, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+torus("EyeRim", 0.585, 0.012, (0, -0.050, 0), RING, eye, rot=(math.pi / 2, 0, 0))
 
-# Wider open grin with four readable ivory teeth and a small pink tongue.
-mouth = empty("Mouth", pivot, loc=(0, -0.88, -0.47))
-mouth_parts = [sphere("MouthCavity", 0.36, (0, 0, 0), MOUTH, mouth, scale=(1.70, 0.42, 0.70), seg=48)]
-for i, x in enumerate((-0.34, 0.0, 0.34)):
-    h = 0.145 if i == 1 else 0.13
-    mouth_parts.append(cone(f"ToothU{i}", 0.082, 0.0, h, (x, -0.115, 0.135 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.23, 0.23)):
-    h = 0.11
-    mouth_parts.append(cone(f"ToothL{i}", 0.070, 0.0, h, (x, -0.12, -0.16 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.17, (0, -0.145, -0.19), TONGUE, mouth,
-                          scale=(1.18, 0.24, 0.38), seg=32))
+# Compact grin with four small ivory teeth, leaving the pink collar clearly visible below it.
+mouth = empty("Mouth", pivot, loc=(0, -0.88, -0.35))
+mouth_parts = [sphere("MouthCavity", 0.33, (0, 0, 0), MOUTH, mouth, scale=(1.42, 0.42, 0.58), seg=48)]
+for i, x in enumerate((-0.24, 0.24)):
+    h = 0.105
+    mouth_parts.append(cone(f"ToothU{i}", 0.067, 0.0, h, (x, -0.115, 0.105 - h / 2), TEETH, mouth, rot=(math.pi, 0, 0)))
+for i, x in enumerate((-0.17, 0.17)):
+    h = 0.085
+    mouth_parts.append(cone(f"ToothL{i}", 0.058, 0.0, h, (x, -0.12, -0.13 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.14, (0, -0.145, -0.14), TONGUE, mouth,
+                          scale=(1.10, 0.24, 0.32), seg=32))
 
 # Broad pink collar with visible warm-metal rivets, like the reference harness.
-body_band("LowerPinkBand", pivot, -0.80, -0.47, RING)
+body_band("LowerPinkBand", pivot, -0.78, -0.45, RING)
 for i in range(12):
     a = i * (2 * math.pi / 12)
-    r = shell_radius_at(-0.65) + 0.075
-    sphere(f"BandRivet{i}", 0.030, (r * math.cos(a), r * 0.88 * math.sin(a), -0.64),
+    r = shell_radius_at(-0.62) + 0.075
+    sphere(f"BandRivet{i}", 0.034, (r * math.cos(a), r * 0.88 * math.sin(a), -0.62),
            METAL, pivot, scale=(1.0, 0.75, 1.0), seg=20)
 
 # Twin magenta tanks with gunmetal straps, yellow/black flame badges and copper elbows.
@@ -484,22 +485,15 @@ for side, sx in (("L", -1), ("R", 1)):
         (tx - 0.25 * sx, ty, 0.86), (tx - 0.32 * sx, ty, 0.74)
     ), COPPER, torso, bevel=0.040)
 
-# Clear pressure dome around the head. The body and tanks remain readable through it.
-# The broad transparent shell and its blue front arc reproduce the user's bubble-helmet silhouette.
+# Clear pressure dome around the head. Let the shell provide the blue silhouette; avoid a bar crossing the face.
 sphere("GlassDome", 1.0, (0.0, 0.0, 0.12), GLASS, torso,
        scale=(1.30, 1.18, 1.36), seg=64)
-torus("DomeBaseRim", 1.08, 0.022, (0.0, 0.0, -0.54), DOME_RIM, torso)
-pipe_curve("DomeFrontArc", (
-    (-1.00, -0.44, -0.42), (-1.16, -0.50, 0.12), (-1.05, -0.62, 0.72),
-    (-0.65, -0.70, 1.13), (0.0, -0.46, 1.39),
-    (0.65, -0.70, 1.13), (1.05, -0.62, 0.72),
-    (1.16, -0.50, 0.12), (1.00, -0.44, -0.42)
-), DOME_RIM, torso, bevel=0.024)
-# Soft elongated reflections make the clear shell legible against the transparent render background.
-sphere("DomeReflectionL", 1.0, (-0.66, -0.76, 0.88), DOME_HIGHLIGHT, torso,
-       scale=(0.105, 0.018, 0.235), rot=(0.0, -0.28, -0.18), seg=32)
-sphere("DomeReflectionR", 1.0, (0.70, -0.74, 0.94), DOME_HIGHLIGHT, torso,
-       scale=(0.085, 0.016, 0.190), rot=(0.0, 0.22, 0.18), seg=32)
+# No separate front arc or base bar: the reference shows an uninterrupted clear bubble.
+# Subtle diagonal glints sit high on the shell instead of floating over the eye.
+sphere("DomeReflectionL", 1.0, (-0.82, -0.55, 1.04), DOME_HIGHLIGHT, torso,
+       scale=(0.145, 0.018, 0.085), rot=(0.0, 0.0, -0.55), seg=32)
+sphere("DomeReflectionR", 1.0, (0.82, -0.55, 1.04), DOME_HIGHLIGHT, torso,
+       scale=(0.145, 0.018, 0.085), rot=(0.0, 0.0, 0.55), seg=32)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -509,24 +503,23 @@ ARM_TOTAL = sum(ARM_LEN)
 
 
 def arm_curve_x(t):
-    # Sweep outward, then turn back earlier so the hook reads clearly in the front view.
-    u = max(0.0, min(1.0, (t - 0.46) / 0.54))
+    # Extend laterally before curling back toward the body, matching the reference C-shaped arms.
+    u = max(0.0, min(1.0, (t - 0.38) / 0.62))
     hook = u * u * (3.0 - 2.0 * u)
-    return 1.15 * math.sin(math.pi * 0.60 * t) - 0.52 * hook
+    return 1.30 * math.sin(math.pi * 0.58 * t) - 0.78 * hook
 
 
 def arm_curve_y(t):
-    # Curl around the torso tangent so the hooks remain visible in the front view.
-    u = max(0.0, min(1.0, (t - 0.46) / 0.54))
+    u = max(0.0, min(1.0, (t - 0.38) / 0.62))
     hook = u * u * (3.0 - 2.0 * u)
-    return 0.48 * hook
+    return 0.30 * hook
 
 
 def arm_curve_z(t):
-    u = max(0.0, min(1.0, (t - 0.46) / 0.54))
+    u = max(0.0, min(1.0, (t - 0.38) / 0.62))
     hook = u * u * (3.0 - 2.0 * u)
-    # The arm drops into a compact loop and lifts its rounded tip back toward the body.
-    return -1.00 * t + 1.20 * hook
+    # Drop below the body, then lift the rounded tip into a clear upward hook.
+    return -1.08 * t + 1.36 * hook
 
 
 def arm_radius(t):
@@ -597,7 +590,7 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 for i in range(8):
     theta = math.radians(i * 45 + 22.5)
-    tilt = 0.62 + rng.uniform(-0.06, 0.06)
+    tilt = 0.54 + rng.uniform(-0.04, 0.04)
     root = empty(f"ArmRoot{i}", torso, loc=(0.52 * math.cos(theta), 0.52 * math.sin(theta), -0.68), rot=(0, tilt, theta))
     joints = [root]
     for k in range(1, 4):
@@ -618,11 +611,11 @@ for i in range(8):
         cup_normal.normalize()
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.025
-        torus(f"SuckerRim{i}_{q}", rr * 0.42, rr * 0.10, tuple(cup_pos), SUCKER, root,
+        torus(f"SuckerRim{i}_{q}", rr * 0.50, rr * 0.13, tuple(cup_pos), SUCKER, root,
               rot=normal_rot(cup_normal))
         inset_pos = cup_pos + cup_normal * rr * 0.018
         sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), PURPLE_DARK, root,
-               scale=(rr * 0.27, rr * 0.27, rr * 0.070), rot=normal_rot(cup_normal), seg=18)
+               scale=(rr * 0.33, rr * 0.33, rr * 0.075), rot=normal_rot(cup_normal), seg=18)
     for q, t in enumerate((0.40, 0.70)):
         center = arm_center(t)
         before = arm_center(max(0.0, t - 0.002))
@@ -635,7 +628,7 @@ for i in range(8):
         rr = arm_radius(t)
         spot_pos = center + spot_normal * rr * 1.018
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.42, rr * 0.28, rr * 0.055), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.58, rr * 0.38, rr * 0.055), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0))
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
@@ -704,13 +697,37 @@ ground.is_shadow_catcher = True
 
 cam_data = bpy.data.cameras.new("Cam")
 cam_data.type = "ORTHO"
-cam_data.ortho_scale = max(3.0, HEIGHT * 0.95)
+cam_data.ortho_scale = max(3.0, HEIGHT * 1.15)
 cam = bpy.data.objects.new("Cam", cam_data)
 bpy.context.collection.objects.link(cam)
 cam.location = (0, -14, HEIGHT * 0.5)
 cam.rotation_euler = (math.radians(90), 0, 0)
 scene.camera = cam
 cam_data.clip_end = 100
+
+
+def fit_character_camera():
+    """Fit the complete tanks, bubble and curled arms in all hero angles."""
+    original_angle = monster.rotation_euler[2]
+    widths, heights, centers_x, centers_z = [], [], [], []
+    for degrees in (0.0, 35.0, 60.0):
+        monster.rotation_euler[2] = math.radians(degrees)
+        bpy.context.view_layer.update()
+        corners = [o.matrix_world @ Vector(c) for o in main_parts for c in o.bound_box]
+        min_x = min(p.x for p in corners)
+        max_x = max(p.x for p in corners)
+        min_z = min(p.z for p in corners)
+        max_z = max(p.z for p in corners)
+        widths.append(max_x - min_x)
+        heights.append(max_z - min_z)
+        centers_x.append((min_x + max_x) * 0.5)
+        centers_z.append((min_z + max_z) * 0.5)
+    monster.rotation_euler[2] = original_angle
+    bpy.context.view_layer.update()
+    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.10
+    cam.location.x = sum(centers_x) / len(centers_x)
+    cam.location.z = sum(centers_z) / len(centers_z)
+    bpy.context.view_layer.update()
 
 
 def add_light(name, kind, energy, loc, rot=None, target=None, size=None, color=(1, 1, 1)):
@@ -926,6 +943,7 @@ def render(path, res):
 
 # מבט בדיקה גדול (3/4 ומקדימה) לפני הגיליון
 pose("Idle", 0, 6)
+fit_character_camera()
 for name, deg in (("hero_34", 35.0), ("hero_front", 0.0)):
     monster.rotation_euler[2] = math.radians(deg)
     render(os.path.join(OUT, name + ".png"), 768)
