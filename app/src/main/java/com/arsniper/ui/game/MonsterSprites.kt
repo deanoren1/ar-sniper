@@ -37,6 +37,12 @@ object AttackPose {
     @Volatile
     var progress: Map<Int, Float> = emptyMap()
 
+    /** כמה שניות עברו מאז שכל מפלצת ירתה (רק מי שירתה לאחרונה, פחות מ-RELEASE_SECONDS), לתנוחת השחרור */
+    @Volatile
+    var sinceLaunch: Map<Int, Float> = emptyMap()
+
+    const val RELEASE_SECONDS = 0.5f
+
     /** הבוס: כמה שניות מאז הירייה האחרונה, והאם הוא מסוחרר */
     @Volatile
     var bossSinceFire: Float = 999f
@@ -251,13 +257,20 @@ class MonsterSprites private constructor(
                 while (true) {
                     val id2 = context.resources.getIdentifier("rig2_${arena}_${foe}_$m", "drawable", context.packageName)
                     if (id2 == 0) break
-                    loadRig2(context, id2)?.let { pools[foe].add(it) }
+                    loadRig2(context, id2)?.let {
+                        // מפלצת rig2 מחליפה את הציור המקורי של אותו סוג (שאר המפלצות לא משתנות)
+                        if (m == 0 && REPLACE_ORIGINAL_WITH_RIG2) pools[foe].removeAll { sheet -> sheet.rig == null }
+                        pools[foe].add(it)
+                    }
                     m++
                 }
             }
         }
 
         private const val RIG2_ROWS = 8
+
+        /** true: כשיש גיליון rig2 לסוג מפלצת, הוא מחליף את הציור הישן שלה (אפשר להחזיר ל-false כדי לערבב) */
+        private const val REPLACE_ORIGINAL_WITH_RIG2 = true
 
         /**
          * גיליון rig2: 6 עמודות על 8 שורות, כל התאים באותו גודל והרגליים על אותו קו.

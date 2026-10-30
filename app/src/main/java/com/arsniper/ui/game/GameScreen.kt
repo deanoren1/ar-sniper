@@ -458,6 +458,10 @@ fun GameScreen(
                         AttackPose.ids = telegraphing
                         AttackPose.progress = fire.telegraphViews.associate { it.enemyId to it.progress }
                         AttackPose.bossSinceFire = fire.secondsSinceLaunch(ArenaDirector.BOSS_ID)
+                        AttackPose.sinceLaunch = enemies.mapNotNull { e ->
+                            val t = fire.secondsSinceLaunch(e.id)
+                            if (t < AttackPose.RELEASE_SECONDS) e.id to t else null
+                        }.toMap()
                         AttackPose.bossStunned = fire.isDisabled(ArenaDirector.BOSS_ID)
                         AttackPose.bossEnraged = director.bossEnraged
                         for (spot in out.stopped) {
@@ -1128,6 +1132,7 @@ fun GameScreen(
         AttackPose.ids = emptySet()
         AttackPose.progress = emptyMap()
         AttackPose.bossSinceFire = 999f
+        AttackPose.sinceLaunch = emptyMap()
         AttackPose.bossStunned = false
         AttackPose.bossEnraged = false
         flash = 0f
@@ -1160,6 +1165,7 @@ fun GameScreen(
         AttackPose.ids = emptySet()
         AttackPose.progress = emptyMap()
         AttackPose.bossSinceFire = 999f
+        AttackPose.sinceLaunch = emptyMap()
         AttackPose.bossStunned = false
         AttackPose.bossEnraged = false
         director.restart()
