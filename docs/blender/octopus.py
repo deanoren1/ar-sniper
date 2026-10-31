@@ -118,25 +118,25 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.55
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.035
+    mix.inputs[0].default_value = 0.018
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
-PURPLE = mat("Purple", (0.63, 0.018, 0.84), rough=0.23, coat=0.72)
+PURPLE = mat("Purple", (0.53, 0.014, 0.76), rough=0.22, coat=0.76)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.29, 0.008, 0.57), rough=0.20, coat=0.66)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (0.98, 0.075, 0.42), rough=0.30, coat=0.42)
+SPOT = mat("Spot", (0.88, 0.055, 0.37), rough=0.28, coat=0.48)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.72, 0.34), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.00001, 0.00001, 0.00001), rough=0.38, coat=0.06)
+PUPIL = mat("Pupil", (0.000001, 0.000001, 0.000001), rough=0.22, coat=0.20)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
@@ -156,8 +156,8 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.035, 0.001, 0.065), rough=0.42, coat=0.12)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.70, 0.025, 0.90), rough=0.25, coat=0.62,
-               emit=(0.07, 0.003, 0.12), strength=0.045)
+TENTACLE = mat("Tentacle", (0.57, 0.018, 0.79), rough=0.23, coat=0.68,
+               emit=(0.035, 0.002, 0.065), strength=0.025)
 TANK = mat("Tank", (0.68, 0.018, 0.46), rough=0.38, metal=0.20, coat=0.42)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -285,7 +285,8 @@ TORSO_Z = 1.55
 monster = empty("Monster")
 torso = empty("Torso", monster, loc=(0, 0, TORSO_Z))
 pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, ובתוכו הגוף, העין והפה
-pivot.scale = (1.10, 1.02, 1.20)  # slightly broader head, closer to the reference silhouette
+BODY_BASE_SCALE = (1.16, 1.02, 1.18)  # enlarge the head shell while keeping facial features proportionate
+pivot.scale = BODY_BASE_SCALE
 
 # גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
 BODY_R = 0.9
@@ -428,7 +429,7 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.73, 0.42
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.0, 1.0, 1.0)
+eye.scale = (0.86, 1.0, 0.85)  # compensate for the larger head shell
 eye_parts = [
     # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
     sphere("EyeWhite", 0.72, (0, 0, 0), EYE_WHITE, eye, scale=(0.88, 0.56, 0.90), seg=64),
@@ -437,8 +438,8 @@ eye_parts = [
     sphere("Shine", 0.075, (0.10, -0.555, 0.14), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.61, 0.038, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale = (1.12, 1.0, 1.02)
+eye_socket = torus("EyeSocket", 0.68, 0.052, (0, -0.030, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale = (1.08, 1.0, 1.02)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
 def make_upper_eyelid(parent):
@@ -492,12 +493,13 @@ def make_upper_eyelid(parent):
 eye_parts.append(eye_socket)
 
 # Jagged grin with uneven fangs, a deeper dark cavity and a visible pink tongue.
-mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.42))
+mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.36))
+mouth.scale = (0.86, 1.0, 0.85)  # keep the mouth size stable as the head grows
 mouth_parts = [sphere("MouthCavity", 0.45, (0, 0, 0), MOUTH, mouth,
                       scale=(1.42, 0.22, 0.60), seg=64)]
-mouth_lip = torus("MouthLip", 0.45, 0.035, (0, -1.075, -0.42), PURPLE_DARK, pivot,
+mouth_lip = torus("MouthLip", 0.45, 0.035, (0, -1.075, -0.36), PURPLE_DARK, pivot,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.38, 0.70, 0.88)
+mouth_lip.scale = (1.30, 0.70, 0.75)
 # Four prominent fangs, matching the sparse, large teeth in the reference.
 for i, (x, h) in enumerate(((-0.29, 0.25), (0.29, 0.25))):
     mouth_parts.append(cone(f"ToothU{i}", 0.11, 0.0, h,
@@ -506,18 +508,18 @@ for i, (x, h) in enumerate(((-0.29, 0.25), (0.29, 0.25))):
 for i, (x, h) in enumerate(((-0.29, 0.17), (0.29, 0.17))):
     mouth_parts.append(cone(f"ToothL{i}", 0.080, 0.0, h,
                             (x, -0.10, -0.17 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.18, (0, -0.14, -0.13), TONGUE,
-                          scale=(1.75, 0.40, 0.46), seg=40))
+mouth_parts.append(sphere("Tongue", 0.18, (0, -0.24, -0.08), TONGUE,
+                          scale=(1.65, 0.55, 0.50), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.00, -0.58, COLLAR)
-collar_radius = shell_radius_at(-0.81) + 0.13
-torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.59), METAL, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -0.99), METAL, pivot)
+body_band("LowerPinkBand", pivot, -0.94, -0.52, COLLAR)
+collar_radius = shell_radius_at(-0.73) + 0.13
+torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.53), METAL, pivot)
+torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -0.93), METAL, pivot)
 for i in range(14):
     a = i * (2 * math.pi / 14)
-    z = -0.79 + 0.055 * math.cos(a)
-    r = shell_radius_at(-0.81) + 0.185
+    z = -0.72 + 0.055 * math.cos(a)
+    r = shell_radius_at(-0.73) + 0.185
     sphere(f"BandRivet{i}", 0.054, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
@@ -603,7 +605,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -0.78
-DOME_RADII = (1.70, 1.48, 2.78)
+DOME_RADII = (1.70, 1.48, 2.42)
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
@@ -624,8 +626,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.014), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -0.86, 1.18, 0.13, 0.29, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 0.84, 1.22, 0.17, 0.22, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -0.86, 1.10, 0.17, 0.39, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 0.84, 1.15, 0.24, 0.30, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -657,24 +659,24 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Thick plush arms with a blunt rounded end rather than a narrow tube tip.
     if t < 0.72:
-        return 0.220 - 0.030 * (t / 0.72)
+        return 0.200 - 0.025 * (t / 0.72)
     u = min(1.0, max(0.0, (t - 0.72) / 0.28))
-    return 0.190 * (0.92 + 0.08 * math.cos(u * math.pi * 0.5))
+    return 0.175 * (0.92 + 0.08 * math.cos(u * math.pi * 0.5))
 
 
 def arm_center(t, style="outer"):
     u = max(0.0, min(1.0, (t - 0.28) / 0.72))
     hook = u * u * (3.0 - 2.0 * u)
     if style == "outer":
-        x = 1.72 * math.sin(math.pi * 0.50 * t) - 1.00 * hook
-        z = -1.48 * t + 1.68 * hook
+        x = 1.72 * math.sin(math.pi * 0.50 * t) + 0.15 * hook
+        z = -1.58 * t + 1.76 * hook
     elif style == "front":
         # Shorter front arms round forward and curl upward instead of ending as straight tubes.
-        x = 1.00 * math.sin(math.pi * 0.50 * t) - 0.34 * hook
-        z = -1.20 * t + 1.42 * hook
+        x = 1.24 * math.sin(math.pi * 0.50 * t) + 0.18 * hook
+        z = -1.30 * t + 1.36 * hook
     else:
-        x = 1.02 * math.sin(math.pi * 0.50 * t) - 0.46 * hook
-        z = -1.28 * t + 1.30 * hook
+        x = 1.22 * math.sin(math.pi * 0.50 * t) + 0.12 * hook
+        z = -1.34 * t + 1.34 * hook
     return 0.85 * Vector((x, arm_curve_y(t), z))
 
 
@@ -739,7 +741,8 @@ for i in range(8):
     tilt = 0.18 + rng.uniform(-0.06, 0.06)
     # Keep the local curl plane aligned with the hero camera: left arms curl left, right arms curl right.
     curl_heading = math.pi if math.cos(theta) < 0.0 else 0.0
-    root = empty(f"ArmRoot{i}", torso, loc=(0.58 * math.cos(theta), 0.58 * math.sin(theta), -1.02), rot=(0, tilt, curl_heading))
+    root_radius = 0.68 if i < 4 else 0.60
+    root = empty(f"ArmRoot{i}", torso, loc=(root_radius * math.cos(theta), root_radius * math.sin(theta), -1.16), rot=(0, tilt, curl_heading))
     joints = [root]
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
@@ -989,7 +992,7 @@ def pose(clip, i, n):
     t = 2 * math.pi * u
     if clip == "Idle":
         torso.location.z += 0.03 * SIN(t)
-        pivot.scale = (1 - 0.014 * SIN(t), 1 - 0.014 * SIN(t), 1 + 0.03 * SIN(t))
+        pivot.scale = (BODY_BASE_SCALE[0] * (1 - 0.014 * SIN(t)), BODY_BASE_SCALE[1] * (1 - 0.014 * SIN(t)), BODY_BASE_SCALE[2] * (1 + 0.03 * SIN(t)))
         arms_wave(t, 0.09, 0.05)
         look(0.05 * SIN(t))
         if i == 3:
@@ -998,16 +1001,16 @@ def pose(clip, i, n):
         torso.location.z += 0.06 * SIN(2 * t)
         torso.rotation_euler.x = 0.05 * SIN(t)
         torso.rotation_euler.y = 0.05 * COS(t)
-        pivot.scale = (1 + 0.02 * SIN(2 * t), 1 + 0.02 * SIN(2 * t), 1 - 0.03 * SIN(2 * t))
+        pivot.scale = (BODY_BASE_SCALE[0] * (1 + 0.02 * SIN(2 * t)), BODY_BASE_SCALE[1] * (1 + 0.02 * SIN(2 * t)), BODY_BASE_SCALE[2] * (1 - 0.03 * SIN(2 * t)))
         arms_wave(t, 0.5, 0.18, lag=0.7)
         look(0.08 * SIN(t))
     elif clip == "Charge":
         k = u  # 0 .. 1
         torso.rotation_euler.x = -0.18 * k
         torso.location.z += 0.05 * k
-        pivot.scale = (1 + 0.04 * k, 1 + 0.04 * k, 1 - 0.03 * k)
+        pivot.scale = (BODY_BASE_SCALE[0] * (1 + 0.04 * k), BODY_BASE_SCALE[1] * (1 + 0.04 * k), BODY_BASE_SCALE[2] * (1 - 0.03 * k))
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.18 * k)
-        mouth.scale = (1.0, 1.0, 1.0 + 0.9 * k)
+        mouth.scale = (0.86, 1.0, 0.85 * (1.0 + 0.9 * k))
         flame_bsdf.inputs["Emission Strength"].default_value = 1.6 + 6.0 * k
         show(orb_parts, True)
         r = 0.12 + 0.2 * k
@@ -1019,7 +1022,7 @@ def pose(clip, i, n):
         recoil = (1.0, 0.55, 0.0)[i]
         torso.rotation_euler.x = -0.22 * recoil + 0.1
         torso.location.y += 0.1 * recoil
-        mouth.scale = (1.0, 1.0, 1.9 - 0.4 * i)
+        mouth.scale = (0.86, 1.0, 0.85 * (1.9 - 0.4 * i))
         flame_bsdf.inputs["Emission Strength"].default_value = 7.0 - 2.0 * i
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.1)
         show(orb_parts, True)
@@ -1033,14 +1036,14 @@ def pose(clip, i, n):
         if i == 0:
             torso.rotation_euler.x = -0.3
             torso.location.z -= 0.08
-            pivot.scale = (1.12, 1.1, 0.86)
+            pivot.scale = (BODY_BASE_SCALE[0] * 1.12, BODY_BASE_SCALE[1] * 1.1, BODY_BASE_SCALE[2] * 0.86)
             eye.scale.z = 0.3
-            mouth.scale = (1.0, 1.0, 1.6)
+            mouth.scale = (0.86, 1.0, 0.85 * 1.6)
             tint(0.4, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.25)
         else:
             torso.rotation_euler.x = -0.12
-            pivot.scale = (1.04, 1.04, 0.97)
+            pivot.scale = (BODY_BASE_SCALE[0] * 1.04, BODY_BASE_SCALE[1] * 1.04, BODY_BASE_SCALE[2] * 0.97)
             eye.scale.z = 0.7
             tint(0.15, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=0.05)
@@ -1048,7 +1051,7 @@ def pose(clip, i, n):
     elif clip == "Death":
         show(eye_parts, False)
         show(x_marks, True)
-        mouth.scale = (1.0, 1.0, 1.4)
+        mouth.scale = (0.86, 1.0, 0.85 * 1.4)
         if i == 0:
             torso.rotation_euler.x = -0.4
             torso.location.z -= 0.1
@@ -1064,7 +1067,7 @@ def pose(clip, i, n):
             torso.rotation_euler.x = -1.15
             torso.location.z -= 0.55
             torso.location.y += 0.35
-            pivot.scale = (1.3, 1.3, 1.3)
+            pivot.scale = (BODY_BASE_SCALE[0] * 1.3, BODY_BASE_SCALE[1] * 1.3, BODY_BASE_SCALE[2] * 1.3)
             tint(0.45, (0.9, 0.35, 0.9))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.85)
             show([o for o in main_parts if o.name.startswith(("LowerPinkBand", "BandRivet"))], False)
