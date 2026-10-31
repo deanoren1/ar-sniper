@@ -137,7 +137,7 @@ EYE_WHITE = mat("EyeWhite", (1.0, 0.70, 0.24), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.17, coat=0.24, emit=(0.0, 0.0, 0.0), strength=0.0)
+PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.09, coat=0.68, emit=(0.0, 0.0, 0.0), strength=0.0)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
@@ -157,7 +157,7 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.004, 0.0005, 0.010), rough=0.24, coat=0.24)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.40, 0.010, 0.60), rough=0.25, coat=0.62,
+TENTACLE = mat("Tentacle", (0.48, 0.012, 0.60), rough=0.27, coat=0.48,
                emit=(0.018, 0.001, 0.035), strength=0.012)
 TANK = mat("Tank", (0.53, 0.012, 0.36), rough=0.40, metal=0.20, coat=0.34)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
@@ -272,7 +272,8 @@ def flame_icon(name, x, y, z, parent, scale=2.75):
         main_parts.append(obj)
         return obj
 
-    return add_flame_layer(name + "Silhouette", outline, y - 0.010, FLAME_BLACK)
+    add_flame_layer(name + "Silhouette", outline, y - 0.010, FLAME_BLACK)
+    return add_flame_layer(name + "Core", inner, y - 0.028, FLAME)
 
 
 def empty(name, parent=None, loc=(0, 0, 0), rot=(0, 0, 0)):
@@ -296,7 +297,7 @@ TORSO_Z = 1.55
 monster = empty("Monster")
 torso = empty("Torso", monster, loc=(0, 0, TORSO_Z))
 pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, ובתוכו הגוף, העין והפה
-BODY_BASE_SCALE = (1.32, 1.08, 1.23)  # enlarge the head shell while keeping facial features proportionate
+BODY_BASE_SCALE = (1.50, 1.08, 1.23)  # enlarge the head shell while keeping facial features proportionate
 pivot.scale = BODY_BASE_SCALE
 
 # גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
@@ -307,7 +308,7 @@ BODY_SCALE = (1.05, 0.95, 1.15)
 BODY_PROFILE = [
     (-0.76, 0.70), (-0.70, 0.86), (-0.54, 1.00), (-0.30, 1.10),
     (-0.02, 1.14), (0.25, 1.10), (0.48, 0.98), (0.67, 0.78),
-    (0.82, 0.55), (0.96, 0.30), (1.06, 0.015)
+    (0.82, 0.68), (0.98, 0.46), (1.12, 0.20), (1.20, 0.015)
 ]
 
 def shell_radius_at(z):
@@ -392,8 +393,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.02, 0.84, 0.075, 0.050, 0.0),
 )):
     x, z = sx, sz
-    rx *= 0.94
-    rz *= 0.94
+    rx *= 1.02
+    rz *= 1.02
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     spot_material = SPOT_DARK if i in (1, 5, 7) else SPOT
@@ -408,8 +409,8 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.18, -0.41, 0.050, 0.035), (0.52, 0.46, 0.060, 0.045),
     (-0.52, 0.38, 0.060, 0.045),
 )):
-    rx *= 0.92
-    rz *= 0.92
+    rx *= 1.00
+    rz *= 1.00
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
@@ -426,12 +427,12 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.008
     sphere(f"ExtraBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
-           scale=(rx * 0.90, 0.007, rz * 0.90), rot=(0, angle, 0), seg=24)
+           scale=(rx * 1.00, 0.007, rz * 1.00), rot=(0, angle, 0), seg=24)
 
 # Small rounded crown spikes; the reference uses short bumps, not tall fins.
 for i, (az_deg, pol_deg, height) in enumerate((
-    (228, 29, 0.16), (247, 22, 0.18), (270, 16, 0.20),
-    (293, 22, 0.18), (312, 29, 0.16)
+    (228, 36, 0.22), (247, 28, 0.24), (270, 20, 0.26),
+    (293, 28, 0.24), (312, 36, 0.22)
 )):
     az = math.radians(az_deg)
     pol = math.radians(pol_deg)
@@ -454,9 +455,9 @@ for i in range(14):
 
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -0.73, 0.30
+EYE_Y, EYE_Z = -0.73, 0.34
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.08, 1.02, 1.08)  # enlarge the cyclops eye to match the dominant reference proportion
+eye.scale = (0.92, 1.02, 0.98)  # preserve eye size while widening the surrounding mantle
 eye_parts = [
     # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
     sphere("EyeWhite", 0.78, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
@@ -467,7 +468,7 @@ eye_parts = [
 look_parts = eye_parts[1:4]
 eye_socket = torus("EyeSocket", 0.76, 0.042, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.04, 1.0, 0.90)
-eye_socket_accent = torus("EyeSocketAccent", 0.805, 0.026, (0, -0.105, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent = torus("EyeSocketAccent", 0.805, 0.038, (0, -0.105, 0), RING, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.03, 1.0, 0.90)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -523,34 +524,34 @@ def make_upper_eyelid(parent):
 # Keep the reference eye completely open; the earlier angry eyelid obscured its round silhouette.
 eye_parts.extend([eye_socket, eye_socket_accent])
 
-# Compact horizontal grin with four visible fangs and a small pink tongue, as in the reference.
-mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.51))
-mouth.scale = (0.78, 1.0, 0.92)
+# Broad, low grin with four larger fangs and a clearly visible tongue.
+mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.50))
+mouth.scale = (1.30, 1.0, 0.90)
 mouth_parts = [sphere("MouthCavity", 0.39, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.14, 0.22, 0.58), seg=64)]
+                      scale=(1.30, 0.22, 0.50), seg=64)]
 mouth_lip = torus("MouthLip", 0.39, 0.030, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.17, 0.72, 0.70)
-for i, (x, h, width) in enumerate(((-0.30, 0.17, 0.078), (0.30, 0.17, 0.078))):
+mouth_lip.scale = (1.32, 0.56, 0.70)
+for i, (x, h, width) in enumerate(((-0.40, 0.22, 0.095), (0.40, 0.22, 0.095))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
-                            (x, -0.12, 0.18 - h / 2), TEETH, mouth,
+                            (x, -0.12, 0.16 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.29, 0.12), (0.29, 0.12))):
-    mouth_parts.append(cone(f"ToothL{i}", 0.052, 0.0, h,
-                            (x, -0.12, -0.18 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.22, (0, -0.19, -0.105), TONGUE,
-                          scale=(1.45, 0.95, 1.00), seg=40))
+for i, (x, h) in enumerate(((-0.39, 0.16), (0.39, 0.16))):
+    mouth_parts.append(cone(f"ToothL{i}", 0.070, 0.0, h,
+                            (x, -0.12, -0.15 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.22, (0, -0.19, -0.085), TONGUE,
+                          scale=(1.55, 0.95, 0.90), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -0.94, -0.66, COLLAR)
-collar_radius = shell_radius_at(-0.80) + 0.17
+body_band("LowerPinkBand", pivot, -1.08, -0.66, COLLAR)
+collar_radius = shell_radius_at(-0.86) + 0.17
 torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.66), METAL, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -0.94), METAL, pivot)
-for i in range(14):
-    a = i * (2 * math.pi / 14)
-    z = -0.80 + 0.035 * abs(math.cos(a))
-    r = shell_radius_at(-0.80) + 0.225
-    sphere(f"BandRivet{i}", 0.072, (r * math.cos(a), r * 0.92 * math.sin(a), z),
+torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -1.08), METAL, pivot)
+for i in range(12):
+    a = i * (2 * math.pi / 12)
+    z = -0.87 + 0.035 * abs(math.cos(a))
+    r = shell_radius_at(-0.86) + 0.225
+    sphere(f"BandRivet{i}", 0.084, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
@@ -578,14 +579,15 @@ for side, sx in (("L", -1), ("R", 1)):
     sphere(f"Valve{side}", 0.052, (tx, ty, 0.790), COPPER, torso, seg=20)
     cylinder(f"Connector{side}", 0.085, 0.29, (1.12 * sx, ty - 0.005, 0.185),
              COPPER, torso, rot=(0, math.pi / 2, 0))
-    cylinder(f"Badge{side}", 0.335, 0.045, (tx, ty - 0.365, 0.015),
+    badge_y = ty - 0.47  # bring the yellow emblem plate in front of the curved tank shell
+    cylinder(f"Badge{side}", 0.29, 0.045, (tx, badge_y, 0.015),
              BADGE_YELLOW, torso, rot=(math.pi / 2, 0, 0))
-    torus(f"BadgeRim{side}", 0.335, 0.022, (tx, ty - 0.405, 0.015), METAL, torso,
+    torus(f"BadgeRim{side}", 0.29, 0.022, (tx, badge_y - 0.040, 0.015), METAL, torso,
           rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, ty - 0.400, 0.015, torso, scale=2.35)
-    for j, (bx, bz) in enumerate(((-0.245, 0.205), (0.245, 0.205),
-                                  (-0.245, -0.205), (0.245, -0.205))):
-        sphere(f"TankBolt{side}{j}", 0.042, (tx + bx, ty - 0.400, bz),
+    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.060, 0.015, torso, scale=2.20)
+    for j, (bx, bz) in enumerate(((-0.205, 0.175), (0.205, 0.175),
+                                  (-0.205, -0.175), (0.205, -0.175))):
+        sphere(f"TankBolt{side}{j}", 0.042, (tx + bx, badge_y - 0.060, bz),
                COPPER, torso, scale=(1, 0.35, 1), seg=16)
     pipe_curve(f"TankPipe{side}", (
         (tx, ty, 0.74), (tx, ty, 0.91), (tx - 0.14 * sx, ty, 1.05),
@@ -796,11 +798,11 @@ for i in range(8):
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.005
         inset_pos = cup_pos - cup_normal * rr * 0.045
-        torus(f"SuckerRim{i}_{q}", rr * 0.39, rr * 0.052, tuple(inset_pos),
-              PURPLE_DARK, root, rot=normal_rot(cup_normal))
+        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.028, tuple(inset_pos),
+              SPOT_DARK, root, rot=normal_rot(cup_normal))
         hole_pos = inset_pos - cup_normal * rr * 0.006
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.34, rr * 0.34, rr * 0.060), rot=normal_rot(cup_normal), seg=20)
+               scale=(rr * 0.26, rr * 0.26, rr * 0.050), rot=normal_rot(cup_normal), seg=20)
     for q, t in enumerate((0.22, 0.52, 0.82)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
@@ -813,7 +815,7 @@ for i in range(8):
         rr = arm_radius(t)
         spot_pos = center + spot_normal * rr * 1.018
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.34, rr * 0.26, rr * 0.042), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.42, rr * 0.32, rr * 0.026), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
     sphere(f"ArmRoundedTip{i}", 0.145, tip_loc, TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
