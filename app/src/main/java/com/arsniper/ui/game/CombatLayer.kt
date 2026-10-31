@@ -176,7 +176,7 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float, sprites
 
     // ירייה מטעה (המפלצת מבולבלת): מוחשכת באפור, וגם לא פוגעת כשמגיעה
     if (s.harmless) {
-        drawCircle(Color(0xCC7F8A93), r * 1.45f, center)
+        drawCircle(Color(0x667F8A93), r * 1.15f, center) // שקוף למחצה: הציור של הירייה נשאר נראה מתחת
     }
 
     // טבעת אזהרה: מתחילה גדולה ומתכווצת עד שהיא פוגשת את הקליע, ברגע הפגיעה. בסוף מהבהבת באדום
