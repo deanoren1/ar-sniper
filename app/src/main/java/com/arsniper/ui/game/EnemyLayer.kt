@@ -251,6 +251,7 @@ fun EnemyLayer(
                 if (!item.dead && sprites != null && enemy.isAlive && free) {
                     val box = monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius)
                     val telegraphing = AttackPose.ids.contains(enemy.id)
+                    if (monsterSet == "tundra") drawBreath(box, enemy.id, anim)
                     if (Hover.isBalloonMonster(enemy)) {
                         // פחות בלונים: אזור הפגיעה קטן יותר
                         val share = if (enemy.maxHp > 0) kotlin.math.ceil(enemy.hp * 3f / enemy.maxHp).toInt().coerceIn(1, 3) else 3
@@ -842,4 +843,32 @@ private fun DrawScope.drawPerson(center: Offset, r: Float, shade: Float, shadow:
     val capSize = Size(r * 0.66f, r * 0.24f)
     drawRoundRect(clothDark, capTopLeft, capSize, CornerRadius(r * 0.12f))
     drawRoundRect(line, capTopLeft, capSize, CornerRadius(r * 0.12f), stroke)
+}
+/** נשימה בקור (טונדרה): אדים קטנים שעולים מהפה של המפלצת כל כמה שניות, עם הסחה קלה */
+private fun DrawScope.drawBreath(box: MonsterBox, id: Int, time: Float) {
+    val height = box.feetY - box.headY
+    val period = 2.6f
+    val t = (time + id * 0.83f) % period
+    val life = 1.5f
+    if (t > life) return
+    val p = t / life
+    val mouth = Offset(box.cx + box.halfWidth * 0.12f, box.headY + height * 0.52f)
+    for (i in 0 until 3) {
+        val q = (p - i * 0.12f).coerceIn(0f, 1f)
+        if (q <= 0f) continue
+        val rise = height * (0.10f + 0.35f * q)
+        val drift = box.halfWidth * (0.15f + 0.55f * q) * (if (id % 2 == 0) 1f else -1f)
+        val c = Offset(mouth.x + drift + sin((time + i) * 2f) * box.halfWidth * 0.04f, mouth.y - rise)
+        val rad = height * (0.07f + 0.13f * q)
+        val a = 0.32f * (1f - q) * (1f - 0.25f * i)
+        drawCircle(
+            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                colors = listOf(Color.White.copy(alpha = a), Color.Transparent),
+                center = c,
+                radius = rad
+            ),
+            radius = rad,
+            center = c
+        )
+    }
 }

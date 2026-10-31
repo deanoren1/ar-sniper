@@ -25,7 +25,7 @@ import kotlin.math.sqrt
  */
 object ThemeBake {
 
-    private const val VERSION = 3
+    private const val VERSION = 4
     private const val MAX_PIXELS = 2_000_000
 
     /** קטגוריות ADE20K של רצפה/קרקע */
@@ -115,7 +115,7 @@ object ThemeBake {
                 val n1 = noise(x * 0.55f * f, y * 0.9f * f)
                 val n2 = noise(x * 1.7f * f + 50f, y * 2.8f * f + 17f)
                 val n3 = noise(x * 1.3f + 99f, y * 1.3f)
-                val thr = if (isFloor) 0.52f else 0.42f
+                val thr = if (isFloor) 0.62f else 0.54f
                 val cover = smoothstep(thr - 0.10f, thr + 0.10f, n1 * 0.75f + n2 * 0.25f)
                 val snow = upv * cover
 
@@ -126,19 +126,19 @@ object ThemeBake {
                 val luma = 0.299f * r + 0.587f * gg + 0.114f * b
 
                 // גוון קר כללי: פחות רוויה, יותר כחול
-                r = luma + (r - luma) * 0.72f
-                gg = luma + (gg - luma) * 0.72f
-                b = luma + (b - luma) * 0.72f
-                r *= 0.84f
-                gg *= 0.92f
-                b *= 1.06f
+                r = luma + (r - luma) * 0.82f
+                gg = luma + (gg - luma) * 0.82f
+                b = luma + (b - luma) * 0.82f
+                r *= 0.82f
+                gg *= 0.90f
+                b *= 1.04f
 
                 // כפור על משטחים אנכיים וחפצים (לא שמיים/תקרה)
                 if (label != 2 && label != CEILING) {
                     val frost = (1f - upv) * 0.07f * smoothstep(0.52f, 0.78f, n3)
                     if (frostTex != null) {
                         val fc = sample(frostTex, x * 0.8f, y * 0.8f)
-                        val fk = (1f - upv) * 0.38f * smoothstep(0.40f, 0.70f, n3)
+                        val fk = (1f - upv) * 0.20f * smoothstep(0.45f, 0.75f, n3)
                         val shadeF = 0.7f + 0.5f * luma
                         r = lerp(r, ((fc shr 16) and 0xFF) / 255f * shadeF, fk)
                         gg = lerp(gg, ((fc shr 8) and 0xFF) / 255f * shadeF, fk)
@@ -173,7 +173,7 @@ object ThemeBake {
                             sb += sparkle
                         }
                     }
-                    val k = snow * 0.72f
+                    val k = snow * 0.50f
                     r = lerp(r, sr, k)
                     gg = lerp(gg, sg, k)
                     b = lerp(b, sb, k)
