@@ -3,6 +3,8 @@ package com.arsniper.ui.game
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -195,17 +197,17 @@ fun EndOverlay(
         ) else NavyPanel(modifier = Modifier.width(380.dp)) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 OutlinedText(
                     text = if (won) "ARENA CLEAR!" else "GAME OVER",
-                    fontSize = 36.sp,
+                    fontSize = 30.sp,
                     color = if (won) GameColors.Yellow else Color(0xFFFF6E6E),
                     outlineWidth = 10f
                 )
                 if (won) {
-                    StarRow(stars = stars, size = 40.dp)
+                    StarRow(stars = stars, size = 32.dp)
                 } else {
                     OutlinedText("You reached wave $wave", fontSize = 18.sp, outline = null)
                 }
@@ -244,20 +246,20 @@ fun EndOverlay(
                         onClick = onNext,
                         icon = GameIcon.Play,
                         style = GameButtonStyle.Primary,
-                        height = 50.dp,
-                        fontSize = 20.sp,
+                        height = 44.dp,
+                        fontSize = 18.sp,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    GameIconButton(GameIcon.Home, onClick = onMenu, style = GameButtonStyle.Secondary, size = 50.dp)
+                    GameIconButton(GameIcon.Home, onClick = onMenu, style = GameButtonStyle.Secondary, size = 44.dp)
                     GameButton(
                         text = "PLAY AGAIN",
                         onClick = onRetry,
                         icon = GameIcon.Restart,
                         style = GameButtonStyle.Success,
-                        height = 50.dp,
-                        fontSize = 20.sp,
+                        height = 44.dp,
+                        fontSize = 18.sp,
                         modifier = Modifier.width(220.dp)
                     )
                 }
