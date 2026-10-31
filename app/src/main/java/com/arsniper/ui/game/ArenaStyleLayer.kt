@@ -129,8 +129,7 @@ fun ArenaStyleLayer(
 private fun DrawScope.drawArenaFrame(assets: ArenaAssets?) {
     if (assets?.exactFit == true) {
         // מסגרת סטטית שמתאימה בדיוק למסך (טונדרה)
-        assets.frame?.let { drawImage(it, dstSize = IntSize(size.width.toInt(), size.height.toInt())) }
-        return
+        return // המסגרת של הטונדרה מצוירת כחלקים מעל ה-HUD (TundraHud)
     }
     assets?.frame?.let { frame ->
         val w = size.width * 1.08f

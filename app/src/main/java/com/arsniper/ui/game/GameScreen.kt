@@ -1405,7 +1405,39 @@ fun GameScreen(
             }
         }
 
-        CurrencyBar(
+        val tundraHud = style == ArenaStyle.Tundra && themed != null
+        if (tundraHud) {
+            TundraHudFrame(
+                currency = { CurrencyBar(coins = score / COINS_DIVISOR, diamonds = PlayerProfile.diamonds) },
+                hearts = { HeartsRow(hearts = director.hearts, max = ArenaDirector.MAX_HEARTS) },
+                zoom = {
+                    ZoomControls(
+                        zoom = zoom / BASE_ZOOM,
+                        onZoomIn = { zoom = (zoom + ZOOM_STEP * BASE_ZOOM).coerceAtMost(GameCamera.MAX_ZOOM) },
+                        onZoomOut = { zoom = (zoom - ZOOM_STEP * BASE_ZOOM).coerceAtLeast(BASE_ZOOM) }
+                    )
+                },
+                joystick = { Joystick(onMove = { joystick = it }) },
+                fire = {
+                    FireButton(
+                        onPress = {
+                            sfxMemo.holding = true
+                            sfxMemo.autoTimer = 0f
+                            fireNow()
+                        },
+                        onRelease = { sfxMemo.holding = false }
+                    )
+                },
+                ammo = {
+                    AmmoBar(
+                        ammo = ammoShown,
+                        magSize = weapon.magSize,
+                        reloading = reloadingShown,
+                        onReload = { weapon.reload() }
+                    )
+                }
+            )
+        } else CurrencyBar(
             coins = score / COINS_DIVISOR,
             diamonds = PlayerProfile.diamonds,
             modifier = Modifier
@@ -1444,7 +1476,7 @@ fun GameScreen(
             )
         }
 
-        HeartsRow(
+        if (!tundraHud) HeartsRow(
             hearts = director.hearts,
             max = ArenaDirector.MAX_HEARTS,
             modifier = Modifier
@@ -1458,11 +1490,11 @@ fun GameScreen(
             left = director.leftInWave,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 56.dp)
+                .padding(top = if (tundraHud) 66.dp else 56.dp)
         )
 
         // זום: בפינה הימנית העליונה, מעל אזור ההליכה של המפלצות, כדי שלא יסתיר אותן
-        ZoomControls(
+        if (!tundraHud) ZoomControls(
             // לשחקן מוצג הזום ביחס לבסיס: הרמה ההתחלתית היא x1.0
             zoom = zoom / BASE_ZOOM,
             onZoomIn = {
@@ -1495,7 +1527,7 @@ fun GameScreen(
                 .padding(end = 28.dp, bottom = 196.dp)
         )
 
-        AmmoBar(
+        if (!tundraHud) AmmoBar(
             ammo = ammoShown,
             magSize = weapon.magSize,
             reloading = reloadingShown,
@@ -1505,14 +1537,14 @@ fun GameScreen(
                 .padding(end = 22.dp, bottom = 34.dp)
         )
 
-        Joystick(
+        if (!tundraHud) Joystick(
             onMove = { joystick = it },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 64.dp, bottom = 32.dp)
         )
 
-        FireButton(
+        if (!tundraHud) FireButton(
             onPress = {
                 sfxMemo.holding = true
                 sfxMemo.autoTimer = 0f
