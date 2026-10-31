@@ -34,7 +34,9 @@ class Blast(
     val kind: AccessoryKind,
     val label: String,
     val radius: Float,
-    val bornNanos: Long
+    val bornNanos: Long,
+    /** פיצוץ של כדור אנרגיה (פריימים מצוירים) במקום הטבעת והניצוצות הרגילים */
+    val orb: Boolean = false
 )
 
 /** רדיוס הפגיעה ביחס לרדיוס הציור של האביזר (קצת נדיב, כי האביזר קטן) */
@@ -214,6 +216,7 @@ private fun easeOut(p: Float): Float {
 @Composable
 fun EffectsLayer(blasts: List<Blast>, nowNanos: Long, modifier: Modifier = Modifier) {
     val labelImages = LabelArt.load()
+    val orbArt = OrbFx.art()
     Canvas(modifier = modifier.fillMaxSize()) {
         for (blast in blasts) {
             val age = (nowNanos - blast.bornNanos) / 1e9f
@@ -223,6 +226,10 @@ fun EffectsLayer(blasts: List<Blast>, nowNanos: Long, modifier: Modifier = Modif
             val cx = blast.x * size.width
             val cy = blast.y * size.height
             val maxR = max(blast.radius * size.height, size.height * 0.06f)
+            if (blast.orb) {
+                with(OrbFx) { drawHit(orbArt, cx, cy, maxR * 3.4f, age) }
+                continue
+            }
 
             val main: Color
             val second: Color

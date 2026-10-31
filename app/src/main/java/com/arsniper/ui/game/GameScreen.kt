@@ -278,6 +278,8 @@ fun GameScreen(
     var started by remember { mutableStateOf(false) }
     var paused by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(0f) }
+    // שניות שנותרו לאפקט הפגיעה של כדור האנרגיה במסך (0 = אין)
+    var orbImpact by remember { mutableStateOf(0f) }
     // רעידת מסך (0..1): פגיעה בשחקן, שאגת בוס, מוות הבוס. דועכת מהר
     var shake by remember { mutableStateOf(0f) }
 
@@ -482,7 +484,10 @@ fun GameScreen(
                                 sfxMemo.damagedThisWave = true
                                 shake = max(shake, 0.7f)
                                 combo.reset()
-                                flash = FLASH_START
+                                val orbHit = out.hitKinds.getOrNull(i) == com.arsniper.game.engine.ShotKind.Orb
+                                // כדור אנרגיה: אפקט סגול במסך, וההבהוב האדום חלש יותר כדי שלא ייווצר ערבוב עכור
+                                flash = if (orbHit) FLASH_START * 0.4f else FLASH_START
+                                if (orbHit) orbImpact = OrbFx.IMPACT_SECONDS
                                 if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         }
@@ -649,6 +654,7 @@ fun GameScreen(
                                     poofs = emptyList()
                                     floaters = emptyList()
                                     flash = 0f
+                                    orbImpact = 0f
                                     weapon.refill()
                                 }
                                 // המארח התחיל מחדש
@@ -658,6 +664,7 @@ fun GameScreen(
                                     poofs = emptyList()
                                     floaters = emptyList()
                                     flash = 0f
+                                    orbImpact = 0f
                                     diamondsGained = 0
                                     sfxMemo.banked = 0
                                     sfxMemo.guestHearts = ArenaDirector.MAX_HEARTS
@@ -739,6 +746,7 @@ fun GameScreen(
                         if (live.size != floaters.size) floaters = live
                     }
                     if (flash > 0f) flash = (flash - FLASH_DECAY_PER_SECOND * dt).coerceAtLeast(0f)
+                    if (orbImpact > 0f) orbImpact = (orbImpact - dt).coerceAtLeast(0f)
                     if (director.bossDying) shake = max(shake, 0.55f)
                     if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
                         shake = 0f
@@ -906,6 +914,7 @@ fun GameScreen(
                 if (director.heal()) {
                     label = "+1 HEART"
                     flash = 0f
+                    orbImpact = 0f
                 } else {
                     score += scaled(150)
                     scoreBy[shooter[0]] += scaled(150)
@@ -946,7 +955,8 @@ fun GameScreen(
                 kind = AccessoryKind.Gem,
                 label = "",
                 radius = fire.currentRadius(shot) * 1.5f,
-                bornNanos = frameNanos
+                bornNanos = frameNanos,
+                orb = shot.kind == com.arsniper.game.engine.ShotKind.Orb
             )
         } else {
             award(CRACK_POINTS, shotPos.x, shotPos.y, register = false, showText = false)
@@ -1136,6 +1146,7 @@ fun GameScreen(
         AttackPose.bossStunned = false
         AttackPose.bossEnraged = false
         flash = 0f
+        orbImpact = 0f
         sfxMemo.phase = null
         sfxMemo.damagedThisWave = true
         director.revive()
@@ -1153,6 +1164,7 @@ fun GameScreen(
         sfxMemo.banked = 0
         diamondsGained = 0
         flash = 0f
+        orbImpact = 0f
         floaters = emptyList()
         poofs = emptyList()
         combo.reset()
@@ -1528,6 +1540,7 @@ fun GameScreen(
 
         // הבהוב אדום כשנפגעים
         DamageFlash(alpha = flash)
+        if (orbImpact > 0f) OrbImpactOverlay(age = OrbFx.IMPACT_SECONDS - orbImpact)
 
         if (paused) {
             PauseMenu(
