@@ -254,7 +254,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     // (כדור האנרגיה בלי צל כהה: הוא מקור אור, והצל גורם לו להיראות כמו תמונה שמתקרבת)
     if (s.kind != ShotKind.Orb) drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
     // זוהר בצבע הציור עצמו, מצומצם כדי לא ליצור כתם
-    drawCircle(
+    // (כדור האנרגיה עם ציור טיסה מצייר זוהר משלו, והזוהר הכללי נראה כעיגול אפור על הכדור כשהוא גדל)
+    if (!(s.kind == ShotKind.Orb && pair.flight != null)) drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(color.copy(alpha = 0.38f * pulse), color.copy(alpha = 0f)),
             center = center,
