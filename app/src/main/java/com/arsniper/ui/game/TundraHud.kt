@@ -46,9 +46,15 @@ fun BoxScope.TundraHudFrame(
             FitSlot(content)
         }
     }
-    Piece(R.drawable.tundra_hud_tl, Alignment.TopStart, 560, 200) { Slot(102, 53, 356, 63, currency) }
-    Piece(R.drawable.tundra_hud_tc, Alignment.TopCenter, 780, 200) { Slot(145, 38, 487, 81, hearts) }
-    Piece(R.drawable.tundra_hud_tr, Alignment.TopEnd, 560, 200) { Slot(101, 53, 355, 68, zoom) }
+    // החלק העליון: תמונה אחת לרוחב המסך (עם השרשראות), בקנה מידה אחיד לפי הרוחב
+    val dTop = widthDp / 2340f
+    Box(Modifier.align(Alignment.TopCenter).size((2340 * dTop).dp, (400 * dTop).dp)) {
+        Image(painterResource(R.drawable.tundra_hud_top), null, Modifier.size((2340 * dTop).dp, (400 * dTop).dp), contentScale = ContentScale.FillBounds)
+        fun slotBox(x: Int, y: Int, w: Int, h: Int) = Modifier.offset((x * dTop).dp, (y * dTop).dp).size((w * dTop).dp, (h * dTop).dp)
+        Box(slotBox(144, 106, 440, 77)) { FitSlot(currency) }
+        Box(slotBox(923, 73, 490, 98)) { FitSlot(hearts) }
+        Box(slotBox(1753, 108, 438, 80)) { FitSlot(zoom) }
+    }
     Piece(R.drawable.tundra_hud_bl, Alignment.BottomStart, 700, 520) { Slot(100, 206, 233, 233, joystick) }
     Piece(R.drawable.tundra_hud_br, Alignment.BottomEnd, 700, 520) {
         Slot(356, 206, 230, 230, fire)

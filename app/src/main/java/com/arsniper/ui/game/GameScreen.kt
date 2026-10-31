@@ -1490,7 +1490,7 @@ fun GameScreen(
             left = director.leftInWave,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = if (tundraHud) 66.dp else 56.dp)
+                .padding(top = if (tundraHud) 74.dp else 56.dp)
         )
 
         // זום: בפינה הימנית העליונה, מעל אזור ההליכה של המפלצות, כדי שלא יסתיר אותן
