@@ -280,6 +280,8 @@ fun GameScreen(
     var flash by remember { mutableStateOf(0f) }
     // שניות שנותרו לאפקט הפגיעה של כדור האנרגיה במסך (0 = אין)
     var orbImpact by remember { mutableStateOf(0f) }
+    // נקודות תורפה בלי נזק שכבר נוצלו (מפלצת:נקודה), לנעילת ניצול חוזר
+    val usedFreeZones = remember { HashSet<String>() }
     // רעידת מסך (0..1): פגיעה בשחקן, שאגת בוס, מוות הבוס. דועכת מהר
     var shake by remember { mutableStateOf(0f) }
 
@@ -651,6 +653,7 @@ fun GameScreen(
                                 'v' -> {
                                     revives = 1
                                     blasts = emptyList()
+        usedFreeZones.clear()
                                     poofs = emptyList()
                                     floaters = emptyList()
                                     flash = 0f
@@ -661,6 +664,7 @@ fun GameScreen(
                                 'x' -> {
                                     revives = 0
                                     blasts = emptyList()
+        usedFreeZones.clear()
                                     poofs = emptyList()
                                     floaters = emptyList()
                                     flash = 0f
@@ -991,10 +995,18 @@ fun GameScreen(
             onIntercept(blocked)
             return
         }
-        val zoneHit = WeakZones.hit(p, ZoneRegistry.snapshot(), enemies, aspect)
+        // נקודת תורפה בלי נזק (למשל מיכל הגז של התמנון) נותנת ניקוד והשפעה רק פעם אחת לכל מפלצת:
+        // אחרת אפשר היה לירות עליה בלי סוף ולצבור ניקוד ומטבעות (המפלצת לא מתה ואין הגבלת כדורים)
+        val zoneHit = WeakZones.hit(
+            p,
+            ZoneRegistry.snapshot().filter { it.zone.damage > 0 || !usedFreeZones.contains("${it.enemy.id}:${it.zone.id}") },
+            enemies,
+            aspect
+        )
         if (zoneHit != null) {
             // פגיעה בנקודת תורפה: ההשפעה של הנקודה (השבתה, בלבול, נזק מוגבר...) וניקוד
             val zone = zoneHit.zone
+            if (zone.damage <= 0) usedFreeZones.add("${zoneHit.enemy.id}:${zone.id}")
             val target = enemies.firstOrNull { it.id == zoneHit.enemy.id }
             if (target != null) {
                 val now = nowSeconds()
@@ -1147,6 +1159,7 @@ fun GameScreen(
         if (isHost) CoopSync.queueRevived()
         enemies = emptyList()
         blasts = emptyList()
+        usedFreeZones.clear()
         poofs = emptyList()
         loot.reset()
         fire.reset()
@@ -1171,6 +1184,7 @@ fun GameScreen(
         revives = 0
         enemies = emptyList()
         blasts = emptyList()
+        usedFreeZones.clear()
         score = 0
         scoreBy[0] = 0
         scoreBy[1] = 0
