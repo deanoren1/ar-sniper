@@ -53,7 +53,7 @@ sealed class WeaponArt {
         val cell: Int = sheet.width / 6
     }
 
-    /** Plasma בגיליון זוויות: 7 עמודות (מקצה שמאל לקצה ימין) על 5 שורות: עמידה, 3 שלבי טעינה, הבזק ירי */
+    /** Plasma בגיליון זוויות (תאים ריבועיים עם הידיים): 7 עמודות (מקצה שמאל לקצה ימין) על 5 שורות: עמידה, 3 שלבי טעינה, הבזק ירי */
     class Aim(val sheet: ImageBitmap) : WeaponArt() {
         val cw: Int = sheet.width / 7
         val ch: Int = sheet.height / 5
@@ -94,7 +94,7 @@ private fun still(context: android.content.Context, idle: Int, fire: Int, mx: Fl
 private const val TRACER_SECONDS = 0.13f
 
 /** מיקום הלוע (שבר מרוחב התא) בכל זווית, בשורת ההבזק */
-private val AIM_MUZZLE_X = floatArrayOf(0.47f, 0.50f, 0.48f, 0.50f, 0.535f, 0.52f, 0.55f)
+private val AIM_MUZZLE_X = floatArrayOf(0.40f, 0.36f, 0.34f, 0.50f, 0.64f, 0.68f, 0.70f)
 
 /** מיקום הלוע בתא ההדף של Plasma (שבר מרוחב ומגובה התא), ממנו יוצא קו הפלזמה */
 private const val MUZZLE_X = 0.33f
@@ -178,7 +178,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                 since < 0.15f -> 4
                 else -> 0
             }
-            val scale = size.height * 0.50f / art.ch
+            val scale = size.height * 0.68f / art.ch
             val w = art.cw * scale
             val h = art.ch * scale
             val left = size.width * 0.62f - w / 2f
@@ -186,7 +186,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             if (tracerTarget != null) {
                 val col = (lo + if (frac > 0.5f) 1 else 0).coerceIn(0, 6)
                 drawTracer(
-                    Offset(left + w * AIM_MUZZLE_X[col] + dx, top + h * 0.27f + dy),
+                    Offset(left + w * AIM_MUZZLE_X[col] + dx, top + h * 0.16f + dy),
                     tracerTarget, since
                 )
             }
