@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
@@ -43,6 +44,13 @@ fun TundraFog(nowNanos: Long, front: Boolean, modifier: Modifier = Modifier) {
             val drift = dir * sin(local * 0.30f + k * 1.7f) * size.width * 0.025f
             val alpha = env * if (front) FRONT_ALPHA else BACK_ALPHA
             val center = Offset(size.width / 2f, size.height / 2f)
+            // ענן נקודתי: התמונה מוצגת רק בתוך כתם רך שנע לאט על המסך (ולא על כל המסך)
+            val bx = size.width * (0.18f + 0.64f * frac(k * 0.618f + (if (front) 0.37f else 0f)) + 0.10f * sin(local * 0.22f + k))
+            val by = size.height * (0.52f + 0.14f * sin(k * 2.3f + (if (front) 1.1f else 0f)))
+            val radius = size.width * 0.34f
+            drawIntoCanvas { canvas ->
+                canvas.saveLayer(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height), androidx.compose.ui.graphics.Paint())
+            }
             withTransform({
                 scale(if (flip) -1.06f else 1.06f, 1.06f, center)
                 translate(drift, 0f)
@@ -55,6 +63,19 @@ fun TundraFog(nowNanos: Long, front: Boolean, modifier: Modifier = Modifier) {
                     alpha = alpha.coerceIn(0f, 1f)
                 )
             }
+            withTransform({ scale(1f, 0.62f, Offset(bx, by)) }) {
+                drawRect(
+                    topLeft = Offset(0f, by - by / 0.62f),
+                    size = androidx.compose.ui.geometry.Size(size.width, size.height / 0.62f),
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(androidx.compose.ui.graphics.Color.Black, androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f), androidx.compose.ui.graphics.Color.Transparent),
+                        center = Offset(bx, by),
+                        radius = radius
+                    ),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+                )
+            }
+            drawIntoCanvas { it.restore() }
         }
     }
 }
@@ -70,8 +91,8 @@ private fun envelope(local: Float): Float = when {
 
 private const val STEP = 10f
 private const val FADE = 3f
-private const val BACK_ALPHA = 0.9f
-private const val FRONT_ALPHA = 0.85f
+private const val BACK_ALPHA = 0.85f
+private const val FRONT_ALPHA = 0.9f
 
 private fun load(context: android.content.Context, name: String): ImageBitmap? {
     val id = context.resources.getIdentifier(name, "drawable", context.packageName)
@@ -84,3 +105,5 @@ private fun load(context: android.content.Context, name: String): ImageBitmap? {
     bitmap.density = Bitmap.DENSITY_NONE
     return bitmap.asImageBitmap()
 }
+
+private fun frac(v: Float): Float = v - floor(v)

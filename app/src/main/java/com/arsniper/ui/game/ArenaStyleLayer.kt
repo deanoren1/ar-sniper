@@ -86,8 +86,10 @@ fun ArenaStyleLayer(
         val worldMode = worldViewAspect > 0f
         if (!screenOnly) {
             assets?.let { drawDecals(it, if (worldMode) size.height * worldViewAspect else size.width) }
-            val grade = gradeOf(style)
-            if (grade == null) {
+            val grade = if (style == ArenaStyle.Tundra) null else gradeOf(style)
+            if (style == ArenaStyle.Tundra) {
+                // טונדרה: בלי מסכת צבע (הכול היה בהיר מדי), רק התמונה עצמה
+            } else if (grade == null) {
                 drawRect(Color(style.tint.toInt()).copy(alpha = style.tintAlpha))
             } else {
                 // תיקון צבע: גוון קל, צללים וגבהים בצבעים שונים, ערפל לפי עומק וקרני אור
