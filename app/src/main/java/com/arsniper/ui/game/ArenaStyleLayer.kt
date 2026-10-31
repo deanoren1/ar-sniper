@@ -314,7 +314,7 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
             val key = style.name.lowercase()
             fun id(name: String) = res.getIdentifier(name, "drawable", pkg)
             val frameId = if (variant >= 0) id("arena_frame_${key}_v$variant") else id("arena_frame_$key")
-            val frame = if (frameId != 0) ImageBitmap.imageResource(res, frameId) else null
+            val frame = if (frameId != 0 && !(style == ArenaStyle.Tundra && variant == 0)) ImageBitmap.imageResource(res, frameId) else null // מסגרות הטונדרה כבויות כרגע
             val decals = ArrayList<ImageBitmap>()
             var n = 0
             while (!frameOnly && variant < 0) {

@@ -1405,7 +1405,7 @@ fun GameScreen(
             }
         }
 
-        val tundraHud = style == ArenaStyle.Tundra && themed != null
+        val tundraHud = TUNDRA_HUD_FRAME && style == ArenaStyle.Tundra && themed != null
         if (tundraHud) {
             TundraHudFrame(
                 currency = { CurrencyBar(coins = score / COINS_DIVISOR, diamonds = PlayerProfile.diamonds) },
@@ -1669,3 +1669,6 @@ private class SfxMemo {
     /** אורח: מספר תמונת המצב האחרונה שעובדה (מד הלם ופרסים) */
     var guestSeq: Int = -1
 }
+
+/** מסגרת ה-HUD החדשה של הטונדרה (TundraHud). כבויה כרגע; החזרה = true */
+private const val TUNDRA_HUD_FRAME = false
