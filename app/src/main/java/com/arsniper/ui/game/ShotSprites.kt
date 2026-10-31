@@ -12,7 +12,18 @@ import com.arsniper.game.engine.ShotKind
 /** ירייה עם שובל אלכסוני (השובל לימין-למעלה). cx,cy = מרכז הכדור בתמונה, dia = קוטרו, בפיקסלים של התמונה */
 class SideSprite(val image: ImageBitmap, val cx: Float, val cy: Float, val dia: Float, val trailDeg: Float)
 
-class ShotPair(val small: ImageBitmap?, val big: ImageBitmap?, val side: SideSprite? = null) {
+/**
+ * ירייה שגדלה בדרך: שורת פריימים (כל אחד עם הכדור באותו גודל ובאותה נקודה, השובל לימין). הפריים נבחר לפי התקדמות הטיסה.
+ * cx, cy = מרכז הכדור בתא, dia = קוטרו, בפיקסלים של התמונה
+ */
+class FlightSprite(val image: ImageBitmap, val frames: Int, val cx: Float, val cy: Float, val dia: Float)
+
+class ShotPair(
+    val small: ImageBitmap?,
+    val big: ImageBitmap?,
+    val side: SideSprite? = null,
+    val flight: FlightSprite? = null
+) {
     /** צבע הזוהר: ממוצע הפיקסלים הרוויים בציור עצמו, כך שהזוהר תמיד תואם את הגרסה (כחול, זהוב, ירוק...) */
     val glow: androidx.compose.ui.graphics.Color = computeGlow(big ?: small)
 
@@ -86,7 +97,8 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
                 val side = if (alt) null else SIDE_ANCHORS[name]?.let { a ->
                     decode(context, "shot_${name}_side")?.let { SideSprite(it, a[0], a[1], a[2], a[3]) }
                 }
-                if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side)
+                val flight = if (alt || name != "orb") null else decode(context, "shot_orb_flight")?.let { FlightSprite(it, 6, 100f, 115f, 162f) }
+                if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side, flight)
             }
             return ShotSprites(map)
         }

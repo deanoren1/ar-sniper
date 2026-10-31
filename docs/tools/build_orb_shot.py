@@ -82,6 +82,7 @@ def main():
     fg = rgba[..., 3] > 0.3
     segs = frames(fg)
     print("frames", segs)
+    flight_atlas(rgba, segs, out)
     x0, x1 = segs[FRAME_FOR_ORB]
     cx, cy, R = orb_circle(rgba[..., 3], x0, x1)
     print(f"orb centre ({cx:.0f},{cy:.0f}) radius {R}")
@@ -111,6 +112,34 @@ def main():
     ncx = (tx1 - tx0) - (cx - tx0)
     ncy = cy - ty0
     print(f'SIDE_ANCHORS "orb" to floatArrayOf({ncx:.1f}f, {ncy:.1f}f, {2 * R:.1f}f, 0f)   size {trail.size}')
+
+
+CELL_W, CELL_H, ORB_X, ORB_Y, ORB_DIA = 440, 230, 100, 115, 162
+
+
+def flight_atlas(rgba, segs, out):
+    """All 6 growth frames, each scaled so its orb is ORB_DIA wide, mirrored (trail to the right), orb at (ORB_X, ORB_Y)."""
+    a = rgba.copy()
+    atlas = Image.new("RGBA", (CELL_W * len(segs), CELL_H), (0, 0, 0, 0))
+    for i, (x0, x1) in enumerate(segs):
+        cx, cy, R = orb_circle(rgba[..., 3], x0, x1)
+        s = ORB_DIA / (2 * R)
+        m = a.copy()
+        keep = np.zeros(m.shape[:2], bool)
+        keep[BAND[0]:BAND[1], max(0, x0 - 6):x1 + 7] = True
+        m[..., 3] *= keep
+        # premultiply so resizing does not smear colour into transparent pixels
+        pm = m.copy()
+        pm[..., :3] *= pm[..., 3:4]
+        img = Image.fromarray((pm * 255).astype("uint8"), "RGBA")
+        box = (cx - (CELL_W - ORB_X) / s, cy - ORB_Y / s, cx + ORB_X / s, cy + (CELL_H - ORB_Y) / s)
+        cell = img.crop(tuple(int(round(v)) for v in box)).resize((CELL_W, CELL_H), Image.LANCZOS)
+        c = np.asarray(cell).astype(float) / 255
+        c[..., :3] = np.where(c[..., 3:4] > 0.01, c[..., :3] / np.maximum(c[..., 3:4], 0.01), 0)
+        cell = Image.fromarray((np.clip(c, 0, 1) * 255).astype("uint8"), "RGBA").transpose(Image.FLIP_LEFT_RIGHT)
+        atlas.paste(cell, (i * CELL_W, 0))
+    atlas.save(f"{out}/shot_orb_flight.webp", "WEBP", quality=90, method=6)
+    print(f"flight atlas {atlas.size}: {len(segs)} frames {CELL_W}x{CELL_H}, orb at ({ORB_X},{ORB_Y}) dia {ORB_DIA}")
 
 
 if __name__ == "__main__":

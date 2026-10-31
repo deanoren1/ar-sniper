@@ -267,6 +267,40 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         else -> 0f
     }
     val mix = ((p - 0.42f) / 0.16f).coerceIn(0f, 1f)
+    val fl = pair.flight
+    if (s.kind == ShotKind.Orb && fl != null) {
+        // כדור האנרגיה: הפריימים של הירייה הגדלה, פריים לפי התקדמות הטיסה עם מעבר חלק בין שניים סמוכים.
+        // השובל מצביע בחזרה אל המפלצת (הציור המקורי: שובל לימין, לכן מסובבים מ-0 מעלות)
+        val k = diameter / fl.dia
+        val cellW = fl.image.width / fl.frames
+        val cellH = fl.image.height
+        val pos = (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
+        val lo = pos.toInt().coerceAtMost(fl.frames - 1)
+        val hi = (lo + 1).coerceAtMost(fl.frames - 1)
+        val t = pos - lo
+        val backX = (s.x - Shot.targetX) * size.width
+        val backY = (s.y - Shot.targetY) * size.height
+        val wanted = Math.toDegrees(kotlin.math.atan2(backY, backX).toDouble()).toFloat()
+        val dst = androidx.compose.ui.unit.IntSize((cellW * k).toInt().coerceAtLeast(1), (cellH * k).toInt().coerceAtLeast(1))
+        val off = androidx.compose.ui.unit.IntOffset((center.x - fl.cx * k).toInt(), (center.y - fl.cy * k).toInt())
+        rotate(wanted, center) {
+            for ((frame, a) in listOf(lo to 1f - t, hi to t)) {
+                if (a <= 0.01f && frame != lo) continue
+                drawImage(
+                    fl.image,
+                    srcOffset = androidx.compose.ui.unit.IntOffset(frame * cellW, 0),
+                    srcSize = androidx.compose.ui.unit.IntSize(cellW, cellH),
+                    dstOffset = off,
+                    dstSize = dst,
+                    alpha = if (lo == hi) 1f else a
+                )
+            }
+        }
+        if (s.hp < s.maxHp) {
+            drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
+        }
+        return
+    }
     if (useSide && pair.side != null) {
         // ירייה מהצד: התמונה עם השובל האלכסוני, הפוכה כשהיורה בצד שמאל. בלי סיבוב.
         val sp = pair.side
