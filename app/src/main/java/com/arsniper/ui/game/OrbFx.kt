@@ -70,7 +70,7 @@ object OrbFx {
             srcSize = IntSize(cellW, image.height),
             dstOffset = IntOffset((cx - w / 2f).toInt(), (cy - height / 2f).toInt()),
             dstSize = IntSize(w.toInt().coerceAtLeast(1), height.toInt().coerceAtLeast(1)),
-            alpha = 1f - 0.5f * ramp(age, HIT_SECONDS * 0.7f, HIT_SECONDS)
+            alpha = 0.6f * (1f - 0.6f * ramp(age, HIT_SECONDS * 0.7f, HIT_SECONDS))
         )
     }
 }

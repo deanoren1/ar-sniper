@@ -425,7 +425,7 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
                     srcSize = androidx.compose.ui.unit.IntSize(w, cellH),
                     dstOffset = androidx.compose.ui.unit.IntOffset((pt.x - sliceW * k / 2f).toInt(), (pt.y - fl.cy * k).toInt()),
                     dstSize = androidx.compose.ui.unit.IntSize(dstW, (cellH * k).toInt().coerceAtLeast(1)),
-                    alpha = a * fade
+                    alpha = a * fade * 0.72f
                 )
             }
             x += sliceW

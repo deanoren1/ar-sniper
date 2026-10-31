@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -95,7 +96,7 @@ private fun DrawScope.gust(a: ImageBitmap?, b: ImageBitmap?, t: Float) {
 }
 
 private fun DrawScope.clipBand(top: Float, height: Float, block: DrawScope.() -> Unit) {
-    androidx.compose.ui.graphics.drawscope.clipRect(0f, top, size.width, top + height) { block() }
+    clipRect(0f, top, size.width, top + height) { block() }
 }
 
 private fun loadSnow(context: android.content.Context, name: String): ImageBitmap? {

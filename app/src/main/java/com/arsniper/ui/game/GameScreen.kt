@@ -280,6 +280,7 @@ fun GameScreen(
     var flash by remember { mutableStateOf(0f) }
     // שניות שנותרו לאפקט הפגיעה של כדור האנרגיה במסך (0 = אין)
     var orbImpact by remember { mutableStateOf(0f) }
+    var lostAge by remember { mutableStateOf(0f) } // זמן מאז ההפסד: מעכב את מסך הסיום עד שאפקט הפגיעה נגמר
     // נקודות תורפה בלי נזק שכבר נוצלו (מפלצת:נקודה), לנעילת ניצול חוזר
     val usedFreeZones = remember { HashSet<String>() }
     // רעידת מסך (0..1): פגיעה בשחקן, שאגת בוס, מוות הבוס. דועכת מהר
@@ -751,6 +752,7 @@ fun GameScreen(
                     }
                     if (flash > 0f) flash = (flash - FLASH_DECAY_PER_SECOND * dt).coerceAtLeast(0f)
                     if (orbImpact > 0f) orbImpact = (orbImpact - dt).coerceAtLeast(0f)
+                    if (director.phase == ArenaPhase.Lost) lostAge += dt else lostAge = 0f
                     if (director.bossDying) shake = max(shake, 0.55f)
                     if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
                         shake = 0f
@@ -1593,7 +1595,7 @@ fun GameScreen(
             )
         }
 
-        if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
+        if (director.phase == ArenaPhase.Won || (director.phase == ArenaPhase.Lost && lostAge >= 1.0f)) {
             EndOverlay(
                 won = director.phase == ArenaPhase.Won,
                 stars = director.stars,
