@@ -140,6 +140,10 @@ object UserObjects {
             }
         }
 
+        // סוגרים חורים בתוך העצם (למשל הפנים של דלי פתוח, שה-SAM משאיר מחוץ למסכה), כדי שדמות תיעלם מאחורי כל העצם
+        val closed = MaskTools.fillHoles(MaskTools.close(raw, rawWidth, rawHeight, 2), rawWidth, rawHeight, max(40, rawWidth * rawHeight / 5))
+        for (i in raw.indices) raw[i] = closed[i]
+
         // ניקוי עדין (עצמים דקים כמו קורקינט לא נחתכים)
         val cleaned = MaskTools.clean(raw, rawWidth, rawHeight, true)
         val cellX = if (cleaned != null) minX + cleaned.offsetX else minX
