@@ -112,13 +112,13 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.19, 0.40, 0.76, 1.0)
-    shell.inputs["Roughness"].default_value = 0.075
+    shell.inputs["Base Color"].default_value = (0.12, 0.24, 0.42, 1.0)
+    shell.inputs["Roughness"].default_value = 0.11
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.55
+    shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.035
+    mix.inputs[0].default_value = 0.022
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -133,11 +133,11 @@ add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.88, 0.055, 0.37), rough=0.28, coat=0.48)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.64, 0.25), rough=0.24, coat=0.34,
+EYE_WHITE = mat("EyeWhite", (1.0, 0.70, 0.24), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.000001, 0.000001, 0.000001), rough=0.52, coat=0.0)
+PUPIL = mat("Pupil", (0.000001, 0.000001, 0.000001), rough=0.18, coat=0.48)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
@@ -155,7 +155,7 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.035, 0.001, 0.065), rough=0.42, coat=0.12)
+SUCKER = mat("Sucker", (0.004, 0.0005, 0.010), rough=0.24, coat=0.24)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.56, 0.012, 0.78), rough=0.22, coat=0.70,
                emit=(0.018, 0.001, 0.035), strength=0.012)
@@ -439,7 +439,7 @@ eye_parts = [
     sphere("Shine", 0.075, (0.10, -0.595, 0.16), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.76, 0.050, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.76, 0.034, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.04, 1.0, 0.90)
 eye_socket_accent = torus("EyeSocketAccent", 0.795, 0.015, (0, -0.095, 0), RING, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.03, 1.0, 0.90)
@@ -498,22 +498,22 @@ def make_upper_eyelid(parent):
 eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Compact horizontal grin with four visible fangs and a small pink tongue, as in the reference.
-mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.39))
-mouth.scale = (0.80, 1.0, 0.78)
+mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.51))
+mouth.scale = (1.12, 1.0, 1.0)
 mouth_parts = [sphere("MouthCavity", 0.42, (0, 0, 0), MOUTH, mouth,
                       scale=(1.22, 0.22, 0.58), seg=64)]
-mouth_lip = torus("MouthLip", 0.42, 0.032, (0, -1.075, -0.39), PURPLE_DARK, pivot,
+mouth_lip = torus("MouthLip", 0.42, 0.032, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.20, 0.70, 0.68)
-for i, (x, h, width) in enumerate(((-0.39, 0.24, 0.105), (0.39, 0.24, 0.105))):
+mouth_lip.scale = (1.34, 0.70, 0.72)
+for i, (x, h, width) in enumerate(((-0.39, 0.28, 0.12), (0.39, 0.28, 0.12))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
-                            (x, -0.12, 0.16 - h / 2), TEETH, mouth,
+                            (x, -0.12, 0.18 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.39, 0.17), (0.39, 0.17))):
+for i, (x, h) in enumerate(((-0.39, 0.21), (0.39, 0.21))):
     mouth_parts.append(cone(f"ToothL{i}", 0.078, 0.0, h,
-                            (x, -0.12, -0.17 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.16, (0, -0.50, -0.12), TONGUE,
-                          scale=(1.85, 0.82, 0.78), seg=40))
+                            (x, -0.12, -0.18 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.16, (0, -0.34, -0.16), TONGUE,
+                          scale=(1.35, 0.90, 0.82), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
 body_band("LowerPinkBand", pivot, -0.96, -0.55, COLLAR)
@@ -611,8 +611,8 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     main_parts.append(obj)
     return obj
 
-DOME_CENTER_Z = -0.78
-DOME_RADII = (1.82, 1.60, 2.58)
+DOME_CENTER_Z = -0.82
+DOME_RADII = (1.96, 1.68, 2.78)
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
@@ -633,8 +633,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.014), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -0.86, 1.10, 0.13, 0.30, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 0.84, 1.15, 0.18, 0.25, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -0.95, 1.20, 0.18, 0.39, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 0.95, 1.24, 0.24, 0.32, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -768,13 +768,13 @@ for i in range(8):
             cup_normal = Vector((0.0, 1.0, 0.0))
         cup_normal.normalize()
         rr = arm_radius(t)
-        cup_pos = center + cup_normal * rr * 1.025
-        inset_pos = cup_pos + cup_normal * rr * 0.018
-        torus(f"SuckerRim{i}_{q}", rr * 0.36, rr * 0.085, tuple(inset_pos),
-              SPOT_DARK, root, rot=normal_rot(cup_normal))
-        hole_pos = inset_pos + cup_normal * rr * 0.012
+        cup_pos = center + cup_normal * rr * 0.995
+        inset_pos = cup_pos - cup_normal * rr * 0.005
+        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.045, tuple(inset_pos),
+              PURPLE_DARK, root, rot=normal_rot(cup_normal))
+        hole_pos = inset_pos - cup_normal * rr * 0.025
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.26, rr * 0.26, rr * 0.055), rot=normal_rot(cup_normal), seg=20)
+               scale=(rr * 0.30, rr * 0.30, rr * 0.085), rot=normal_rot(cup_normal), seg=20)
     for q, t in enumerate((0.30, 0.52, 0.74)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
@@ -886,7 +886,7 @@ def fit_character_camera():
     monster.rotation_euler[2] = original_angle
     bpy.context.view_layer.update()
     # Leave breathing room: the previous 0.92 scale clipped both the dome and arm tips.
-    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.10
+    cam_data.ortho_scale = max(max(widths), max(heights)) * 0.98
     cam.location.x = sum(centers_x) / len(centers_x)
     cam.location.z = sum(centers_z) / len(centers_z)
     bpy.context.view_layer.update()
@@ -1018,7 +1018,7 @@ def pose(clip, i, n):
         torso.location.z += 0.05 * k
         pivot.scale = (BODY_BASE_SCALE[0] * (1 + 0.04 * k), BODY_BASE_SCALE[1] * (1 + 0.04 * k), BODY_BASE_SCALE[2] * (1 - 0.03 * k))
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.18 * k)
-        mouth.scale = (0.86, 1.0, 0.85 * (1.0 + 0.9 * k))
+        mouth.scale = (1.12, 1.0, 1.0 * (1.0 + 0.55 * k))
         flame_bsdf.inputs["Emission Strength"].default_value = 1.6 + 6.0 * k
         show(orb_parts, True)
         r = 0.12 + 0.2 * k
@@ -1030,7 +1030,7 @@ def pose(clip, i, n):
         recoil = (1.0, 0.55, 0.0)[i]
         torso.rotation_euler.x = -0.22 * recoil + 0.1
         torso.location.y += 0.1 * recoil
-        mouth.scale = (0.86, 1.0, 0.85 * (1.9 - 0.4 * i))
+        mouth.scale = (1.12, 1.0, 1.0 * (1.65 - 0.25 * i))
         flame_bsdf.inputs["Emission Strength"].default_value = 7.0 - 2.0 * i
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.1)
         show(orb_parts, True)
@@ -1046,7 +1046,7 @@ def pose(clip, i, n):
             torso.location.z -= 0.08
             pivot.scale = (BODY_BASE_SCALE[0] * 1.12, BODY_BASE_SCALE[1] * 1.1, BODY_BASE_SCALE[2] * 0.86)
             eye.scale.z = 0.3
-            mouth.scale = (0.86, 1.0, 0.85 * 1.6)
+            mouth.scale = (1.12, 1.0, 1.55)
             tint(0.4, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.25)
         else:
@@ -1059,7 +1059,7 @@ def pose(clip, i, n):
     elif clip == "Death":
         show(eye_parts, False)
         show(x_marks, True)
-        mouth.scale = (0.86, 1.0, 0.85 * 1.4)
+        mouth.scale = (1.12, 1.0, 1.35)
         if i == 0:
             torso.rotation_euler.x = -0.4
             torso.location.z -= 0.1
