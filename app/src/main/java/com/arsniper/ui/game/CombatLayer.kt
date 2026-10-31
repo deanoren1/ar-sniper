@@ -363,6 +363,8 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
     val bendFactor = ((abs(side) - 0.15f) / 0.5f).coerceIn(0f, 1f)
     val bend = 0.32f * trailLen * bendFactor
     val pulse = 0.85f + 0.15f * sin(time * 11f + s.id)
+    // כמה הקליע כבר עבר מנקודת היציאה: השובל לא נמתח מאחורי נקודת היציאה (אחרת נראה שהקליע מגיע מעל הדמות)
+    val traveled = kotlin.math.hypot(center.x - s.x * size.width, center.y - s.y * size.height)
 
     fun pathPoint(dist: Float): Offset {
         val u = if (trailLen > 0f) dist / trailLen else 0f
@@ -382,6 +384,7 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
         blendMode = androidx.compose.ui.graphics.BlendMode.Plus
     )
     for ((i, f) in floatArrayOf(0.5f, 0.95f, 1.45f).withIndex()) {
+        if (diameter * f > traveled) continue
         val c = pathPoint(diameter * f)
         val rr = diameter * (0.55f - 0.12f * i)
         drawCircle(
@@ -406,6 +409,9 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
         while (x < cellW) {
             val w = minOf(sliceW + 1, cellW - x)
             val dist = (x + sliceW / 2f - fl.cx) * k
+            // רק עד נקודת היציאה, עם דעיכה בקצה
+            val fade = ((traveled - dist) / (diameter * 0.6f)).coerceIn(0f, 1f)
+            if (fade <= 0.01f) { x += sliceW; continue }
             val pt = pathPoint(dist)
             val u = if (trailLen > 0f) dist / trailLen else 0f
             val tx = dx + nx * bend * 2f * u / trailLen
@@ -419,7 +425,7 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
                     srcSize = androidx.compose.ui.unit.IntSize(w, cellH),
                     dstOffset = androidx.compose.ui.unit.IntOffset((pt.x - sliceW * k / 2f).toInt(), (pt.y - fl.cy * k).toInt()),
                     dstSize = androidx.compose.ui.unit.IntSize(dstW, (cellH * k).toInt().coerceAtLeast(1)),
-                    alpha = a
+                    alpha = a * fade
                 )
             }
             x += sliceW

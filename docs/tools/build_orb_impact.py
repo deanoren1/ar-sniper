@@ -28,18 +28,34 @@ def main():
     a = np.asarray(im).astype(float) / 255
     lum = a.max(2)
 
-    # 9 small explosion frames
+    # 9 small explosion frames: black becomes transparent (alpha from brightness), each frame gets a soft round edge,
+    # so neighbouring frames never show as rectangles and the sparks are not cut off by a hard cell border
     band = lum[HIT_BAND[0]:HIT_BAND[1]]
-    xs = np.where((band > 0.12).any(0))[0]
-    x0, x1 = xs.min(), xs.max()
-    cw = (x1 - x0 + 1) / 9
-    cell_w, cell_h = int(round(cw)), HIT_BAND[1] - HIT_BAND[0]
-    atlas = Image.new("RGB", (cell_w * 9, cell_h))
+    # the nine frames are not evenly spaced: boundaries between them (found from the sheet), centre = brightness centroid
+    edges = [0, 150, 297, 466, 652, 842, 1046, 1257, 1463, im.width]
+    centers = []
     for i in range(9):
-        c = im.crop((int(x0 + i * cw), HIT_BAND[0], int(x0 + i * cw) + cell_w, HIT_BAND[1]))
-        atlas.paste(lift(c), (i * cell_w, 0))
-    atlas.save(f"{out}/shot_orb_hit.webp", "WEBP", quality=90, method=6)
-    print("hit cell", cell_w, cell_h)
+        seg = band[:, edges[i]:edges[i + 1]] ** 2
+        cols = np.arange(edges[i], edges[i + 1])
+        centers.append(float((seg.sum(0) * cols).sum() / seg.sum()))
+    print("centres", [round(c) for c in centers])
+    CELL = 240
+    atlas = np.zeros((CELL, CELL * 9, 4), np.uint8)
+    yy, xx = np.mgrid[0:CELL, 0:CELL]
+    d = np.hypot(xx - CELL / 2, yy - CELL / 2)
+    soft = np.clip((118 - d) / 28, 0, 1)
+    cy = (HIT_BAND[0] + HIT_BAND[1]) / 2
+    for i in range(9):
+        cx = centers[i]
+        c = im.crop((int(cx - CELL / 2), int(cy - CELL / 2), int(cx - CELL / 2) + CELL, int(cy - CELL / 2) + CELL))
+        f = np.clip((np.asarray(c).astype(float) / 255 - BLACK) / (1 - BLACK), 0, 1)
+        m = f.max(2)
+        alpha = np.clip(m * 1.5, 0, 1) * soft
+        rgb = np.where(m[..., None] > 0.01, f / np.maximum(m[..., None], 0.01), 0)
+        atlas[..., :3][:, i * CELL:(i + 1) * CELL] = (np.clip(rgb, 0, 1) * 255).astype(np.uint8)
+        atlas[..., 3][:, i * CELL:(i + 1) * CELL] = (alpha * 255).astype(np.uint8)
+    Image.fromarray(atlas, "RGBA").save(f"{out}/shot_orb_hit.webp", "WEBP", quality=90, method=6)
+    print("hit cell", CELL, CELL)
 
     # 3 full-screen panels (their dark middles make automatic detection split them, so the x ranges are fixed)
     band = lum[PANEL_BAND[0]:PANEL_BAND[1]]
