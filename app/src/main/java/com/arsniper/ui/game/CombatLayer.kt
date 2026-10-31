@@ -251,7 +251,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         )
     }
     // צל רך מתחת: מפריד את הקליע מרקע עמוס בתמונה
-    drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
+    // (כדור האנרגיה בלי צל כהה: הוא מקור אור, והצל גורם לו להיראות כמו תמונה שמתקרבת)
+    if (s.kind != ShotKind.Orb) drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
     // זוהר בצבע הציור עצמו, מצומצם כדי לא ליצור כתם
     drawCircle(
         brush = Brush.radialGradient(
@@ -269,33 +270,7 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     val mix = ((p - 0.42f) / 0.16f).coerceIn(0f, 1f)
     val fl = pair.flight
     if (s.kind == ShotKind.Orb && fl != null) {
-        // כדור האנרגיה: הפריימים של הירייה הגדלה, פריים לפי התקדמות הטיסה עם מעבר חלק בין שניים סמוכים.
-        // השובל מצביע בחזרה אל המפלצת (הציור המקורי: שובל לימין, לכן מסובבים מ-0 מעלות)
-        val k = diameter / fl.dia
-        val cellW = fl.image.width / fl.frames
-        val cellH = fl.image.height
-        val pos = (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
-        val lo = pos.toInt().coerceAtMost(fl.frames - 1)
-        val hi = (lo + 1).coerceAtMost(fl.frames - 1)
-        val t = pos - lo
-        val backX = (s.x - Shot.targetX) * size.width
-        val backY = (s.y - Shot.targetY) * size.height
-        val wanted = Math.toDegrees(kotlin.math.atan2(backY, backX).toDouble()).toFloat()
-        val dst = androidx.compose.ui.unit.IntSize((cellW * k).toInt().coerceAtLeast(1), (cellH * k).toInt().coerceAtLeast(1))
-        val off = androidx.compose.ui.unit.IntOffset((center.x - fl.cx * k).toInt(), (center.y - fl.cy * k).toInt())
-        rotate(wanted, center) {
-            for ((frame, a) in listOf(lo to 1f - t, hi to t)) {
-                if (a <= 0.01f && frame != lo) continue
-                drawImage(
-                    fl.image,
-                    srcOffset = androidx.compose.ui.unit.IntOffset(frame * cellW, 0),
-                    srcSize = androidx.compose.ui.unit.IntSize(cellW, cellH),
-                    dstOffset = off,
-                    dstSize = dst,
-                    alpha = if (lo == hi) 1f else a
-                )
-            }
-        }
+        drawOrbFlight(s, fl, center, diameter, p, time)
         if (s.hp < s.maxHp) {
             drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
         }
@@ -358,4 +333,111 @@ private fun DrawScope.drawSprite(image: androidx.compose.ui.graphics.ImageBitmap
         dstSize = androidx.compose.ui.unit.IntSize(w, h),
         alpha = alpha
     )
+}
+
+
+/**
+ * כדור האנרגיה בטיסה: פריים לפי התקדמות הטיסה (מעבר חלק בין שניים), שובל שמצביע בחזרה אל המפלצת ומתעקל כשהיא בצד,
+ * וזוהר מוסף (additive) סביב הכדור ולאורך השובל, כדי שייראה כמו מקור אור ולא כמו תמונה שמתקרבת.
+ * בציור המקורי הכדור משמאל והשובל לימין; הכדור נשאר ישר והשובל מכופף פלח אחר פלח לאורך עקום.
+ */
+private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, diameter: Float, p: Float, time: Float) {
+    val k = diameter / fl.dia
+    val cellW = fl.image.width / fl.frames
+    val cellH = fl.image.height
+    val pos = (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
+    val lo = pos.toInt().coerceAtMost(fl.frames - 1)
+    val hi = (lo + 1).coerceAtMost(fl.frames - 1)
+    val t = pos - lo
+    val backX = (s.x - Shot.targetX) * size.width
+    val backY = (s.y - Shot.targetY) * size.height
+    val ang = kotlin.math.atan2(backY, backX)
+    val dx = cos(ang)
+    val dy = sin(ang)
+    val side = ((s.x - 0.5f) * 2f).coerceIn(-1f, 1f)
+    // ההטיה של העקום: רק כשהמפלצת בצד, והשובל מתעקל לכיוון מרכז המסך
+    var nx = -dy
+    var ny = dx
+    if (nx * side > 0f) { nx = -nx; ny = -ny }
+    val trailLen = (cellW - fl.cx) * k
+    val bendFactor = ((abs(side) - 0.15f) / 0.5f).coerceIn(0f, 1f)
+    val bend = 0.32f * trailLen * bendFactor
+    val pulse = 0.85f + 0.15f * sin(time * 11f + s.id)
+
+    fun pathPoint(dist: Float): Offset {
+        val u = if (trailLen > 0f) dist / trailLen else 0f
+        return Offset(center.x + dx * dist + nx * bend * u * u, center.y + dy * dist + ny * bend * u * u)
+    }
+
+    // זוהר מוסף סביב הכדור ולאורך השובל
+    val glowR = diameter * 1.15f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color.White.copy(alpha = 0.5f * pulse), Color(0xFFD060FF).copy(alpha = 0.32f * pulse), Color(0xFF7020FF).copy(alpha = 0.1f * pulse), Color.Transparent),
+            center = center,
+            radius = glowR
+        ),
+        radius = glowR,
+        center = center,
+        blendMode = androidx.compose.ui.graphics.BlendMode.Plus
+    )
+    for ((i, f) in floatArrayOf(0.5f, 0.95f, 1.45f).withIndex()) {
+        val c = pathPoint(diameter * f)
+        val rr = diameter * (0.55f - 0.12f * i)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFFB050FF).copy(alpha = (0.28f - 0.07f * i) * pulse), Color.Transparent),
+                center = c,
+                radius = rr
+            ),
+            radius = rr,
+            center = c,
+            blendMode = androidx.compose.ui.graphics.BlendMode.Plus
+        )
+    }
+
+    val frames = if (lo == hi) listOf(lo to 1f) else listOf(lo to 1f - t, hi to t)
+    // השובל: פלחים צרים מכופפים לאורך העקום
+    val startX = fl.cx + fl.dia * 0.45f
+    val sliceW = 8
+    for ((frame, a) in frames) {
+        if (a <= 0.01f) continue
+        var x = startX.toInt()
+        while (x < cellW) {
+            val w = minOf(sliceW + 1, cellW - x)
+            val dist = (x + sliceW / 2f - fl.cx) * k
+            val pt = pathPoint(dist)
+            val u = if (trailLen > 0f) dist / trailLen else 0f
+            val tx = dx + nx * bend * 2f * u / trailLen
+            val ty = dy + ny * bend * 2f * u / trailLen
+            val deg = Math.toDegrees(kotlin.math.atan2(ty, tx).toDouble()).toFloat()
+            val dstW = (w * k).toInt().coerceAtLeast(1)
+            withTransform({ rotate(deg, pt) }) {
+                drawImage(
+                    fl.image,
+                    srcOffset = androidx.compose.ui.unit.IntOffset(frame * cellW + x, 0),
+                    srcSize = androidx.compose.ui.unit.IntSize(w, cellH),
+                    dstOffset = androidx.compose.ui.unit.IntOffset((pt.x - sliceW * k / 2f).toInt(), (pt.y - fl.cy * k).toInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(dstW, (cellH * k).toInt().coerceAtLeast(1)),
+                    alpha = a
+                )
+            }
+            x += sliceW
+        }
+    }
+    // הכדור עצמו (וההתחלה של השובל מאחוריו): ישר, מעל הפלחים
+    val headW = (startX + sliceW).toInt().coerceAtMost(cellW)
+    rotate(Math.toDegrees(ang.toDouble()).toFloat(), center) {
+        for ((frame, a) in frames) {
+            if (a <= 0.01f) continue
+            drawImage(
+                fl.image,
+                srcOffset = androidx.compose.ui.unit.IntOffset(frame * cellW, 0),
+                srcSize = androidx.compose.ui.unit.IntSize(headW, cellH),
+                dstOffset = androidx.compose.ui.unit.IntOffset((center.x - fl.cx * k).toInt(), (center.y - fl.cy * k).toInt()),
+                dstSize = androidx.compose.ui.unit.IntSize((headW * k).toInt().coerceAtLeast(1), (cellH * k).toInt().coerceAtLeast(1)),
+                alpha = a
+            )
+        }
+    }
 }
