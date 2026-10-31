@@ -128,11 +128,11 @@ def glass_mat():
 PURPLE = mat("Purple", (0.52, 0.012, 0.72), rough=0.22, coat=0.76)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
-LID = mat("Lid", (0.29, 0.008, 0.57), rough=0.20, coat=0.66)
+LID = mat("Lid", (0.55, 0.012, 0.78), rough=0.20, coat=0.70)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.88, 0.055, 0.37), rough=0.28, coat=0.48)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.72, 0.34), rough=0.24, coat=0.34,
+EYE_WHITE = mat("EyeWhite", (1.0, 0.64, 0.25), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
@@ -348,7 +348,7 @@ def body_band(name, parent, z_bottom, z_top, material):
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
-            z = z_base + 0.045 * math.cos(a)
+            z = z_base + 0.085 * abs(math.cos(a))
             verts.append((radius * math.cos(a), radius * 0.90 * math.sin(a), z))
     for j in range(sides):
         nxt = (j + 1) % sides
@@ -404,16 +404,17 @@ for i, (sx, sz, rx, rz) in enumerate((
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
            scale=(rx, 0.009, rz), seg=20)
 
-# A visible crown of rounded pink spikes, including the front silhouette.
+# Seven short, rounded crown spikes: the reference uses a low, chunky silhouette.
 for i, (az_deg, pol_deg, height) in enumerate((
-    (218, 34, 0.38), (242, 28, 0.42), (270, 24, 0.45),
-    (298, 28, 0.42), (322, 34, 0.38)
+    (202, 38, 0.23), (226, 32, 0.25), (248, 27, 0.27),
+    (270, 24, 0.29), (292, 27, 0.27), (314, 32, 0.25),
+    (338, 38, 0.23)
 )):
     az = math.radians(az_deg)
     pol = math.radians(pol_deg)
     n = Vector((math.sin(pol) * math.cos(az), math.sin(pol) * math.sin(az), math.cos(pol)))
     p = Vector((n.x * BODY_R * BODY_SCALE[0], n.y * BODY_R * BODY_SCALE[1], n.z * BODY_R * BODY_SCALE[2])) * 1.0
-    cone(f"Horn{i}", 0.115, 0.0, height * 1.14, p + n * (height * 1.14 / 2), SPOT, pivot, rot=normal_rot(n))
+    cone(f"Horn{i}", 0.135, 0.0, height * 1.14, p + n * (height * 1.14 / 2), SPOT, pivot, rot=normal_rot(n))
 
 for i in range(14):
     az = rng.uniform(0, 2 * math.pi)
@@ -438,10 +439,10 @@ eye_parts = [
     sphere("Shine", 0.075, (0.10, -0.555, 0.14), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.66, 0.034, (0, -0.030, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale = (1.06, 1.0, 0.88)
-eye_socket_accent = torus("EyeSocketAccent", 0.685, 0.012, (0, -0.050, 0), RING, eye, rot=(math.pi / 2, 0, 0))
-eye_socket_accent.scale = (1.04, 1.0, 0.88)
+eye_socket = torus("EyeSocket", 0.70, 0.050, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale = (1.04, 1.0, 0.90)
+eye_socket_accent = torus("EyeSocketAccent", 0.735, 0.015, (0, -0.095, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent.scale = (1.03, 1.0, 0.90)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
 def make_upper_eyelid(parent):
@@ -491,36 +492,38 @@ def make_upper_eyelid(parent):
     edge = pipe_curve("UpperLidEdge", lower_edge, LID, parent, bevel=0.034)
     return obj, edge
 
-# The supplied reference has a fully open eye with no eyebrow/eyelid crossing it.
-eye_parts.append(eye_socket)
+# Restore the broad, slanted skin lid: it covers the upper third of the eye and
+# drops toward the outer-right corner to recreate the reference's angry expression.
+upper_lid, upper_lid_edge = make_upper_eyelid(eye)
+eye_parts.extend([eye_socket, eye_socket_accent, upper_lid, upper_lid_edge])
 
 # Jagged grin with uneven fangs, a deeper dark cavity and a visible pink tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.36))
-mouth.scale = (0.84, 1.0, 0.80)  # compact grin closer to the reference proportions
+mouth.scale = (1.02, 1.0, 0.92)  # widen the grin and give the fangs room
 mouth_parts = [sphere("MouthCavity", 0.45, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.42, 0.22, 0.56), seg=64)]
+                      scale=(1.60, 0.22, 0.66), seg=64)]
 mouth_lip = torus("MouthLip", 0.45, 0.035, (0, -1.075, -0.36), PURPLE_DARK, pivot,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.25, 0.70, 0.70)
-# Stagger upper and lower fangs so they read as separate teeth, not hourglass diamonds.
-for i, (x, h) in enumerate(((-0.43, 0.28), (0.43, 0.28))):
-    mouth_parts.append(cone(f"ToothU{i}", 0.105, 0.0, h,
-                            (x, -0.12, 0.22 - h / 2), TEETH, mouth,
+mouth_lip.scale = (1.52, 0.70, 0.82)
+# Uneven upper fangs and two smaller lower teeth match the irregular reference grin.
+for i, (x, h) in enumerate(((-0.56, 0.30), (-0.20, 0.22), (0.22, 0.24), (0.56, 0.31))):
+    mouth_parts.append(cone(f"ToothU{i}", 0.095 if i in (1, 2) else 0.11, 0.0, h,
+                            (x, -0.12, 0.24 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.18, 0.18), (0.18, 0.18))):
+for i, (x, h) in enumerate(((-0.34, 0.16), (0.34, 0.15))):
     mouth_parts.append(cone(f"ToothL{i}", 0.075, 0.0, h,
-                            (x, -0.12, -0.23 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.18, (0, -0.42, -0.07), TONGUE,
-                          scale=(1.55, 0.70, 0.72), seg=40))
+                            (x, -0.12, -0.25 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.18, (0, -0.42, -0.10), TONGUE,
+                          scale=(1.75, 0.70, 0.72), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -0.94, -0.52, COLLAR)
+body_band("LowerPinkBand", pivot, -0.90, -0.60, COLLAR)
 collar_radius = shell_radius_at(-0.73) + 0.13
-torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.53), METAL, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -0.93), METAL, pivot)
+torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.60), METAL, pivot)
+torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -0.90), METAL, pivot)
 for i in range(14):
     a = i * (2 * math.pi / 14)
-    z = -0.72 + 0.055 * math.cos(a)
+    z = -0.75 + 0.045 * abs(math.cos(a))
     r = shell_radius_at(-0.73) + 0.185
     sphere(f"BandRivet{i}", 0.054, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
@@ -529,7 +532,10 @@ for i in range(14):
 PIPE_DARK = mat("PipeDark", (0.16, 0.075, 0.032), rough=0.27, metal=0.78, coat=0.28)
 for side, sx in (("L", -1), ("R", 1)):
     tx, ty = 1.40 * sx, 0.08
-    cylinder(f"Tank{side}", 0.375, 1.16, (tx, ty, 0.015), TANK, torso)
+    tank_body = cylinder(f"Tank{side}", 0.375, 1.16, (tx, ty, 0.015), TANK, torso)
+    tank_bevel = tank_body.modifiers.new("TankBodySoftEdges", "BEVEL")
+    tank_bevel.width = 0.065
+    tank_bevel.segments = 4
     # Rounded enamel shoulders soften the hard, box-like ends of the canisters.
     sphere(f"TankShoulderTop{side}", 0.37, (tx, ty, 0.52), TANK, torso, scale=(1.0, 1.0, 0.45))
     sphere(f"TankShoulderBot{side}", 0.37, (tx, ty, -0.52), TANK, torso, scale=(1.0, 1.0, 0.45))
@@ -628,8 +634,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.014), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -0.86, 1.10, 0.17, 0.39, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 0.84, 1.15, 0.24, 0.30, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -0.86, 1.10, 0.13, 0.30, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 0.84, 1.15, 0.18, 0.25, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -661,9 +667,9 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Thick plush arms with a blunt rounded end rather than a narrow tube tip.
     if t < 0.72:
-        return 0.215 - 0.025 * (t / 0.72)
+        return 0.255 - 0.028 * (t / 0.72)
     u = min(1.0, max(0.0, (t - 0.72) / 0.28))
-    return 0.190 * (0.92 + 0.08 * math.cos(u * math.pi * 0.5))
+    return 0.225 * (0.92 + 0.08 * math.cos(u * math.pi * 0.5))
 
 
 def arm_center(t, style="outer"):
@@ -765,11 +771,11 @@ for i in range(8):
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.025
         inset_pos = cup_pos + cup_normal * rr * 0.018
-        sphere(f"SuckerCup{i}_{q}", 1.0, tuple(inset_pos), SPOT_DARK, root,
-               scale=(rr * 0.48, rr * 0.48, rr * 0.060), rot=normal_rot(cup_normal), seg=24)
-        hole_pos = inset_pos - cup_normal * rr * 0.018
+        torus(f"SuckerRim{i}_{q}", rr * 0.30, rr * 0.075, tuple(inset_pos),
+              SPOT_DARK, root, rot=normal_rot(cup_normal))
+        hole_pos = inset_pos + cup_normal * rr * 0.012
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.27, rr * 0.27, rr * 0.035), rot=normal_rot(cup_normal), seg=16)
+               scale=(rr * 0.20, rr * 0.20, rr * 0.050), rot=normal_rot(cup_normal), seg=20)
     for q, t in enumerate((0.30, 0.52, 0.74)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
@@ -784,7 +790,7 @@ for i in range(8):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.58, rr * 0.42, rr * 0.060), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.19, tip_loc, TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.23, tip_loc, TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
