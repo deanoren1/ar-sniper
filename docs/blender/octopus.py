@@ -17,9 +17,9 @@ from mathutils import Euler, Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = argv[0] if argv else "out"
 ANGLES = (argv[1] if len(argv) > 1 else "side").split(",")
-# 256px cells preserve the 1536x1024 sheet; 20 EEVEE samples improve glossy surfaces while staying below the CI timeout.
+# Keep the full 24-frame CI render comfortably inside the 40-minute job limit.
 CELL = min(int(argv[2]) if len(argv) > 2 else 256, 256)
-SAMPLES = min(int(argv[3]) if len(argv) > 3 else 20, 20)
+SAMPLES = min(int(argv[3]) if len(argv) > 3 else 6, 6)
 FRAMES_DIR = os.path.join(OUT, "frames")
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
@@ -118,7 +118,7 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.55
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.018
+    mix.inputs[0].default_value = 0.035
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -145,7 +145,7 @@ METAL = mat("Metal", (0.46, 0.50, 0.58), rough=0.31, metal=0.78, coat=0.18)
 add_skin(METAL, scale=25.0, strength=0.08)
 RING = mat("Ring", (0.92, 0.10, 0.44), rough=0.28, metal=0.12, coat=0.46)
 add_skin(RING, scale=30.0, strength=0.055)
-COLLAR = mat("Collar", (0.78, 0.20, 0.40), rough=0.34, metal=0.32, coat=0.36)
+COLLAR = mat("Collar", (0.95, 0.12, 0.46), rough=0.25, metal=0.18, coat=0.55)
 COPPER = mat("Copper", (0.90, 0.48, 0.15), rough=0.30, metal=0.78, coat=0.22)
 BADGE_YELLOW = mat("BadgeYellow", (1.0, 0.46, 0.018), rough=0.34, metal=0.22, coat=0.32)
 FLAME_BLACK = mat("FlameBlack", (0.012, 0.008, 0.018), rough=0.65)
@@ -428,15 +428,15 @@ EYE_Y, EYE_Z = -0.73, 0.27
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye.scale = (1.0, 1.0, 1.0)
 eye_parts = [
-    # Wide almond-like eye: horizontal cream sclera, warm orange iris and deep black pupil.
-    sphere("EyeWhite", 0.63, (0, 0, 0), EYE_WHITE, eye, scale=(1.44, 0.55, 0.70), seg=64),
-    sphere("Iris", 0.41, (0, -0.345, -0.015), IRIS, eye, scale=(1.08, 0.48, 0.88), seg=64),
-    sphere("Pupil", 0.265, (0, -0.465, -0.015), PUPIL, eye, scale=(1.05, 0.40, 0.92), seg=56),
-    sphere("Shine", 0.088, (0.10, -0.555, 0.10), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
+    # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
+    sphere("EyeWhite", 0.72, (0, 0, 0), EYE_WHITE, eye, scale=(1.05, 0.58, 1.00), seg=64),
+    sphere("Iris", 0.37, (0, -0.345, -0.015), IRIS, eye, scale=(1.00, 0.46, 1.00), seg=64),
+    sphere("Pupil", 0.22, (0, -0.465, -0.015), PUPIL, eye, scale=(1.00, 0.38, 1.00), seg=56),
+    sphere("Shine", 0.075, (0.10, -0.555, 0.14), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.69, 0.042, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale = (1.18, 1.0, 0.90)
+eye_socket = torus("EyeSocket", 0.69, 0.036, (0, -0.025, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale = (1.12, 1.0, 1.02)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
 def make_upper_eyelid(parent):
@@ -486,24 +486,24 @@ def make_upper_eyelid(parent):
     edge = pipe_curve("UpperLidEdge", lower_edge, LID, parent, bevel=0.034)
     return obj, edge
 
-upper_lid, upper_lid_edge = make_upper_eyelid(eye)
-eye_parts.extend([eye_socket, upper_lid, upper_lid_edge])
+# The supplied reference has a fully open eye with no eyebrow/eyelid crossing it.
+eye_parts.append(eye_socket)
 
 # Jagged grin with uneven fangs, a deeper dark cavity and a visible pink tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.34))
 mouth_parts = [sphere("MouthCavity", 0.45, (0, 0, 0), MOUTH, mouth,
                       scale=(1.40, 0.22, 0.66), seg=64)]
-mouth_lip = torus("MouthLip", 0.45, 0.048, (0, -1.075, -0.34), RING, pivot,
+mouth_lip = torus("MouthLip", 0.45, 0.035, (0, -1.075, -0.34), PURPLE_DARK, pivot,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.40, 0.68, 1.0)
-for i, (x, h) in enumerate(((-0.45, 0.23), (-0.29, 0.17), (-0.10, 0.14),
-                            (0.11, 0.15), (0.30, 0.18), (0.46, 0.24))):
-    mouth_parts.append(cone(f"ToothU{i}", 0.078, 0.0, h,
-                            (x, -0.10, 0.19 - h / 2), TEETH, mouth,
+mouth_lip.scale = (1.36, 0.68, 0.92)
+# Four prominent fangs, matching the sparse, large teeth in the reference.
+for i, (x, h) in enumerate(((-0.27, 0.24), (0.27, 0.24))):
+    mouth_parts.append(cone(f"ToothU{i}", 0.10, 0.0, h,
+                            (x, -0.10, 0.18 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.34, 0.15), (-0.12, 0.11), (0.16, 0.12), (0.36, 0.16))):
-    mouth_parts.append(cone(f"ToothL{i}", 0.066, 0.0, h,
-                            (x, -0.10, -0.19 + h / 2), TEETH, mouth))
+for i, (x, h) in enumerate(((-0.27, 0.18), (0.27, 0.18))):
+    mouth_parts.append(cone(f"ToothL{i}", 0.085, 0.0, h,
+                            (x, -0.10, -0.18 + h / 2), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.17, (0, -0.14, -0.16), TONGUE,
                           scale=(1.60, 0.30, 0.34), seg=40))
 
@@ -870,7 +870,7 @@ def fit_character_camera():
     monster.rotation_euler[2] = original_angle
     bpy.context.view_layer.update()
     # Leave breathing room: the previous 0.92 scale clipped both the dome and arm tips.
-    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.14
+    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.04
     cam.location.x = sum(centers_x) / len(centers_x)
     cam.location.z = sum(centers_z) / len(centers_z)
     bpy.context.view_layer.update()
@@ -907,7 +907,7 @@ bg.inputs[1].default_value = 0.4
 
 # Eevee avoids a reproducible native Cycles BVH crash in the headless GitHub runner.
 scene.render.engine = "BLENDER_EEVEE_NEXT"
-scene.eevee.taa_render_samples = max(12, SAMPLES)
+scene.eevee.taa_render_samples = max(4, SAMPLES)
 scene.render.image_settings.file_format = "PNG"
 scene.render.film_transparent = True
 scene.render.image_settings.file_format = "PNG"
