@@ -14,7 +14,7 @@ import org.json.JSONObject
  */
 object GeminiScan {
 
-    const val DEFAULT_MODEL = "gemini-2.5-flash"
+    const val DEFAULT_MODEL = "gemini-3.8-flash"
     private const val MAX_SIDE = 1024
 
     /** תיבה מנורמלת לתמונה (0..1) ותיאור */
