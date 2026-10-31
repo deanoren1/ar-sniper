@@ -53,6 +53,12 @@ sealed class WeaponArt {
         val cell: Int = sheet.width / 6
     }
 
+    /** Plasma בגיליון זוויות: 7 עמודות (מקצה שמאל לקצה ימין) על 5 שורות: עמידה, 3 שלבי טעינה, הבזק ירי */
+    class Aim(val sheet: ImageBitmap) : WeaponArt() {
+        val cw: Int = sheet.width / 7
+        val ch: Int = sheet.height / 5
+    }
+
     class Still(val idle: ImageBitmap, val fire: ImageBitmap, val muzzleX: Float, val muzzleY: Float) : WeaponArt()
 }
 
@@ -71,7 +77,7 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
     val context = LocalContext.current
     return remember(weapon) {
         when (weapon) {
-            WeaponId.Plasma -> decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
+            WeaponId.Plasma -> decode(context, R.drawable.weapon_aim)?.let { WeaponArt.Aim(it) }
             WeaponId.Auto -> still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
             WeaponId.Spread -> still(context, R.drawable.weapon_spread_idle, R.drawable.weapon_spread_fire, 0.42f, 0.37f)
             WeaponId.Sniper -> still(context, R.drawable.weapon_sniper_idle, R.drawable.weapon_sniper_fire, 0.39f, 0.35f)
@@ -86,6 +92,9 @@ private fun still(context: android.content.Context, idle: Int, fire: Int, mx: Fl
 }
 
 private const val TRACER_SECONDS = 0.13f
+
+/** מיקום הלוע (שבר מרוחב התא) בכל זווית, בשורת ההבזק */
+private val AIM_MUZZLE_X = floatArrayOf(0.47f, 0.50f, 0.48f, 0.50f, 0.535f, 0.52f, 0.55f)
 
 /** מיקום הלוע בתא ההדף של Plasma (שבר מרוחב ומגובה התא), ממנו יוצא קו הפלזמה */
 private const val MUZZLE_X = 0.33f
@@ -117,10 +126,11 @@ fun WeaponLayer(
     weapon: Weapon,
     nowNanos: Long,
     tracerTarget: Offset?,
+    aimX: Float = 0.5f,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier.fillMaxSize()) {
-        drawWeapon(art, weapon, tracerTarget, nowNanos / 1e9f)
+        drawWeapon(art, weapon, tracerTarget, nowNanos / 1e9f, aimX)
     }
 }
 
@@ -141,7 +151,7 @@ private fun DrawScope.drawTracer(muzzle: Offset, target: Offset, since: Float) {
     drawCircle(Color(0xFF40C4FF).copy(alpha = a * 0.5f), 44f * density * (1.5f - a * 0.5f), target)
 }
 
-private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float) {
+private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float, aimX: Float) {
     // היעד נשמר כשבר מהמסך (0..1), כמו מיקום הכוונת. ממירים לפיקסלים
     val tracerTarget = tracerNormalized?.let { Offset(it.x * size.width, it.y * size.height) }
     val since = weapon.sinceShot
@@ -158,6 +168,46 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
     val bottom = size.height + size.height * 0.02f
 
     when (art) {
+        is WeaponArt.Aim -> {
+            // העמודה לפי מיקום הכוונת: הרובה מסתובב אליה, עם מעבר חלק בין שתי זוויות סמוכות
+            val pos = 3f + ((aimX - 0.62f) / 0.45f).coerceIn(-1f, 1f) * 3f
+            val lo = pos.toInt().coerceIn(0, 5)
+            val frac = (pos - lo).coerceIn(0f, 1f)
+            val row = when {
+                weapon.reloading -> 1 + (weapon.reloadProgress * 3f).toInt().coerceIn(0, 2)
+                since < 0.15f -> 4
+                else -> 0
+            }
+            val scale = size.height * 0.50f / art.ch
+            val w = art.cw * scale
+            val h = art.ch * scale
+            val left = size.width * 0.62f - w / 2f
+            val top = bottom - h
+            if (tracerTarget != null) {
+                val col = (lo + if (frac > 0.5f) 1 else 0).coerceIn(0, 6)
+                drawTracer(
+                    Offset(left + w * AIM_MUZZLE_X[col] + dx, top + h * 0.27f + dy),
+                    tracerTarget, since
+                )
+            }
+            translate(dx, dy) {
+                for (pass in 0..1) {
+                    val col = lo + pass
+                    if (col > 6) continue
+                    val a = if (pass == 0) 1f else frac
+                    if (a <= 0.01f) continue
+                    drawImage(
+                        image = art.sheet,
+                        srcOffset = IntOffset(col * art.cw, row * art.ch),
+                        srcSize = IntSize(art.cw, art.ch),
+                        dstOffset = IntOffset(left.toInt(), top.toInt()),
+                        dstSize = IntSize(w.toInt(), h.toInt()),
+                        alpha = a
+                    )
+                }
+            }
+        }
+
         is WeaponArt.Sheet -> {
             val (row, column) = frameOf(weapon, timeSeconds)
             // גובה התא הוא 55% מגובה המסך. הרובה מיושר לתחתית, וקצת יוצא מהמסך
@@ -218,6 +268,17 @@ fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
     val art = rememberWeaponArt(weapon) ?: return
     Canvas(modifier = modifier) {
         when (art) {
+            is WeaponArt.Aim -> {
+                val s = minOf(size.width / art.cw, size.height / art.ch)
+                drawImage(
+                    image = art.sheet,
+                    srcOffset = IntOffset(3 * art.cw, 0),
+                    srcSize = IntSize(art.cw, art.ch),
+                    dstOffset = IntOffset(((size.width - art.cw * s) / 2f).toInt(), (size.height - art.ch * s).toInt()),
+                    dstSize = IntSize((art.cw * s).toInt(), (art.ch * s).toInt())
+                )
+            }
+
             is WeaponArt.Sheet -> {
                 val s = minOf(size.width, size.height) / art.cell
                 drawImage(

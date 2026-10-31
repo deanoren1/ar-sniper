@@ -1478,7 +1478,7 @@ fun GameScreen(
 
         // הרובה בתחתית המסך (בלי מגע), ומד הכדורים מעל כפתור הירי
         if (weaponArt != null) {
-            WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget)
+            WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget, aimX = crosshair.x)
         }
         if (coop != null) {
             com.arsniper.ui.components.MicToggle(
