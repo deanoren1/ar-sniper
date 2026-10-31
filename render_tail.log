@@ -1,0 +1,136 @@
+EGL Error (0x3009): EGL_BAD_MATCH: Arguments are inconsistent (for example, a valid context requires buffers not supplied by a valid surface).
+Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
+Fra:1 Mem:159.28M (Peak 182.86M) | Time:00:38.91 | Rendering 1 / 10 samples
+Fra:1 Mem:159.28M (Peak 182.86M) | Time:01:27.38 | Rendering 10 / 10 samples
+Saved: 'out/hero_34.png'
+Time: 01:27.44 (Saving: 00:00.06)
+
+Fra:1 Mem:155.70M (Peak 164.08M) | Time:00:08.59 | Rendering 1 / 10 samples
+Fra:1 Mem:155.70M (Peak 164.08M) | Time:00:57.25 | Rendering 10 / 10 samples
+Saved: 'out/hero_front.png'
+Time: 00:57.32 (Saving: 00:00.06)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:12.87 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:55.34 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_0_0.png'
+Time: 00:55.35 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.10 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.17 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_0_1.png'
+Time: 00:48.18 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.31 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.80 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_0_2.png'
+Time: 00:48.81 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.27 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.18 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_0_3.png'
+Time: 00:48.19 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.10 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.18 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_0_4.png'
+Time: 00:48.19 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.12 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.27 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_0_5.png'
+Time: 00:48.28 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.11 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.65 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_1_0.png'
+Time: 00:48.66 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.22 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.19 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_1_1.png'
+Time: 00:48.20 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.09 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.50 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_1_2.png'
+Time: 00:48.51 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.09 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.07 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_1_3.png'
+Time: 00:48.08 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.08 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:46.46 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_1_4.png'
+Time: 00:46.47 (Saving: 00:00.00)
+
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:06.08 | Rendering 1 / 10 samples
+Fra:1 Mem:147.75M (Peak 156.13M) | Time:00:48.65 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_1_5.png'
+Time: 00:48.66 (Saving: 00:00.00)
+
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:06.12 | Rendering 1 / 10 samples
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:48.41 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_2_0.png'
+Time: 00:48.42 (Saving: 00:00.00)
+
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:06.01 | Rendering 1 / 10 samples
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:45.44 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_2_1.png'
+Time: 00:45.45 (Saving: 00:00.00)
+
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:06.15 | Rendering 1 / 10 samples
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:47.50 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_2_2.png'
+Time: 00:47.51 (Saving: 00:00.00)
+
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:05.90 | Rendering 1 / 10 samples
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:45.34 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_2_3.png'
+Time: 00:45.35 (Saving: 00:00.00)
+
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:05.94 | Rendering 1 / 10 samples
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:46.95 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_2_4.png'
+Time: 00:46.96 (Saving: 00:00.00)
+
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:06.07 | Rendering 1 / 10 samples
+Fra:1 Mem:148.01M (Peak 156.44M) | Time:00:47.66 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_2_5.png'
+Time: 00:47.67 (Saving: 00:00.00)
+
+Fra:1 Mem:148.11M (Peak 156.50M) | Time:00:06.00 | Rendering 1 / 10 samples
+Fra:1 Mem:148.11M (Peak 156.50M) | Time:00:47.20 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_3_0.png'
+Time: 00:47.21 (Saving: 00:00.00)
+
+Fra:1 Mem:148.11M (Peak 156.50M) | Time:00:06.08 | Rendering 1 / 10 samples
+Fra:1 Mem:148.11M (Peak 156.50M) | Time:00:45.74 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_3_1.png'
+Time: 00:45.75 (Saving: 00:00.00)
+
+Fra:1 Mem:147.00M (Peak 154.69M) | Time:00:05.98 | Rendering 1 / 10 samples
+Fra:1 Mem:147.00M (Peak 154.69M) | Time:00:46.23 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_3_2.png'
+Time: 00:46.24 (Saving: 00:00.00)
+
+Fra:1 Mem:147.00M (Peak 154.69M) | Time:00:05.99 | Rendering 1 / 10 samples
+Fra:1 Mem:147.00M (Peak 154.69M) | Time:00:48.07 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_3_3.png'
+Time: 00:48.08 (Saving: 00:00.00)
+
+Fra:1 Mem:146.87M (Peak 154.23M) | Time:00:05.92 | Rendering 1 / 10 samples
+Fra:1 Mem:146.87M (Peak 154.23M) | Time:00:47.75 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_3_4.png'
+Time: 00:47.76 (Saving: 00:00.00)
+
+Fra:1 Mem:90.15M (Peak 90.15M) | Time:00:01.29 | Rendering 1 / 10 samples
+Fra:1 Mem:90.15M (Peak 90.15M) | Time:00:07.37 | Rendering 10 / 10 samples
+Saved: 'out/frames/side_3_5.png'
+Time: 00:07.37 (Saving: 00:00.00)
+
+monster height 3.8941874504089355 ground shift 0.49346337080001834
+angle done side
+
+Blender quit
