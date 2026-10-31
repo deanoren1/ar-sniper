@@ -81,7 +81,25 @@ private fun DrawScope.drawTelegraph(t: TelegraphView, time: Float) {
     }
 }
 
+/** ירייה מבולבלת (המפלצת הייתה מבולבלת): מתפוגגת באמצע הדרך ולא מגיעה לשחקן. שאר הירי מצויר כרגיל */
 private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float, sprites: ShotSprites) {
+    if (!s.harmless) {
+        drawShotBody(s, time, radiusUnits, sprites)
+        return
+    }
+    val p = ((time - s.born) / s.flight).coerceIn(0f, 1f)
+    val t = ((p - 0.28f) / 0.32f).coerceIn(0f, 1f)
+    val fade = 1f - t * t * (3f - 2f * t)
+    if (fade <= 0.01f) return
+    drawIntoCanvas { canvas ->
+        val paint = androidx.compose.ui.graphics.Paint().apply { alpha = fade }
+        canvas.saveLayer(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height), paint)
+    }
+    drawShotBody(s, time, radiusUnits, sprites)
+    drawIntoCanvas { it.restore() }
+}
+
+private fun DrawScope.drawShotBody(s: Shot, time: Float, radiusUnits: Float, sprites: ShotSprites) {
     val pos = s.posAt(time)
     val cx = pos.x * size.width
     val cy = pos.y * size.height

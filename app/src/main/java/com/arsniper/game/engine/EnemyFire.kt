@@ -183,7 +183,8 @@ class EnemyFire(private val random: Random = Random.Default) {
         val sIterator = shots.iterator()
         while (sIterator.hasNext()) {
             val s = sIterator.next()
-            if (time - s.born >= s.flight) {
+            // ירייה מבולבלת מתפוגגת באמצע הדרך (ראו drawShot), ולא מגיעה לשחקן
+            if (time - s.born >= s.flight || (s.harmless && time - s.born >= s.flight * 0.62f)) {
                 if (!s.harmless) {
                     hits++
                     hitKinds.add(s.kind)
