@@ -264,8 +264,6 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     )
     val spin = when (s.kind) {
         ShotKind.Rock, ShotKind.Bomb, ShotKind.Spike -> time * 24f + s.id * 37f
-        // כדור האנרגיה: פני הכדור מסתובבים (בקליע מהצד הכדור מסתובב והשובל נשאר בכיוון התנועה)
-        ShotKind.Orb -> time * 150f + s.id * 50f
         else -> 0f
     }
     val mix = ((p - 0.42f) / 0.16f).coerceIn(0f, 1f)
