@@ -127,6 +127,11 @@ fun ArenaStyleLayer(
 
 /** המסגרת הקדמית של הארנה (קישוטי הקצוות), מעל התמונה והמפלצות */
 private fun DrawScope.drawArenaFrame(assets: ArenaAssets?) {
+    if (assets?.exactFit == true) {
+        // מסגרת סטטית שמתאימה בדיוק למסך (טונדרה)
+        assets.frame?.let { drawImage(it, dstSize = IntSize(size.width.toInt(), size.height.toInt())) }
+        return
+    }
     assets?.frame?.let { frame ->
         val w = size.width * 1.08f
         val h = size.height * 1.08f
@@ -300,7 +305,7 @@ private fun bakeWorldFrame(frameImage: ImageBitmap, worldAspect: Float, viewAspe
 }
 
 /** נכסי הארנה: מסגרת וכתמי רצפה, אם קיימים בקבצי המשחק (arena_frame_<style>, arena_decal_<style>_<n>) */
-private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>, val placed: List<Placed>) {
+private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>, val placed: List<Placed>, val exactFit: Boolean = false) {
     companion object {
         private val FLOOR_LABELS = setOf(3, 6, 9, 11, 13, 28, 29, 46, 52, 91, 94)
 
@@ -320,7 +325,7 @@ private class ArenaAssets(val frame: ImageBitmap?, val decals: List<ImageBitmap>
                 n++
             }
             if (frame == null && decals.isEmpty()) return null
-            return ArenaAssets(frame, decals, if (decals.isEmpty()) emptyList() else placeDecals(decals))
+            return ArenaAssets(frame, decals, if (decals.isEmpty()) emptyList() else placeDecals(decals), exactFit = style == ArenaStyle.Tundra && variant == 0)
         }
 
         /** בוחר מקומות לכתמים: רק על רצפה לפי ניתוח התמונה, גדולים יותר ככל שקרוב למצלמה */
