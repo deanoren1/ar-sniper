@@ -32,11 +32,11 @@ fun TundraSnow(nowNanos: Long, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.fillMaxSize()) {
         val t = nowNanos / 1e9f
         // רחוק: קטן, איטי, כמעט אנכי
-        tile(far, t, scale = 0.85f, vx = 0.004f, vy = 0.030f, sway = 0.010f, swayRate = 0.35f, phase = 0.0f, alpha = 0.55f)
+        tile(far, t, scale = 0.85f, vx = 0.004f, vy = 0.030f, sway = 0.010f, swayRate = 0.35f, phase = 0.0f, alpha = 0.30f)
         // בינוני: מהירות בינונית, נוטה ימינה
-        tile(mid, t, scale = 1.0f, vx = -0.012f, vy = 0.075f, sway = 0.020f, swayRate = 0.50f, phase = 1.7f, alpha = 0.42f)
+        tile(mid, t, scale = 1.0f, vx = -0.012f, vy = 0.075f, sway = 0.020f, swayRate = 0.50f, phase = 1.7f, alpha = 0.20f)
         // קרוב: גדול ומהיר, נוטה שמאלה, שקוף מאוד כדי לא להסתיר
-        tile(near, t, scale = 1.25f, vx = -0.030f, vy = 0.19f, sway = 0.035f, swayRate = 0.70f, phase = 3.1f, alpha = 0.26f)
+        tile(near, t, scale = 1.25f, vx = -0.030f, vy = 0.19f, sway = 0.035f, swayRate = 0.70f, phase = 3.1f, alpha = 0.10f)
         gust(mid, far, t)
     }
 }
@@ -90,7 +90,7 @@ private fun DrawScope.gust(a: ImageBitmap?, b: ImageBitmap?, t: Float) {
             srcSize = IntSize(img.width, img.height),
             dstOffset = IntOffset((x - w / 2f).toInt(), top.toInt()),
             dstSize = IntSize(w.toInt(), h.toInt().coerceAtLeast(band.toInt())),
-            alpha = 0.60f * env
+            alpha = 0.30f * env
         )
     }
 }

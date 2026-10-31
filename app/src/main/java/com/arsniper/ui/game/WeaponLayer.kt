@@ -171,10 +171,9 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
         is WeaponArt.Aim -> {
             // העמודה לפי מיקום הכוונת: הרובה מסתובב אליה, עם מעבר חלק בין שתי זוויות סמוכות
             val pos = 3f + ((aimX - 0.62f) / 0.45f).coerceIn(-1f, 1f) * 3f
-            val lo = pos.toInt().coerceIn(0, 5)
-            val frac = (pos - lo).coerceIn(0f, 1f)
+            val col0 = pos.toInt().let { (if (pos - it > 0.62f) it + 1 else it) }.coerceIn(0, 6)
             val row = when {
-                weapon.reloading -> 1 + (weapon.reloadProgress * 3f).toInt().coerceIn(0, 2)
+                weapon.reloading -> 1 + (weapon.reloadProgress * 2f).toInt().coerceIn(0, 1)
                 since < 0.15f -> 4
                 else -> 0
             }
@@ -184,27 +183,19 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val left = size.width * 0.62f - w / 2f
             val top = bottom - h
             if (tracerTarget != null) {
-                val col = (lo + if (frac > 0.5f) 1 else 0).coerceIn(0, 6)
                 drawTracer(
-                    Offset(left + w * AIM_MUZZLE_X[col] + dx, top + h * 0.16f + dy),
+                    Offset(left + w * AIM_MUZZLE_X[col0] + dx, top + h * 0.16f + dy),
                     tracerTarget, since
                 )
             }
             translate(dx, dy) {
-                for (pass in 0..1) {
-                    val col = lo + pass
-                    if (col > 6) continue
-                    val a = if (pass == 0) 1f else frac
-                    if (a <= 0.01f) continue
-                    drawImage(
-                        image = art.sheet,
-                        srcOffset = IntOffset(col * art.cw, row * art.ch),
-                        srcSize = IntSize(art.cw, art.ch),
-                        dstOffset = IntOffset(left.toInt(), top.toInt()),
-                        dstSize = IntSize(w.toInt(), h.toInt()),
-                        alpha = a
-                    )
-                }
+                drawImage(
+                    image = art.sheet,
+                    srcOffset = IntOffset(col0 * art.cw, row * art.ch),
+                    srcSize = IntSize(art.cw, art.ch),
+                    dstOffset = IntOffset(left.toInt(), top.toInt()),
+                    dstSize = IntSize(w.toInt(), h.toInt())
+                )
             }
         }
 

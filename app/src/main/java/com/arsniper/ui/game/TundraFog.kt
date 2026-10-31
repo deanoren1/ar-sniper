@@ -70,8 +70,8 @@ private fun envelope(local: Float): Float = when {
 
 private const val STEP = 10f
 private const val FADE = 3f
-private const val BACK_ALPHA = 0.9f
-private const val FRONT_ALPHA = 0.55f
+private const val BACK_ALPHA = 0.5f
+private const val FRONT_ALPHA = 0.22f
 
 private fun load(context: android.content.Context, name: String): ImageBitmap? {
     val id = context.resources.getIdentifier(name, "drawable", context.packageName)

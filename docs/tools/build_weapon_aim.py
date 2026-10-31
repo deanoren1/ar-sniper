@@ -23,6 +23,17 @@ def key(rgb):
     rgb2 = rgb.copy(); rgb2[..., 1] = np.minimum(g, np.maximum(r, b) + 0.02)
     return np.dstack([rgb2, alpha])
 
+def feather(img):
+    """soft alpha ramp on the left/right/top cell edges so arms that run off the cell fade instead of ending in a hard cut"""
+    arr = np.asarray(img).astype(float)
+    n = arr.shape[0]
+    ramp = lambda d, w: np.clip(d / w, 0, 1) ** 2 * (3 - 2 * np.clip(d / w, 0, 1))
+    idx = np.arange(n)
+    fx = np.minimum(ramp(idx, n * 0.10), ramp(n - 1 - idx, n * 0.10))
+    fy = ramp(idx, n * 0.07)
+    arr[..., 3] *= fx[None, :] * fy[:, None]
+    return Image.fromarray(arr.astype("uint8"), "RGBA")
+
 sheet = Image.new("RGBA", (CELL * 7, CELL * 5), (0, 0, 0, 0))
 muzzle = []
 for ri in range(5):
@@ -30,6 +41,7 @@ for ri in range(5):
         c = a[ri * S + INSET:(ri + 1) * S - INSET, ci * S + INSET:(ci + 1) * S - INSET]
         k = key(c)
         img = Image.fromarray((k * 255).astype("uint8"), "RGBA").resize((CELL, CELL), Image.LANCZOS)
+        img = feather(img)
         sheet.paste(img, (ci * CELL, ri * CELL))
         if ri == 0:
             al = np.asarray(img)[..., 3] > 128
