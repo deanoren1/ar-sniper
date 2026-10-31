@@ -86,9 +86,9 @@ fun ArenaStyleLayer(
         val worldMode = worldViewAspect > 0f
         if (!screenOnly) {
             assets?.let { drawDecals(it, if (worldMode) size.height * worldViewAspect else size.width) }
-            val grade = if (style == ArenaStyle.Tundra) null else gradeOf(style)
-            if (style == ArenaStyle.Tundra) {
-                // טונדרה: בלי מסכת צבע (הכול היה בהיר מדי), רק התמונה עצמה
+            val grade = if (REMOVE_COLOR_MASK) null else gradeOf(style)
+            if (REMOVE_COLOR_MASK) {
+                // בלי מסכת צבע בכל הארנות (גוון, תיקון צבע וקרני אור): רק התמונה עצמה
             } else if (grade == null) {
                 drawRect(Color(style.tint.toInt()).copy(alpha = style.tintAlpha))
             } else {
@@ -462,3 +462,6 @@ private fun smoothDepth(src: FloatArray, w: Int, h: Int, radius: Int): FloatArra
     }
     return cur
 }
+
+/** כיבוי מסכת הצבע של הארנות (גוון, תיקון צבע, קרני אור). false = חוזר לגוון הקודם */
+private const val REMOVE_COLOR_MASK = true
