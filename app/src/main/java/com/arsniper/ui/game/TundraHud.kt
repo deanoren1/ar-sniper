@@ -3,6 +3,8 @@ package com.arsniper.ui.game
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -31,8 +33,9 @@ fun BoxScope.TundraHudFrame(
     fire: @Composable () -> Unit,
     ammo: @Composable () -> Unit
 ) {
-    val widthDp = LocalConfiguration.current.screenWidthDp
-    val d = (widthDp / 2340f * 1.2f).coerceIn(0.25f, 0.62f)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val widthDp = maxWidth.value
+    val d = (widthDp / 2340f * 1.32f).coerceIn(0.3f, 0.6f)
     @Composable
     fun Piece(res: Int, align: Alignment, w: Int, h: Int, content: @Composable BoxScope.() -> Unit) {
         Box(Modifier.align(align).size((w * d).dp, (h * d).dp)) {
@@ -48,17 +51,24 @@ fun BoxScope.TundraHudFrame(
     }
     // החלק העליון: תמונה אחת לרוחב המסך (עם השרשראות), בקנה מידה אחיד לפי הרוחב
     val dTop = widthDp / 2340f
-    Box(Modifier.align(Alignment.TopCenter).size((2340 * dTop).dp, (400 * dTop).dp)) {
-        Image(painterResource(R.drawable.tundra_hud_top), null, Modifier.size((2340 * dTop).dp, (400 * dTop).dp), contentScale = ContentScale.FillBounds)
-        fun slotBox(x: Int, y: Int, w: Int, h: Int) = Modifier.offset((x * dTop).dp, (y * dTop).dp).size((w * dTop).dp, (h * dTop).dp)
+    Box(Modifier.align(Alignment.TopCenter).size((2340 * dTop).dp, (400 * dTop * TOP_STRETCH).dp)) {
+        Image(painterResource(R.drawable.tundra_hud_top), null, Modifier.size((2340 * dTop).dp, (400 * dTop * TOP_STRETCH).dp), contentScale = ContentScale.FillBounds)
+        fun slotBox(x: Int, y: Int, w: Int, h: Int) = Modifier.offset((x * dTop).dp, (y * dTop * TOP_STRETCH).dp).size((w * dTop).dp, (h * dTop * TOP_STRETCH).dp)
         Box(slotBox(144, 106, 440, 77)) { FitSlot(currency) }
         Box(slotBox(923, 73, 490, 98)) { FitSlot(hearts) }
         Box(slotBox(1753, 108, 438, 80)) { FitSlot(zoom) }
     }
+    // רצועת השלג שבין שתי הפינות התחתונות (נמתחת לרוחב המסך, מאחורי הפינות)
+    Image(
+        painterResource(R.drawable.tundra_hud_bm), null,
+        Modifier.align(Alignment.BottomCenter).size((widthDp - 1400f * d + 100f).coerceAtLeast(120f).dp, (140 * d).dp),
+        contentScale = ContentScale.FillBounds
+    )
     Piece(R.drawable.tundra_hud_bl, Alignment.BottomStart, 700, 520) { Slot(100, 206, 233, 233, joystick) }
     Piece(R.drawable.tundra_hud_br, Alignment.BottomEnd, 700, 520) {
         Slot(356, 206, 230, 230, fire)
         Slot(600, 155, 60, 205, ammo)
+    }
     }
 }
 
@@ -71,7 +81,7 @@ private fun FitSlot(content: @Composable () -> Unit) {
         val ch = (placeables.maxOfOrNull { it.height } ?: 1).coerceAtLeast(1)
         val w = constraints.maxWidth
         val h = constraints.maxHeight
-        val s = minOf(w / cw.toFloat(), h / ch.toFloat())
+        val s = minOf(1f, w / cw.toFloat(), h / ch.toFloat())
         layout(w, h) {
             placeables.forEach {
                 it.placeRelativeWithLayer((w - it.width) / 2, (h - it.height) / 2) {
@@ -83,3 +93,5 @@ private fun FitSlot(content: @Composable () -> Unit) {
         }
     }
 }
+
+private const val TOP_STRETCH = 1.35f

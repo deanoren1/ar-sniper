@@ -17,7 +17,7 @@ alpha = np.where(ndi.binary_dilation(outside, iterations=3), soft, 1.0)
 alpha = np.where(outside, np.minimum(alpha, soft), alpha)
 rgba = np.dstack([a / 255, alpha])
 full = Image.fromarray((rgba * 255).astype("uint8"), "RGBA")
-pieces = {"bl": (0, 560, 700, 1080), "br": (1640, 560, 2340, 1080)}
+pieces = {"bl": (0, 560, 700, 1080), "br": (1640, 560, 2340, 1080), "bm": (900, 940, 1440, 1080)}
 if len(sys.argv) > 3:
     t = np.asarray(Image.open(sys.argv[3]).convert("RGB")).astype(float)
     tm = t.max(2)
