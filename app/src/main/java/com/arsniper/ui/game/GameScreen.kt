@@ -1295,6 +1295,12 @@ fun GameScreen(
                     val shakeY = cos(t * 97f) * shake * size.height * 0.016f
                     translationX = (0.5f - camera.center.x * camera.zoom) * size.width + shakeX
                     translationY = (0.5f - camera.center.y * camera.zoom) * size.height + shakeY
+                    // פגיעת כדור אנרגיה: העולם מטשטש לרגע ומתחדד בחזרה (הממשק נשאר חד כדי שאפשר להמשיך לשחק).
+                    // ב-Android 12 ומעלה בלבד; בישנים יותר אין טשטוש
+                    if (orbImpact > 0f) {
+                        val blur = OrbFx.blur(OrbFx.IMPACT_SECONDS - orbImpact) * 16f * density
+                        if (blur > 0.5f) renderEffect = androidx.compose.ui.graphics.BlurEffect(blur, blur, androidx.compose.ui.graphics.TileMode.Clamp)
+                    }
                 }
         ) {
             BackgroundLayer(photo = photo, colorFilter = remember(style) { arenaColorFilter(style) })
