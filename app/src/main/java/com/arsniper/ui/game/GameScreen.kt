@@ -1328,9 +1328,12 @@ fun GameScreen(
                 }
             }
             ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, frameVariant = if (themed != null) frameVariant else -1, worldViewAspect = if (panoMode) viewAspect else 0f)
+            // ערפל הטונדרה, המעבר האחורי: מאחורי המפלצות
+            if (style == ArenaStyle.Tundra) TundraFog(nowNanos = frameNanos, front = false)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
-            // ערפל צף מעל המפלצות (טונדרה מעוצבת): מסתיר אותן חלקית
-            if (themed != null) MistLayer(nowNanos = frameNanos)
+            // ערפל צף מעל המפלצות: בטונדרה שני סוגי ערפל שמתחלפים (המעבר הקדמי), בשאר הארנות המעוצבות הכתמים הישנים
+            if (style == ArenaStyle.Tundra) TundraFog(nowNanos = frameNanos, front = true)
+            else if (themed != null) MistLayer(nowNanos = frameNanos)
             // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
             if (!(themed != null && SHOW_FRAME_ON_THEMED.not())) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true, frameVariant = if (themed != null) frameVariant else -1, worldViewAspect = if (panoMode) viewAspect else 0f)
             CombatLayer(

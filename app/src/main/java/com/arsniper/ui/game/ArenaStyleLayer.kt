@@ -59,7 +59,7 @@ fun ArenaStyleLayer(
     val context = LocalContext.current
     val assets = remember(style, props, frameOnly, frameVariant) { if (props) ArenaAssets.load(context, style, frameOnly, frameVariant) else null }
     val fog = remember(style, props, frameOnly, screenOnly) {
-        if (props && !frameOnly && !screenOnly && style.fog > 0f) buildDepthFog(style) else null
+        if (props && !frameOnly && !screenOnly && style.fog > 0f && style != ArenaStyle.Tundra) buildDepthFog(style) else null
     }
     if (frameOnly) {
         val baked = remember(assets, worldViewAspect) {
@@ -108,8 +108,8 @@ fun ArenaStyleLayer(
                 radius = max(size.width, size.height) * 0.75f
             )
         )
-        // ערפל לאורך האופק, נושם לאט
-        if (style.fog > 0f) {
+        // ערפל לאורך האופק, נושם לאט (בטונדרה הערפל מגיע מ-TundraFog)
+        if (style.fog > 0f && style != ArenaStyle.Tundra) {
             val a = style.fog * (0.85f + 0.15f * sin(t * 0.4f))
             val fogColor = Color(style.particleColor.toInt()).copy(alpha = a)
             drawRect(
