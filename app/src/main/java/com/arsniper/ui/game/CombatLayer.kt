@@ -227,7 +227,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     val center = base + off
     // היורה בצד המסך: שובל זוהר מהצד שממנו הגיע. יורה מהחזית (באמצע): רק הילה וטבעת מסביב.
     val side = ((s.x - 0.5f) * 2f).coerceIn(-1f, 1f)
-    val useSide = pair.side != null && abs(side) > 0.2f
+    // כדור האנרגיה תמיד עם שובל שמצביע בחזרה אל המפלצת (גם כשהיא באמצע המסך), כמו בסטוריבורד
+    val useSide = pair.side != null && (abs(side) > 0.2f || s.kind == ShotKind.Orb)
     if (!useSide && abs(side) > 0.2f) {
         val dir = if (side < 0f) -1f else 1f
         val len = diameter * (0.9f + 1.1f * abs(side)) * (0.5f + 0.5f * p)
@@ -274,7 +275,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         val k = diameter / sp.dia
         val w = (sp.image.width * k).toInt().coerceAtLeast(1)
         val h = (sp.image.height * k).toInt().coerceAtLeast(1)
-        val flip = if (side < 0f) -1f else 1f
+        val orbTrail = s.kind == ShotKind.Orb
+        val flip = if (orbTrail || side >= 0f) 1f else -1f
         // השובל מצביע אחורה, לכיוון שממנו הגיע הקליע בפועל (לפי קו הטיסה על המסך)
         val backX = (s.x - Shot.targetX) * size.width
         val backY = (s.y - Shot.targetY) * size.height
@@ -283,7 +285,8 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         var turn = wanted - native
         while (turn > 180f) turn -= 360f
         while (turn < -180f) turn += 360f
-        turn = turn.coerceIn(-60f, 60f)
+        // שאר הקליעים: הטיה מוגבלת סביב כיוון הציור. כדור האנרגיה: השובל מסתובב לגמרי אל המפלצת
+        if (orbTrail) turn = wanted - sp.trailDeg else turn = turn.coerceIn(-60f, 60f)
         rotate(turn, center) {
             withTransform({ scale(flip, 1f, center) }) {
                 drawImage(

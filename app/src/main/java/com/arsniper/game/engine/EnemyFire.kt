@@ -229,7 +229,8 @@ class EnemyFire(private val random: Random = Random.Default) {
             Shot(
                 id = nextShotId++,
                 x = enemy.position.x,
-                y = enemy.position.y,
+                // כדור האנרגיה יוצא מהבטן ולא ממרכז הגוף (כמו בהכנה שבציור)
+                y = enemy.position.y + if (foe.shot == ShotKind.Orb) enemy.radius * 0.3f else 0f,
                 kind = foe.shot,
                 born = time,
                 flight = foe.flightSeconds * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)) *
