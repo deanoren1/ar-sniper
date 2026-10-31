@@ -112,20 +112,20 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.24, 0.52, 0.94, 1.0)
+    shell.inputs["Base Color"].default_value = (0.19, 0.40, 0.76, 1.0)
     shell.inputs["Roughness"].default_value = 0.075
     shell.inputs["Metallic"].default_value = 0.0
     shell.inputs["Coat Weight"].default_value = 0.55
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.018
+    mix.inputs[0].default_value = 0.006
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
-PURPLE = mat("Purple", (0.53, 0.014, 0.76), rough=0.22, coat=0.76)
+PURPLE = mat("Purple", (0.43, 0.008, 0.68), rough=0.22, coat=0.76)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.29, 0.008, 0.57), rough=0.20, coat=0.66)
@@ -136,7 +136,7 @@ EYE_WHITE = mat("EyeWhite", (1.0, 0.72, 0.34), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.000001, 0.000001, 0.000001), rough=0.22, coat=0.20)
+PUPIL = mat("Pupil", (0.000001, 0.000001, 0.000001), rough=0.38, coat=0.025)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
@@ -156,8 +156,8 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.035, 0.001, 0.065), rough=0.42, coat=0.12)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.57, 0.018, 0.79), rough=0.23, coat=0.68,
-               emit=(0.035, 0.002, 0.065), strength=0.025)
+TENTACLE = mat("Tentacle", (0.46, 0.010, 0.70), rough=0.24, coat=0.62,
+               emit=(0.018, 0.001, 0.035), strength=0.012)
 TANK = mat("Tank", (0.68, 0.018, 0.46), rough=0.38, metal=0.20, coat=0.42)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -429,11 +429,11 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.73, 0.42
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.86, 1.0, 0.85)  # compensate for the larger head shell
+eye.scale = (1.0, 1.0, 0.98)  # enlarge the cyclopean eye to match the dominant reference silhouette
 eye_parts = [
     # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
-    sphere("EyeWhite", 0.72, (0, 0, 0), EYE_WHITE, eye, scale=(0.88, 0.56, 0.90), seg=64),
-    sphere("Iris", 0.40, (0, -0.345, -0.015), IRIS, eye, scale=(1.00, 0.46, 1.00), seg=64),
+    sphere("EyeWhite", 0.72, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
+    sphere("Iris", 0.40, (0, -0.345, -0.015), IRIS, eye, scale=(0.95, 0.46, 0.98), seg=64),
     sphere("Pupil", 0.25, (0, -0.465, -0.015), PUPIL, eye, scale=(1.00, 0.38, 1.00), seg=56),
     sphere("Shine", 0.075, (0.10, -0.555, 0.14), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
 ]
@@ -494,22 +494,22 @@ eye_parts.append(eye_socket)
 
 # Jagged grin with uneven fangs, a deeper dark cavity and a visible pink tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.36))
-mouth.scale = (0.86, 1.0, 0.85)  # keep the mouth size stable as the head grows
+mouth.scale = (1.0, 1.0, 0.95)  # broader grin with enough room for the tongue and separated fangs
 mouth_parts = [sphere("MouthCavity", 0.45, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.42, 0.22, 0.60), seg=64)]
+                      scale=(1.52, 0.22, 0.68), seg=64)]
 mouth_lip = torus("MouthLip", 0.45, 0.035, (0, -1.075, -0.36), PURPLE_DARK, pivot,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.30, 0.70, 0.75)
-# Four prominent fangs, matching the sparse, large teeth in the reference.
-for i, (x, h) in enumerate(((-0.29, 0.25), (0.29, 0.25))):
-    mouth_parts.append(cone(f"ToothU{i}", 0.11, 0.0, h,
-                            (x, -0.10, 0.18 - h / 2), TEETH, mouth,
+mouth_lip.scale = (1.38, 0.70, 0.82)
+# Stagger upper and lower fangs so they read as separate teeth, not hourglass diamonds.
+for i, (x, h) in enumerate(((-0.43, 0.28), (0.43, 0.28))):
+    mouth_parts.append(cone(f"ToothU{i}", 0.105, 0.0, h,
+                            (x, -0.12, 0.22 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.29, 0.17), (0.29, 0.17))):
-    mouth_parts.append(cone(f"ToothL{i}", 0.080, 0.0, h,
-                            (x, -0.10, -0.17 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.18, (0, -0.24, -0.08), TONGUE,
-                          scale=(1.65, 0.55, 0.50), seg=40))
+for i, (x, h) in enumerate(((-0.18, 0.18), (0.18, 0.18))):
+    mouth_parts.append(cone(f"ToothL{i}", 0.075, 0.0, h,
+                            (x, -0.12, -0.23 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.18, (0, -0.32, -0.13), TONGUE,
+                          scale=(1.75, 0.65, 0.65), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
 body_band("LowerPinkBand", pivot, -0.94, -0.52, COLLAR)
@@ -665,18 +665,18 @@ def arm_radius(t):
 
 
 def arm_center(t, style="outer"):
-    u = max(0.0, min(1.0, (t - 0.28) / 0.72))
-    hook = u * u * (3.0 - 2.0 * u)
+    """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
-        x = 1.72 * math.sin(math.pi * 0.50 * t) + 0.15 * hook
-        z = -1.58 * t + 1.76 * hook
+        p0, p1, p2, p3 = (0.0, 0.0), (0.20, -0.55), (1.70, -1.20), (1.28, 0.18)
     elif style == "front":
-        # Shorter front arms round forward and curl upward instead of ending as straight tubes.
-        x = 1.24 * math.sin(math.pi * 0.50 * t) + 0.18 * hook
-        z = -1.30 * t + 1.36 * hook
+        p0, p1, p2, p3 = (0.0, 0.0), (0.05, -0.55), (0.55, -1.70), (0.48, -1.62)
     else:
-        x = 1.22 * math.sin(math.pi * 0.50 * t) + 0.12 * hook
-        z = -1.34 * t + 1.34 * hook
+        p0, p1, p2, p3 = (0.0, 0.0), (0.10, -0.45), (0.95, -1.05), (0.90, -0.82)
+    u = 1.0 - t
+    x = (u ** 3 * p0[0] + 3.0 * u * u * t * p1[0]
+         + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
+    z = (u ** 3 * p0[1] + 3.0 * u * u * t * p1[1]
+         + 3.0 * u * t * t * p2[1] + t ** 3 * p3[1])
     return 0.85 * Vector((x, arm_curve_y(t), z))
 
 
