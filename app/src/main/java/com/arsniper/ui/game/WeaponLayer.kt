@@ -77,7 +77,7 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
     val context = LocalContext.current
     return remember(weapon) {
         when (weapon) {
-            WeaponId.Plasma -> decode(context, R.drawable.weapon_aim)?.let { WeaponArt.Aim(it) }
+            WeaponId.Plasma -> decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
             WeaponId.Auto -> still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
             WeaponId.Spread -> still(context, R.drawable.weapon_spread_idle, R.drawable.weapon_spread_fire, 0.42f, 0.37f)
             WeaponId.Sniper -> still(context, R.drawable.weapon_sniper_idle, R.drawable.weapon_sniper_fire, 0.39f, 0.35f)
