@@ -88,7 +88,12 @@ object SpotRefiner {
                 val value = when {
                     sureInside[cell] -> 1f
                     !maybeInside[cell] -> 0f
-                    else -> ((filtered[y * fw + x] - 0.5f) * SHARPEN + 0.5f).coerceIn(0f, 1f)
+                    else -> {
+                        val soft = ((filtered[y * fw + x] - 0.5f) * SHARPEN + 0.5f).coerceIn(0f, 1f)
+                        // חלקים דקים של העצם (דופן של דלי, רגל כיסא) לא מגיעים ל"בטוח בפנים": שלא יהיו שקופים למחצה
+                        // (אחרת הדמות נראית מבעד לעצם); תאים שהמודל סימן כעצם נשארים כמעט אטומים
+                        if (coarse[cell]) maxOf(soft, 0.93f) else soft
+                    }
                 }
                 alpha[y * fw + x] = (value * 255f + 0.5f).toInt().toByte()
             }
