@@ -137,7 +137,7 @@ EYE_WHITE = mat("EyeWhite", (1.0, 0.70, 0.24), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.09, coat=0.68, emit=(0.0, 0.0, 0.0), strength=0.0)
+PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.16, coat=0.28, emit=(0.0, 0.0, 0.0), strength=0.0)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
@@ -155,7 +155,7 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.004, 0.0005, 0.010), rough=0.24, coat=0.24)
+SUCKER = mat("Sucker", (0.028, 0.003, 0.065), rough=0.34, coat=0.12)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.48, 0.012, 0.60), rough=0.27, coat=0.48,
                emit=(0.018, 0.001, 0.035), strength=0.012)
@@ -526,21 +526,21 @@ eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.50))
-mouth.scale = (1.30, 1.0, 0.90)
+mouth.scale = (1.18, 1.0, 0.94)
 mouth_parts = [sphere("MouthCavity", 0.39, (0, 0, 0), MOUTH, mouth,
                       scale=(1.30, 0.22, 0.50), seg=64)]
 mouth_lip = torus("MouthLip", 0.39, 0.030, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
 mouth_lip.scale = (1.32, 0.56, 0.70)
-for i, (x, h, width) in enumerate(((-0.40, 0.22, 0.095), (0.40, 0.22, 0.095))):
+for i, (x, h, width) in enumerate(((-0.37, 0.18, 0.080), (0.37, 0.18, 0.080))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.12, 0.16 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.39, 0.16), (0.39, 0.16))):
+for i, (x, h) in enumerate(((-0.36, 0.13), (0.36, 0.13))):
     mouth_parts.append(cone(f"ToothL{i}", 0.070, 0.0, h,
-                            (x, -0.12, -0.15 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.22, (0, -0.19, -0.085), TONGUE,
-                          scale=(1.55, 0.95, 0.90), seg=40))
+                            (x, -0.14, -0.15 + h / 2), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.24, (0, -0.255, -0.045), TONGUE,
+                          scale=(1.48, 1.0, 0.82), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
 body_band("LowerPinkBand", pivot, -1.08, -0.66, COLLAR)
@@ -694,9 +694,9 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Tapered, soft tentacles: broad at the mantle, slimmer toward rounded curled tips.
     if t < 0.58:
-        return 0.275 - 0.055 * (t / 0.58)
+        return 0.305 - 0.060 * (t / 0.58)
     u = min(1.0, max(0.0, (t - 0.58) / 0.42))
-    return 0.220 * (0.82 + 0.18 * math.cos(u * math.pi * 0.5))
+    return 0.245 * (0.82 + 0.18 * math.cos(u * math.pi * 0.5))
 
 
 def arm_center(t, style="outer"):
@@ -704,7 +704,7 @@ def arm_center(t, style="outer"):
     if style == "outer":
         p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.50), (1.62, -1.12), (1.40, 0.18)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.24, -0.56), (0.92, -1.28), (1.12, -0.56)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.58), (1.04, -1.30), (1.38, -0.48)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.40), (0.96, -0.88), (0.92, -0.12)
     u = 1.0 - t
@@ -769,7 +769,7 @@ def make_arm_tube(name, parent, style):
 
 arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שורש)
 tips = []
-ARM_ANGLES = (220, 250, 290, 320, 40, 70, 110, 140)  # four forward arms plus four rear/side supports
+ARM_ANGLES = (220, 238, 302, 320, 40, 70, 110, 140)  # four forward arms plus four rear/side supports
 for i in range(8):
     theta = math.radians(ARM_ANGLES[i])
     style = "outer" if i in (0, 3) else "front" if i in (1, 2) else "rear"
@@ -798,11 +798,11 @@ for i in range(8):
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.005
         inset_pos = cup_pos - cup_normal * rr * 0.045
-        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.028, tuple(inset_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.018, tuple(inset_pos),
               SPOT_DARK, root, rot=normal_rot(cup_normal))
-        hole_pos = inset_pos - cup_normal * rr * 0.006
+        hole_pos = inset_pos - cup_normal * rr * 0.015
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.26, rr * 0.26, rr * 0.050), rot=normal_rot(cup_normal), seg=20)
+               scale=(rr * 0.30, rr * 0.30, rr * 0.060), rot=normal_rot(cup_normal), seg=20)
     for q, t in enumerate((0.22, 0.52, 0.82)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
@@ -817,7 +817,7 @@ for i in range(8):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.42, rr * 0.32, rr * 0.026), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.145, tip_loc, TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.165, tip_loc, TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
