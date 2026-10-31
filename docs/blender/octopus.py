@@ -137,7 +137,7 @@ EYE_WHITE = mat("EyeWhite", (1.0, 0.70, 0.24), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.0000005, 0.0000005, 0.0000005), rough=0.16, coat=0.38)
+PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.07, coat=0.68)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
@@ -150,7 +150,7 @@ COLLAR = mat("Collar", (0.95, 0.12, 0.46), rough=0.25, metal=0.18, coat=0.55)
 COPPER = mat("Copper", (0.90, 0.48, 0.15), rough=0.30, metal=0.78, coat=0.22)
 BADGE_YELLOW = mat("BadgeYellow", (1.0, 0.46, 0.018), rough=0.34, metal=0.22, coat=0.32)
 FLAME_BLACK = mat("FlameBlack", (0.012, 0.008, 0.018), rough=0.65)
-FLAME = mat("Flame", (1.0, 0.25, 0.02), emit=(1.0, 0.22, 0.02), strength=2.2)
+FLAME = mat("Flame", (1.0, 0.30, 0.015), emit=(1.0, 0.16, 0.005), strength=0.18)
 ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
@@ -163,8 +163,8 @@ TANK = mat("Tank", (0.68, 0.018, 0.46), rough=0.38, metal=0.20, coat=0.42)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
-DOME_RIM = mat("DomeRim", (0.06, 0.34, 0.96), rough=0.20, metal=0.08,
-               emit=(0.02, 0.12, 0.62), strength=0.20, coat=0.36)
+DOME_RIM = mat("DomeRim", (0.18, 0.48, 0.95), rough=0.20, metal=0.08,
+               emit=(0.04, 0.16, 0.55), strength=0.09, coat=0.36)
 DOME_HIGHLIGHT_CYAN = mat("DomeHighlightCyan", (0.48, 0.82, 1.0), rough=0.24,
                           emit=(0.12, 0.34, 0.58), strength=0.16, coat=0.18)
 DOME_HIGHLIGHT_WHITE = mat("DomeHighlightWhite", (0.86, 0.94, 1.0), rough=0.28,
@@ -393,8 +393,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.02, 0.84, 0.075, 0.050, 0.0),
 )):
     x, z = sx, sz
-    rx *= 1.55
-    rz *= 1.42
+    rx *= 1.22
+    rz *= 1.18
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     spot_material = SPOT_DARK if i in (1, 5, 7) else SPOT
@@ -409,8 +409,8 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.18, -0.41, 0.050, 0.035), (0.52, 0.46, 0.060, 0.045),
     (-0.52, 0.38, 0.060, 0.045),
 )):
-    rx *= 1.32
-    rz *= 1.24
+    rx *= 1.12
+    rz *= 1.08
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
@@ -427,12 +427,12 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.008
     sphere(f"ExtraBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
-           scale=(rx * 1.48, 0.010, rz * 1.36), rot=(0, angle, 0), seg=24)
+           scale=(rx * 1.18, 0.010, rz * 1.14), rot=(0, angle, 0), seg=24)
 
 # Small rounded crown spikes; the reference uses short bumps, not tall fins.
 for i, (az_deg, pol_deg, height) in enumerate((
-    (205, 38, 0.20), (228, 29, 0.23), (247, 22, 0.26),
-    (270, 16, 0.28), (293, 22, 0.26), (312, 29, 0.23), (335, 38, 0.20)
+    (228, 29, 0.16), (247, 22, 0.18), (270, 16, 0.20),
+    (293, 22, 0.18), (312, 29, 0.16)
 )):
     az = math.radians(az_deg)
     pol = math.radians(pol_deg)
@@ -457,18 +457,18 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.73, 0.30
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.84, 0.84, 0.84)  # keep more spotted mantle visible around the eye, as in the reference
+eye.scale = (0.87, 0.87, 0.87)  # keep more spotted mantle visible around the eye, as in the reference
 eye_parts = [
     # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
     sphere("EyeWhite", 0.78, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
-    sphere("Iris", 0.39, (0, -0.375, -0.015), IRIS, eye, scale=(0.95, 0.46, 0.98), seg=64),
-    sphere("Pupil", 0.25, (0, -0.505, -0.015), PUPIL, eye, scale=(1.00, 0.38, 1.00), seg=56),
+    sphere("Iris", 0.41, (0, -0.375, -0.015), IRIS, eye, scale=(0.95, 0.46, 0.98), seg=64),
+    sphere("Pupil", 0.27, (0, -0.505, -0.015), PUPIL, eye, scale=(1.00, 0.38, 1.00), seg=56),
     sphere("Shine", 0.075, (0.10, -0.595, 0.16), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.76, 0.026, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.76, 0.042, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.04, 1.0, 0.90)
-eye_socket_accent = torus("EyeSocketAccent", 0.795, 0.011, (0, -0.095, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent = torus("EyeSocketAccent", 0.805, 0.026, (0, -0.105, 0), RING, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.03, 1.0, 0.90)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -526,12 +526,12 @@ eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Compact horizontal grin with four visible fangs and a small pink tongue, as in the reference.
 mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.51))
-mouth.scale = (0.98, 1.0, 0.92)
+mouth.scale = (1.02, 1.0, 0.98)
 mouth_parts = [sphere("MouthCavity", 0.46, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.20, 0.22, 0.58), seg=64)]
+                      scale=(1.24, 0.22, 0.62), seg=64)]
 mouth_lip = torus("MouthLip", 0.46, 0.034, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.27, 0.70, 0.70)
+mouth_lip.scale = (1.30, 0.72, 0.76)
 for i, (x, h, width) in enumerate(((-0.42, 0.19, 0.082), (0.42, 0.19, 0.082))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.12, 0.18 - h / 2), TEETH, mouth,
@@ -539,19 +539,19 @@ for i, (x, h, width) in enumerate(((-0.42, 0.19, 0.082), (0.42, 0.19, 0.082))):
 for i, (x, h) in enumerate(((-0.40, 0.13), (0.40, 0.13))):
     mouth_parts.append(cone(f"ToothL{i}", 0.052, 0.0, h,
                             (x, -0.12, -0.18 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.20, (0, -0.54, -0.11), TONGUE,
-                          scale=(1.40, 0.80, 0.82), seg=40))
+mouth_parts.append(sphere("Tongue", 0.20, (0, -0.18, -0.11), TONGUE,
+                          scale=(1.55, 0.95, 1.00), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.12, -0.38, COLLAR)
+body_band("LowerPinkBand", pivot, -1.20, -0.28, COLLAR)
 collar_radius = shell_radius_at(-0.73) + 0.17
-torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.38), METAL, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -1.12), METAL, pivot)
+torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.28), METAL, pivot)
+torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -1.20), METAL, pivot)
 for i in range(14):
     a = i * (2 * math.pi / 14)
-    z = -0.75 + 0.075 * abs(math.cos(a))
+    z = -0.74 + 0.09 * abs(math.cos(a))
     r = shell_radius_at(-0.73) + 0.225
-    sphere(f"BandRivet{i}", 0.066, (r * math.cos(a), r * 0.92 * math.sin(a), z),
+    sphere(f"BandRivet{i}", 0.072, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
@@ -703,7 +703,7 @@ def arm_center(t, style="outer"):
     if style == "outer":
         p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.50), (1.62, -1.12), (1.40, 0.18)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.45), (1.12, -0.98), (1.06, 0.10)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.58), (0.82, -1.34), (0.98, -0.92)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.40), (0.96, -0.88), (0.92, -0.12)
     u = 1.0 - t
@@ -797,11 +797,11 @@ for i in range(8):
         rr = arm_radius(t)
         cup_pos = center + cup_normal * rr * 1.005
         inset_pos = cup_pos - cup_normal * rr * 0.045
-        torus(f"SuckerRim{i}_{q}", rr * 0.31, rr * 0.040, tuple(inset_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.39, rr * 0.052, tuple(inset_pos),
               PURPLE_DARK, root, rot=normal_rot(cup_normal))
         hole_pos = inset_pos - cup_normal * rr * 0.006
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.27, rr * 0.27, rr * 0.055), rot=normal_rot(cup_normal), seg=20)
+               scale=(rr * 0.34, rr * 0.34, rr * 0.060), rot=normal_rot(cup_normal), seg=20)
     for q, t in enumerate((0.22, 0.52, 0.82)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
@@ -816,7 +816,7 @@ for i in range(8):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.34, rr * 0.26, rr * 0.042), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.18, tip_loc, TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.20, tip_loc, TENTACLE), root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
@@ -996,7 +996,7 @@ def restore():
     show(orb_parts + stars + x_marks + puddle + shards + [f for f, _, _ in frags], False)
     show(eye_parts, True)
     tint(0.0)
-    flame_bsdf.inputs["Emission Strength"].default_value = 1.6
+    flame_bsdf.inputs["Emission Strength"].default_value = 0.18
     for f, _, _ in frags:
         f.location = (0, 0, 0)
         f.scale = (1, 1, 1)
@@ -1046,7 +1046,7 @@ def pose(clip, i, n):
         pivot.scale = (BODY_BASE_SCALE[0] * (1 + 0.04 * k), BODY_BASE_SCALE[1] * (1 + 0.04 * k), BODY_BASE_SCALE[2] * (1 - 0.03 * k))
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.18 * k)
         mouth.scale = (0.98, 1.0, 1.0 * (1.0 + 0.55 * k))
-        flame_bsdf.inputs["Emission Strength"].default_value = 1.6 + 6.0 * k
+        flame_bsdf.inputs["Emission Strength"].default_value = 0.18 + 6.0 * k
         show(orb_parts, True)
         r = 0.12 + 0.2 * k
         orb_halo.scale = (r, r, r)
