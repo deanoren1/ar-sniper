@@ -47,7 +47,7 @@ fun TundraFog(nowNanos: Long, front: Boolean, modifier: Modifier = Modifier) {
             // ענן נקודתי: התמונה מוצגת רק בתוך כתם רך שנע לאט על המסך (ולא על כל המסך)
             val bx = size.width * (0.18f + 0.64f * frac(k * 0.618f + (if (front) 0.37f else 0f)) + 0.10f * sin(local * 0.22f + k))
             val by = size.height * (0.52f + 0.14f * sin(k * 2.3f + (if (front) 1.1f else 0f)))
-            val radius = size.width * 0.34f
+            val radius = size.width * 0.27f
             drawIntoCanvas { canvas ->
                 canvas.saveLayer(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height), androidx.compose.ui.graphics.Paint())
             }
@@ -91,8 +91,8 @@ private fun envelope(local: Float): Float = when {
 
 private const val STEP = 10f
 private const val FADE = 3f
-private const val BACK_ALPHA = 0.85f
-private const val FRONT_ALPHA = 0.9f
+private const val BACK_ALPHA = 0.5f
+private const val FRONT_ALPHA = 0.55f
 
 private fun load(context: android.content.Context, name: String): ImageBitmap? {
     val id = context.resources.getIdentifier(name, "drawable", context.packageName)
