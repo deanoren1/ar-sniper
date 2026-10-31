@@ -125,19 +125,19 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.56, 0.018, 0.72), rough=0.20, coat=0.80)
+PURPLE = mat("Purple", (0.39, 0.010, 0.61), rough=0.24, coat=0.62)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.31, 0.006, 0.58), rough=0.19, coat=0.76)
 add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (0.82, 0.035, 0.34), rough=0.30, coat=0.42)
+SPOT = mat("Spot", (0.58, 0.018, 0.27), rough=0.36, coat=0.24)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.70, 0.24), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.07, coat=0.68)
+PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.17, coat=0.24, emit=(0.0, 0.0, 0.0), strength=0.0)
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
 MOUTH = mat("Mouth", (0.001, 0.0001, 0.001), rough=0.72)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
@@ -157,9 +157,9 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.004, 0.0005, 0.010), rough=0.24, coat=0.24)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.55, 0.016, 0.70), rough=0.22, coat=0.70,
+TENTACLE = mat("Tentacle", (0.40, 0.010, 0.60), rough=0.25, coat=0.62,
                emit=(0.018, 0.001, 0.035), strength=0.012)
-TANK = mat("Tank", (0.68, 0.018, 0.46), rough=0.38, metal=0.20, coat=0.42)
+TANK = mat("Tank", (0.53, 0.012, 0.36), rough=0.40, metal=0.20, coat=0.34)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
@@ -272,8 +272,7 @@ def flame_icon(name, x, y, z, parent, scale=2.75):
         main_parts.append(obj)
         return obj
 
-    add_flame_layer(name + "Outline", outline, y - 0.010, FLAME_BLACK)
-    return add_flame_layer(name, inner, y - 0.030, FLAME)
+    return add_flame_layer(name + "Silhouette", outline, y - 0.010, FLAME_BLACK)
 
 
 def empty(name, parent=None, loc=(0, 0, 0), rot=(0, 0, 0)):
@@ -393,8 +392,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.02, 0.84, 0.075, 0.050, 0.0),
 )):
     x, z = sx, sz
-    rx *= 1.22
-    rz *= 1.18
+    rx *= 0.94
+    rz *= 0.94
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     spot_material = SPOT_DARK if i in (1, 5, 7) else SPOT
@@ -409,8 +408,8 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.18, -0.41, 0.050, 0.035), (0.52, 0.46, 0.060, 0.045),
     (-0.52, 0.38, 0.060, 0.045),
 )):
-    rx *= 1.12
-    rz *= 1.08
+    rx *= 0.92
+    rz *= 0.92
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.004
     sphere(f"SmallBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
@@ -427,7 +426,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.008
     sphere(f"ExtraBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
-           scale=(rx * 1.18, 0.010, rz * 1.14), rot=(0, angle, 0), seg=24)
+           scale=(rx * 0.90, 0.007, rz * 0.90), rot=(0, angle, 0), seg=24)
 
 # Small rounded crown spikes; the reference uses short bumps, not tall fins.
 for i, (az_deg, pol_deg, height) in enumerate((
@@ -457,7 +456,7 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.73, 0.30
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.87, 0.87, 0.87)  # keep more spotted mantle visible around the eye, as in the reference
+eye.scale = (1.08, 1.02, 1.08)  # enlarge the cyclops eye to match the dominant reference proportion
 eye_parts = [
     # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
     sphere("EyeWhite", 0.78, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
@@ -526,31 +525,31 @@ eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Compact horizontal grin with four visible fangs and a small pink tongue, as in the reference.
 mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.51))
-mouth.scale = (1.02, 1.0, 0.98)
-mouth_parts = [sphere("MouthCavity", 0.46, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.24, 0.22, 0.62), seg=64)]
-mouth_lip = torus("MouthLip", 0.46, 0.034, (0, -0.075, 0), PURPLE_DARK, mouth,
+mouth.scale = (0.78, 1.0, 0.92)
+mouth_parts = [sphere("MouthCavity", 0.39, (0, 0, 0), MOUTH, mouth,
+                      scale=(1.14, 0.22, 0.58), seg=64)]
+mouth_lip = torus("MouthLip", 0.39, 0.030, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.30, 0.72, 0.76)
-for i, (x, h, width) in enumerate(((-0.42, 0.19, 0.082), (0.42, 0.19, 0.082))):
+mouth_lip.scale = (1.17, 0.72, 0.70)
+for i, (x, h, width) in enumerate(((-0.30, 0.17, 0.078), (0.30, 0.17, 0.078))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.12, 0.18 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.40, 0.13), (0.40, 0.13))):
+for i, (x, h) in enumerate(((-0.29, 0.12), (0.29, 0.12))):
     mouth_parts.append(cone(f"ToothL{i}", 0.052, 0.0, h,
                             (x, -0.12, -0.18 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.20, (0, -0.18, -0.11), TONGUE,
-                          scale=(1.55, 0.95, 1.00), seg=40))
+mouth_parts.append(sphere("Tongue", 0.22, (0, -0.19, -0.105), TONGUE,
+                          scale=(1.45, 0.95, 1.00), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.20, -0.28, COLLAR)
-collar_radius = shell_radius_at(-0.73) + 0.17
-torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.28), METAL, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -1.20), METAL, pivot)
+body_band("LowerPinkBand", pivot, -0.94, -0.66, COLLAR)
+collar_radius = shell_radius_at(-0.80) + 0.17
+torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, 0, -0.66), METAL, pivot)
+torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, 0, -0.94), METAL, pivot)
 for i in range(14):
     a = i * (2 * math.pi / 14)
-    z = -0.74 + 0.09 * abs(math.cos(a))
-    r = shell_radius_at(-0.73) + 0.225
+    z = -0.80 + 0.035 * abs(math.cos(a))
+    r = shell_radius_at(-0.80) + 0.225
     sphere(f"BandRivet{i}", 0.072, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
@@ -703,7 +702,7 @@ def arm_center(t, style="outer"):
     if style == "outer":
         p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.50), (1.62, -1.12), (1.40, 0.18)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.58), (0.82, -1.34), (0.98, -0.92)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.24, -0.56), (0.92, -1.28), (1.12, -0.56)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.40), (0.96, -0.88), (0.92, -0.12)
     u = 1.0 - t
@@ -816,7 +815,7 @@ for i in range(8):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.34, rr * 0.26, rr * 0.042), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.20, tip_loc, TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.145, tip_loc, TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
@@ -945,7 +944,7 @@ world = bpy.data.worlds.new("World")
 scene.world = world
 world.use_nodes = True
 bg = world.node_tree.nodes["Background"]
-bg.inputs[0].default_value = (0.36, 0.48, 0.68, 1.0)
+bg.inputs[0].default_value = (0.38, 0.38, 0.40, 1.0)
 bg.inputs[1].default_value = 0.32
 
 # Eevee avoids a reproducible native Cycles BVH crash in the headless GitHub runner.
