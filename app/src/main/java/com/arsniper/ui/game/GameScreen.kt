@@ -888,6 +888,19 @@ fun GameScreen(
             } else if (e.id == ArenaDirector.BOSS_ID) {
                 val cut = kotlin.math.ceil(e.maxHp * Shockwave.BOSS_DAMAGE_FRACTION).toInt()
                 e.copy(hp = (e.hp - cut).coerceAtLeast(1), hurtAt = now)
+            } else if (Hover.isBalloonMonster(e)) {
+                // מפלצת הבלונים: בלון שלם הוא שליש מהחיים, ופגיעת חיים בודדת לא משנה את מספר הבלונים שרואים.
+                // לכן ההלם מפוצץ בלון שלם (הבלון האחרון הורג אותה)
+                val max = if (e.maxHp > 0) e.maxHp else hpFor(e.id)
+                val hp = if (e.maxHp > 0) e.hp else max
+                val pop = max(1, kotlin.math.ceil(max / 3f).toInt())
+                if (hp > pop) {
+                    e.copy(maxHp = max, hp = hp - pop, hurtAt = now)
+                } else {
+                    kills++
+                    sfxMemo.lootSeen.add(e.id)
+                    e.copy(isAlive = false)
+                }
             } else if (e.hp > 1) {
                 e.copy(hp = e.hp - 1, hurtAt = now)
             } else {
