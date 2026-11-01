@@ -114,6 +114,7 @@ fun EnemyLayer(
         // האביזרים נרשמים מחדש בכל ציור, כדי שהפגיעה תתאים למה שרואים עכשיו
         AccessoryRegistry.clear()
         ZoneRegistry.clear()
+        BodyRegistry.clear()
 
         // הספרייטים עוד נטענים: לא מציירים כלום (כדי לא להבהב דמות אדם לרגע)
         if (spritesAvailable && sprites == null) return@Canvas
@@ -504,6 +505,10 @@ private fun DrawScope.drawMonster(
     val cropTop = if (dead && sheet.bossAnim == null && Hover.isBalloonMonster(enemy)) 0.4f else 0f
     val srcCut = (sprite.image.height * cropTop).toInt()
     val dstCut = height * cropTop
+    // לפגיעה לפי הגוף: הפריים שמצויר עכשיו ומיקומו על המסך (ראו BodyRegistry)
+    if (!dead && cropTop == 0f && size.width > 0f && size.height > 0f) {
+        BodyRegistry.register(enemy.id, sprite.image, left / size.width, top / size.height, width / size.width, height / size.height, flip)
+    }
     val drawSprite: DrawScope.() -> Unit = {
         drawImage(
             image = sprite.image,

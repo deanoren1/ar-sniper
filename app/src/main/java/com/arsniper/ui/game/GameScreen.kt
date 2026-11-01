@@ -1096,7 +1096,12 @@ fun GameScreen(
                 }
             }
         } else {
-            val result = engine.fire(p, Hover.lifted(enemies, nowSeconds()), aspect)
+            // פגיעה בגוף: רק מי שהנקודה על הציור שלו (או קרוב אליו); בלי ציור רשום ממשיכים לפי העיגול
+            val result = engine.fire(
+                p,
+                Hover.lifted(enemies, nowSeconds()).filter { BodyRegistry.contains(it.id, p, aspect) != false },
+                aspect
+            )
             when (result) {
                 is FireResult.Hit -> if (Hover.isBalloonMonster(result.enemy) && Hover.lift(result.enemy, nowSeconds()) > 0f) {
                     // מפלצת בלונים: הגוף חסין, רק פיצוץ בלונים פוגע בה (אזור הבלונים מטופל למעלה)
