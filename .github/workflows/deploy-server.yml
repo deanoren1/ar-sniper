@@ -45,6 +45,16 @@ jobs:
           echo "::notice title=Deploy log::$(tail -30 deploy.log | tr '\n' ' ' | cut -c1-1500)"
           echo "::notice title=Whoami::$(tail -15 who.log | tr '\n' ' ' | cut -c1-900)"
           exit $code
+      - name: Gemini key
+        if: steps.check.outputs.ready == 'true'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$GEMINI_API_KEY" ]; then
+            printf '%s' "$GEMINI_API_KEY" | npx wrangler secret put GEMINI_API_KEY
+          else
+            echo "::warning::GEMINI_API_KEY secret is not set, /restyle stays disabled"
+          fi
       - name: Show address
         if: steps.check.outputs.ready == 'true'
         run: grep -o 'https://[^ ]*workers.dev' deploy.log | head -1 | sed 's/^/::notice title=Server address::/'
