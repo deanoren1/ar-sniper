@@ -44,6 +44,10 @@ ROWS = [
     ("front_hit_fire", 1.0, 640),
     ("front_charge_release", 1.0, 640),
 ]
+# per-frame extra scale (row file, frame index) -> factor; keeps wide poses from looking oversized next to their neighbours
+FRAME_SCALE = {
+    ("front_hit_fire", 2): 0.80,    # snail: crouched flinch pose is ~25% wider than the other frames
+}
 EDGE_MARGIN = 100      # small stray fragments inside this margin from the left/right cell edge are removed
 FRAGMENT_AREA = 4000
 
@@ -139,7 +143,7 @@ def main():
                 im = im.crop((0, 0, w, CELL))
             else:
                 sys.exit(f"{name}: expected {CELL*6}x{CELL}, got {w}x{h}")
-        rows.append([place(key_cell(im.crop((c * CELL, 0, (c + 1) * CELL, CELL))), scale, ground) for c in range(6)])
+        rows.append([place(key_cell(im.crop((c * CELL, 0, (c + 1) * CELL, CELL))), scale * FRAME_SCALE.get((name, c), 1.0), ground) for c in range(6)])
 
     # union box of every frame; the bottom is fixed just under the ground line so feet stay anchored
     x0, y0, x1 = CELL, CELL, 0
