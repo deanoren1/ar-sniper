@@ -116,6 +116,51 @@ object UserObjects {
         return out
     }
 
+    /** עצמים עגולים ופתוחים מלמעלה (דלי, חבית, סל): למסכה שלהם חסר פתח השפה, והוא נכלל ב-addRimCap */
+    private val OPEN_NAMES = listOf("ashcan", "barrel", "basket")
+
+    private class Capped(val mask: BooleanArray, val height: Int, val shiftUp: Int)
+
+    /**
+     * פתח של דלי: SAM משאיר מחוץ למסכה את השפה והפנים (האליפסה שמעל הדופן הקדמית), ולכן דמות שעומדת
+     * מאחורי הדלי נראית דרך הפתח. מוסיפים כיפה אליפטית מעל העמודות: הקצוות בגובה הצדדים של הדופן,
+     * והשיא באמצע גבוה בחצי הציר של האליפסה. חצי הציר נלקח מכמה שהחזית מתעקלת (המרכז נמוך מהצדדים), לפחות 12%
+     * מרוחב הדלי ולכל היותר 22%. עצם בלי עקמומיות אחרי כל זה (מבט שטוח) מקבל את המינימום.
+     */
+    private fun addRimCap(mask: BooleanArray, w: Int, h: Int): Capped {
+        val top = IntArray(w) { -1 }
+        for (x in 0 until w) for (y in 0 until h) if (mask[y * w + x]) { top[x] = y; break }
+        val cols = (0 until w).filter { top[it] >= 0 }
+        if (cols.size < 4) return Capped(mask, h, 0)
+        val wd = cols.last() - cols.first() + 1
+        if (wd < 4) return Capped(mask, h, 0)
+        fun median(list: List<Int>): Float { val sorted = list.sorted(); return sorted[sorted.size / 2].toFloat() }
+        val edge = maxOf(1, (cols.size * 0.2f).toInt())
+        val sideTop = median(cols.take(edge).map { top[it] } + cols.takeLast(edge).map { top[it] })
+        val mid = cols.subList(cols.size * 3 / 10, maxOf(cols.size * 3 / 10 + 1, cols.size * 7 / 10))
+        val centerTop = median(mid.map { top[it] })
+        val curve = maxOf(0f, centerTop - sideTop)
+        val half = (maxOf(curve * 1.5f, 0.12f * wd)).coerceIn(1f, 0.22f * wd)
+        val cx = (cols.first() + cols.last()) / 2f
+        val newTop = FloatArray(w) { Float.NaN }
+        var minTop = 0f
+        for (x in cols) {
+            val u = ((x - cx) / (wd / 2f)).coerceIn(-1f, 1f)
+            val t = sideTop - half * kotlin.math.sqrt(1f - u * u)
+            newTop[x] = t
+            if (t < minTop) minTop = t
+        }
+        val shift = kotlin.math.ceil(-minTop).toInt().coerceAtLeast(0)
+        val nh = h + shift
+        val out = BooleanArray(w * nh)
+        for (y in 0 until h) System.arraycopy(mask, y * w, out, (y + shift) * w, w)
+        for (x in cols) {
+            val from = kotlin.math.ceil(newTop[x] + shift).toInt().coerceAtLeast(0)
+            for (y in from until top[x] + shift) out[y * w + x] = true
+        }
+        return Capped(out, nh, shift)
+    }
+
     /**
      * ממיר מסכת SAM למקום הסתתרות. מחזיר null אם המסכה קטנה מדי או גדולה מדי.
      * העומק הוא החציון של תאי העצם, והסוג הוא הסוג הנפוץ ביותר בתוכו (בשביל השם).
@@ -197,9 +242,16 @@ object UserObjects {
         // עצמים אטומים עם פנים (דלי, חבית, ארגז, סל): ממלאים כל עמודה מהקצה העליון עד התחתון, כך שהפנים והשפה
         // נחשבים חלק מהעצם ודמות שעומדת מאחוריו לא נראית דרכם
         val solid = SOLID_NAMES.any { Ade20kClasses.NAMES.indexOf(it) == label }
-        val finalMask = if (solid) fillColumns(mask, maskWidth, maskHeight) else mask
-        val extra = minOf(SKIRT_CELLS, height - (y0 + maskHeight))
-        val grown = growDown(finalMask, maskWidth, maskHeight, extra)
+        val filled = if (solid) fillColumns(mask, maskWidth, maskHeight) else mask
+        val open = OPEN_NAMES.any { Ade20kClasses.NAMES.indexOf(it) == label }
+        // כיפת הפתח נשענת רק על שורות שיש מקום להן מעל העצם בתמונה
+        val capped = if (open) addRimCap(filled, maskWidth, maskHeight) else Capped(filled, maskHeight, 0)
+        val shiftUp = minOf(capped.shiftUp, y0)
+        val finalMask = if (shiftUp == capped.shiftUp) capped.mask else filled
+        val finalHeight = if (shiftUp == capped.shiftUp) capped.height else maskHeight
+        val top0 = y0 - (if (shiftUp == capped.shiftUp) capped.shiftUp else 0)
+        val extra = minOf(SKIRT_CELLS, height - (top0 + finalHeight))
+        val grown = growDown(finalMask, maskWidth, finalHeight, extra)
         var grownCount = 0
         for (v in grown.first) if (v) grownCount++
 
@@ -210,7 +262,7 @@ object UserObjects {
             gridWidth = width,
             gridHeight = height,
             cellX = x0,
-            cellY = y0,
+            cellY = top0,
             maskWidth = maskWidth,
             maskHeight = grown.second,
             mask = grown.first,
