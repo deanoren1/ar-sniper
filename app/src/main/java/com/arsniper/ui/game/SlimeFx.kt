@@ -35,7 +35,7 @@ object SlimeFx {
     private const val MAX_ALPHA = 0.7f
 
     /** הטיפטוף ניכר רק במריחות עם טפטופים */
-    private val DRIPPING = setOf(2, 5)
+    val DRIPPING = setOf(2, 5)
 
     private fun decode(context: Context): ImageBitmap? {
         val id = context.resources.getIdentifier("shot_gas_splats", "drawable", context.packageName)
