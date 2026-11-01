@@ -123,9 +123,11 @@ object UserObjects {
 
     /**
      * פתח של דלי: SAM משאיר מחוץ למסכה את השפה והפנים (האליפסה שמעל הדופן הקדמית), ולכן דמות שעומדת
-     * מאחורי הדלי נראית דרך הפתח. מוסיפים כיפה אליפטית מעל העמודות: הקצוות בגובה הצדדים של הדופן,
-     * והשיא באמצע גבוה בחצי הציר של האליפסה. חצי הציר נלקח מכמה שהחזית מתעקלת (המרכז נמוך מהצדדים), לפחות 12%
-     * מרוחב הדלי ולכל היותר 22%. עצם בלי עקמומיות אחרי כל זה (מבט שטוח) מקבל את המינימום.
+     * מאחורי הדלי נראית דרכו (למשל עין שמציצה מעל הדופן). מוסיפים כיפה אליפטית מעל העמודות:
+     * T0 = השורה הנמוכה ביותר של קצה המסכה באמצע העצם (שפת הדופן הקדמית), והשפה האחורית נמצאת 2A מעליה
+     * באמצע ופוחתת לאפס בקצוות (חצי אליפסה). A = חצי הציר האנכי של האליפסה: לפחות 24% מרוחב העצם
+     * (כמו בדלי שרואים קצת מלמעלה) ולכל היותר 32%; ואם החזית כבר מעוקלת במסכה, A הוא העקמומיות הזאת.
+     * עדיף להסתיר קצת יותר מדי מעל הדלי מאשר להשאיר דמות נראית דרך הפתח.
      */
     private fun addRimCap(mask: BooleanArray, w: Int, h: Int): Capped {
         val top = IntArray(w) { -1 }
@@ -138,15 +140,15 @@ object UserObjects {
         val edge = maxOf(1, (cols.size * 0.2f).toInt())
         val sideTop = median(cols.take(edge).map { top[it] } + cols.takeLast(edge).map { top[it] })
         val mid = cols.subList(cols.size * 3 / 10, maxOf(cols.size * 3 / 10 + 1, cols.size * 7 / 10))
-        val centerTop = median(mid.map { top[it] })
-        val curve = maxOf(0f, centerTop - sideTop)
-        val half = (maxOf(curve * 1.5f, 0.12f * wd)).coerceIn(1f, 0.22f * wd)
+        val t0 = mid.maxOf { top[it] }.toFloat()
+        val curve = maxOf(0f, t0 - sideTop)
+        val half = maxOf(curve, 0.24f * wd).coerceAtMost(0.32f * wd).coerceAtLeast(1f)
         val cx = (cols.first() + cols.last()) / 2f
         val newTop = FloatArray(w) { Float.NaN }
         var minTop = 0f
         for (x in cols) {
             val u = ((x - cx) / (wd / 2f)).coerceIn(-1f, 1f)
-            val t = sideTop - half * kotlin.math.sqrt(1f - u * u)
+            val t = minOf(top[x].toFloat(), t0 - 2f * half * kotlin.math.sqrt(1f - u * u))
             newTop[x] = t
             if (t < minTop) minTop = t
         }
