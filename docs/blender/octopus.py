@@ -118,7 +118,7 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.10  # 90% transparent: keep a visible cool-blue glass envelope
+    mix.inputs[0].default_value = 0.88  # 88% transparent: clear glass, with a restrained blue shell
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -131,10 +131,10 @@ PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.31, 0.006, 0.58), rough=0.19, coat=0.76)
 add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (0.50, 0.014, 0.31), rough=0.42, coat=0.16)
+SPOT = mat("Spot", (0.66, 0.020, 0.40), rough=0.36, coat=0.20)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.68, 0.28), rough=0.26, coat=0.30,
-                emit=(0.14, 0.055, 0.008), strength=0.025)
+EYE_WHITE = mat("EyeWhite", (0.92, 0.52, 0.18), rough=0.30, coat=0.24,
+                emit=(0.035, 0.012, 0.002), strength=0.015)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.16, 0.004), rough=0.25, coat=0.34, emit=(0.25, 0.045, 0.002), strength=0.035)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
@@ -322,7 +322,7 @@ BODY_SCALE = (1.48, 1.15, 1.38)
 
 # Shared profile keeps the shell and raised spots aligned to the same surface.
 BODY_PROFILE = [
-    (-1.05, 0.22), (-0.96, 0.56), (-0.80, 0.86), (-0.58, 1.10),
+    (-1.05, 0.50), (-0.96, 0.76), (-0.80, 0.98), (-0.58, 1.16),
     (-0.30, 1.27), (0.00, 1.34), (0.30, 1.32), (0.58, 1.23),
     (0.82, 1.08), (1.02, 0.86), (1.18, 0.58), (1.28, 0.30),
     (1.32, 0.04)
@@ -373,7 +373,7 @@ def body_band(name, parent, z_bottom, z_top, material):
     """Even-width circular collar; avoid the oversized triangular flare of the old band."""
     sides = 128
     verts, faces = [], []
-    radius = shell_radius_at((z_bottom + z_top) * 0.5) + 0.17
+    radius = shell_radius_at(z_top) + 0.14
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
@@ -476,11 +476,11 @@ EYE_Y, EYE_Z = -0.73, 0.40
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye.scale = (1.08, 0.98, 1.04)  # enlarge the cyclops eye to match the dominant reference proportion
 eye_parts = [
-    # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
-    sphere("EyeWhite", 0.98, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
-    sphere("Iris", 0.43, (0, -0.385, -0.015), IRIS, eye, scale=(0.95, 0.48, 0.98), seg=64),
-    sphere("Pupil", 0.285, (0, -0.535, -0.015), PUPIL, eye, scale=(1.00, 0.42, 1.00), seg=56),
-    sphere("Shine", 0.072, (0.095, -0.655, 0.145), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    # Slightly smaller sclera, but a more exposed amber iris and a round, deep-black pupil.
+    sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.56, 1.00), seg=64),
+    sphere("Iris", 0.50, (0, -0.43, -0.015), IRIS, eye, scale=(0.96, 0.66, 0.98), seg=64),
+    sphere("Pupil", 0.33, (0, -0.60, -0.015), PUPIL, eye, scale=(1.00, 0.60, 1.00), seg=56),
+    sphere("Shine", 0.080, (0.095, -0.755, 0.145), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
 eye_socket = torus("EyeSocket", 0.90, 0.032, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
@@ -561,13 +561,13 @@ mouth_parts.append(sphere("Tongue", 0.15, (0, -0.28, -0.20), TONGUE, mouth,
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
 body_band("LowerPinkBand", pivot, -1.28, -0.62, COLLAR)
-collar_radius = shell_radius_at(-0.82) + 0.25
+collar_radius = shell_radius_at(-0.62) + 0.14
 torus("CollarUpperSteelTrim", collar_radius, 0.040, (0, 0, -0.62), METAL, pivot)
 torus("CollarLowerSteelTrim", collar_radius, 0.040, (0, 0, -1.28), METAL, pivot)
 for i in range(16):
     a = i * (2 * math.pi / 16)
     z = -0.94 + 0.055 * abs(math.cos(a))
-    r = shell_radius_at(-0.94) + 0.34
+    r = collar_radius + 0.055
     sphere(f"BandRivet{i}", 0.072, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
@@ -601,7 +601,7 @@ for side, sx in (("L", -1), ("R", 1)):
              BADGE_YELLOW, torso, rot=(math.pi / 2, 0, 0))
     torus(f"BadgeRim{side}", 0.31, 0.024, (tx, badge_y - 0.045, 0.015), METAL, torso,
           rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.067, 0.015, torso, scale=2.55)
+    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.067, 0.015, torso, scale=1.85)
     for j, (bx, bz) in enumerate(((-0.215, 0.155), (0.215, 0.155),
                                   (-0.215, -0.155), (0.215, -0.155))):
         sphere(f"TankBolt{side}{j}", 0.038, (tx + bx, badge_y - 0.060, bz),
@@ -727,7 +727,7 @@ def arm_center(t, style="outer"):
     if style == "outer":
         p0, p1, p2, p3 = (0.0, 0.0), (0.30, -0.62), (1.92, -1.34), (1.18, -0.66)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.54), (1.32, -1.28), (0.72, -0.78)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.30, -0.62), (1.52, -1.38), (0.55, -0.72)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.20, -0.48), (1.02, -1.02), (0.88, -0.52)
     u = 1.0 - t
