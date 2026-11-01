@@ -118,7 +118,7 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.08  # Mix Shader factor selects input 2: keep the blue shell at 8% for a clear dome.
+    mix.inputs[0].default_value = 0.16  # A visible but transparent blue glass tint; the face remains unobstructed.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -133,10 +133,10 @@ add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.64, 0.018, 0.48), rough=0.36, coat=0.20)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.82, 0.52), rough=0.30, coat=0.24,
-                emit=(0.025, 0.010, 0.001), strength=0.012)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.68, 0.26), rough=0.28, coat=0.28,
+                emit=(0.035, 0.012, 0.001), strength=0.012)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.16, 0.004), rough=0.25, coat=0.34, emit=(0.25, 0.045, 0.002), strength=0.035)
+IRIS = mat("Iris", (1.0, 0.095, 0.002), rough=0.22, coat=0.38, emit=(0.30, 0.035, 0.001), strength=0.045)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -485,16 +485,17 @@ eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye.scale = (1.00, 0.98, 1.00)  # expose the full cream sclera while keeping the eye seated in the mantle
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
-    sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.54, 0.88), seg=64),
-    sphere("Iris", 0.44, (0, -0.30, -0.015), IRIS, eye, scale=(1.00, 0.50, 0.90), seg=64),
-    sphere("Pupil", 0.28, (0, -0.43, -0.015), PUPIL, eye, scale=(1.00, 0.58, 0.92), seg=56),
-    sphere("Shine", 0.095, (0.105, -0.585, 0.135), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    sphere("EyeWhite", 0.82, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.56, 1.00), seg=64),
+    # Place the iris and pupil well in front of the sclera so the orange ring cannot be occluded.
+    sphere("Iris", 0.42, (0, -0.46, -0.015), IRIS, eye, scale=(1.00, 0.36, 1.00), seg=64),
+    sphere("Pupil", 0.245, (0, -0.67, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
+    sphere("Shine", 0.082, (0.105, -0.79, 0.13), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.94, 0.070, (0, -0.27, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale = (1.04, 1.0, 0.90)
-eye_socket_accent = torus("EyeSocketAccent", 0.985, 0.035, (0, -0.31, 0), RING, eye, rot=(math.pi / 2, 0, 0))
-eye_socket_accent.scale = (1.02, 1.0, 0.92)
+eye_socket = torus("EyeSocket", 0.88, 0.075, (0, -0.49, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale = (1.04, 1.0, 0.96)
+eye_socket_accent = torus("EyeSocketAccent", 0.925, 0.038, (0, -0.53, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent.scale = (1.02, 1.0, 0.98)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
 def make_upper_eyelid(parent):
@@ -544,9 +545,8 @@ def make_upper_eyelid(parent):
     edge = pipe_curve("UpperLidEdge", lower_edge, LID, parent, bevel=0.045)
     return obj, edge
 
-# A soft, symmetrical purple upper lid integrates the eye into the mantle, as in the reference.
-upper_lid, upper_lid_edge = make_upper_eyelid(eye)
-eye_parts.extend([eye_socket, eye_socket_accent, upper_lid, upper_lid_edge])
+# Keep the neutral eye fully open like the reference; the raised brow previously read as a flat angry stripe.
+eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.24, -0.18))
@@ -732,7 +732,8 @@ def arm_radius(t):
 def arm_center(t, style="outer"):
     """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.66), (2.02, -1.30), (0.84, -0.20)
+        # Deep outward sweep followed by a raised tip: a true open C-curl like the reference.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.52, -0.62), (2.15, -1.18), (1.02, 0.42)
     elif style == "front":
         p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.72), (1.82, -1.55), (0.70, -0.68)
     else:
