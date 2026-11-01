@@ -71,8 +71,9 @@ def key_cell(cell_rgb):
         alpha = np.clip(1 - (green - 0.12) / 0.5, 0, 1)
         hsv = mc.rgb_to_hsv(a)
         hue = hsv[..., 0] * 360
-        glass = (hue > 165) & (hue < 235) & (hsv[..., 1] > 0.22) & (alpha > 0.5)
-        alpha[glass] = np.minimum(alpha[glass], 0.55)
+        if os.environ.get("NOGLASS") != "1":    # NOGLASS=1: solid blue/cyan characters (hedgehog)
+            glass = (hue > 165) & (hue < 235) & (hsv[..., 1] > 0.22) & (alpha > 0.5)
+            alpha[glass] = np.minimum(alpha[glass], 0.55)
         g2 = np.minimum(g, np.maximum(r, b))            # remove green spill
         rgb = np.stack([r, g2, b], 2)
     # stray fragments that leaked in from the neighbouring cell
