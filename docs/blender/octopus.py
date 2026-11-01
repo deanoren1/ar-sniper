@@ -448,8 +448,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
 
 # Small rounded crown spikes; the reference uses short bumps, not tall fins.
 for i, (az_deg, pol_deg, height) in enumerate((
-    (224, 38, 0.19), (247, 25, 0.22), (270, 17, 0.23),
-    (293, 25, 0.22), (316, 38, 0.19)
+    (210, 38, 0.17), (230, 30, 0.19), (250, 21, 0.20),
+    (270, 16, 0.21), (290, 21, 0.20), (310, 30, 0.19), (330, 38, 0.17)
 )):
     az = math.radians(az_deg)
     pol = math.radians(pol_deg)
@@ -472,20 +472,20 @@ for i in range(14):
 
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -0.73, 0.34
+EYE_Y, EYE_Z = -0.73, 0.40
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.99, 0.98, 0.96)  # slightly smaller eye leaves the round violet mantle visible around it
+eye.scale = (1.08, 0.98, 1.04)  # enlarge the cyclops eye to match the dominant reference proportion
 eye_parts = [
     # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
-    sphere("EyeWhite", 0.80, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
+    sphere("EyeWhite", 0.98, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
     sphere("Iris", 0.43, (0, -0.385, -0.015), IRIS, eye, scale=(0.95, 0.48, 0.98), seg=64),
     sphere("Pupil", 0.285, (0, -0.535, -0.015), PUPIL, eye, scale=(1.00, 0.42, 1.00), seg=56),
     sphere("Shine", 0.072, (0.095, -0.655, 0.145), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.76, 0.032, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.90, 0.032, (0, -0.075, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.04, 1.0, 0.90)
-eye_socket_accent = torus("EyeSocketAccent", 0.795, 0.036, (0, -0.105, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent = torus("EyeSocketAccent", 0.935, 0.036, (0, -0.105, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.03, 1.0, 0.90)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -656,8 +656,8 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     main_parts.append(obj)
     return obj
 
-DOME_CENTER_Z = -0.62
-DOME_RADII = (2.12, 1.82, 2.72)
+DOME_CENTER_Z = -0.55
+DOME_RADII = (2.22, 1.90, 3.35)
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
@@ -678,8 +678,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.006), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -1.18, 1.36, 0.11, 0.24, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 1.18, 1.40, 0.13, 0.21, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -1.25, 1.88, 0.15, 0.30, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 1.25, 1.96, 0.17, 0.28, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -712,30 +712,30 @@ def arm_radius(t):
     # Tapered, soft tentacles: broad at the mantle, slimmer toward rounded curled tips.
     # Broad mantle attachment, a gentle mid-arm taper, then a soft distal bulb.
     if t < 0.22:
-        return 0.30 + 0.025 * math.sin((t / 0.22) * math.pi * 0.5)
+        return 0.33 + 0.030 * math.sin((t / 0.22) * math.pi * 0.5)
     if t < 0.68:
         u = (t - 0.22) / 0.46
-        return 0.325 - 0.070 * u
+        return 0.36 - 0.065 * u
     u = min(1.0, max(0.0, (t - 0.68) / 0.32))
-    # A compact distal swell keeps the limb soft without creating a finger-like bulb.
-    bulb = 0.245 + 0.095 * math.sin(math.pi * u)
-    return bulb * (1.0 + 0.04 * u)
+    # A fuller distal lobe makes the arms read as soft octopus tentacles, not fingers.
+    bulb = 0.29 + 0.10 * math.sin(math.pi * u)
+    return bulb * (1.0 + 0.035 * u)
 
 
 def arm_center(t, style="outer"):
     """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.72), (2.02, -1.50), (1.45, -0.92)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.30, -0.62), (1.92, -1.34), (1.18, -0.66)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.35, -0.62), (1.38, -1.52), (0.82, -1.20)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.54), (1.32, -1.28), (0.72, -0.78)
     else:
-        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.56), (1.10, -1.20), (1.16, -0.68)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.20, -0.48), (1.02, -1.02), (0.88, -0.52)
     u = 1.0 - t
     x = (u ** 3 * p0[0] + 3.0 * u * u * t * p1[0]
          + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
     z = (u ** 3 * p0[1] + 3.0 * u * u * t * p1[1]
          + 3.0 * u * t * t * p2[1] + t ** 3 * p3[1])
-    return 1.08 * Vector((x, arm_curve_y(t), z))
+    return 0.98 * Vector((x, arm_curve_y(t), z))
 
 
 def make_arm_tube(name, parent, style):
@@ -817,7 +817,7 @@ for i in range(8):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.40, 0.74)):
+    for q, t in enumerate((0.30, 0.52, 0.74)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
         after = arm_center(min(1.0, t + 0.002), style)
@@ -829,8 +829,10 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         hole_pos = center + cup_normal * rr * 0.925
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.20, rr * 0.20, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
-    for q, t in enumerate((0.28, 0.70)):
+               scale=(rr * 0.25, rr * 0.25, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.22, rr * 0.035,
+              tuple(hole_pos + cup_normal * 0.012), SPOT_DARK, root, rot=normal_rot(cup_normal))
+    for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
         after = arm_center(min(1.0, t + 0.002), style)
@@ -842,7 +844,7 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         spot_pos = center + spot_normal * rr * 1.018
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.23, rr * 0.18, rr * 0.022), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.28, rr * 0.21, rr * 0.028), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
     sphere(f"ArmRoundedTip{i}", 0.08, tip_loc, TENTACLE if style != "rear" else PURPLE_DARK, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
