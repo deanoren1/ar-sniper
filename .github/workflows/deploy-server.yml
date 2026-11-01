@@ -55,6 +55,21 @@ jobs:
           else
             echo "::warning::GEMINI_API_KEY secret is not set, /restyle stays disabled"
           fi
+      - name: OpenAI key
+        if: steps.check.outputs.ready == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_IMAGE_MODEL: ${{ vars.OPENAI_IMAGE_MODEL }}
+          OPENAI_IMAGE_QUALITY: ${{ vars.OPENAI_IMAGE_QUALITY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            printf '%s' "$OPENAI_API_KEY" | npx wrangler secret put OPENAI_API_KEY
+            [ -n "$OPENAI_IMAGE_MODEL" ] && printf '%s' "$OPENAI_IMAGE_MODEL" | npx wrangler secret put OPENAI_IMAGE_MODEL
+            [ -n "$OPENAI_IMAGE_QUALITY" ] && printf '%s' "$OPENAI_IMAGE_QUALITY" | npx wrangler secret put OPENAI_IMAGE_QUALITY
+            true
+          else
+            echo "::warning::OPENAI_API_KEY secret is not set, OpenAI provider disabled"
+          fi
       - name: Show address
         if: steps.check.outputs.ready == 'true'
         run: grep -o 'https://[^ ]*workers.dev' deploy.log | head -1 | sed 's/^/::notice title=Server address::/'

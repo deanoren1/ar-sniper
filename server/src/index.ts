@@ -21,9 +21,13 @@ export interface Env {
   QUOTA: DurableObjectNamespace;
   /** מפתח Gemini (סוד בשרת בלבד, לא באפליקציה) */
   GEMINI_API_KEY?: string;
-  /** תקרת עיבודים יומית לכל המשתמשים יחד (ברירת מחדל 300) */
+  /** מפתח OpenAI (סוד בשרת בלבד). אם קיים הוא ברירת המחדל לעיבוד */
+  OPENAI_API_KEY?: string;
+  OPENAI_IMAGE_MODEL?: string;
+  OPENAI_IMAGE_QUALITY?: string;
+  /** תקרת עיבודים יומית לכל המשתמשים יחד (ברירת מחדל 100) */
   DAILY_BUDGET?: string;
-  /** כמה עיבודים חינם ביום לכל מכשיר (ברירת מחדל 1) */
+  /** כמה עיבודים חינם ביום לכל מכשיר (ברירת מחדל 3 בזמן בדיקות) */
   DAILY_PER_DEVICE?: string;
 }
 
@@ -63,7 +67,7 @@ function toBase64(bytes: Uint8Array): string {
 /** POST /restyle?style=tundra, גוף: JPEG, כותרת x-device. עיבוד אחד ביום לכל מכשיר + תקרה יומית כללית. */
 async function restyle(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return new Response("POST only", { status: 405 });
-  if (!env.GEMINI_API_KEY) return Response.json({ error: "not-configured" }, { status: 503 });
+  if (!env.GEMINI_API_KEY && !env.OPENAI_API_KEY) return Response.json({ error: "not-configured" }, { status: 503 });
   const device = request.headers.get("x-device") ?? "";
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(device)) return Response.json({ error: "bad-device" }, { status: 400 });
   const style = new URL(request.url).searchParams.get("style") ?? "tundra";
@@ -72,8 +76,8 @@ async function restyle(request: Request, env: Env): Promise<Response> {
   const body = new Uint8Array(await request.arrayBuffer());
   if (body.length < 1000 || body.length > MAX_UPLOAD_BYTES) return Response.json({ error: "bad-size" }, { status: 413 });
 
-  const perDevice = Number(env.DAILY_PER_DEVICE ?? "1");
-  const budget = Number(env.DAILY_BUDGET ?? "300");
+  const perDevice = Number(env.DAILY_PER_DEVICE ?? "3");
+  const budget = Number(env.DAILY_BUDGET ?? "100");
   if (!(await takeQuota(env, `dev:${device}`, perDevice))) {
     return Response.json({ error: "daily-limit" }, { status: 429 });
   }
@@ -88,28 +92,68 @@ async function restyle(request: Request, env: Env): Promise<Response> {
   };
 
   try {
-    const gemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "image/jpeg", data: toBase64(body) } }] }],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
-      }),
-    });
-    if (!gemini.ok) return fail(502, `upstream-${gemini.status}`);
-    const json = (await gemini.json()) as any;
-    const parts: any[] = json?.candidates?.[0]?.content?.parts ?? [];
-    const image = parts.find((p) => p.inlineData?.data || p.inline_data?.data);
-    const data: string | undefined = image?.inlineData?.data ?? image?.inline_data?.data;
-    if (!data) return fail(502, "no-image");
-    const bin = atob(data);
-    const out = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-    const mime: string = image?.inlineData?.mimeType ?? image?.inline_data?.mime_type ?? "image/png";
-    return new Response(out, { headers: { "content-type": mime, "cache-control": "no-store" } });
+    const wanted = new URL(request.url).searchParams.get("provider");
+    const provider = wanted ?? (env.OPENAI_API_KEY ? "openai" : "gemini");
+    const size = new URL(request.url).searchParams.get("size") === "portrait" ? "1024x1536" : "1536x1024";
+    const result = provider === "openai" ? await callOpenAI(env, prompt, body, size) : await callGemini(env, prompt, body);
+    if ("error" in result) return fail(502, result.error);
+    return new Response(result.bytes, { headers: { "content-type": result.mime, "cache-control": "no-store", "x-provider": provider } });
   } catch {
     return fail(502, "upstream-error");
   }
+}
+
+type ImageResult = { bytes: Uint8Array; mime: string } | { error: string };
+
+function fromBase64(data: string): Uint8Array {
+  const bin = atob(data);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function callGemini(env: Env, prompt: string, body: Uint8Array): Promise<ImageResult> {
+  if (!env.GEMINI_API_KEY) return { error: "gemini-not-configured" };
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "image/jpeg", data: toBase64(body) } }] }],
+      generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+    }),
+  });
+  if (!res.ok) return { error: `gemini-${res.status}` };
+  const json = (await res.json()) as any;
+  const parts: any[] = json?.candidates?.[0]?.content?.parts ?? [];
+  const image = parts.find((p) => p.inlineData?.data || p.inline_data?.data);
+  const data: string | undefined = image?.inlineData?.data ?? image?.inline_data?.data;
+  if (!data) return { error: "gemini-no-image" };
+  return { bytes: fromBase64(data), mime: image?.inlineData?.mimeType ?? image?.inline_data?.mime_type ?? "image/png" };
+}
+
+/** OpenAI Images API (edits). הדגם נקבע במשתנה OPENAI_IMAGE_MODEL; ברירת מחדל: הקטן והזול */
+async function callOpenAI(env: Env, prompt: string, body: Uint8Array, size: string): Promise<ImageResult> {
+  if (!env.OPENAI_API_KEY) return { error: "openai-not-configured" };
+  const form = new FormData();
+  form.append("model", env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini");
+  form.append("prompt", prompt);
+  form.append("size", size);
+  form.append("quality", env.OPENAI_IMAGE_QUALITY || "medium");
+  form.append("output_format", "jpeg");
+  form.append("image", new Blob([body], { type: "image/jpeg" }), "photo.jpg");
+  const res = await fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.OPENAI_API_KEY}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 160).replace(/[^\w .:,-]/g, "");
+    return { error: `openai-${res.status}-${text}` };
+  }
+  const json = (await res.json()) as any;
+  const data: string | undefined = json?.data?.[0]?.b64_json;
+  if (!data) return { error: "openai-no-image" };
+  return { bytes: fromBase64(data), mime: "image/jpeg" };
 }
 
 /** מונה יומי פשוט: מפתח אחד לכל יום. אובייקט לכל מכשיר ואחד גלובלי. */

@@ -2,6 +2,7 @@ package com.arsniper.ui.scene
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -126,6 +127,27 @@ fun SceneScreen(
     var tundraExtras by remember { mutableStateOf(com.arsniper.ml.ThemeBake.extrasOn(context)) }
     var tundraBefore by remember { mutableStateOf(false) }
     var tundraBusy by remember { mutableStateOf(false) }
+    // עולם AI (ניסוי): התמונה שחזרה מהשרת, ואפשרות להפוך אותה לתמונת המשחק כדי לסרוק אותה מחדש
+    var aiImage by remember { mutableStateOf<Bitmap?>(null) }
+    var aiStatus by remember { mutableStateOf("") }
+    var aiBusy by remember { mutableStateOf(false) }
+    fun runAi(view: SceneView, provider: String?) {
+        scope.launch {
+            aiBusy = true
+            aiStatus = "AI is creating the world (up to a minute)..."
+            val result = withContext(Dispatchers.IO) {
+                com.arsniper.ml.AiWorld.generate(context, "tundra", view.bitmap, provider)
+            }
+            when (result) {
+                is com.arsniper.ml.AiWorld.Result.Image -> {
+                    aiImage = result.bitmap
+                    aiStatus = "AI world ready (${result.provider}, ${result.bitmap.width}x${result.bitmap.height}). USE AI makes it the game photo"
+                }
+                is com.arsniper.ml.AiWorld.Result.Error -> aiStatus = result.message
+            }
+            aiBusy = false
+        }
+    }
     fun bakeTundra(view: SceneView, extras: Boolean) {
         scope.launch {
             tundraBusy = true
@@ -514,7 +536,15 @@ fun SceneScreen(
                 ViewMode.Photo -> Unit
                 ViewMode.Tundra -> {
                     val baked = tundraImage
-                    if (baked != null && !tundraBefore) {
+                    val ai = aiImage
+                    if (ai != null && !tundraBefore) {
+                        Image(
+                            bitmap = ai.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (baked != null && !tundraBefore) {
                         Image(
                             bitmap = baked,
                             contentDescription = null,
@@ -549,6 +579,7 @@ fun SceneScreen(
 
         val statusLine = when {
             errorText != null -> "Scene analysis failed: $errorText"
+            current != null && viewMode == ViewMode.Tundra && aiStatus.isNotEmpty() -> aiStatus
             current != null && viewMode == ViewMode.Objects && samStatus.isNotEmpty() -> samStatus
             current != null && current.cached ->
                 "Scene loaded from saved analysis in ${String.format(Locale.US, "%.1f", current.seconds)}s"
@@ -616,6 +647,25 @@ fun SceneScreen(
                     }
                     ActionButton(if (tundraBefore) "BEFORE" else "AFTER", tundraImage != null) {
                         tundraBefore = !tundraBefore
+                    }
+                    ActionButton("AI", !aiBusy) { runAi(current, null) }
+                    ActionButton("USE AI", aiImage != null && !aiBusy) {
+                        aiImage?.let { img ->
+                            // שומרים גיבוי של התמונה המקורית (פעם אחת) ומחליפים; אחר כך עוברים לתפריט וסורקים מחדש
+                            val dir = File(context.filesDir, "backup").apply { mkdirs() }
+                            val backup = File(dir, "original.jpg")
+                            PhotoRepository.currentFile(context)?.let { cur -> if (!backup.exists()) cur.copyTo(backup) }
+                            PhotoRepository.save(context, img)
+                            aiStatus = "Saved as the game photo. Go back and scan it again (original backed up)"
+                        }
+                    }
+                    ActionButton("RESTORE", File(context.filesDir, "backup/original.jpg").exists() && !aiBusy) {
+                        val backup = File(context.filesDir, "backup/original.jpg")
+                        BitmapFactory.decodeFile(backup.absolutePath)?.let {
+                            PhotoRepository.save(context, it)
+                            backup.delete()
+                            aiStatus = "Original photo restored. Scan it again"
+                        }
                     }
                 }
             }
