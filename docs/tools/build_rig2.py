@@ -23,6 +23,7 @@ Output sheet: 6 columns x 9 rows, every cell the same size (cropped to the union
     row 8 front: gas charge x5, release x1
 The game reads this layout in MonsterSprites.loadRig2.
 """
+import os
 import sys
 import numpy as np
 from PIL import Image
@@ -51,14 +52,25 @@ def key_cell(cell_rgb):
     """Green screen -> RGBA (float 0..1). Glass (blue/cyan hues) is made see-through."""
     a = np.asarray(cell_rgb).astype(float) / 255
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    green = g - np.maximum(r, b)
-    alpha = np.clip(1 - (green - 0.12) / 0.5, 0, 1)
-    hsv = mc.rgb_to_hsv(a)
-    hue = hsv[..., 0] * 360
-    glass = (hue > 165) & (hue < 235) & (hsv[..., 1] > 0.22) & (alpha > 0.5)
-    alpha[glass] = np.minimum(alpha[glass], 0.55)
-    g2 = np.minimum(g, np.maximum(r, b))            # remove green spill
-    rgb = np.stack([r, g2, b], 2)
+    if os.environ.get("KEY") == "magenta":
+        # magenta screen (#FF00FF): used for characters that contain green (e.g. the slime snail).
+        # No glass rule here; edge pixels are un-mixed from the magenta instead of clamping a channel.
+        excess = np.minimum(r, b) - g
+        alpha = np.clip(1 - (excess - 0.30) / 0.45, 0, 1)
+        key = np.array([1.0, 0.0, 1.0])
+        edge = (alpha > 0.02) & (alpha < 0.999)
+        rgb = a.copy()
+        un = (a - (1 - alpha)[..., None] * key) / np.maximum(alpha, 0.05)[..., None]
+        rgb[edge] = np.clip(un[edge], 0, 1)
+    else:
+        green = g - np.maximum(r, b)
+        alpha = np.clip(1 - (green - 0.12) / 0.5, 0, 1)
+        hsv = mc.rgb_to_hsv(a)
+        hue = hsv[..., 0] * 360
+        glass = (hue > 165) & (hue < 235) & (hsv[..., 1] > 0.22) & (alpha > 0.5)
+        alpha[glass] = np.minimum(alpha[glass], 0.55)
+        g2 = np.minimum(g, np.maximum(r, b))            # remove green spill
+        rgb = np.stack([r, g2, b], 2)
     # stray fragments that leaked in from the neighbouring cell
     labels, n = ndimage.label(alpha > 0.1)
     for i in range(1, n + 1):
