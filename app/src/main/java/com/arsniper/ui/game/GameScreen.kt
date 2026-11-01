@@ -498,7 +498,8 @@ fun GameScreen(
                                 // סליים: מריחה אחת (לפעמים שתיים) חצי שקופה על המסך, והבהוב אדום חלש
                                 val hitKind = out.hitKinds.getOrNull(i)
                                 val spikeHit = hitKind == com.arsniper.game.engine.ShotKind.Spike
-                                if (hitKind == com.arsniper.game.engine.ShotKind.Gas || spikeHit) {
+                                val boomHit = hitKind == com.arsniper.game.engine.ShotKind.Bomb
+                                if (hitKind == com.arsniper.game.engine.ShotKind.Gas || spikeHit || boomHit) {
                                     flash = FLASH_START * 0.5f
                                     val rnd = kotlin.random.Random.Default
                                     // המריחה נוחתת איפה שהקליע נגמר, ומכוונת לפי כיוון התעופה שלו (מהמפלצת אל היעד)
@@ -515,14 +516,16 @@ fun GameScreen(
                                     ).toFloat()
                                     val fresh = ArrayList<SlimeSplat>()
                                     fresh.add(
-                                        if (spikeHit) SlimeFx.newSpikeSplat(rnd, spotScreen.x, spotScreen.y, big = true)
+                                        if (boomHit) SlimeFx.newBoomSplat(rnd, spotScreen.x, spotScreen.y, big = true)
+                                        else if (spikeHit) SlimeFx.newSpikeSplat(rnd, spotScreen.x, spotScreen.y, big = true)
                                         else SlimeFx.newSplat(rnd, spotScreen.x, spotScreen.y, lineDeg, big = true)
                                     )
                                     if (rnd.nextFloat() < 0.5f) {
                                         val sx = spotScreen.x + (rnd.nextFloat() - 0.5f) * 0.5f
                                         val sy = spotScreen.y + (rnd.nextFloat() - 0.5f) * 0.3f
                                         fresh.add(
-                                            if (spikeHit) SlimeFx.newSpikeSplat(rnd, sx, sy, big = false)
+                                            if (boomHit) SlimeFx.newBoomSplat(rnd, sx, sy, big = false)
+                                            else if (spikeHit) SlimeFx.newSpikeSplat(rnd, sx, sy, big = false)
                                             else SlimeFx.newSplat(rnd, sx, sy, lineDeg, big = false)
                                         )
                                     }

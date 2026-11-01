@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 
 /** מריחה אחת של סליים על המסך. x, y = מרכז כחלק מהמסך, size = קוטר כחלק מגובה המסך, age = שניות מאז הפגיעה */
-data class SlimeSplat(val variant: Int, val x: Float, val y: Float, val size: Float, val rotation: Float, val age: Float = 0f, val spikes: Boolean = false)
+data class SlimeSplat(val variant: Int, val x: Float, val y: Float, val size: Float, val rotation: Float, val age: Float = 0f, val spikes: Boolean = false, val boom: Boolean = false)
 
 /**
  * ירייה של החילזון שפגעה בשחקן: מריחה חצי שקופה על המסך שמטפטפת למטה ונעלמת.
@@ -61,6 +61,25 @@ object SlimeFx {
         val context = LocalContext.current
         return remember { decode(context, "shot_spike_splats") }
     }
+
+    /** פיצוץ בלון על המסך: shot_boom_splats, 6 פיצוצים (0-2 קטנים, 3-5 גדולים) */
+    @Composable
+    fun boomArt(): ImageBitmap? {
+        val context = LocalContext.current
+        return remember { decode(context, "shot_boom_splats") }
+    }
+
+    /** פיצוץ: מופיע בבת אחת, נשאר רגע ודועך מהר (חיים של כשנייה וחצי) */
+    fun boomAlphaAt(age: Float): Float = 0.95f * ramp(age, 0f, 0.03f) * (1f - ramp(age, 0.45f, 1.5f))
+
+    fun newBoomSplat(random: kotlin.random.Random, x: Float, y: Float, big: Boolean): SlimeSplat = SlimeSplat(
+        variant = if (big) 3 + random.nextInt(3) else random.nextInt(3),
+        x = x.coerceIn(0.14f, 0.86f),
+        y = y.coerceIn(0.28f, 0.7f),
+        size = if (big) 1.15f + random.nextFloat() * 0.2f else 0.8f + random.nextFloat() * 0.15f,
+        rotation = (random.nextFloat() - 0.5f) * 20f,
+        boom = true
+    )
 
     private const val SPIKE_ALPHA = 0.9f
 
@@ -107,21 +126,23 @@ object SlimeFx {
 fun SlimeSplatOverlay(splats: List<SlimeSplat>, crosshairX: Float, crosshairY: Float, modifier: Modifier = Modifier) {
     val slimeImage = SlimeFx.art()
     val spikeImage = SlimeFx.spikeArt()
+    val boomImage = SlimeFx.boomArt()
     if (splats.isEmpty()) return
     Canvas(modifier = modifier.fillMaxSize().graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
         for (sp in splats) {
-            val image = (if (sp.spikes) spikeImage else slimeImage) ?: continue
+            val image = (if (sp.boom) boomImage else if (sp.spikes) spikeImage else slimeImage) ?: continue
             val cell = image.width / SlimeFx.VARIANTS
-            val a = if (sp.spikes) SlimeFx.spikeAlphaAt(sp.age) else SlimeFx.alphaAt(sp.age)
+            val a = if (sp.boom) SlimeFx.boomAlphaAt(sp.age) else if (sp.spikes) SlimeFx.spikeAlphaAt(sp.age) else SlimeFx.alphaAt(sp.age)
             if (a <= 0.01f) continue
             val life = (sp.age / SlimeFx.LIFE_SECONDS).coerceIn(0f, 1f)
             // נחיתה: קטן ומתרחב במהירות. אחר כך נוזלת: נמתחת למטה (העוגן בקצה העליון) ויורדת, בהתחלה לאט ואז מהר
             // קוצים: "נתקעים" בהגדלה קטנה שמתכווצת פנימה. סליים: קטן שמתרחב
-            val pop = if (sp.spikes) 1.18f - 0.18f * (1f - (1f - (sp.age / 0.1f).coerceIn(0f, 1f)).let { it * it })
+            val pop = if (sp.boom) 0.6f + 0.5f * (1f - (1f - (sp.age / 0.18f).coerceIn(0f, 1f)).let { it * it }) + 0.08f * (sp.age / 1.5f).coerceIn(0f, 1f)
+            else if (sp.spikes) 1.18f - 0.18f * (1f - (1f - (sp.age / 0.1f).coerceIn(0f, 1f)).let { it * it })
             else 0.7f + 0.3f * (1f - (1f - (sp.age / 0.12f).coerceIn(0f, 1f)).let { it * it })
             val dia = sp.size * size.height * pop
-            val flow = if (sp.spikes) 0f else ((sp.age - 0.35f) / (SlimeFx.LIFE_SECONDS - 0.35f)).coerceIn(0f, 1f).let { it * it }
-            val dripping = !sp.spikes && sp.variant in SlimeFx.DRIPPING
+            val flow = if (sp.spikes || sp.boom) 0f else ((sp.age - 0.35f) / (SlimeFx.LIFE_SECONDS - 0.35f)).coerceIn(0f, 1f).let { it * it }
+            val dripping = !sp.spikes && !sp.boom && sp.variant in SlimeFx.DRIPPING
             val stretch = 1f + (if (dripping) 0.65f else 0.4f) * flow
             val slide = size.height * (if (dripping) 0.22f else 0.14f) * flow
             val cx = sp.x * size.width
