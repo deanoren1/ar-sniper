@@ -824,8 +824,14 @@ fun GameScreen(
         if (director.bossEnraged) {
             soundPlayer.play(Sfx.BossRoar)
             shake = max(shake, 0.9f)
-            rageBanner = true
-            delay(1700)
+            // finally: אם האפקט מתבטל באמצע (הבוס מת, משחק חדש) הכרזה חייבת להיעלם, אחרת היא נשארת במשחק הבא
+            try {
+                rageBanner = true
+                delay(1700)
+            } finally {
+                rageBanner = false
+            }
+        } else {
             rageBanner = false
         }
     }
@@ -1614,7 +1620,7 @@ fun GameScreen(
                     .padding(top = 96.dp)
             )
         }
-        if (rageBanner) {
+        if (rageBanner && director.bossEnraged) {
             ArenaBanner(
                 title = "ENRAGED!",
                 subtitle = "THE DRAGON FIRES FASTER",
