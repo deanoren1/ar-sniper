@@ -498,7 +498,7 @@ fun GameScreen(
                                 // סליים: מריחה אחת (לפעמים שתיים) חצי שקופה על המסך, והבהוב אדום חלש
                                 val hitKind = out.hitKinds.getOrNull(i)
                                 val spikeHit = hitKind == com.arsniper.game.engine.ShotKind.Spike
-                                val boomHit = hitKind == com.arsniper.game.engine.ShotKind.Bomb
+                                val boomHit = hitKind == com.arsniper.game.engine.ShotKind.Bomb || hitKind == com.arsniper.game.engine.ShotKind.Fire
                                 if (hitKind == com.arsniper.game.engine.ShotKind.Gas || spikeHit || boomHit) {
                                     flash = FLASH_START * 0.5f
                                     val rnd = kotlin.random.Random.Default
@@ -824,21 +824,12 @@ fun GameScreen(
         }
     }
 
-    // הבוס נכנס לשליש האחרון: כרזה קצרה ושאגה
-    var rageBanner by remember { mutableStateOf(false) }
+    // הבוס נכנס לשליש האחרון: שאגה ורעידה (בלי כרזה). הדרקון נוחת (ראו AttackPose.bossLandedAt)
     LaunchedEffect(director.bossEnraged) {
         if (director.bossEnraged) {
+            AttackPose.bossLandedAt = System.nanoTime() / 1e9
             soundPlayer.play(Sfx.BossRoar)
             shake = max(shake, 0.9f)
-            // finally: אם האפקט מתבטל באמצע (הבוס מת, משחק חדש) הכרזה חייבת להיעלם, אחרת היא נשארת במשחק הבא
-            try {
-                rageBanner = true
-                delay(1700)
-            } finally {
-                rageBanner = false
-            }
-        } else {
-            rageBanner = false
         }
     }
 
@@ -1629,13 +1620,6 @@ fun GameScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 96.dp)
-            )
-        }
-        if (rageBanner && director.bossEnraged) {
-            ArenaBanner(
-                title = "ENRAGED!",
-                subtitle = "THE DRAGON FIRES FASTER",
-                modifier = Modifier.align(Alignment.Center)
             )
         }
 

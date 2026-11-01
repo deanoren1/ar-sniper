@@ -24,7 +24,11 @@ class Shot(
     val maxHp: Int,
     var hp: Int,
     /** ירייה "מטעה": המפלצת הייתה מבולבלת, והקליע לא פוגע בשחקן כשהוא מגיע */
-    val harmless: Boolean = false
+    val harmless: Boolean = false,
+    /** הסטת היעד לרוחב (חלק מרוחב המסך): שלושת הכדורים של הדרקון הנחת עפים במקביל לשלושה כיוונים */
+    val dx: Float = 0f,
+    /** כדור נוסף של אותה ירייה (לא נספר בתקרת הקליעים של הגל) */
+    val extra: Boolean = false
 ) {
     /**
      * מיקום הירייה בזמן t (קואורדינטות עולם): יוצאת מהמפלצת וטסה אל השחקן (אמצע התחתית), מאיצה בדרך.
@@ -33,7 +37,7 @@ class Shot(
     fun posAt(time: Float): Vec2 {
         val p = ((time - born) / flight).coerceIn(0f, 1f)
         val e = Math.pow(p.toDouble(), 1.4).toFloat() * TRAVEL
-        return Vec2(x + (targetX - x) * e, y + (targetY - y) * e)
+        return Vec2(x + (targetX + dx - x) * e, y + (targetY - y) * e)
     }
 
     companion object {
@@ -182,7 +186,7 @@ class EnemyFire(private val random: Random = Random.Default) {
             if (time < due) continue
             if (telegraphs.any { it.enemyId == e.id }) continue
             val capacity = wave.maxAttacks + if (director.bossEnraged) 1 else 0
-            if (telegraphs.size + shots.size >= capacity) continue
+            if (telegraphs.size + shots.count { !it.extra } >= capacity) continue
             telegraphs.add(Telegraph(e.id, time, TELEGRAPH_SECONDS))
         }
 
@@ -239,7 +243,10 @@ class EnemyFire(private val random: Random = Random.Default) {
         val foe = director.foeOf(enemy.id) ?: return
         lastLaunchAt[enemy.id] = time
         launchCount++
-        shots.add(
+        // הדרקון אחרי הנחיתה (השלב הכועס): שלושה כדורים במקביל, כל אחד קטן יותר וסופג פגיעה אחת
+        val triple = enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged
+        val offsets = if (triple) floatArrayOf(-0.17f, 0f, 0.17f) else floatArrayOf(0f)
+        for ((index, spread) in offsets.withIndex()) shots.add(
             Shot(
                 id = nextShotId++,
                 x = enemy.position.x,
@@ -254,10 +261,12 @@ class EnemyFire(private val random: Random = Random.Default) {
                 born = time,
                 flight = foe.flightSeconds * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)) *
                     (if (enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged) 0.85f else 1f),
-                baseRadius = baseRadiusOf(foe.shot),
-                maxHp = foe.shotHp,
-                hp = foe.shotHp,
-                harmless = time < (confusedUntil[enemy.id] ?: 0f)
+                baseRadius = baseRadiusOf(foe.shot) * (if (triple) 0.75f else 1f),
+                maxHp = if (triple) 1 else foe.shotHp,
+                hp = if (triple) 1 else foe.shotHp,
+                harmless = time < (confusedUntil[enemy.id] ?: 0f),
+                dx = spread,
+                extra = index > 0
             )
         )
     }

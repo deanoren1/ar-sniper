@@ -181,6 +181,11 @@ fun EnemyLayer(
             val shakePx = if (!isPeeker && hurtLevel > 0f) sin(sinceHurt * 70f) * radius * 0.12f * hurtLevel else 0f
             // מפלצת הבלונים מרחפת באוויר; כשהיא נופלת (מתה) היא צונחת אל הקרקע
             var liftPx = Hover.lift(enemy, nowS) * size.height
+            // הדרקון מרחף באוויר, ויורד אל הקרקע כשהוא נוחת (השלב הכועס)
+            if (enemy.id == ArenaDirector.BOSS_ID) {
+                val landT = if (AttackPose.bossEnraged) ((nowS - AttackPose.bossLandedAt) / AttackPose.LAND_SECONDS).toFloat().coerceIn(0f, 1f) else 0f
+                liftPx += enemy.radius * size.height * (0.3f + 0.05f * sin(nowS * 2.4).toFloat()) * (1f - landT * landT * (3f - 2f * landT))
+            }
             if (item.dead) {
                 val fall = (item.progress * 2.5f).coerceIn(0f, 1f)
                 liftPx *= 1f - fall * fall
@@ -352,7 +357,17 @@ private fun monsterBox(sheet: MonsterSheet, center: Offset, r: Float): MonsterBo
  * הפריים של הבוס לפי מה שהוא עושה: מסוחרר (כוכבים), מתכווץ מפגיעה, מתכונן (הפה נפתח ונדלק לפי התקדמות ההכנה),
  * יורה (פה פתוח ואז התאוששות), או עומד (כנפיים ונשימה בלולאה הלוך-חזור).
  */
-private fun bossFrame(a: BossAnim, enemy: Enemy, anim: Float, hurt: Float): MonsterSprite {
+private fun bossFrame(base: BossAnim, enemy: Enemy, anim: Float, hurt: Float): MonsterSprite {
+    // הדרקון בשלב הכועס: נוחת (אנימציית נחיתה), ואחר כך אותן תנוחות מהגיליון של הקרקע
+    var a = base
+    val land = base.land
+    if (land != null && AttackPose.bossEnraged) {
+        val t = (System.nanoTime() / 1e9 - AttackPose.bossLandedAt).toFloat()
+        if (t < AttackPose.LAND_SECONDS && base.landing.isNotEmpty()) {
+            return base.landing[(t / AttackPose.LAND_SECONDS * base.landing.size).toInt().coerceIn(0, base.landing.size - 1)]
+        }
+        a = land
+    }
     if (AttackPose.bossStunned) return a.hit[3]
     if (hurt > 0.5f) return a.hit[2]
     val progress = AttackPose.progress[enemy.id]

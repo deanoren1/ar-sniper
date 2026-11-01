@@ -53,6 +53,11 @@ object AttackPose {
     /** הבוס כועס (שליש חיים אחרון): אדום, נע מהר ורועד */
     @Volatile
     var bossEnraged: Boolean = false
+
+    /** הבוס נחת (נכנס לשלב הכועס): הזמן (שניות, שעון nanoTime) שבו התחילה הנחיתה, ואורך אנימציית הנחיתה */
+    @Volatile
+    var bossLandedAt: Double = -1e9
+    const val LAND_SECONDS = 0.9f
 }
 
 /** אנימציות הבוס: נשימה/כנפיים בעמידה, הכנה (פה נפתח ונדלק), ירייה, ופגיעה (האחרון: מסוחרר עם כוכבים) */
@@ -62,7 +67,10 @@ class BossAnim(
     val fire: List<MonsterSprite>,
     val hit: List<MonsterSprite>,
     /** מוות: 6 פריימים (נופל, שוכב, מתפוצץ) */
-    val death: List<MonsterSprite>
+    val death: List<MonsterSprite>,
+    /** הדרקון אחרי הנחיתה (השלב הכועס): אותן אנימציות על הקרקע, ואנימציית הנחיתה עצמה. null בבוסים אחרים */
+    val land: BossAnim? = null,
+    val landing: List<MonsterSprite> = emptyList()
 )
 
 /** כל הפריימים של מפלצת אחת */
@@ -645,7 +653,52 @@ class MonsterSprites private constructor(
          * גיליון הבוס (boss_anim.png): 6 עמודות על 5 שורות: עמידה (6 פריימים), הכנה (5), ירייה (2), פגיעה (4), מוות (6).
          * אין קובץ: null והבוס יצויר כמפלצת רגילה.
          */
+        /**
+         * הדרקון של הארנה הקלאסית: boss_dragon (באוויר: עמידה, הכנה, ירייה, פגיעה, מוות) ו-boss_dragon_land (נחיתה, עמידה, הכנה, ירייה, פגיעה).
+         * 5 שורות כל אחד, 6 עמודות. הכול באותו חיתוך וקנה מידה. null אם הקבצים חסרים
+         */
+        private fun loadDragon(context: Context): MonsterSheet? {
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            fun open(name: String): Bitmap? {
+                val id = context.resources.getIdentifier(name, "drawable", context.packageName)
+                if (id == 0) return null
+                return BitmapFactory.decodeResource(context.resources, id, options)?.also { it.density = Bitmap.DENSITY_NONE }
+            }
+            val airBm = open("boss_dragon") ?: return null
+            val landBm = open("boss_dragon_land") ?: return null
+            fun line(bm: Bitmap, row: Int, count: Int): List<MonsterSprite> = (0 until count).mapNotNull { column ->
+                cut(bm, row, column, BOSS_ROWS, BOSS_COLUMNS)?.let {
+                    it.density = Bitmap.DENSITY_NONE
+                    MonsterSprite(it.asImageBitmap(), it.width, it.height, 0)
+                }
+            }
+            val idle = line(airBm, 0, 6)
+            val prep = line(airBm, 1, 5)
+            val fire = line(airBm, 2, 2)
+            val hit = line(airBm, 3, 4)
+            val death = line(airBm, 4, 6)
+            val landing = line(landBm, 0, 6)
+            val landed = BossAnim(line(landBm, 1, 6), line(landBm, 2, 5), line(landBm, 3, 2), line(landBm, 4, 4), death)
+            if (idle.size < 6 || prep.size < 5 || fire.size < 2 || hit.size < 4 || death.size < 6 || landing.size < 6 ||
+                landed.idle.size < 6 || landed.prep.size < 5 || landed.fire.size < 2 || landed.hit.size < 4
+            ) return null
+            return MonsterSheet(
+                idle = idle[3],
+                walk = listOf(idle[1], idle[2], idle[4], idle[5]),
+                peek = prep[3],
+                hit = hit[1],
+                sizeScale = DRAGON_SIZE_SCALE,
+                bossAnim = BossAnim(idle, prep, fire, hit, death, land = landed, landing = landing)
+            )
+        }
+
+        private const val DRAGON_SIZE_SCALE = 1.3f
+
         private fun loadBoss(context: Context, variant: String? = null): MonsterSheet? {
+            if (variant == null) loadDragon(context)?.let { return it }
             val bossName = if (variant == null) "boss_anim" else "boss_anim_$variant"
             val id = context.resources.getIdentifier(bossName, "drawable", context.packageName)
             if (id == 0) return null

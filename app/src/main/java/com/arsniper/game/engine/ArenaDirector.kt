@@ -30,7 +30,7 @@ enum class Foe(
     Hedgehog(row = 2, hp = 2, threat = 3, shot = ShotKind.Spike, flightSeconds = 1.5f),
 
     /** הבוס: דרקון. אין לו שורה בגיליון הרגיל (row = 5), הוא מצויר מגיליון נפרד לפי BOSS_ID */
-    Dragon(row = 5, hp = 30, threat = 5, shot = ShotKind.Fire, flightSeconds = 1.7f, shotHp = 2)
+    Dragon(row = 5, hp = 70, threat = 5, shot = ShotKind.Fire, flightSeconds = 1.7f, shotHp = 2)
 }
 
 /**
@@ -475,7 +475,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         const val BOSS_ID = 300_002
 
         /** רדיוס הבוס ביחידות גובה מסך */
-        const val BOSS_RADIUS = 0.13f
+        const val BOSS_RADIUS = 0.17f
         const val BOSS_START_RADIUS = 0.05f
         const val BOSS_START_Y = 0.36f
         const val BOSS_END_Y = 0.56f

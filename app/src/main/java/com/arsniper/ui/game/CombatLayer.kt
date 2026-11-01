@@ -293,10 +293,10 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     }
     // צל רך מתחת: מפריד את הקליע מרקע עמוס בתמונה
     // (כדור האנרגיה בלי צל כהה: הוא מקור אור, והצל גורם לו להיראות כמו תמונה שמתקרבת)
-    if (s.kind != ShotKind.Orb && !((s.kind == ShotKind.Rock || s.kind == ShotKind.Bomb) && pair.flight != null)) drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
+    if (s.kind != ShotKind.Orb && !((s.kind == ShotKind.Rock || s.kind == ShotKind.Bomb || s.kind == ShotKind.Fire) && pair.flight != null)) drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
     // זוהר בצבע הציור עצמו, מצומצם כדי לא ליצור כתם
     // (כדור האנרגיה עם ציור טיסה מצייר זוהר משלו, והזוהר הכללי נראה כעיגול אפור על הכדור כשהוא גדל)
-    if (!((s.kind == ShotKind.Orb || s.kind == ShotKind.Rock || s.kind == ShotKind.Bomb) && pair.flight != null)) drawCircle(
+    if (!((s.kind == ShotKind.Orb || s.kind == ShotKind.Rock || s.kind == ShotKind.Bomb || s.kind == ShotKind.Fire) && pair.flight != null)) drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(color.copy(alpha = 0.38f * pulse), color.copy(alpha = 0f)),
             center = center,
@@ -319,7 +319,7 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         return
     }
     // סלע בוער של הענק: שובל להבות מצויר בתמונה (כמו כדור התמנון), הילה כתומה. טבעת האזהרה נשארת (רמז לשחקן)
-    if ((s.kind == ShotKind.Rock || s.kind == ShotKind.Bomb) && fl != null) {
+    if ((s.kind == ShotKind.Rock || s.kind == ShotKind.Bomb || s.kind == ShotKind.Fire) && fl != null) {
         drawOrbFlight(s, fl, center, diameter, p, time, fire = true)
         if (s.hp < s.maxHp) {
             drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
@@ -344,7 +344,7 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         val orbTrail = s.kind == ShotKind.Orb
         val flip = if (orbTrail || side >= 0f) 1f else -1f
         // השובל מצביע אחורה, לכיוון שממנו הגיע הקליע בפועל (לפי קו הטיסה על המסך)
-        val backX = (s.x - Shot.targetX) * size.width
+        val backX = (s.x - Shot.targetX - s.dx) * size.width
         val backY = (s.y - Shot.targetY) * size.height
         val wanted = Math.toDegrees(kotlin.math.atan2(backY, backX).toDouble()).toFloat()
         val native = if (flip < 0f) 180f - sp.trailDeg else sp.trailDeg
@@ -408,7 +408,7 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
     val lo = pos.toInt().coerceAtMost(fl.frames - 1)
     val hi = (lo + 1).coerceAtMost(fl.frames - 1)
     val t = pos - lo
-    val backX = (s.x - Shot.targetX) * size.width
+    val backX = (s.x - Shot.targetX - s.dx) * size.width
     val backY = (s.y - Shot.targetY) * size.height
     val ang = kotlin.math.atan2(backY, backX)
     val dx = cos(ang)
@@ -521,7 +521,7 @@ private fun DrawScope.drawSlimeFlight(s: Shot, fl: FlightSprite, center: Offset,
     val lo = pos.toInt().coerceAtMost(fl.frames - 1)
     val hi = if (slime) (lo + 1).coerceAtMost(fl.frames - 1) else (lo + 1) % fl.frames
     val t = pos - lo
-    val backX = (s.x - Shot.targetX) * size.width
+    val backX = (s.x - Shot.targetX - s.dx) * size.width
     val backY = (s.y - Shot.targetY) * size.height
     val ang = kotlin.math.atan2(backY, backX)
     val dx = cos(ang)
