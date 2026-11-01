@@ -118,14 +118,14 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.045  # Slight blue glass body, still transparent enough to keep the face crisp
+    mix.inputs[0].default_value = 0.14  # Visible cool-blue bubble while preserving a clear view of the face
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
-PURPLE = mat("Purple", (0.30, 0.008, 0.60), rough=0.25, coat=0.60)
+PURPLE = mat("Purple", (0.36, 0.008, 0.64), rough=0.25, coat=0.60)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.23, 0.006, 0.48), rough=0.19, coat=0.76)
@@ -168,7 +168,7 @@ SUCKER = mat("Sucker", (0.025, 0.001, 0.055), rough=0.84, coat=0.0)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.30, 0.006, 0.59), rough=0.31, coat=0.38,
                emit=(0.008, 0.001, 0.025), strength=0.006)
-TANK = mat("Tank", (0.53, 0.012, 0.36), rough=0.40, metal=0.20, coat=0.34)
+TANK = mat("Tank", (0.68, 0.014, 0.40), rough=0.40, metal=0.20, coat=0.34)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
@@ -315,12 +315,12 @@ TORSO_Z = 1.55
 monster = empty("Monster")
 torso = empty("Torso", monster, loc=(0, 0, TORSO_Z))
 pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, ובתוכו הגוף, העין והפה
-BODY_BASE_SCALE = (1.48, 1.08, 1.38)  # taller, rounder mantle: near-spherical like the reference
+BODY_BASE_SCALE = (1.48, 1.08, 1.52)  # taller, rounder mantle: near-spherical like the reference
 pivot.scale = BODY_BASE_SCALE
 
 # גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
 BODY_R = 1.0
-BODY_SCALE = (1.48, 1.15, 1.38)
+BODY_SCALE = (1.48, 1.15, 1.52)
 
 # Shared profile keeps the shell and raised spots aligned to the same surface.
 BODY_PROFILE = [
@@ -474,20 +474,20 @@ for i in range(14):
 
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -0.80, 0.43
+EYE_Y, EYE_Z = -0.73, 0.40
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.96, 0.99, 0.99)  # slightly more forward and round, with a readable purple socket
+eye.scale = (0.94, 0.96, 0.94)  # embed the eye more deeply and keep its silhouette gently oval
 eye_parts = [
     # Slightly smaller sclera, but a more exposed amber iris and a round, deep-black pupil.
-    sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.60, 1.00), seg=64),
-    sphere("Iris", 0.57, (0, -0.48, -0.015), IRIS, eye, scale=(0.96, 0.66, 0.98), seg=64),
-    sphere("Pupil", 0.37, (0, -0.66, -0.015), PUPIL, eye, scale=(1.00, 0.60, 1.00), seg=56),
-    sphere("Shine", 0.095, (0.115, -0.835, 0.165), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.54, 0.88), seg=64),
+    sphere("Iris", 0.52, (0, -0.47, -0.015), IRIS, eye, scale=(0.96, 0.62, 0.90), seg=64),
+    sphere("Pupil", 0.32, (0, -0.64, -0.015), PUPIL, eye, scale=(1.00, 0.68, 0.92), seg=56),
+    sphere("Shine", 0.085, (0.105, -0.805, 0.135), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.90, 0.060, (0, -0.095, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.94, 0.070, (0, -0.12, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.04, 1.0, 0.90)
-eye_socket_accent = torus("EyeSocketAccent", 0.955, 0.042, (0, -0.135, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent = torus("EyeSocketAccent", 0.985, 0.028, (0, -0.155, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.02, 1.0, 0.92)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -500,16 +500,16 @@ def make_upper_eyelid(parent):
         xn = x / (rx * 0.84)
         z_top = rz * math.sqrt(max(0.0, 1.0 - (x / rx) ** 2))
         # The outer-right corner drops lower, creating a clear angry squint.
-        z_bottom = 0.04 + 0.16 * (1.0 - xn * xn) - 0.16 * xn
+        z_bottom = 0.20 + 0.08 * (1.0 - xn * xn)
         z_bottom = min(z_bottom, z_top - 0.018)
         for j in range(rows + 1):
             v = j / rows
             z = z_bottom + (z_top - z_bottom) * v
             inside = max(0.015, 1.0 - (x / rx) ** 2 - (z / rz) ** 2)
-            y = -ry * math.sqrt(inside) - 0.14 - 0.05 * (1.0 - v)
+            y = -ry * math.sqrt(inside) - 0.24 - 0.05 * (1.0 - v)
             verts.append((x, y, z))
         edge_inside = max(0.015, 1.0 - (x / rx) ** 2 - (z_bottom / rz) ** 2)
-        lower_edge.append((x, -ry * math.sqrt(edge_inside) - 0.21, z_bottom))
+        lower_edge.append((x, -ry * math.sqrt(edge_inside) - 0.30, z_bottom))
     for i in range(cols):
         for j in range(rows):
             a = i * (rows + 1) + j
@@ -538,10 +538,9 @@ def make_upper_eyelid(parent):
     edge = pipe_curve("UpperLidEdge", lower_edge, LID, parent, bevel=0.045)
     return obj, edge
 
-# Restore the broad, slanted skin lid: it covers the upper third of the eye and
-# drops toward the outer-right corner to recreate the reference's angry expression.
-# Keep the reference eye completely open; the earlier angry eyelid obscured its round silhouette.
-eye_parts.extend([eye_socket, eye_socket_accent])
+# A soft, symmetrical purple upper lid integrates the eye into the mantle, as in the reference.
+upper_lid, upper_lid_edge = make_upper_eyelid(eye)
+eye_parts.extend([eye_socket, eye_socket_accent, upper_lid, upper_lid_edge])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.24, -0.18))
@@ -562,13 +561,13 @@ mouth_parts.append(sphere("Tongue", 0.17, (0, -0.28, -0.20), TONGUE, mouth,
                           scale=(1.0, 0.45, 0.30), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.26, -0.91, COLLAR)
-collar_radius = shell_radius_at(-0.91) + 0.16
-torus("CollarUpperSteelTrim", collar_radius, 0.040, (0, -0.14, -0.91), METAL, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.040, (0, -0.14, -1.26), METAL, pivot)
+body_band("LowerPinkBand", pivot, -1.30, -0.86, COLLAR)
+collar_radius = shell_radius_at(-0.86) + 0.16
+torus("CollarUpperSteelTrim", collar_radius, 0.032, (0, -0.14, -0.86), METAL, pivot)
+torus("CollarLowerSteelTrim", collar_radius, 0.032, (0, -0.14, -1.30), METAL, pivot)
 for i in range(16):
     a = i * (2 * math.pi / 16)
-    z = -1.085 + 0.035 * abs(math.cos(a))
+    z = -1.105 + 0.035 * abs(math.cos(a))
     r = collar_radius + 0.045
     sphere(f"BandRivet{i}", 0.060, (r * math.cos(a), r * 0.92 * math.sin(a) - 0.14, z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
@@ -659,7 +658,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -1.20
-DOME_RADII = (2.22, 1.90, 3.20)
+DOME_RADII = (2.52, 2.05, 3.30)
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
@@ -684,7 +683,7 @@ add_dome_reflection("DomeReflectionL", -1.48, 0.96, 0.22, 0.40, DOME_HIGHLIGHT_C
 add_dome_reflection("DomeReflectionR", 1.48, 0.98, 0.24, 0.38, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
-ARM_LEN = [0.32, 0.28, 0.23, 0.18]
+ARM_LEN = [0.34, 0.29, 0.24, 0.19]
 ARM_RAD = [0.19, 0.17, 0.15, 0.14, 0.16]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
@@ -714,22 +713,22 @@ def arm_radius(t):
     # Tapered, soft tentacles: broad at the mantle, slimmer toward rounded curled tips.
     # Broad mantle attachment, a gentle mid-arm taper, then a soft distal bulb.
     if t < 0.22:
-        return 0.33 + 0.030 * math.sin((t / 0.22) * math.pi * 0.5)
+        return 0.30 + 0.025 * math.sin((t / 0.22) * math.pi * 0.5)
     if t < 0.68:
         u = (t - 0.22) / 0.46
-        return 0.36 - 0.065 * u
+        return 0.33 - 0.055 * u
     u = min(1.0, max(0.0, (t - 0.68) / 0.32))
     # A fuller distal lobe makes the arms read as soft octopus tentacles, not fingers.
-    bulb = 0.27 + 0.085 * math.sin(math.pi * u)
+    bulb = 0.245 + 0.070 * math.sin(math.pi * u)
     return bulb * (1.0 + 0.035 * u)
 
 
 def arm_center(t, style="outer"):
     """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.70), (2.02, -1.42), (0.84, -0.30)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.66), (2.02, -1.30), (0.84, -0.20)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.66), (1.72, -1.48), (0.52, -0.58)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.62), (1.72, -1.34), (0.62, -0.42)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.48), (1.04, -1.06), (0.68, -0.48)
     u = 1.0 - t
@@ -831,8 +830,8 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         hole_pos = center + cup_normal * rr * 0.965
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.48, rr * 0.44, rr * 0.10), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.018,
+               scale=(rr * 0.36, rr * 0.33, rr * 0.08), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.28, rr * 0.018,
               tuple(hole_pos + cup_normal * 0.015), SUCKER, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
