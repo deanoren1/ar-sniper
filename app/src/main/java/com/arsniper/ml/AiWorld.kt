@@ -84,4 +84,33 @@ object AiWorld {
             Result.Error(e.message ?: e.toString())
         }
     }
+
+    private fun lastFile(context: Context) = java.io.File(context.filesDir, "ai_last.jpg")
+
+    /** שומר את התוצאה האחרונה בדיסק, כדי שלא תאבד ביציאה מהמסך */
+    fun rememberLast(context: Context, bitmap: Bitmap) {
+        try {
+            lastFile(context).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+        } catch (_: Exception) {
+        }
+    }
+
+    fun loadLast(context: Context): Bitmap? =
+        lastFile(context).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+
+    /** שומר עותק בגלריה (Pictures/SnapBoo). מחזיר true בהצלחה */
+    fun saveToGallery(context: Context, bitmap: Bitmap): Boolean = try {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "snapboo_ai_${System.currentTimeMillis()}.jpg")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/SnapBoo")
+        }
+        val uri = context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        if (uri == null) false else {
+            context.contentResolver.openOutputStream(uri)?.use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+            true
+        }
+    } catch (_: Exception) {
+        false
+    }
 }

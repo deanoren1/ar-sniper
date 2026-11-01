@@ -128,7 +128,7 @@ fun SceneScreen(
     var tundraBefore by remember { mutableStateOf(false) }
     var tundraBusy by remember { mutableStateOf(false) }
     // עולם AI (ניסוי): התמונה שחזרה מהשרת, ואפשרות להפוך אותה לתמונת המשחק כדי לסרוק אותה מחדש
-    var aiImage by remember { mutableStateOf<Bitmap?>(null) }
+    var aiImage by remember { mutableStateOf<Bitmap?>(com.arsniper.ml.AiWorld.loadLast(context)) }
     var aiStatus by remember { mutableStateOf("") }
     var aiBusy by remember { mutableStateOf(false) }
     fun runAi(view: SceneView, quality: String? = null, model: String? = null) {
@@ -141,6 +141,7 @@ fun SceneScreen(
             when (result) {
                 is com.arsniper.ml.AiWorld.Result.Image -> {
                     aiImage = result.bitmap
+                    com.arsniper.ml.AiWorld.rememberLast(context, result.bitmap)
                     aiStatus = "AI world ready (${result.provider}, ${result.bitmap.width}x${result.bitmap.height}). USE AI makes it the game photo"
                 }
                 is com.arsniper.ml.AiWorld.Result.Error -> aiStatus = result.message
@@ -651,6 +652,11 @@ fun SceneScreen(
                     ActionButton("AI", !aiBusy) { runAi(current) }
                     ActionButton("AI HQ", !aiBusy) { runAi(current, quality = "high") }
                     ActionButton("AI BIG", !aiBusy) { runAi(current, quality = "high", model = "gpt-image-1.5") }
+                    ActionButton("SAVE", aiImage != null) {
+                        aiImage?.let { img ->
+                            aiStatus = if (com.arsniper.ml.AiWorld.saveToGallery(context, img)) "Saved to Gallery (Pictures/SnapBoo)" else "Could not save to Gallery"
+                        }
+                    }
                     ActionButton("USE AI", aiImage != null && !aiBusy) {
                         aiImage?.let { img ->
                             // שומרים גיבוי של התמונה המקורית (פעם אחת) ומחליפים; אחר כך עוברים לתפריט וסורקים מחדש
