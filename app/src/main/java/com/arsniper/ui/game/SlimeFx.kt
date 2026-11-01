@@ -32,7 +32,7 @@ data class SlimeSplat(val variant: Int, val x: Float, val y: Float, val size: Fl
 object SlimeFx {
     const val VARIANTS = 6
     const val LIFE_SECONDS = 3.2f
-    private const val MAX_ALPHA = 0.7f
+    private const val MAX_ALPHA = 0.55f
 
     /** הטיפטוף ניכר רק במריחות עם טפטופים */
     val DRIPPING = setOf(2, 5)
@@ -59,20 +59,18 @@ object SlimeFx {
 
     fun alphaAt(age: Float): Float = MAX_ALPHA * ramp(age, 0f, 0.06f) * (1f - ramp(age, LIFE_SECONDS * 0.45f, LIFE_SECONDS))
 
-    fun newSplat(random: kotlin.random.Random, avoidX: Float, avoidY: Float): SlimeSplat {
-        var x = 0.5f
-        var y = 0.5f
-        // מרחיק את המריחה מהכוונת בזמן הפגיעה (גם אחר כך הכוונת נשארת גלויה: ראו SlimeSplatOverlay)
-        for (attempt in 0 until 6) {
-            x = 0.14f + random.nextFloat() * 0.72f
-            y = 0.22f + random.nextFloat() * 0.56f
-            if (kotlin.math.hypot(x - avoidX, (y - avoidY) * 0.56f) > 0.2f) break
-        }
+    /**
+     * מריחה גדולה: הראשונה במרכז המסך וגדולה (רוב הגובה והרבה מהרוחב), והשנייה, אם יש, בינונית בצד.
+     * הכוונת נשארת גלויה בגלל החור שנחתך סביבה (SlimeSplatOverlay).
+     */
+    fun newSplat(random: kotlin.random.Random, big: Boolean = true): SlimeSplat {
+        val x = if (big) 0.36f + random.nextFloat() * 0.28f else (if (random.nextBoolean()) 0.16f else 0.84f) + (random.nextFloat() - 0.5f) * 0.1f
+        val y = if (big) 0.42f + random.nextFloat() * 0.16f else 0.3f + random.nextFloat() * 0.4f
         return SlimeSplat(
             variant = random.nextInt(VARIANTS),
             x = x,
             y = y,
-            size = 0.55f + random.nextFloat() * 0.25f,
+            size = if (big) 1.15f + random.nextFloat() * 0.3f else 0.7f + random.nextFloat() * 0.2f,
             rotation = (random.nextFloat() - 0.5f) * 50f
         )
     }

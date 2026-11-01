@@ -498,8 +498,8 @@ fun GameScreen(
                                     flash = FLASH_START * 0.5f
                                     val rnd = kotlin.random.Random.Default
                                     val fresh = ArrayList<SlimeSplat>()
-                                    fresh.add(SlimeFx.newSplat(rnd, crosshair.x, crosshair.y))
-                                    if (rnd.nextFloat() < 0.35f) fresh.add(SlimeFx.newSplat(rnd, crosshair.x, crosshair.y))
+                                    fresh.add(SlimeFx.newSplat(rnd, big = true))
+                                    if (rnd.nextFloat() < 0.5f) fresh.add(SlimeFx.newSplat(rnd, big = false))
                                     slimeSplats = (slimeSplats + fresh).takeLast(4)
                                 }
                                 if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
