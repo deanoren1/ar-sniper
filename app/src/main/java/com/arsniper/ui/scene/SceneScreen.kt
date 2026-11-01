@@ -522,14 +522,6 @@ fun SceneScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    ActionButton(if (tundraExtras) "3-5 ON" else "3-5 OFF", !tundraBusy) {
-                        tundraExtras = !tundraExtras
-                        com.arsniper.ml.ThemeBake.setExtras(context, tundraExtras)
-                        bakeTundra(current, tundraExtras)
-                    }
-                    ActionButton(if (tundraBefore) "BEFORE" else "AFTER", baked != null) {
-                        tundraBefore = !tundraBefore
-                    }
                 }
             }
 
@@ -612,6 +604,18 @@ fun SceneScreen(
                     }
                     ActionButton(if (showDebug) "DBG OFF" else "DBG", debugImage != null && !samBusy) {
                         showDebug = !showDebug
+                    }
+                }
+            }
+            if (current != null && viewMode == ViewMode.Tundra) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ActionButton(if (tundraExtras) "3-5 ON" else "3-5 OFF", !tundraBusy) {
+                        tundraExtras = !tundraExtras
+                        com.arsniper.ml.ThemeBake.setExtras(context, tundraExtras)
+                        bakeTundra(current, tundraExtras)
+                    }
+                    ActionButton(if (tundraBefore) "BEFORE" else "AFTER", tundraImage != null) {
+                        tundraBefore = !tundraBefore
                     }
                 }
             }

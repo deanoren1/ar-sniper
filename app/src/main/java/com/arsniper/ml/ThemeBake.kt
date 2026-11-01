@@ -25,7 +25,7 @@ import kotlin.math.sqrt
  */
 object ThemeBake {
 
-    private const val VERSION = 5
+    private const val VERSION = 6
     private const val MAX_PIXELS = 2_000_000
 
     /** קטגוריות ADE20K של רצפה/קרקע */
@@ -163,12 +163,11 @@ object ThemeBake {
         val shadL = fastBox(shadRaw, lw, lh, max(2, lw / 200))
 
         // ---- שלבים 3–5: מפות עזר ברזולוציה חצויה
-        var lumaBlurL = FloatArray(0)
+        val lr = max(4, lw / 20)
+        val lumaBlurL = fastBox(fastBox(guide, lw, lh, lr), lw, lh, lr)
         var bloomL = FloatArray(0)
         var edgeL = FloatArray(0)
         if (extras) {
-            val lr = max(4, lw / 20)
-            lumaBlurL = fastBox(fastBox(guide, lw, lh, lr), lw, lh, lr)
             val bright = FloatArray(lw * lh) { (guide[it] - 0.60f).coerceAtLeast(0f) * 2.2f }
             val br = max(3, lw / 40)
             bloomL = fastBox(fastBox(bright, lw, lh, br), lw, lh, br)
@@ -226,7 +225,7 @@ object ThemeBake {
                 val n1 = noise(x * 0.55f * f, y * 0.9f * f)
                 val n2 = noise(x * 1.7f * f + 50f, y * 2.8f * f + 17f)
                 val n3 = noise(x * 1.3f + 99f, y * 1.3f)
-                val thr = if (isFloor) 0.62f else 0.54f
+                val thr = if (isFloor) 0.50f else 0.50f
                 val cover = smoothstep(thr - 0.10f, thr + 0.10f, n1 * 0.75f + n2 * 0.25f)
                 val snow = upv * cover
 
@@ -241,28 +240,31 @@ object ThemeBake {
                 val noFrost = label == 2 || label == CEILING
                 // כפור על משטחים אנכיים וחפצים (לא שמיים/תקרה)
                 if (!noFrost) {
-                    var frost = (1f - upv) * 0.07f * smoothstep(0.52f, 0.78f, n3)
+                    var frost = (1f - upv) * 0.12f * smoothstep(0.45f, 0.75f, n3)
+                    // שלג שנתקע בסדקים ובחריצים: אזורים כהים מהסביבה שלהם על משטחים אנכיים (קירות אבן, מכוניות, גדרות)
+                    val crack = smoothstep(0.015f, 0.10f, bl(lumaBlurL, lw, lh, lx, ly) - luma)
+                    frost += (1f - upv) * crack * (0.40f + 0.40f * smoothstep(0.30f, 0.70f, n1))
                     if (extras) {
                         // שלב 4: כפור פרוצדורלי שמצטבר לאורך קצוות וזוויות
                         val crystals = smoothstep(0.55f, 0.85f, noise(x * 2.3f + 13f, y * 2.3f) * 0.6f + noise(x * 5.1f, y * 5.1f + 7f) * 0.4f)
                         frost += (1f - upv) * edge * (0.28f + 0.42f * crystals)
-                        frost = frost.coerceAtMost(0.72f)
-                        if (crystals > 0.8f) {
+                                                if (crystals > 0.8f) {
                             val tw = edge * (crystals - 0.8f) * 0.6f
                             r += tw
                             gg += tw
                             b += tw
                         }
                     }
-                    r = lerp(r, 0.86f, frost)
-                    gg = lerp(gg, 0.94f, frost)
+                    frost = frost.coerceAtMost(0.80f)
+                    r = lerp(r, 0.88f, frost)
+                    gg = lerp(gg, 0.95f, frost)
                     b = lerp(b, 1.0f, frost)
                 }
 
                 // שלג: מואר לפי הבהירות המקורית, כחלחל בצל, עם נצנוץ
                 if (snow > 0.01f) {
                     val t = (luma * 1.35f).coerceIn(0f, 1f)
-                    val shade = 0.52f + 0.34f * t
+                    val shade = 0.80f + 0.20f * t
                     var sr: Float
                     var sg: Float
                     var sb: Float
