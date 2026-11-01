@@ -102,6 +102,20 @@ object UserObjects {
         )
     }
 
+    private val SOLID_NAMES = listOf("ashcan", "barrel", "box", "basket", "bag", "plaything", "ball")
+
+    /** ממלא בכל עמודה את הרווח בין התא העליון לתחתון של העצם */
+    private fun fillColumns(mask: BooleanArray, w: Int, h: Int): BooleanArray {
+        val out = mask.copyOf()
+        for (x in 0 until w) {
+            var top = -1
+            var bottom = -1
+            for (y in 0 until h) if (mask[y * w + x]) { if (top < 0) top = y; bottom = y }
+            if (top >= 0) for (y in top..bottom) out[y * w + x] = true
+        }
+        return out
+    }
+
     /**
      * ממיר מסכת SAM למקום הסתתרות. מחזיר null אם המסכה קטנה מדי או גדולה מדי.
      * העומק הוא החציון של תאי העצם, והסוג הוא הסוג הנפוץ ביותר בתוכו (בשביל השם).
@@ -180,8 +194,12 @@ object UserObjects {
         depths.sort()
         val depth = if (depths.isEmpty()) Float.NaN else depths[depths.size / 2]
 
+        // עצמים אטומים עם פנים (דלי, חבית, ארגז, סל): ממלאים כל עמודה מהקצה העליון עד התחתון, כך שהפנים והשפה
+        // נחשבים חלק מהעצם ודמות שעומדת מאחוריו לא נראית דרכם
+        val solid = SOLID_NAMES.any { Ade20kClasses.NAMES.indexOf(it) == label }
+        val finalMask = if (solid) fillColumns(mask, maskWidth, maskHeight) else mask
         val extra = minOf(SKIRT_CELLS, height - (y0 + maskHeight))
-        val grown = growDown(mask, maskWidth, maskHeight, extra)
+        val grown = growDown(finalMask, maskWidth, maskHeight, extra)
         var grownCount = 0
         for (v in grown.first) if (v) grownCount++
 
