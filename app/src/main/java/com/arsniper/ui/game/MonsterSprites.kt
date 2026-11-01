@@ -230,6 +230,11 @@ class MonsterSprites private constructor(
                 pools[3].addAll(original.pools[3])
             }
             addRigs(context, variant, pools)
+            // כשיש חילזון (rig2_classic_4_0), הוא מחליף את החייזר גם בארנות המעוצבות, ולא רק בקלאסית
+            if (REPLACE_ORIGINAL_WITH_RIG2 && context.resources.getIdentifier("rig2_classic_4_0", "drawable", context.packageName) != 0) {
+                val themedAlien = sheets[themedIndexForRow[4]]
+                if (pools[4].any { it.rig != null }) pools[4].removeAll { it === themedAlien }
+            }
             return MonsterSprites(pools, loadBoss(context, variant) ?: loadBoss(context))
         }
 
