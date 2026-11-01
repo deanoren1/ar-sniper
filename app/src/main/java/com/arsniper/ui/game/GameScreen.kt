@@ -282,6 +282,8 @@ fun GameScreen(
     var orbImpact by remember { mutableStateOf(0f) }
     // מריחות הסליים של החילזון על המסך (נעלמות לבד)
     var slimeSplats by remember { mutableStateOf(listOf<SlimeSplat>()) }
+    // המצלמה האחרונה שחושבה (לחישוב מיקום המריחה בזמן הפגיעה, לפני שהמצלמה של הפריים הנוכחי חושבה)
+    val camHolder = remember { arrayOfNulls<com.arsniper.game.model.GameCamera>(1) }
     var lostAge by remember { mutableStateOf(0f) } // זמן מאז ההפסד: מעכב את מסך הסיום עד שאפקט הפגיעה נגמר
     // נקודות תורפה בלי נזק שכבר נוצלו (מפלצת:נקודה), לנעילת ניצול חוזר
     val usedFreeZones = remember { HashSet<String>() }
@@ -497,9 +499,30 @@ fun GameScreen(
                                 if (out.hitKinds.getOrNull(i) == com.arsniper.game.engine.ShotKind.Gas) {
                                     flash = FLASH_START * 0.5f
                                     val rnd = kotlin.random.Random.Default
+                                    // המריחה נוחתת איפה שהקליע נגמר, ומכוונת לפי כיוון התעופה שלו (מהמפלצת אל היעד)
+                                    val cam = camHolder[0] ?: com.arsniper.game.model.GameCamera()
+                                    val spot = out.hitSpots.getOrNull(i)
+                                    val from = out.hitFrom.getOrNull(i)
+                                    val spotScreen = spot?.let { cam.worldToScreen(it) } ?: Vec2(0.5f, 0.5f)
+                                    val fromScreen = from?.let { cam.worldToScreen(it) } ?: spotScreen
+                                    val lineDeg = Math.toDegrees(
+                                        kotlin.math.atan2(
+                                            (spotScreen.y - fromScreen.y).toDouble(),
+                                            ((spotScreen.x - fromScreen.x) * viewAspect).toDouble()
+                                        )
+                                    ).toFloat()
                                     val fresh = ArrayList<SlimeSplat>()
-                                    fresh.add(SlimeFx.newSplat(rnd, big = true))
-                                    if (rnd.nextFloat() < 0.5f) fresh.add(SlimeFx.newSplat(rnd, big = false))
+                                    fresh.add(SlimeFx.newSplat(rnd, spotScreen.x, spotScreen.y, lineDeg, big = true))
+                                    if (rnd.nextFloat() < 0.5f) {
+                                        fresh.add(
+                                            SlimeFx.newSplat(
+                                                rnd,
+                                                spotScreen.x + (rnd.nextFloat() - 0.5f) * 0.5f,
+                                                spotScreen.y + (rnd.nextFloat() - 0.5f) * 0.3f,
+                                                lineDeg, big = false
+                                            )
+                                        )
+                                    }
                                     slimeSplats = (slimeSplats + fresh).takeLast(4)
                                 }
                                 if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -820,6 +843,7 @@ fun GameScreen(
     val viewFraction = if (panoMode) (viewAspect / aspect).coerceAtMost(1f) else 1f
     val camera = GameCamera.following(crosshair, zoom, viewFraction)
     val crosshairOnScreen = camera.worldToScreen(crosshair)
+    camHolder[0] = camera
     // הקליעים טסים אל אמצע תחתית מה שרואים, ומפלצות יורות רק קרוב לתצוגה
     if (panoMode) {
         val halfView = 0.5f * viewFraction / camera.zoom

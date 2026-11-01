@@ -59,19 +59,32 @@ object SlimeFx {
 
     fun alphaAt(age: Float): Float = MAX_ALPHA * ramp(age, 0f, 0.06f) * (1f - ramp(age, LIFE_SECONDS * 0.45f, LIFE_SECONDS))
 
+    /** זווית (במעלות, מסך) שבה כל מריחה "מצביעה" בציור המקורי: האופקית עולה מעט, האלכסונית עולה בחדות */
+    private fun nativeAngle(variant: Int): Float = when (variant) { 1 -> -6f; 3 -> -33f; else -> 0f }
+
     /**
-     * מריחה גדולה: הראשונה במרכז המסך וגדולה (רוב הגובה והרבה מהרוחב), והשנייה, אם יש, בינונית בצד.
+     * מריחה במקום שבו הקליע נגמר (x, y = חלק מהמסך), וכיוונה לפי כיוון התעופה שלו: lineDeg = זווית הקו
+     * מהמפלצת אל הנקודה, במעלות על המסך (פיקסלים). כשהמפלצת בצד נבחרות בעיקר המריחות הארוכות,
+     * והן מסתובבות לאורך הקו. מריחות עם טפטופים נשארות כמעט ישרות, כדי שהטיפות ירדו למטה.
      * הכוונת נשארת גלויה בגלל החור שנחתך סביבה (SlimeSplatOverlay).
      */
-    fun newSplat(random: kotlin.random.Random, big: Boolean = true): SlimeSplat {
-        val x = if (big) 0.36f + random.nextFloat() * 0.28f else (if (random.nextBoolean()) 0.16f else 0.84f) + (random.nextFloat() - 0.5f) * 0.1f
-        val y = if (big) 0.42f + random.nextFloat() * 0.16f else 0.3f + random.nextFloat() * 0.4f
+    fun newSplat(random: kotlin.random.Random, x: Float, y: Float, lineDeg: Float, big: Boolean): SlimeSplat {
+        var line = lineDeg
+        while (line > 90f) line -= 180f
+        while (line <= -90f) line += 180f
+        val sideShot = kotlin.math.abs(line) > 15f
+        val variant = if (sideShot && random.nextFloat() < 0.6f) (if (random.nextBoolean()) 1 else 3) else random.nextInt(VARIANTS)
+        val rotation = when (variant) {
+            1, 3 -> (line - nativeAngle(variant)).coerceIn(-70f, 70f)
+            2, 5 -> (line * 0.2f).coerceIn(-12f, 12f)
+            else -> line * 0.3f + (random.nextFloat() - 0.5f) * 20f
+        }
         return SlimeSplat(
-            variant = random.nextInt(VARIANTS),
-            x = x,
-            y = y,
-            size = if (big) 1.15f + random.nextFloat() * 0.3f else 0.7f + random.nextFloat() * 0.2f,
-            rotation = (random.nextFloat() - 0.5f) * 50f
+            variant = variant,
+            x = x.coerceIn(0.14f, 0.86f),
+            y = y.coerceIn(0.3f, 0.75f),
+            size = if (big) 1.45f + random.nextFloat() * 0.35f else 0.9f + random.nextFloat() * 0.25f,
+            rotation = rotation
         )
     }
 }

@@ -55,7 +55,14 @@ class TelegraphView(val x: Float, val y: Float, val radius: Float, val progress:
 class Intercept(val shot: Shot, val destroyed: Boolean)
 
 /** מה קרה בפריים: כמה קליעים פגעו בשחקן, ואיפה נקטעה הכנה כי המפלצת נהרגה (לבונוס) */
-class FireOutcome(val playerHits: Int, val stopped: List<Vec2>, val hitKinds: List<ShotKind> = emptyList())
+class FireOutcome(
+    val playerHits: Int,
+    val stopped: List<Vec2>,
+    val hitKinds: List<ShotKind> = emptyList(),
+    /** לכל פגיעה: איפה הקליע נגמר (קואורדינטות עולם), ומאיפה יצא. לכיוון ולמיקום של אפקטי פגיעה על המסך */
+    val hitSpots: List<Vec2> = emptyList(),
+    val hitFrom: List<Vec2> = emptyList()
+)
 
 /**
  * ירי האויבים על השחקן. Kotlin טהור.
@@ -180,6 +187,8 @@ class EnemyFire(private val random: Random = Random.Default) {
         // קליעים שהגיעו אל השחקן
         var hits = 0
         val hitKinds = ArrayList<ShotKind>()
+        val hitSpots = ArrayList<Vec2>()
+        val hitFrom = ArrayList<Vec2>()
         val sIterator = shots.iterator()
         while (sIterator.hasNext()) {
             val s = sIterator.next()
@@ -188,6 +197,8 @@ class EnemyFire(private val random: Random = Random.Default) {
                 if (!s.harmless) {
                     hits++
                     hitKinds.add(s.kind)
+                    hitSpots.add(s.posAt(s.born + s.flight))
+                    hitFrom.add(Vec2(s.x, s.y))
                 }
                 sIterator.remove()
             }
@@ -207,7 +218,7 @@ class EnemyFire(private val random: Random = Random.Default) {
                 )
             )
         }
-        return FireOutcome(hits, stopped, hitKinds)
+        return FireOutcome(hits, stopped, hitKinds, hitSpots, hitFrom)
     }
 
     /** כמה שניות עברו מאז שהמפלצת ירתה לאחרונה (לאנימציית הירייה), או ערך גדול אם לא ירתה */
