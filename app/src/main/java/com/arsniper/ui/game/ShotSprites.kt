@@ -100,7 +100,7 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
                     decode(context, "shot_${name}_side")?.let { SideSprite(it, a[0], a[1], a[2], a[3]) }
                 }
                 val flight = if (alt || name != "orb") null else decode(context, "shot_orb_flight")?.let { FlightSprite(it, 6, 100f, 115f, 162f) }
-                val grow = if (name != "gas") null else decode(context, "shot_gas_grow")?.let { FlightSprite(it, 6, 128f, 128f, 150f) }
+                val grow = if (name != "gas" && name != "spike") null else decode(context, "shot_${name}_grow")?.let { FlightSprite(it, 6, 128f, 128f, 150f) }
                 if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side, flight, grow)
             }
             return ShotSprites(map)

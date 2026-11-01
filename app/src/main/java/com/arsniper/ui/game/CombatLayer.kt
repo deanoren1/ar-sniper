@@ -252,6 +252,20 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         }
         return
     }
+    // קוץ הקיפוד: קריסטל מסתובב עם הילה ושובל בקוד. טבעת האזהרה נשארת (רמז לשחקן)
+    if (s.kind == ShotKind.Spike && growSprite != null) {
+        drawSlimeFlight(s, growSprite, center, diameter, p, time, slime = false)
+        if (s.harmless) drawCircle(Color(0x667F8A93), r * 1.15f, center)
+        val ring = r * 1.15f * (1f + 0.5f * (1f - p))
+        val urgentSpike = p > 0.7f && (time * 10f).toInt() % 2 == 0
+        drawCircle(
+            color = if (urgentSpike) Color(0xFFFF1744) else Color.White.copy(alpha = 0.9f),
+            radius = ring,
+            center = center,
+            style = Stroke(width = diameter * 0.07f + 3f)
+        )
+        return
+    }
     // היורה בצד המסך: שובל זוהר מהצד שממנו הגיע. יורה מהחזית (באמצע): רק הילה וטבעת מסביב.
     val side = ((s.x - 0.5f) * 2f).coerceIn(-1f, 1f)
     // כדור האנרגיה תמיד עם שובל שמצביע בחזרה אל המפלצת (גם כשהיא באמצע המסך), כמו בסטוריבורד
@@ -373,9 +387,11 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
     val k = diameter / fl.dia
     val cellW = fl.image.width / fl.frames
     val cellH = fl.image.height
-    val pos = (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
+    // סליים: הפריימים לפי התקדמות הטיסה (הכדור גדל). קוץ: סיבוב בלולאה לפי הזמן
+    val pos = if (slime) (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
+    else ((time * 11f + s.id * 1.7f) % fl.frames + fl.frames) % fl.frames
     val lo = pos.toInt().coerceAtMost(fl.frames - 1)
-    val hi = (lo + 1).coerceAtMost(fl.frames - 1)
+    val hi = if (slime) (lo + 1).coerceAtMost(fl.frames - 1) else (lo + 1) % fl.frames
     val t = pos - lo
     val backX = (s.x - Shot.targetX) * size.width
     val backY = (s.y - Shot.targetY) * size.height
@@ -481,12 +497,14 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
  * כדור הסליים בטיסה: פריים לפי התקדמות הטיסה (מעבר חלק בין שניים) וריטוט קל של הגוף,
  * ושובל בקוד: עותקים דועכים של הכדור לכיוון המפלצת, וטיפות שנופלות מעט למטה.
  */
-private fun DrawScope.drawSlimeFlight(s: Shot, fl: FlightSprite, center: Offset, diameter: Float, p: Float, time: Float) {
+private fun DrawScope.drawSlimeFlight(s: Shot, fl: FlightSprite, center: Offset, diameter: Float, p: Float, time: Float, slime: Boolean = true) {
     val k = diameter / fl.dia
     val cell = fl.image.width / fl.frames
-    val pos = (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
+    // סליים: הפריימים לפי התקדמות הטיסה (הכדור גדל). קוץ: סיבוב בלולאה לפי הזמן
+    val pos = if (slime) (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
+    else ((time * 11f + s.id * 1.7f) % fl.frames + fl.frames) % fl.frames
     val lo = pos.toInt().coerceAtMost(fl.frames - 1)
-    val hi = (lo + 1).coerceAtMost(fl.frames - 1)
+    val hi = if (slime) (lo + 1).coerceAtMost(fl.frames - 1) else (lo + 1) % fl.frames
     val t = pos - lo
     val backX = (s.x - Shot.targetX) * size.width
     val backY = (s.y - Shot.targetY) * size.height
@@ -500,7 +518,10 @@ private fun DrawScope.drawSlimeFlight(s: Shot, fl: FlightSprite, center: Offset,
         if (alpha <= 0.01f) return
         val w = (cell * k * scale).coerceAtLeast(1f)
         val h = (fl.image.height * k * scale).coerceAtLeast(1f)
-        withTransform({ scale(1f + 0.06f * wobble, 1f - 0.06f * wobble, c) }) {
+        withTransform({
+            if (slime) scale(1f + 0.06f * wobble, 1f - 0.06f * wobble, c)
+            else rotate(7f * wobble, c)
+        }) {
             drawImage(
                 fl.image,
                 srcOffset = androidx.compose.ui.unit.IntOffset(frameIndex * cell, 0),
@@ -521,8 +542,13 @@ private fun DrawScope.drawSlimeFlight(s: Shot, fl: FlightSprite, center: Offset,
         val c = Offset(center.x + dx * dist, center.y + dy * dist + dist * 0.06f)
         frame(lo, c, 1f - 0.11f * i, 0.34f * (1f - i / 6f) * fade, sin(time * 13f - i * 0.9f + s.id))
     }
+    if (!slime) {
+        // הילה ורודה סביב הקוץ
+        drawCircle(Color(0xFFFF4DFF).copy(alpha = 0.10f), diameter * 0.75f, center)
+        drawCircle(Color(0xFFFF9BFF).copy(alpha = 0.16f), diameter * 0.45f, center)
+    }
     val green = Color(0xFF9CFF3A)
-    for (i in 0 until 4) {
+    for (i in 0 until (if (slime) 4 else 0)) {
         val dist = diameter * (0.55f + 0.5f * i + 0.12f * sin(time * 7f + i * 2f + s.id))
         if (dist > traveled) continue
         val fade = ((traveled - dist) / (diameter * 0.4f)).coerceIn(0f, 1f)
