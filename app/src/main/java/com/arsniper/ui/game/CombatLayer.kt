@@ -243,6 +243,15 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         else -> Offset.Zero
     }
     val center = base + off
+    // כדור סליים של החילזון: פריימים שגדלים ושובל מהצד שממנו הגיע, הכול בקוד
+    val growSprite = pair.grow
+    if (s.kind == ShotKind.Gas && growSprite != null) {
+        drawSlimeFlight(s, growSprite, center, diameter, p, time)
+        if (s.hp < s.maxHp) {
+            drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
+        }
+        return
+    }
     // היורה בצד המסך: שובל זוהר מהצד שממנו הגיע. יורה מהחזית (באמצע): רק הילה וטבעת מסביב.
     val side = ((s.x - 0.5f) * 2f).coerceIn(-1f, 1f)
     // כדור האנרגיה תמיד עם שובל שמצביע בחזרה אל המפלצת (גם כשהיא באמצע המסך), כמו בסטוריבורד
@@ -464,5 +473,68 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
                 alpha = a
             )
         }
+    }
+}
+
+
+/**
+ * כדור הסליים בטיסה: פריים לפי התקדמות הטיסה (מעבר חלק בין שניים) וריטוט קל של הגוף,
+ * ושובל בקוד: עותקים דועכים של הכדור לכיוון המפלצת, וטיפות שנופלות מעט למטה.
+ */
+private fun DrawScope.drawSlimeFlight(s: Shot, fl: FlightSprite, center: Offset, diameter: Float, p: Float, time: Float) {
+    val k = diameter / fl.dia
+    val cell = fl.image.width / fl.frames
+    val pos = (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
+    val lo = pos.toInt().coerceAtMost(fl.frames - 1)
+    val hi = (lo + 1).coerceAtMost(fl.frames - 1)
+    val t = pos - lo
+    val backX = (s.x - Shot.targetX) * size.width
+    val backY = (s.y - Shot.targetY) * size.height
+    val ang = kotlin.math.atan2(backY, backX)
+    val dx = cos(ang)
+    val dy = sin(ang)
+    val traveled = kotlin.math.hypot(center.x - s.x * size.width, center.y - s.y * size.height)
+    val wob = sin(time * 13f + s.id * 1.7f)
+
+    fun frame(frameIndex: Int, c: Offset, scale: Float, alpha: Float, wobble: Float) {
+        if (alpha <= 0.01f) return
+        val w = (cell * k * scale).coerceAtLeast(1f)
+        val h = (fl.image.height * k * scale).coerceAtLeast(1f)
+        withTransform({ scale(1f + 0.06f * wobble, 1f - 0.06f * wobble, c) }) {
+            drawImage(
+                fl.image,
+                srcOffset = androidx.compose.ui.unit.IntOffset(frameIndex * cell, 0),
+                srcSize = androidx.compose.ui.unit.IntSize(cell, fl.image.height),
+                dstOffset = androidx.compose.ui.unit.IntOffset((c.x - fl.cx * k * scale).toInt(), (c.y - fl.cy * k * scale).toInt()),
+                dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt()),
+                alpha = alpha
+            )
+        }
+    }
+
+    // שובל: עותקים דועכים של הכדור, ולצידם טיפות שנופלות
+    val step = diameter * 0.42f
+    for (i in 5 downTo 1) {
+        val dist = step * i
+        if (dist > traveled) continue
+        val fade = ((traveled - dist) / (diameter * 0.5f)).coerceIn(0f, 1f)
+        val c = Offset(center.x + dx * dist, center.y + dy * dist + dist * 0.06f)
+        frame(lo, c, 1f - 0.11f * i, 0.34f * (1f - i / 6f) * fade, sin(time * 13f - i * 0.9f + s.id))
+    }
+    val green = Color(0xFF9CFF3A)
+    for (i in 0 until 4) {
+        val dist = diameter * (0.55f + 0.5f * i + 0.12f * sin(time * 7f + i * 2f + s.id))
+        if (dist > traveled) continue
+        val fade = ((traveled - dist) / (diameter * 0.4f)).coerceIn(0f, 1f)
+        val off = diameter * 0.12f * (if (i % 2 == 0) 1f else -1f)
+        val c = Offset(center.x + dx * dist - dy * off, center.y + dy * dist + dx * off + dist * (0.10f + 0.04f * i))
+        val rr = diameter * (0.07f - 0.011f * i)
+        drawCircle(green.copy(alpha = 0.7f * fade * (1f - i * 0.18f)), rr, c)
+        drawCircle(Color.White.copy(alpha = 0.55f * fade * (1f - i * 0.18f)), rr * 0.35f, Offset(c.x - rr * 0.3f, c.y - rr * 0.35f))
+    }
+    // הכדור עצמו
+    if (lo == hi) frame(lo, center, 1f, 1f, wob) else {
+        frame(lo, center, 1f, 1f - t, wob)
+        frame(hi, center, 1f, t, wob)
     }
 }

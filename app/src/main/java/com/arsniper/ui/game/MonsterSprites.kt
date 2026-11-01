@@ -271,6 +271,27 @@ class MonsterSprites private constructor(
 
         private const val RIG2_ROWS = 9
 
+        /** חלק הגובה של הגוף בתא העמידה, בגיליון התמנון (נקודת הייחוס לגודל) */
+        private const val RIG2_REF_BODY = 0.926f
+
+        /** חלק מגובה התא שהגוף תופס בתא העמידה (פריים 0 בשורה 0) */
+        private fun idleBodyFraction(bitmap: Bitmap, cw: Int, ch: Int): Float {
+            val px = IntArray(cw * ch)
+            bitmap.getPixels(px, 0, cw, 0, 0, cw, ch)
+            var top = ch
+            var bottom = -1
+            for (y in 0 until ch) {
+                for (x in 0 until cw) {
+                    if (Color.alpha(px[y * cw + x]) > ALPHA_MIN) {
+                        if (y < top) top = y
+                        if (y > bottom) bottom = y
+                    }
+                }
+            }
+            if (bottom < top) return RIG2_REF_BODY
+            return ((bottom - top + 1).toFloat() / ch).coerceIn(0.5f, 1f)
+        }
+
         /** true: כשיש גיליון rig2 לסוג מפלצת, הוא מחליף את הציור הישן שלה (אפשר להחזיר ל-false כדי לערבב) */
         private const val REPLACE_ORIGINAL_WITH_RIG2 = true
 
@@ -303,8 +324,9 @@ class MonsterSprites private constructor(
                 walk = walkSide,
                 peek = cell(6, 2),
                 hit = cell(7, 1),
-                // התא כולל מקום לאפקטים מעל הראש (כוכבים, ברק): מגדילים מעט כדי שהגוף יהיה בגובה של שאר המפלצות
-                sizeScale = 1.08f,
+                // התא כולל מקום לאפקטים מעל הראש (כוכבים, ברק): מגדילים מעט כדי שהגוף יהיה בגובה של שאר המפלצות.
+                // התמנון (גובה הגוף 92.6% מהתא) הוא נקודת הייחוס; גיליון עם תא צפוף יותר (חילזון) מוקטן בהתאם
+                sizeScale = 1.08f * RIG2_REF_BODY / idleBodyFraction(bitmap, cw, ch),
                 moves = WalkSet(walkSide, walkFront, walkBack, walkSide),
                 rig = RigAnim(
                     idleFront = views[0],

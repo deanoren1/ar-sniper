@@ -280,6 +280,8 @@ fun GameScreen(
     var flash by remember { mutableStateOf(0f) }
     // שניות שנותרו לאפקט הפגיעה של כדור האנרגיה במסך (0 = אין)
     var orbImpact by remember { mutableStateOf(0f) }
+    // מריחות הסליים של החילזון על המסך (נעלמות לבד)
+    var slimeSplats by remember { mutableStateOf(listOf<SlimeSplat>()) }
     var lostAge by remember { mutableStateOf(0f) } // זמן מאז ההפסד: מעכב את מסך הסיום עד שאפקט הפגיעה נגמר
     // נקודות תורפה בלי נזק שכבר נוצלו (מפלצת:נקודה), לנעילת ניצול חוזר
     val usedFreeZones = remember { HashSet<String>() }
@@ -491,6 +493,15 @@ fun GameScreen(
                                 // כדור אנרגיה: אפקט סגול במסך, וההבהוב האדום חלש יותר כדי שלא ייווצר ערבוב עכור
                                 flash = if (orbHit) FLASH_START * 0.4f else FLASH_START
                                 if (orbHit) orbImpact = OrbFx.IMPACT_SECONDS
+                                // סליים: מריחה אחת (לפעמים שתיים) חצי שקופה על המסך, והבהוב אדום חלש
+                                if (out.hitKinds.getOrNull(i) == com.arsniper.game.engine.ShotKind.Gas) {
+                                    flash = FLASH_START * 0.5f
+                                    val rnd = kotlin.random.Random.Default
+                                    val fresh = ArrayList<SlimeSplat>()
+                                    fresh.add(SlimeFx.newSplat(rnd, crosshair.x, crosshair.y))
+                                    if (rnd.nextFloat() < 0.35f) fresh.add(SlimeFx.newSplat(rnd, crosshair.x, crosshair.y))
+                                    slimeSplats = (slimeSplats + fresh).takeLast(4)
+                                }
                                 if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         }
@@ -659,6 +670,7 @@ fun GameScreen(
                                     floaters = emptyList()
                                     flash = 0f
                                     orbImpact = 0f
+                                    slimeSplats = emptyList()
                                     weapon.refill()
                                 }
                                 // המארח התחיל מחדש
@@ -670,6 +682,7 @@ fun GameScreen(
                                     floaters = emptyList()
                                     flash = 0f
                                     orbImpact = 0f
+                                    slimeSplats = emptyList()
                                     diamondsGained = 0
                                     sfxMemo.banked = 0
                                     sfxMemo.guestHearts = ArenaDirector.MAX_HEARTS
@@ -752,6 +765,9 @@ fun GameScreen(
                     }
                     if (flash > 0f) flash = (flash - FLASH_DECAY_PER_SECOND * dt).coerceAtLeast(0f)
                     if (orbImpact > 0f) orbImpact = (orbImpact - dt).coerceAtLeast(0f)
+                    if (slimeSplats.isNotEmpty()) {
+                        slimeSplats = slimeSplats.map { it.copy(age = it.age + dt) }.filter { it.age < SlimeFx.LIFE_SECONDS }
+                    }
                     if (director.phase == ArenaPhase.Lost) lostAge += dt else lostAge = 0f
                     if (director.bossDying) shake = max(shake, 0.55f)
                     if (director.phase == ArenaPhase.Won || director.phase == ArenaPhase.Lost) {
@@ -934,6 +950,7 @@ fun GameScreen(
                     label = "+1 HEART"
                     flash = 0f
                     orbImpact = 0f
+                    slimeSplats = emptyList()
                 } else {
                     score += scaled(150)
                     scoreBy[shooter[0]] += scaled(150)
@@ -1175,6 +1192,7 @@ fun GameScreen(
         AttackPose.bossEnraged = false
         flash = 0f
         orbImpact = 0f
+        slimeSplats = emptyList()
         sfxMemo.phase = null
         sfxMemo.damagedThisWave = true
         director.revive()
@@ -1194,6 +1212,7 @@ fun GameScreen(
         diamondsGained = 0
         flash = 0f
         orbImpact = 0f
+        slimeSplats = emptyList()
         floaters = emptyList()
         poofs = emptyList()
         combo.reset()
@@ -1354,6 +1373,9 @@ fun GameScreen(
 
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
         if (panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, drawFrame = false, screenOnly = true)
+
+        // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
+        SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)
 
         // הכוונת מצוירת במיקום המסך שלה
         CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))

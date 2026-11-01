@@ -22,7 +22,9 @@ class ShotPair(
     val small: ImageBitmap?,
     val big: ImageBitmap?,
     val side: SideSprite? = null,
-    val flight: FlightSprite? = null
+    val flight: FlightSprite? = null,
+    /** כדור סליים שגדל בטיסה (החילזון): 6 פריימים, הכדור באותו גודל, בלי שובל (השובל נוצר בקוד) */
+    val grow: FlightSprite? = null
 ) {
     /** צבע הזוהר: ממוצע הפיקסלים הרוויים בציור עצמו, כך שהזוהר תמיד תואם את הגרסה (כחול, זהוב, ירוק...) */
     val glow: androidx.compose.ui.graphics.Color = computeGlow(big ?: small)
@@ -98,7 +100,8 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
                     decode(context, "shot_${name}_side")?.let { SideSprite(it, a[0], a[1], a[2], a[3]) }
                 }
                 val flight = if (alt || name != "orb") null else decode(context, "shot_orb_flight")?.let { FlightSprite(it, 6, 100f, 115f, 162f) }
-                if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side, flight)
+                val grow = if (name != "gas") null else decode(context, "shot_gas_grow")?.let { FlightSprite(it, 6, 128f, 128f, 150f) }
+                if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side, flight, grow)
             }
             return ShotSprites(map)
         }
