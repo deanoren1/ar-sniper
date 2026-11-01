@@ -118,7 +118,7 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.16  # A visible but transparent blue glass tint; the face remains unobstructed.
+    mix.inputs[0].default_value = 0.20  # Slightly stronger blue glass tint while keeping the face readable.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -164,7 +164,7 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.025, 0.001, 0.055), rough=0.84, coat=0.0)
+SUCKER = mat("Sucker", (0.045, 0.004, 0.085), rough=0.78, coat=0.05)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.30, 0.006, 0.59), rough=0.31, coat=0.38,
                emit=(0.008, 0.001, 0.025), strength=0.006)
@@ -172,8 +172,8 @@ TANK = mat("Tank", (0.68, 0.014, 0.40), rough=0.40, metal=0.20, coat=0.34)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
-DOME_RIM = mat("DomeRim", (0.18, 0.48, 0.95), rough=0.20, metal=0.08,
-               emit=(0.04, 0.16, 0.55), strength=0.09, coat=0.36)
+DOME_RIM = mat("DomeRim", (0.10, 0.55, 1.0), rough=0.17, metal=0.05,
+               emit=(0.05, 0.24, 0.78), strength=0.15, coat=0.42)
 def dome_highlight(name, color):
     m = mat(name, color, rough=0.34, emit=color, strength=0.035, coat=0.08)
     try:
@@ -454,6 +454,16 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     sphere(f"ExtraBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
            scale=(rx * 1.42, 0.007, rz * 1.42), rot=(0, angle, 0), seg=24)
 
+# Exposed crown patches above the enlarged eye, matching the spotted forehead in the reference.
+for i, (sx, sz, rx, rz) in enumerate((
+    (-0.78, 0.94, 0.095, 0.065), (0.78, 0.94, 0.095, 0.065),
+    (-0.48, 1.13, 0.075, 0.052), (0.48, 1.13, 0.075, 0.052),
+)):
+    radius = shell_radius_at(sz)
+    surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.012
+    sphere(f"CrownSpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
+           scale=(rx, 0.008, rz), seg=24)
+
 # Small rounded crown spikes; the reference uses short bumps, not tall fins.
 for i, (az_deg, pol_deg, height) in enumerate((
     (218, 35, 0.14), (244, 24, 0.16), (270, 16, 0.17),
@@ -482,7 +492,7 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -1.00, 0.40
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.00, 0.98, 1.00)  # expose the full cream sclera while keeping the eye seated in the mantle
+eye.scale = (1.12, 0.98, 1.08)  # enlarge the cyclopean eye to match the dominant reference proportions
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
     sphere("EyeWhite", 0.82, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.56, 1.00), seg=64),
@@ -494,7 +504,7 @@ eye_parts = [
 look_parts = eye_parts[1:4]
 eye_socket = torus("EyeSocket", 0.88, 0.075, (0, -0.49, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.04, 1.0, 0.96)
-eye_socket_accent = torus("EyeSocketAccent", 0.925, 0.038, (0, -0.53, 0), RING, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent = torus("EyeSocketAccent", 0.91, 0.026, (0, -0.53, 0), LID, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.02, 1.0, 0.98)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -581,7 +591,7 @@ for i in range(16):
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.16, 0.075, 0.032), rough=0.27, metal=0.78, coat=0.28)
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 2.18 * sx, -0.10
+    tx, ty = 2.18 * sx, 0.24  # keep the canisters behind the glass dome silhouette
     tank_body = cylinder(f"Tank{side}", 0.45, 1.72, (tx, ty, 0.015), TANK, torso)
     tank_bevel = tank_body.modifiers.new("TankBodySoftEdges", "BEVEL")
     tank_bevel.width = 0.070
@@ -664,7 +674,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -1.20
-DOME_RADII = (2.52, 2.05, 3.30)
+DOME_RADII = (2.52, 2.05, 3.80)  # taller, rounder bubble with visible clearance above the crown spikes
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
@@ -685,8 +695,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.006), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -1.48, 0.96, 0.22, 0.40, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 1.48, 0.98, 0.24, 0.38, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -1.48, 1.48, 0.24, 0.44, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 1.48, 1.50, 0.25, 0.42, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.34, 0.29, 0.24, 0.19]
@@ -837,8 +847,8 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         hole_pos = center + cup_normal * rr * 0.985
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.25, rr * 0.23, rr * 0.035), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerRim{i}_{q}", rr * 0.27, rr * 0.025,
+               scale=(rr * 0.30, rr * 0.27, rr * 0.035), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.33, rr * 0.028,
               tuple(hole_pos + cup_normal * 0.008), PURPLE_DARK, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
