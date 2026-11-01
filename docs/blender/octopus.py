@@ -137,10 +137,10 @@ EYE_WHITE = mat("EyeWhite", (1.0, 0.70, 0.24), rough=0.24, coat=0.34,
                 emit=(0.18, 0.095, 0.018), strength=0.025)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.28, 0.006), rough=0.17, coat=0.52, emit=(0.65, 0.065, 0.0), strength=0.06)
-PUPIL = mat("Pupil", (0.0000001, 0.0000001, 0.0000001), rough=0.16, coat=0.42, emit=(0.0, 0.0, 0.0), strength=0.0)
+PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.23, coat=0.12, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
-    pupil_bsdf.inputs["Specular IOR Level"].default_value = 0.07
+    pupil_bsdf.inputs["Specular IOR Level"].default_value = 0.035
 except Exception:
     pass
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
@@ -467,7 +467,7 @@ eye_parts = [
     # Fully open, nearly circular cyclopean eye: cream sclera, orange iris, glossy black pupil.
     sphere("EyeWhite", 0.78, (0, 0, 0), EYE_WHITE, eye, scale=(0.98, 0.56, 0.98), seg=64),
     sphere("Iris", 0.41, (0, -0.375, -0.015), IRIS, eye, scale=(0.95, 0.46, 0.98), seg=64),
-    sphere("Pupil", 0.29, (0, -0.505, -0.015), PUPIL, eye, scale=(1.00, 0.38, 1.00), seg=56),
+    sphere("Pupil", 0.32, (0, -0.505, -0.015), PUPIL, eye, scale=(1.00, 0.38, 1.00), seg=56),
     sphere("Shine", 0.075, (0.10, -0.595, 0.16), SHINE, eye, scale=(1.0, 0.30, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
@@ -530,18 +530,18 @@ def make_upper_eyelid(parent):
 eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
-mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.50))
-mouth.scale = (1.08, 1.0, 1.02)
+mouth = empty("Mouth", pivot, loc=(0, -1.00, -0.43))
+mouth.scale = (1.16, 1.0, 1.02)
 mouth_parts = [sphere("MouthCavity", 0.39, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.18, 0.34, 0.90), seg=64)]
+                      scale=(1.24, 0.34, 0.90), seg=64)]
 mouth_lip = torus("MouthLip", 0.39, 0.030, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.18, 0.62, 0.92)
-for i, (x, h, width) in enumerate(((-0.25, 0.17, 0.070), (0.25, 0.17, 0.070))):
+mouth_lip.scale = (1.24, 0.62, 0.92)
+for i, (x, h, width) in enumerate(((-0.28, 0.17, 0.070), (0.28, 0.17, 0.070))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.12, 0.16 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.24, 0.12), (0.24, 0.12))):
+for i, (x, h) in enumerate(((-0.27, 0.12), (0.27, 0.12))):
     mouth_parts.append(cone(f"ToothL{i}", 0.072, 0.0, h,
                             (x, -0.14, -0.15 + h / 2), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.18, (0, -0.30, -0.12), TONGUE, mouth,
@@ -701,12 +701,13 @@ def arm_radius(t):
     # Broad mantle attachment, a gentle mid-arm taper, then a soft distal bulb.
     if t < 0.22:
         return 0.31 + 0.025 * math.sin((t / 0.22) * math.pi * 0.5)
-    if t < 0.72:
-        u = (t - 0.22) / 0.50
-        return 0.335 - 0.075 * u
-    u = min(1.0, max(0.0, (t - 0.72) / 0.28))
-    bulb = 0.26 + 0.045 * math.sin(math.pi * u)
-    return bulb * (1.0 - 0.18 * u)
+    if t < 0.68:
+        u = (t - 0.22) / 0.46
+        return 0.335 - 0.085 * u
+    u = min(1.0, max(0.0, (t - 0.68) / 0.32))
+    # Swell again near the end, like a fleshy curled octopus tip rather than a cut tube.
+    bulb = 0.245 + 0.12 * math.sin(math.pi * u)
+    return bulb * (1.0 + 0.08 * u)
 
 
 def arm_center(t, style="outer"):
@@ -714,7 +715,7 @@ def arm_center(t, style="outer"):
     if style == "outer":
         p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.62), (1.82, -1.30), (1.54, 0.28)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.62), (1.42, -1.42), (1.28, -0.10)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.55), (1.48, -1.28), (0.72, 0.10)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.16, -0.46), (0.88, -1.00), (0.94, -0.08)
     u = 1.0 - t
@@ -804,7 +805,7 @@ for i in range(8):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.48, 0.70, 0.90)):
+    for q, t in enumerate((0.36, 0.50, 0.64, 0.78, 0.92)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
         after = arm_center(min(1.0, t + 0.002), style)
@@ -815,12 +816,12 @@ for i in range(8):
         cup_normal.normalize()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         cup_pos = center + cup_normal * rr * 1.005
-        inset_pos = center + cup_normal * rr * 0.975
-        torus(f"SuckerRim{i}_{q}", rr * 0.46, rr * 0.020, tuple(inset_pos),
+        inset_pos = center + cup_normal * rr * 0.972
+        torus(f"SuckerRim{i}_{q}", rr * 0.50, rr * 0.045, tuple(inset_pos),
               TENTACLE, root, rot=normal_rot(cup_normal))
-        hole_pos = inset_pos + cup_normal * rr * 0.018
+        hole_pos = center + cup_normal * rr * 0.925
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.48, rr * 0.48, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.42, rr * 0.42, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
     for q, t in enumerate((0.22, 0.52, 0.82)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
@@ -833,9 +834,9 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         spot_pos = center + spot_normal * rr * 1.018
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.42, rr * 0.32, rr * 0.026), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.34, rr * 0.27, rr * 0.026), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.16, tip_loc, TENTACLE if style != "rear" else PURPLE_DARK, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.27, tip_loc, TENTACLE if style != "rear" else PURPLE_DARK, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
