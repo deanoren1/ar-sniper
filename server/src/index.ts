@@ -27,7 +27,7 @@ export interface Env {
   OPENAI_IMAGE_QUALITY?: string;
   /** תקרת עיבודים יומית לכל המשתמשים יחד (ברירת מחדל 100) */
   DAILY_BUDGET?: string;
-  /** כמה עיבודים חינם ביום לכל מכשיר (ברירת מחדל 3 בזמן בדיקות) */
+  /** כמה עיבודים חינם ביום לכל מכשיר (ברירת מחדל 20 בזמן בדיקות) */
   DAILY_PER_DEVICE?: string;
 }
 
@@ -80,7 +80,7 @@ async function restyle(request: Request, env: Env): Promise<Response> {
   const body = new Uint8Array(await request.arrayBuffer());
   if (body.length < 1000 || body.length > MAX_UPLOAD_BYTES) return Response.json({ error: "bad-size" }, { status: 413 });
 
-  const perDevice = Number(env.DAILY_PER_DEVICE ?? "3");
+  const perDevice = Number(env.DAILY_PER_DEVICE ?? "20");
   const budget = Number(env.DAILY_BUDGET ?? "100");
   if (!(await takeQuota(env, `dev:${device}`, perDevice))) {
     return Response.json({ error: "daily-limit" }, { status: 429 });
