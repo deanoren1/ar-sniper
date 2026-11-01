@@ -131,12 +131,12 @@ fun SceneScreen(
     var aiImage by remember { mutableStateOf<Bitmap?>(null) }
     var aiStatus by remember { mutableStateOf("") }
     var aiBusy by remember { mutableStateOf(false) }
-    fun runAi(view: SceneView, provider: String?) {
+    fun runAi(view: SceneView, quality: String? = null, model: String? = null) {
         scope.launch {
             aiBusy = true
             aiStatus = "AI is creating the world (up to a minute)..."
             val result = withContext(Dispatchers.IO) {
-                com.arsniper.ml.AiWorld.generate(context, "tundra", view.bitmap, provider)
+                com.arsniper.ml.AiWorld.generate(context, "tundra", view.bitmap, null, quality, model)
             }
             when (result) {
                 is com.arsniper.ml.AiWorld.Result.Image -> {
@@ -648,7 +648,9 @@ fun SceneScreen(
                     ActionButton(if (tundraBefore) "BEFORE" else "AFTER", tundraImage != null) {
                         tundraBefore = !tundraBefore
                     }
-                    ActionButton("AI", !aiBusy) { runAi(current, null) }
+                    ActionButton("AI", !aiBusy) { runAi(current) }
+                    ActionButton("AI HQ", !aiBusy) { runAi(current, quality = "high") }
+                    ActionButton("AI BIG", !aiBusy) { runAi(current, quality = "high", model = "gpt-image-1.5") }
                     ActionButton("USE AI", aiImage != null && !aiBusy) {
                         aiImage?.let { img ->
                             // שומרים גיבוי של התמונה המקורית (פעם אחת) ומחליפים; אחר כך עוברים לתפריט וסורקים מחדש

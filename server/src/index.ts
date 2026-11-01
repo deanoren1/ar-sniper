@@ -35,10 +35,14 @@ const GEMINI_MODEL = "gemini-2.5-flash-image";
 const MAX_UPLOAD_BYTES = 1_200_000;
 const PROMPTS: Record<string, string> = {
   tundra:
-    "Restyle this photo as a frozen tundra winter scene: fresh snow settled on every upward-facing surface, " +
-    "frost and ice on edges and vertical surfaces, cold blue light and soft haze in the distance. " +
-    "Keep the exact same camera view, composition, and the exact position, size and shape of every object, " +
-    "the floor and the walls. Do not add, remove or move any object. No people, no text, no borders.",
+    "Transform this exact photo into a dramatic frozen tundra winter scene, photorealistic and highly detailed, like a still from a AAA game. " +
+    "Heavy fresh snow settled on every upward-facing surface (floor, ledges, tops of objects), thick frost and ice crystals on walls and objects, " +
+    "icicles hanging from overhead edges, a glossy icy reflective floor with patches of snow. " +
+    "Cold cinematic lighting with deep blue shadows and soft cyan highlights, but keep natural color variety: warm lights and colored objects stay recognizable under the frost. " +
+    "Keep the full depth of the scene: the far end must stay clearly visible and detailed, with only a light haze and no white fog wall. " +
+    "Sharp, high contrast, fine detail, not blurry, not monochrome. " +
+    "Keep the exact same camera, framing and composition, and the exact position, size and shape of every wall, pillar, object and opening. " +
+    "Do not add, remove or move anything. No people, no text.",
 };
 
 function today(): string {
@@ -95,7 +99,10 @@ async function restyle(request: Request, env: Env): Promise<Response> {
     const wanted = new URL(request.url).searchParams.get("provider");
     const provider = wanted ?? (env.OPENAI_API_KEY ? "openai" : "gemini");
     const size = new URL(request.url).searchParams.get("size") === "portrait" ? "1024x1536" : "1536x1024";
-    const result = provider === "openai" ? await callOpenAI(env, prompt, body, size) : await callGemini(env, prompt, body);
+    const q = new URL(request.url).searchParams;
+    const quality = ["low", "medium", "high"].includes(q.get("quality") ?? "") ? (q.get("quality") as string) : undefined;
+    const model = /^gpt-image-[a-z0-9.\-]{1,30}$/.test(q.get("model") ?? "") ? (q.get("model") as string) : undefined;
+    const result = provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model) : await callGemini(env, prompt, body);
     if ("error" in result) return fail(502, result.error);
     return new Response(result.bytes, { headers: { "content-type": result.mime, "cache-control": "no-store", "x-provider": provider } });
   } catch {
@@ -132,13 +139,13 @@ async function callGemini(env: Env, prompt: string, body: Uint8Array): Promise<I
 }
 
 /** OpenAI Images API (edits). הדגם נקבע במשתנה OPENAI_IMAGE_MODEL; ברירת מחדל: הקטן והזול */
-async function callOpenAI(env: Env, prompt: string, body: Uint8Array, size: string): Promise<ImageResult> {
+async function callOpenAI(env: Env, prompt: string, body: Uint8Array, size: string, quality?: string, model?: string): Promise<ImageResult> {
   if (!env.OPENAI_API_KEY) return { error: "openai-not-configured" };
   const form = new FormData();
-  form.append("model", env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini");
+  form.append("model", model || env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini");
   form.append("prompt", prompt);
   form.append("size", size);
-  form.append("quality", env.OPENAI_IMAGE_QUALITY || "medium");
+  form.append("quality", quality || env.OPENAI_IMAGE_QUALITY || "medium");
   form.append("output_format", "jpeg");
   form.append("image", new Blob([body], { type: "image/jpeg" }), "photo.jpg");
   const res = await fetch("https://api.openai.com/v1/images/edits", {

@@ -41,7 +41,7 @@ object AiWorld {
     }
 
     /** חוסם: להריץ מחוץ לתהליך הראשי. style: למשל "tundra". provider: null = ברירת המחדל של השרת */
-    fun generate(context: Context, style: String, source: Bitmap, provider: String? = null): Result {
+    fun generate(context: Context, style: String, source: Bitmap, provider: String? = null, quality: String? = null, model: String? = null): Result {
         val server = CoopClient.savedServer(context).trim()
             .removePrefix("https://").removePrefix("http://").trimEnd('/')
         if (server.isEmpty()) return Result.Error("Set the server address first (Co-op screen)")
@@ -55,6 +55,8 @@ object AiWorld {
             val query = buildString {
                 append("style=$style&size=${if (portrait) "portrait" else "landscape"}")
                 if (provider != null) append("&provider=$provider")
+                if (quality != null) append("&quality=$quality")
+                if (model != null) append("&model=$model")
             }
             val request = Request.Builder()
                 .url("https://$server/restyle?$query")
