@@ -293,10 +293,10 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
     }
     // צל רך מתחת: מפריד את הקליע מרקע עמוס בתמונה
     // (כדור האנרגיה בלי צל כהה: הוא מקור אור, והצל גורם לו להיראות כמו תמונה שמתקרבת)
-    if (s.kind != ShotKind.Orb) drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
+    if (s.kind != ShotKind.Orb && !(s.kind == ShotKind.Rock && pair.flight != null)) drawCircle(Color.Black.copy(alpha = 0.28f), diameter * 0.46f, Offset(center.x + r * 0.08f, center.y + r * 0.12f))
     // זוהר בצבע הציור עצמו, מצומצם כדי לא ליצור כתם
     // (כדור האנרגיה עם ציור טיסה מצייר זוהר משלו, והזוהר הכללי נראה כעיגול אפור על הכדור כשהוא גדל)
-    if (!(s.kind == ShotKind.Orb && pair.flight != null)) drawCircle(
+    if (!((s.kind == ShotKind.Orb || s.kind == ShotKind.Rock) && pair.flight != null)) drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(color.copy(alpha = 0.38f * pulse), color.copy(alpha = 0f)),
             center = center,
@@ -316,6 +316,23 @@ private fun DrawScope.drawShotSprite(s: Shot, pair: ShotPair, base: Offset, r: F
         if (s.hp < s.maxHp) {
             drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
         }
+        return
+    }
+    // סלע בוער של הענק: שובל להבות מצויר בתמונה (כמו כדור התמנון), הילה כתומה. טבעת האזהרה נשארת (רמז לשחקן)
+    if (s.kind == ShotKind.Rock && fl != null) {
+        drawOrbFlight(s, fl, center, diameter, p, time, fire = true)
+        if (s.hp < s.maxHp) {
+            drawLine(Color.White, Offset(center.x - r * 0.5f, center.y - r * 0.6f), Offset(center.x + r * 0.2f, center.y + r * 0.7f), strokeWidth = r * 0.08f + 2f)
+        }
+        if (s.harmless) drawCircle(Color(0x667F8A93), r * 1.15f, center)
+        val ringRock = r * 1.15f * (1f + 0.5f * (1f - p))
+        val urgentRock = p > 0.7f && (time * 10f).toInt() % 2 == 0
+        drawCircle(
+            color = if (urgentRock) Color(0xFFFF1744) else Color.White.copy(alpha = 0.9f),
+            radius = ringRock,
+            center = center,
+            style = Stroke(width = diameter * 0.07f + 3f)
+        )
         return
     }
     if (useSide && pair.side != null) {
@@ -383,7 +400,7 @@ private fun DrawScope.drawSprite(image: androidx.compose.ui.graphics.ImageBitmap
  * וזוהר מוסף (additive) סביב הכדור ולאורך השובל, כדי שייראה כמו מקור אור ולא כמו תמונה שמתקרבת.
  * בציור המקורי הכדור משמאל והשובל לימין; הכדור נשאר ישר והשובל מכופף פלח אחר פלח לאורך עקום.
  */
-private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, diameter: Float, p: Float, time: Float) {
+private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, diameter: Float, p: Float, time: Float, fire: Boolean = false) {
     val k = diameter / fl.dia
     val cellW = fl.image.width / fl.frames
     val cellH = fl.image.height
@@ -417,7 +434,7 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
     val glowR = diameter * 1.15f
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Color.White.copy(alpha = 0.5f * pulse), Color(0xFFD060FF).copy(alpha = 0.32f * pulse), Color(0xFF7020FF).copy(alpha = 0.1f * pulse), Color.Transparent),
+            colors = listOf(Color.White.copy(alpha = 0.5f * pulse), Color(if (fire) 0xFFFFB040 else 0xFFD060FF).copy(alpha = 0.32f * pulse), Color(if (fire) 0xFFFF5A10 else 0xFF7020FF).copy(alpha = 0.1f * pulse), Color.Transparent),
             center = center,
             radius = glowR
         ),
@@ -431,7 +448,7 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
         val rr = diameter * (0.55f - 0.12f * i)
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0xFFB050FF).copy(alpha = (0.28f - 0.07f * i) * pulse), Color.Transparent),
+                colors = listOf(Color(if (fire) 0xFFFF8A30 else 0xFFB050FF).copy(alpha = (0.28f - 0.07f * i) * pulse), Color.Transparent),
                 center = c,
                 radius = rr
             ),
