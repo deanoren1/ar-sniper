@@ -387,11 +387,9 @@ private fun DrawScope.drawOrbFlight(s: Shot, fl: FlightSprite, center: Offset, d
     val k = diameter / fl.dia
     val cellW = fl.image.width / fl.frames
     val cellH = fl.image.height
-    // סליים: הפריימים לפי התקדמות הטיסה (הכדור גדל). קוץ: סיבוב בלולאה לפי הזמן
-    val pos = if (slime) (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
-    else ((time * 11f + s.id * 1.7f) % fl.frames + fl.frames) % fl.frames
+    val pos = (p * (fl.frames - 1)).coerceIn(0f, (fl.frames - 1).toFloat())
     val lo = pos.toInt().coerceAtMost(fl.frames - 1)
-    val hi = if (slime) (lo + 1).coerceAtMost(fl.frames - 1) else (lo + 1) % fl.frames
+    val hi = (lo + 1).coerceAtMost(fl.frames - 1)
     val t = pos - lo
     val backX = (s.x - Shot.targetX) * size.width
     val backY = (s.y - Shot.targetY) * size.height
