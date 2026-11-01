@@ -53,6 +53,42 @@ def cell_of(img, c):
     return img.crop((c * 700, 0, (c + 1) * 700, 700))
 
 
+DIR_SCALE = 0.90          # the direction frames were drawn ~10% larger than the main rows (crown to feet)
+DIR_HALF = 440            # half-width (in 700-px cell units) kept around the body centre: room for the crystal
+
+
+def dirs(out, x0, y0, y1, k, ch):
+    """Firing frames with the crystal leaving the mouth sideways (fire_dirs.webp, top row, 5 frames of 840x700).
+    Output: 4 frames [far left, near left, near right, far right] on cells wider than the main ones, same
+    pixel scale and the same feet line, body centred."""
+    im = Image.open(os.path.join(SRC, "fire_dirs.webp")).convert("RGB")
+    fw = 840
+    width = round(2 * DIR_HALF * k)
+    sheet = Image.new("RGBA", (width * 4, ch), (0, 0, 0, 0))
+    b.CELL = fw
+    for out_i, col in enumerate([0, 1, 3, 4]):
+        cell = im.crop((col * fw, 0, (col + 1) * fw, 700))
+        rgba = b.key_cell(cell)
+        img = Image.fromarray((rgba * 255).astype("uint8"), "RGBA")
+        a = np.asarray(img.getchannel("A")) > 12
+        # feet line: the source cells all end their feet at y~608 (the last pixel row holds a stray line)
+        ground = 608
+        # body centre = median x of the crown's top spike (the crystal never reaches that high)
+        ys, xs = np.where(a)
+        top = ys.min()
+        cx = float(np.median(xs[ys < top + 30]))
+        s = DIR_SCALE
+        size = (round(img.width * s), round(img.height * s))
+        sc = img.convert("RGBa").resize(size, Image.LANCZOS).convert("RGBA")
+        canvas = Image.new("RGBA", (1500, 700), (0, 0, 0, 0))
+        canvas.alpha_composite(sc, (round(750 - cx * s), round(640 - ground * s))) if (round(750 - cx * s) >= 0 and round(640 - ground * s) >= 0) else canvas.paste(sc, (round(750 - cx * s), round(640 - ground * s)))
+        crop = canvas.crop((750 - DIR_HALF, y0, 750 + DIR_HALF, y1)).convert("RGBa").resize((width, ch), Image.LANCZOS).convert("RGBA")
+        sheet.paste(crop, (out_i * width, 0))
+        print("dir", out_i, "col", col, "feet-centre", round(cx), "ground", ground)
+    sheet.save(out, "WEBP", quality=88, method=6)
+    print("dir sheet", sheet.size)
+
+
 def main():
     out = sys.argv[1]
     fw = sys.argv[2] if len(sys.argv) > 2 else None
@@ -71,7 +107,8 @@ def main():
     b.ROWS = [(n, 1.0, 640) for n in list(ROWS) + ["front_charge_release"]]
     b.FRAME_SCALE = {}
     sys.argv = ["build_rig2.py", tmp, out] + ([fw] if fw else ["352"]) + ([ref] if ref else [])
-    b.main()
+    x0, y0, x1, y1, k, cw, ch = b.main()
+    dirs(out.replace(".webp", "_dir.webp"), x0, y0, y1, k, ch)
 
 
 if __name__ == "__main__":

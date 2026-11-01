@@ -97,7 +97,12 @@ class RigAnim(
     val deathSide: List<MonsterSprite>,
     val fireFront: List<MonsterSprite>,
     /** פריים שחרור הקליע (הרתיעה) אחרי הכנת הגז; null אם אין */
-    val releaseFront: MonsterSprite? = null
+    val releaseFront: MonsterSprite? = null,
+    /**
+     * שחרור הקליע לצדדים (הקיפוד): [שמאלה רחוק, שמאלה קרוב, ימינה קרוב, ימינה רחוק], תאים רחבים יותר מהרגילים באותו קנה מידה.
+     * המפלצת משמאל למסך יורה ימינה (אל מרכז המסך) ולהפך. null אם אין
+     */
+    val releaseSides: List<MonsterSprite>? = null
 )
 
 /** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
@@ -314,6 +319,9 @@ class MonsterSprites private constructor(
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
             val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+            // כיווני שחרור (אופציונלי): <שם>_dir, 4 תאים ברוחב שווה ובאותו גובה כמו תא רגיל
+            val dirBitmap = context.resources.getIdentifier(context.resources.getResourceEntryName(id) + "_dir", "drawable", context.packageName)
+                .takeIf { it != 0 }?.let { BitmapFactory.decodeResource(context.resources, it, options) }
             val cw = bitmap.width / RIG_COLUMNS
             val ch = bitmap.height / RIG2_ROWS
             if (cw < 8 || ch < 8) return null
@@ -346,7 +354,15 @@ class MonsterSprites private constructor(
                     deathFront = row(6, 3, 3),
                     deathSide = row(5),
                     fireFront = row(7, 3, 3),
-                    releaseFront = cell(8, 5)
+                    releaseFront = cell(8, 5),
+                    releaseSides = dirBitmap?.takeIf { it.height == ch }?.let { db ->
+                        val dw = db.width / 4
+                        (0 until 4).map { i ->
+                            val f = Bitmap.createBitmap(db, i * dw, 0, dw, db.height)
+                            f.density = Bitmap.DENSITY_NONE
+                            MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
+                        }
+                    }
                 )
             )
             bitmap.recycle()

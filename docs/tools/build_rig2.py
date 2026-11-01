@@ -166,6 +166,7 @@ def main():
     if len(sys.argv) > 4:
         write_reference(sheet, cw, ch, len(rows), sys.argv[4])
     print(f"union box x {x0}-{x1}, y {y0}-{y1}; frame {cw}x{ch}; sheet {sheet.size}; decoded ~{sheet.width*sheet.height*4/1e6:.1f} MB")
+    return x0, y0, x1, y1, k, cw, ch
 
 
 if __name__ == "__main__":

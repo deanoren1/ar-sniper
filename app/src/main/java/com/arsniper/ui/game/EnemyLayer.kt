@@ -594,6 +594,21 @@ private fun rigDeath(rig: RigAnim, enemy: Enemy, progress: Float): MonsterSprite
     return frames[(progress * frames.size).toInt().coerceIn(0, frames.size - 1)]
 }
 
+/**
+ * פריים שחרור הקליע: אם יש פריימים לצדדים, המפלצת יורה לכיוון מרכז המסך (שם הקליע מכוון):
+ * משמאל ימינה, מימין שמאלה. קרוב למרכז: הפריים הרגיל ישר אל המצלמה
+ */
+private fun releaseFor(rig: RigAnim, enemy: Enemy): MonsterSprite? {
+    val sides = rig.releaseSides ?: return rig.releaseFront
+    val dx = enemy.position.x - com.arsniper.game.engine.Shot.targetX
+    val far = abs(dx) > 0.28f
+    return when {
+        abs(dx) < 0.1f -> rig.releaseFront
+        dx < 0f -> if (far) sides[3] else sides[2]
+        else -> if (far) sides[0] else sides[1]
+    }
+}
+
 /** מפלצת rig2 שלא הולכת ולא מתה: הכנה לירי לפי ההתקדמות, פגיעה לפי עוצמת ההבהוב, אחרת עמידה מלפנים */
 private fun rigFrame(rig: RigAnim, enemy: Enemy, hurt: Float): MonsterSprite {
     if (AttackPose.ids.contains(enemy.id)) {
@@ -603,7 +618,7 @@ private fun rigFrame(rig: RigAnim, enemy: Enemy, hurt: Float): MonsterSprite {
     // שחרור הקליע: שיא ההכנה, אחר כך רתיעה ונחיתה (פריימי הלהבה לא בשימוש: צבעם לא מתאים לקליע הסגול)
     val since = AttackPose.sinceLaunch[enemy.id]
     if (since != null) {
-        val release = rig.releaseFront
+        val release = releaseFor(rig, enemy)
         return if (since < 0.12f) rig.chargeFront.last()
         else if (release != null) { if (since < 0.4f) release else rig.idleFront }
         else if (since < 0.3f) rig.fireFront[1] else rig.fireFront[2]
