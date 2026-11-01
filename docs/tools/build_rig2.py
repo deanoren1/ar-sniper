@@ -56,7 +56,30 @@ def key_cell(cell_rgb):
     """Green screen -> RGBA (float 0..1). Glass (blue/cyan hues) is made see-through."""
     a = np.asarray(cell_rgb).astype(float) / 255
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    if os.environ.get("KEY") == "magenta":
+    if os.environ.get("KEY") == "flood":
+        # flat pure-green screen behind a green-skinned character (the giant): only green that is connected to the
+        # cell border (or forms a large enclosed area) is background; green inside the body is kept.
+        bg = np.array([0.0, 1.0, 0.0])
+        dist = np.sqrt(((a - bg) ** 2).sum(-1))
+        near = dist < 0.27
+        labels, n = ndimage.label(near)
+        keep = np.zeros(n + 1, bool)
+        border = np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))
+        keep[border] = True
+        sizes = ndimage.sum(near, labels, range(n + 1))
+        keep |= sizes > 2500
+        keep[0] = False
+        bgmask = keep[labels]
+        # soft edge: pixels within 3px of the background get alpha from their distance to the green
+        ring = ndimage.binary_dilation(bgmask, iterations=3) & ~bgmask
+        alpha = np.ones_like(dist)
+        alpha[bgmask] = 0.0
+        alpha[ring] = np.clip((dist[ring] - 0.10) / 0.35, 0, 1)
+        edge = ring & (alpha < 0.999)
+        rgb = a.copy()
+        un = (a - (1 - alpha)[..., None] * bg) / np.maximum(alpha, 0.05)[..., None]
+        rgb[edge] = np.clip(un[edge], 0, 1)
+    elif os.environ.get("KEY") == "magenta":
         # magenta screen (#FF00FF): used for characters that contain green (e.g. the slime snail).
         # No glass rule here; edge pixels are un-mixed from the magenta instead of clamping a channel.
         excess = np.minimum(r, b) - g
