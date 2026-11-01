@@ -384,7 +384,7 @@ fun GameScreen(
                     themed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                         try {
                             val key = com.arsniper.ml.AnalysisCache.keyFor(file)
-                            com.arsniper.ml.ThemeBake.bake(context, style, photo.asAndroidBitmap(), analysis, key)?.asImageBitmap()
+                            com.arsniper.ml.ThemeBake.bake(context, style, photo.asAndroidBitmap(), analysis, key, com.arsniper.ml.ThemeBake.extrasOn(context))?.asImageBitmap()
                         } catch (_: Throwable) {
                             null
                         }

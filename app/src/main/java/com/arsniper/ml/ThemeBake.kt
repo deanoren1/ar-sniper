@@ -25,7 +25,7 @@ import kotlin.math.sqrt
  */
 object ThemeBake {
 
-    private const val VERSION = 4
+    private const val VERSION = 5
     private const val MAX_PIXELS = 2_000_000
 
     /** קטגוריות ADE20K של רצפה/קרקע */
@@ -35,16 +35,24 @@ object ThemeBake {
     private val NO_SNOW = setOf(0, 1, 2, 5, 8, 14, 22, 27, 36, 43)
     private const val CEILING = 5
 
+    /** האם שלבים 3–5 (גריידינג, כפור פרוצדורלי, רצפת קרח) מופעלים; נקבע בכפתור ב-SCAN LAB */
+    fun extrasOn(context: Context): Boolean =
+        context.getSharedPreferences("arena", Context.MODE_PRIVATE).getBoolean("tundra_extras", false)
+
+    fun setExtras(context: Context, on: Boolean) {
+        context.getSharedPreferences("arena", Context.MODE_PRIVATE).edit().putBoolean("tundra_extras", on).apply()
+    }
+
     /** מחזיר תמונה מעוצבת, או null אם אין עיצוב לארנה הזאת או שהחישוב נכשל */
-    fun bake(context: Context, style: ArenaStyle, source: Bitmap, analysis: SceneAnalysis, key: String): Bitmap? {
+    fun bake(context: Context, style: ArenaStyle, source: Bitmap, analysis: SceneAnalysis, key: String, extras: Boolean = false): Bitmap? {
         if (style != ArenaStyle.Tundra) return null
         val dir = File(context.cacheDir, "themes").apply { mkdirs() }
-        val cached = File(dir, "${key}_${style.name}_v$VERSION.jpg")
+        val cached = File(dir, "${key}_${style.name}_v$VERSION${if (extras) "x" else ""}.jpg")
         if (cached.exists()) {
             BitmapFactory.decodeFile(cached.absolutePath)?.let { return it }
         }
         val result = try {
-            tundra(context, source, analysis)
+            tundra(context, source, analysis, extras)
         } catch (_: Throwable) {
             null
         } ?: return null
@@ -57,9 +65,8 @@ object ThemeBake {
 
     // ------------------------------------------------------------------ טונדרה
 
-    private fun tundra(context: Context, source: Bitmap, a: SceneAnalysis): Bitmap? {
+    private fun tundra(context: Context, source: Bitmap, a: SceneAnalysis, extras: Boolean): Bitmap? {
         val snowTex = loadTex(context, "theme/snow.jpg")
-        val frostTex: Tex? = null // טקסטורת הכפור כבויה: יצרה דוגמאות מוזרות על חפצים
         val scale = min(1f, sqrt(MAX_PIXELS.toFloat() / (source.width.toFloat() * source.height)))
         val w = max(8, (source.width * scale).roundToInt())
         val h = max(8, (source.height * scale).roundToInt())
@@ -90,25 +97,129 @@ object ThemeBake {
             if (label in NO_SNOW) u = 0f else if (label in FLOOR) u = max(u, 0.9f)
             up[i] = u
         }
-        val upSmooth = boxBlur(up, gw, gh, 3)
+        val upGrid = boxBlur(up, gw, gh, 1)
 
         val px = IntArray(w * h)
         out.getPixels(px, 0, w, 0, 0, w, h)
+        val orig = if (extras) px.copyOf() else px
+
+        // ---- שלב 1: מסכה שעוקבת אחרי הקצוות האמיתיים בתמונה (Guided filter ברזולוציה חצויה)
+        val lw = (w + 1) / 2
+        val lh = (h + 1) / 2
+        val guide = FloatArray(lw * lh)
+        for (y in 0 until lh) {
+            for (x in 0 until lw) {
+                var s = 0f
+                var n = 0
+                for (dy in 0..1) for (dx in 0..1) {
+                    val xx = min(w - 1, x * 2 + dx)
+                    val yy = min(h - 1, y * 2 + dy)
+                    s += lumaOf(px[yy * w + xx])
+                    n += 1
+                }
+                guide[y * lw + x] = s / n
+            }
+        }
+        val pLow = FloatArray(lw * lh)
+        for (y in 0 until lh) {
+            for (x in 0 until lw) {
+                pLow[y * lw + x] = bl(upGrid, gw, gh, x * (gw - 1f) / (lw - 1), y * (gh - 1f) / (lh - 1))
+            }
+        }
+        val gr = max(3, lw / 90)
+        val meanI = fastBox(guide, lw, lh, gr)
+        val meanP = fastBox(pLow, lw, lh, gr)
+        val ip = FloatArray(lw * lh) { guide[it] * pLow[it] }
+        val ii = FloatArray(lw * lh) { guide[it] * guide[it] }
+        val corrIp = fastBox(ip, lw, lh, gr)
+        val corrII = fastBox(ii, lw, lh, gr)
+        val ca = FloatArray(lw * lh)
+        val cb = FloatArray(lw * lh)
+        for (i in ca.indices) {
+            val varI = corrII[i] - meanI[i] * meanI[i]
+            val cov = corrIp[i] - meanI[i] * meanP[i]
+            val aa = cov / (varI + 0.012f)
+            ca[i] = aa
+            cb[i] = meanP[i] - aa * meanI[i]
+        }
+        val coefA = fastBox(ca, lw, lh, gr)
+        val coefB = fastBox(cb, lw, lh, gr)
+
+        // מסכה מעודכנת ברזולוציה חצויה, ממנה נגזרים שפת השלג והצללים
+        val upL = FloatArray(lw * lh) { smoothstep(0.25f, 0.75f, coefA[it] * guide[it] + coefB[it]) }
+        val k1 = max(2, lh / 110)
+        val rimRaw = FloatArray(lw * lh)
+        val shadRaw = FloatArray(lw * lh)
+        for (y in 0 until lh) {
+            for (x in 0 until lw) {
+                val i = y * lw + x
+                val above = upL[max(0, y - k1) * lw + x]
+                val above2 = upL[max(0, y - k1 * 3) * lw + x]
+                rimRaw[i] = (upL[i] - above).coerceAtLeast(0f)
+                shadRaw[i] = (above2 - upL[i]).coerceAtLeast(0f)
+            }
+        }
+        val rimL = fastBox(rimRaw, lw, lh, 1)
+        val shadL = fastBox(shadRaw, lw, lh, max(2, lw / 200))
+
+        // ---- שלבים 3–5: מפות עזר ברזולוציה חצויה
+        var lumaBlurL = FloatArray(0)
+        var bloomL = FloatArray(0)
+        var edgeL = FloatArray(0)
+        if (extras) {
+            val lr = max(4, lw / 20)
+            lumaBlurL = fastBox(fastBox(guide, lw, lh, lr), lw, lh, lr)
+            val bright = FloatArray(lw * lh) { (guide[it] - 0.60f).coerceAtLeast(0f) * 2.2f }
+            val br = max(3, lw / 40)
+            bloomL = fastBox(fastBox(bright, lw, lh, br), lw, lh, br)
+            val mag = FloatArray(lw * lh)
+            for (y in 0 until lh) {
+                for (x in 0 until lw) {
+                    val x0 = max(0, x - 1)
+                    val x1 = min(lw - 1, x + 1)
+                    val y0 = max(0, y - 1)
+                    val y1 = min(lh - 1, y + 1)
+                    val gx = guide[y * lw + x1] - guide[y * lw + x0]
+                    val gy = guide[y1 * lw + x] - guide[y0 * lw + x]
+                    mag[y * lw + x] = smoothstep(0.03f, 0.16f, sqrt(gx * gx + gy * gy))
+                }
+            }
+            edgeL = fastBox(mag, lw, lh, 1)
+        }
+
+        val slx = (lw - 1f) / (w - 1)
+        val sly = (lh - 1f) / (h - 1)
         val sx = (gw - 1).toFloat() / (w - 1)
         val sy = (gh - 1).toFloat() / (h - 1)
+        val lastNon = IntArray(w) { -1 }
+        val reflectMax = h * 0.14f
         for (y in 0 until h) {
             val gy = y * sy
             val y0 = gy.toInt().coerceAtMost(gh - 2)
             val fy = gy - y0
+            val ly = y * sly
             for (x in 0 until w) {
                 val gx = x * sx
                 val x0 = gx.toInt().coerceAtMost(gw - 2)
                 val fx = gx - x0
+                val lx = x * slx
                 val i00 = y0 * gw + x0
-                val upv = lerp(lerp(upSmooth[i00], upSmooth[i00 + 1], fx), lerp(upSmooth[i00 + gw], upSmooth[i00 + gw + 1], fx), fy)
                 val z = lerp(lerp(a.depth[i00], a.depth[i00 + 1], fx), lerp(a.depth[i00 + gw], a.depth[i00 + gw + 1], fx), fy)
                 val label = a.labelIndex((y0 + if (fy > 0.5f) 1 else 0) * gw + x0 + if (fx > 0.5f) 1 else 0)
                 val isFloor = label in FLOOR
+                if (!isFloor) lastNon[x] = y
+
+                val argb = orig[y * w + x]
+                var r = ((argb shr 16) and 0xFF) / 255f
+                var gg = ((argb shr 8) and 0xFF) / 255f
+                var b = (argb and 0xFF) / 255f
+                val luma = 0.299f * r + 0.587f * gg + 0.114f * b
+
+                // "פונה למעלה" אחרי חידוד לפי קצוות התמונה האמיתית
+                val upv = smoothstep(0.25f, 0.75f, bl(coefA, lw, lh, lx, ly) * luma + bl(coefB, lw, lh, lx, ly))
+                val rim = bl(rimL, lw, lh, lx, ly)
+                val shad = bl(shadL, lw, lh, lx, ly)
+                val edge = if (extras) bl(edgeL, lw, lh, lx, ly) else 0f
 
                 // רעש בקנה מידה שתלוי בעומק: הכתמים קטנים יותר ככל שהם רחוקים
                 val f = (2.5f / z.coerceIn(1.5f, 8f)).coerceIn(0.5f, 1.8f)
@@ -119,12 +230,6 @@ object ThemeBake {
                 val cover = smoothstep(thr - 0.10f, thr + 0.10f, n1 * 0.75f + n2 * 0.25f)
                 val snow = upv * cover
 
-                val argb = px[y * w + x]
-                var r = ((argb shr 16) and 0xFF) / 255f
-                var gg = ((argb shr 8) and 0xFF) / 255f
-                var b = (argb and 0xFF) / 255f
-                val luma = 0.299f * r + 0.587f * gg + 0.114f * b
-
                 // גוון קר כללי: פחות רוויה, יותר כחול
                 r = luma + (r - luma) * 0.82f
                 gg = luma + (gg - luma) * 0.82f
@@ -133,21 +238,25 @@ object ThemeBake {
                 gg *= 0.90f
                 b *= 1.04f
 
+                val noFrost = label == 2 || label == CEILING
                 // כפור על משטחים אנכיים וחפצים (לא שמיים/תקרה)
-                if (label != 2 && label != CEILING) {
-                    val frost = (1f - upv) * 0.07f * smoothstep(0.52f, 0.78f, n3)
-                    if (frostTex != null) {
-                        val fc = sample(frostTex, x * 0.8f, y * 0.8f)
-                        val fk = (1f - upv) * 0.20f * smoothstep(0.45f, 0.75f, n3)
-                        val shadeF = 0.7f + 0.5f * luma
-                        r = lerp(r, ((fc shr 16) and 0xFF) / 255f * shadeF, fk)
-                        gg = lerp(gg, ((fc shr 8) and 0xFF) / 255f * shadeF, fk)
-                        b = lerp(b, (fc and 0xFF) / 255f * shadeF, fk)
-                    } else {
-                        r = lerp(r, 0.86f, frost)
-                        gg = lerp(gg, 0.94f, frost)
-                        b = lerp(b, 1.0f, frost)
+                if (!noFrost) {
+                    var frost = (1f - upv) * 0.07f * smoothstep(0.52f, 0.78f, n3)
+                    if (extras) {
+                        // שלב 4: כפור פרוצדורלי שמצטבר לאורך קצוות וזוויות
+                        val crystals = smoothstep(0.55f, 0.85f, noise(x * 2.3f + 13f, y * 2.3f) * 0.6f + noise(x * 5.1f, y * 5.1f + 7f) * 0.4f)
+                        frost += (1f - upv) * edge * (0.28f + 0.42f * crystals)
+                        frost = frost.coerceAtMost(0.72f)
+                        if (crystals > 0.8f) {
+                            val tw = edge * (crystals - 0.8f) * 0.6f
+                            r += tw
+                            gg += tw
+                            b += tw
+                        }
                     }
+                    r = lerp(r, 0.86f, frost)
+                    gg = lerp(gg, 0.94f, frost)
+                    b = lerp(b, 1.0f, frost)
                 }
 
                 // שלג: מואר לפי הבהירות המקורית, כחלחל בצל, עם נצנוץ
@@ -158,10 +267,10 @@ object ThemeBake {
                     var sg: Float
                     var sb: Float
                     if (snowTex != null) {
-                        val c = sample(snowTex, x * 0.9f * f, y * 0.9f * f)
-                        sr = ((c shr 16) and 0xFF) / 255f * shade * 1.05f
-                        sg = ((c shr 8) and 0xFF) / 255f * shade * 1.05f
-                        sb = (c and 0xFF) / 255f * shade * 1.05f
+                        val cc = sample(snowTex, x * 0.9f * f, y * 0.9f * f)
+                        sr = ((cc shr 16) and 0xFF) / 255f * shade * 1.05f
+                        sg = ((cc shr 8) and 0xFF) / 255f * shade * 1.05f
+                        sb = (cc and 0xFF) / 255f * shade * 1.05f
                     } else {
                         sr = (0.82f + 0.18f * t) * shade
                         sg = (0.89f + 0.11f * t) * shade
@@ -173,7 +282,8 @@ object ThemeBake {
                             sb += sparkle
                         }
                     }
-                    val k = snow * 0.50f
+                    // שלב 2: שלג עבה יותר (פחות שקוף)
+                    val k = (snow * 0.74f).coerceAtMost(0.9f)
                     r = lerp(r, sr, k)
                     gg = lerp(gg, sg, k)
                     b = lerp(b, sb, k)
@@ -184,6 +294,87 @@ object ThemeBake {
                     gg += sheen * 0.95f
                     b += sheen
                 }
+
+                // שלב 2: נפח. שפה מוארת בקצה העליון של השלג, צל כחלחל מתחתיו, צל מגע ליד בסיס חפצים על הרצפה
+                if (!isFloor && !noFrost) {
+                    val hl = rim * cover * upv * 0.45f
+                    r += hl * 0.80f
+                    gg += hl * 0.92f
+                    b += hl
+                    val sd = (shad * (0.35f + 0.65f * cover) * 0.55f).coerceAtMost(0.5f)
+                    r *= 1f - sd * 0.55f
+                    gg *= 1f - sd * 0.42f
+                    b *= 1f - sd * 0.22f
+                } else if (isFloor) {
+                    val cs = (rim * 1.4f).coerceAtMost(0.5f)
+                    r *= 1f - cs * 0.55f
+                    gg *= 1f - cs * 0.42f
+                    b *= 1f - cs * 0.22f
+                }
+
+                if (extras) {
+                    // שלב 5: רצפת קרח מחזירה אור (השתקפות רכה של מה שעומד עליה + נצנוץ)
+                    if (isFloor) {
+                        val ln = lastNon[x]
+                        val ice = 1f - snow * 0.85f
+                        if (ln >= 0 && ice > 0.05f) {
+                            val d = (y - ln).toFloat()
+                            if (d > 0f && d < reflectMax) {
+                                val ys = ln - d.toInt()
+                                if (ys >= 0) {
+                                    val wob = ((noise(x * 0.2f, y * 0.6f) - 0.5f) * d * 0.3f).toInt()
+                                    val xs = (x + wob).coerceIn(0, w - 1)
+                                    val rc = orig[ys * w + xs]
+                                    val fade = (1f - d / reflectMax)
+                                    val amount = 0.34f * fade * fade * ice
+                                    r = lerp(r, ((rc shr 16) and 0xFF) / 255f * 0.82f, amount)
+                                    gg = lerp(gg, ((rc shr 8) and 0xFF) / 255f * 0.92f, amount)
+                                    b = lerp(b, (rc and 0xFF) / 255f * 1.05f, amount)
+                                }
+                            }
+                        }
+                        val spec = 0.14f * smoothstep(0.68f, 0.95f, noise(x * 0.12f + 31f, y * 1.1f)) * ice
+                        r += spec * 0.85f
+                        gg += spec * 0.95f
+                        b += spec
+                    }
+
+                    // שלב 3: גריידינג קולנועי
+                    val lb = bl(lumaBlurL, lw, lh, lx, ly)
+                    val lc = ((luma - lb) * 0.45f).coerceIn(-0.15f, 0.15f)
+                    r += lc
+                    gg += lc
+                    b += lc
+                    val ln2 = 0.299f * r + 0.587f * gg + 0.114f * b
+                    val sh = 1f - smoothstep(0f, 0.55f, ln2)
+                    val hi = smoothstep(0.55f, 1f, ln2)
+                    r += -0.03f * sh - 0.015f * hi
+                    b += 0.07f * sh + 0.03f * hi
+                    r = lerp(r, r * r * (3f - 2f * r), 0.30f)
+                    gg = lerp(gg, gg * gg * (3f - 2f * gg), 0.30f)
+                    b = lerp(b, b * b * (3f - 2f * b), 0.30f)
+                    val bloom = (bl(bloomL, lw, lh, lx, ly) * 0.45f).coerceAtMost(0.4f)
+                    r += bloom * 0.85f
+                    gg += bloom * 0.95f
+                    b += bloom
+                    // אובך עומק ושמיים
+                    val haze = smoothstep(4f, 14f, z) * 0.30f
+                    r = lerp(r, 0.74f, haze)
+                    gg = lerp(gg, 0.84f, haze)
+                    b = lerp(b, 0.96f, haze)
+                    if (label == 2) {
+                        val l2 = 0.8f + 0.2f * luma
+                        r = lerp(r, 0.70f * l2, 0.45f)
+                        gg = lerp(gg, 0.80f * l2, 0.45f)
+                        b = lerp(b, 0.93f * l2, 0.45f)
+                    }
+                    val dx = x.toFloat() / w - 0.5f
+                    val dy = y.toFloat() / h - 0.5f
+                    val vig = 1f - 0.22f * smoothstep(0.30f, 0.72f, sqrt(dx * dx + dy * dy))
+                    r *= vig
+                    gg *= vig
+                    b *= vig
+                }
                 px[y * w + x] = (0xFF shl 24) or
                     (clamp255(r) shl 16) or
                     (clamp255(gg) shl 8) or
@@ -192,6 +383,46 @@ object ThemeBake {
         }
         out.setPixels(px, 0, w, 0, 0, w, h)
         drawIcicles(context, out, a)
+        return out
+    }
+
+    private fun lumaOf(argb: Int): Float =
+        (0.299f * ((argb shr 16) and 0xFF) + 0.587f * ((argb shr 8) and 0xFF) + 0.114f * (argb and 0xFF)) / 255f
+
+    /** דגימה בילינארית ממערך w×h בקואורדינטות (fx, fy) */
+    private fun bl(arr: FloatArray, w: Int, h: Int, fx: Float, fy: Float): Float {
+        val x0 = fx.toInt().coerceIn(0, w - 2)
+        val y0 = fy.toInt().coerceIn(0, h - 2)
+        val tx = (fx - x0).coerceIn(0f, 1f)
+        val ty = (fy - y0).coerceIn(0f, 1f)
+        val i = y0 * w + x0
+        return lerp(lerp(arr[i], arr[i + 1], tx), lerp(arr[i + w], arr[i + w + 1], tx), ty)
+    }
+
+    /** מטשטש תיבה מהיר (סכומים מצטברים), עם נרמול בקצוות */
+    private fun fastBox(src: FloatArray, w: Int, h: Int, r: Int): FloatArray {
+        val tmp = FloatArray(src.size)
+        val out = FloatArray(src.size)
+        val pre = FloatArray(max(w, h) + 1)
+        for (y in 0 until h) {
+            val row = y * w
+            pre[0] = 0f
+            for (x in 0 until w) pre[x + 1] = pre[x] + src[row + x]
+            for (x in 0 until w) {
+                val lo = max(0, x - r)
+                val hi = min(w, x + r + 1)
+                tmp[row + x] = (pre[hi] - pre[lo]) / (hi - lo)
+            }
+        }
+        for (x in 0 until w) {
+            pre[0] = 0f
+            for (y in 0 until h) pre[y + 1] = pre[y] + tmp[y * w + x]
+            for (y in 0 until h) {
+                val lo = max(0, y - r)
+                val hi = min(h, y + r + 1)
+                out[y * w + x] = (pre[hi] - pre[lo]) / (hi - lo)
+            }
+        }
         return out
     }
 

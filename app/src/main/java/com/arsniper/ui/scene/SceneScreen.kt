@@ -61,7 +61,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class ViewMode { Segmentation, Depth, Spots, Photo, Objects }
+private enum class ViewMode { Segmentation, Depth, Spots, Photo, Objects, Tundra }
 
 /** כמה פעמים גבוהה מרשת הניתוח הרזולוציה של ליטוש הקצוות */
 private const val REFINE_SCALE = 3
@@ -121,6 +121,30 @@ fun SceneScreen(
     var scanProgress by remember { mutableStateOf(0f) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var viewMode by remember { mutableStateOf(ViewMode.Segmentation) }
+    // תצוגת טונדרה: תמונה אפויה, האם שלבים 3–5 דולקים, והאם מראים "לפני"
+    var tundraImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var tundraExtras by remember { mutableStateOf(com.arsniper.ml.ThemeBake.extrasOn(context)) }
+    var tundraBefore by remember { mutableStateOf(false) }
+    var tundraBusy by remember { mutableStateOf(false) }
+    fun bakeTundra(view: SceneView, extras: Boolean) {
+        scope.launch {
+            tundraBusy = true
+            try {
+                tundraImage = withContext(Dispatchers.Default) {
+                    try {
+                        com.arsniper.ml.ThemeBake.bake(
+                            context, com.arsniper.game.progress.ArenaStyle.Tundra, view.bitmap,
+                            view.analysis, view.cacheKey ?: "lab", extras
+                        )?.asImageBitmap()
+                    } catch (_: Throwable) {
+                        null
+                    }
+                }
+            } finally {
+                tundraBusy = false
+            }
+        }
+    }
 
     // מצב סימון עצמים (SAM)
     val samHolder = remember { arrayOfNulls<Sam2Segmenter>(1) }
@@ -488,6 +512,25 @@ fun SceneScreen(
                     }
                 }
                 ViewMode.Photo -> Unit
+                ViewMode.Tundra -> {
+                    val baked = tundraImage
+                    if (baked != null && !tundraBefore) {
+                        Image(
+                            bitmap = baked,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    ActionButton(if (tundraExtras) "3-5 ON" else "3-5 OFF", !tundraBusy) {
+                        tundraExtras = !tundraExtras
+                        com.arsniper.ml.ThemeBake.setExtras(context, tundraExtras)
+                        bakeTundra(current, tundraExtras)
+                    }
+                    ActionButton(if (tundraBefore) "BEFORE" else "AFTER", baked != null) {
+                        tundraBefore = !tundraBefore
+                    }
+                }
             }
 
             val legendLines = when (viewMode) {
@@ -577,6 +620,11 @@ fun SceneScreen(
                 ModeButton("DEPTH", ViewMode.Depth, viewMode, current != null) { viewMode = it }
                 ModeButton("SPOTS", ViewMode.Spots, viewMode, current != null) { viewMode = it }
                 ModeButton("PHOTO", ViewMode.Photo, viewMode, current != null) { viewMode = it }
+                ModeButton("TUNDRA", ViewMode.Tundra, viewMode, current != null) {
+                    viewMode = it
+                    tundraBefore = false
+                    if (current != null && tundraImage == null) bakeTundra(current, tundraExtras)
+                }
                 ModeButton("OBJ", ViewMode.Objects, viewMode, current != null) {
                     viewMode = it
                     if (current != null) startSam(current)
