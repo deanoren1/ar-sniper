@@ -248,7 +248,7 @@ def flame_icon(name, x, y, z, parent, scale=2.75):
         (-0.025, 0.012), (0.000, 0.115), (0.038, 0.052),
         (0.075, 0.010), (0.058, -0.052), (0.025, -0.085)
     ]
-        def add_flame_layer(layer_name, points, layer_y, material):
+    def add_flame_layer(layer_name, points, layer_y, material):
         # Triangulate the concave flame silhouette explicitly. The previous single
         # concave n-gon was inconsistently tessellated by Blender and collapsed to a slit.
         verts = [(x + px * scale, layer_y, z + pz * scale) for px, pz in points]
