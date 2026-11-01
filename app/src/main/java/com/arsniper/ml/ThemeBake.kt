@@ -25,7 +25,7 @@ import kotlin.math.sqrt
  */
 object ThemeBake {
 
-    private const val VERSION = 6
+    private const val VERSION = 7
     private const val MAX_PIXELS = 2_000_000
 
     /** קטגוריות ADE20K של רצפה/קרקע */
@@ -98,6 +98,8 @@ object ThemeBake {
             up[i] = u
         }
         val upGrid = boxBlur(up, gw, gh, 1)
+        // תקרת הסינון: המסכה המחודדת לא יכולה להתפשט רחוק מהאזורים שהעומק סימן כפונים למעלה (בלי "שלג" על דלתות וחלונות של מכונית)
+        val capGrid = maxFilter(upGrid, gw, gh, 3)
 
         val px = IntArray(w * h)
         out.getPixels(px, 0, w, 0, 0, w, h)
@@ -215,7 +217,10 @@ object ThemeBake {
                 val luma = 0.299f * r + 0.587f * gg + 0.114f * b
 
                 // "פונה למעלה" אחרי חידוד לפי קצוות התמונה האמיתית
-                val upv = smoothstep(0.25f, 0.75f, bl(coefA, lw, lh, lx, ly) * luma + bl(coefB, lw, lh, lx, ly))
+                val upv = min(
+                    smoothstep(0.25f, 0.75f, bl(coefA, lw, lh, lx, ly) * luma + bl(coefB, lw, lh, lx, ly)),
+                    bl(capGrid, gw, gh, gx, gy) + 0.08f
+                )
                 val rim = bl(rimL, lw, lh, lx, ly)
                 val shad = bl(shadL, lw, lh, lx, ly)
                 val edge = if (extras) bl(edgeL, lw, lh, lx, ly) else 0f
@@ -242,12 +247,12 @@ object ThemeBake {
                 if (!noFrost) {
                     var frost = (1f - upv) * 0.12f * smoothstep(0.45f, 0.75f, n3)
                     // שלג שנתקע בסדקים ובחריצים: אזורים כהים מהסביבה שלהם על משטחים אנכיים (קירות אבן, מכוניות, גדרות)
-                    val crack = smoothstep(0.015f, 0.10f, bl(lumaBlurL, lw, lh, lx, ly) - luma)
-                    frost += (1f - upv) * crack * (0.40f + 0.40f * smoothstep(0.30f, 0.70f, n1))
+                    val crack = smoothstep(0.03f, 0.14f, bl(lumaBlurL, lw, lh, lx, ly) - luma)
+                    frost += (1f - upv) * crack * (0.28f + 0.30f * smoothstep(0.30f, 0.70f, n1))
                     if (extras) {
                         // שלב 4: כפור פרוצדורלי שמצטבר לאורך קצוות וזוויות
                         val crystals = smoothstep(0.55f, 0.85f, noise(x * 2.3f + 13f, y * 2.3f) * 0.6f + noise(x * 5.1f, y * 5.1f + 7f) * 0.4f)
-                        frost += (1f - upv) * edge * (0.28f + 0.42f * crystals)
+                        frost += (1f - upv) * edge * (0.12f + 0.22f * crystals)
                                                 if (crystals > 0.8f) {
                             val tw = edge * (crystals - 0.8f) * 0.6f
                             r += tw
@@ -264,7 +269,7 @@ object ThemeBake {
                 // שלג: מואר לפי הבהירות המקורית, כחלחל בצל, עם נצנוץ
                 if (snow > 0.01f) {
                     val t = (luma * 1.35f).coerceIn(0f, 1f)
-                    val shade = 0.80f + 0.20f * t
+                    val shade = 0.88f + 0.12f * t
                     var sr: Float
                     var sg: Float
                     var sb: Float
@@ -343,7 +348,7 @@ object ThemeBake {
 
                     // שלב 3: גריידינג קולנועי
                     val lb = bl(lumaBlurL, lw, lh, lx, ly)
-                    val lc = ((luma - lb) * 0.45f).coerceIn(-0.15f, 0.15f)
+                    val lc = ((luma - lb) * 0.22f).coerceIn(-0.08f, 0.08f)
                     r += lc
                     gg += lc
                     b += lc
@@ -352,9 +357,9 @@ object ThemeBake {
                     val hi = smoothstep(0.55f, 1f, ln2)
                     r += -0.03f * sh - 0.015f * hi
                     b += 0.07f * sh + 0.03f * hi
-                    r = lerp(r, r * r * (3f - 2f * r), 0.30f)
-                    gg = lerp(gg, gg * gg * (3f - 2f * gg), 0.30f)
-                    b = lerp(b, b * b * (3f - 2f * b), 0.30f)
+                    r = lerp(r, r * r * (3f - 2f * r), 0.15f)
+                    gg = lerp(gg, gg * gg * (3f - 2f * gg), 0.15f)
+                    b = lerp(b, b * b * (3f - 2f * b), 0.15f)
                     val bloom = (bl(bloomL, lw, lh, lx, ly) * 0.45f).coerceAtMost(0.4f)
                     r += bloom * 0.85f
                     gg += bloom * 0.95f
@@ -399,6 +404,23 @@ object ThemeBake {
         val ty = (fy - y0).coerceIn(0f, 1f)
         val i = y0 * w + x0
         return lerp(lerp(arr[i], arr[i + 1], tx), lerp(arr[i + w], arr[i + w + 1], tx), ty)
+    }
+
+    /** מקסימום בחלון (2r+1)×(2r+1), מופרד */
+    private fun maxFilter(src: FloatArray, w: Int, h: Int, r: Int): FloatArray {
+        val tmp = FloatArray(src.size)
+        val out = FloatArray(src.size)
+        for (y in 0 until h) for (x in 0 until w) {
+            var m = 0f
+            for (k in max(0, x - r)..min(w - 1, x + r)) m = max(m, src[y * w + k])
+            tmp[y * w + x] = m
+        }
+        for (y in 0 until h) for (x in 0 until w) {
+            var m = 0f
+            for (k in max(0, y - r)..min(h - 1, y + r)) m = max(m, tmp[k * w + x])
+            out[y * w + x] = m
+        }
+        return out
     }
 
     /** מטשטש תיבה מהיר (סכומים מצטברים), עם נרמול בקצוות */
