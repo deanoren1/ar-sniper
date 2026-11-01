@@ -118,7 +118,7 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.14  # Visible cool-blue bubble while preserving a clear view of the face
+    mix.inputs[0].default_value = 0.94  # 94% transparent, 6% blue glossy shell: the face stays unobstructed
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -128,13 +128,13 @@ def glass_mat():
 PURPLE = mat("Purple", (0.36, 0.008, 0.64), rough=0.25, coat=0.60)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
-LID = mat("Lid", (0.23, 0.006, 0.48), rough=0.19, coat=0.76)
+LID = mat("Lid", (0.40, 0.014, 0.66), rough=0.22, coat=0.66)
 add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.64, 0.018, 0.48), rough=0.36, coat=0.20)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (0.96, 0.68, 0.30), rough=0.30, coat=0.24,
-                emit=(0.035, 0.012, 0.002), strength=0.015)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.82, 0.52), rough=0.30, coat=0.24,
+                emit=(0.025, 0.010, 0.001), strength=0.012)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.16, 0.004), rough=0.25, coat=0.34, emit=(0.25, 0.045, 0.002), strength=0.035)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
@@ -290,8 +290,14 @@ def flame_icon(name, x, y, z, parent, scale=2.75):
         main_parts.append(obj)
         return obj
 
-    # The reference uses a single black flame silhouette on the yellow-orange badge.
-    return add_flame_layer(name + "Silhouette", outline, y - 0.010, FLAME_BLACK)
+    # Black flame with a small warm inset, matching the two-tone mark on the reference tanks.
+    add_flame_layer(name + "Silhouette", outline, y - 0.010, FLAME_BLACK)
+    inner = [
+        (0.000, -0.074), (-0.032, -0.032), (-0.024, 0.018),
+        (0.000, 0.096), (0.016, 0.030), (0.052, 0.062),
+        (0.055, 0.010), (0.036, -0.040)
+    ]
+    return add_flame_layer(name + "Inner", inner, y - 0.026, FLAME)
 
 
 def empty(name, parent=None, loc=(0, 0, 0), rot=(0, 0, 0)):
@@ -474,20 +480,20 @@ for i in range(14):
 
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -0.73, 0.40
+EYE_Y, EYE_Z = -1.00, 0.40
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.94, 0.96, 0.94)  # embed the eye more deeply and keep its silhouette gently oval
+eye.scale = (1.00, 0.98, 1.00)  # expose the full cream sclera while keeping the eye seated in the mantle
 eye_parts = [
-    # Slightly smaller sclera, but a more exposed amber iris and a round, deep-black pupil.
+    # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
     sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.54, 0.88), seg=64),
-    sphere("Iris", 0.52, (0, -0.47, -0.015), IRIS, eye, scale=(0.96, 0.62, 0.90), seg=64),
-    sphere("Pupil", 0.32, (0, -0.64, -0.015), PUPIL, eye, scale=(1.00, 0.68, 0.92), seg=56),
-    sphere("Shine", 0.085, (0.105, -0.805, 0.135), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    sphere("Iris", 0.44, (0, -0.30, -0.015), IRIS, eye, scale=(1.00, 0.50, 0.90), seg=64),
+    sphere("Pupil", 0.28, (0, -0.43, -0.015), PUPIL, eye, scale=(1.00, 0.58, 0.92), seg=56),
+    sphere("Shine", 0.095, (0.105, -0.585, 0.135), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.94, 0.070, (0, -0.12, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.94, 0.070, (0, -0.27, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.04, 1.0, 0.90)
-eye_socket_accent = torus("EyeSocketAccent", 0.985, 0.028, (0, -0.155, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent = torus("EyeSocketAccent", 0.985, 0.035, (0, -0.31, 0), RING, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.02, 1.0, 0.92)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -500,7 +506,7 @@ def make_upper_eyelid(parent):
         xn = x / (rx * 0.84)
         z_top = rz * math.sqrt(max(0.0, 1.0 - (x / rx) ** 2))
         # The outer-right corner drops lower, creating a clear angry squint.
-        z_bottom = 0.20 + 0.08 * (1.0 - xn * xn)
+        z_bottom = 0.30 + 0.05 * (1.0 - xn * xn)
         z_bottom = min(z_bottom, z_top - 0.018)
         for j in range(rows + 1):
             v = j / rows
@@ -529,10 +535,10 @@ def make_upper_eyelid(parent):
     obj.data.materials.append(LID)
     smooth(obj)
     solid = obj.modifiers.new("LidThickness", "SOLIDIFY")
-    solid.thickness = 0.045
+    solid.thickness = 0.035
     solid.offset = 0.0
     bevel = obj.modifiers.new("LidSoftEdge", "BEVEL")
-    bevel.width = 0.018
+    bevel.width = 0.012
     bevel.segments = 4
     main_parts.append(obj)
     edge = pipe_curve("UpperLidEdge", lower_edge, LID, parent, bevel=0.045)
@@ -544,7 +550,7 @@ eye_parts.extend([eye_socket, eye_socket_accent, upper_lid, upper_lid_edge])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.24, -0.18))
-mouth.scale = (1.48, 1.0, 0.88)
+mouth.scale = (1.52, 1.0, 0.98)
 mouth_parts = [sphere("MouthCavity", 0.40, (0, 0, 0), MOUTH, mouth,
                       scale=(1.12, 0.34, 0.86), seg=64)]
 mouth_lip = torus("MouthLip", 0.40, 0.035, (0, -0.075, 0), PURPLE_DARK, mouth,
@@ -728,15 +734,15 @@ def arm_center(t, style="outer"):
     if style == "outer":
         p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.66), (2.02, -1.30), (0.84, -0.20)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.62), (1.72, -1.34), (0.62, -0.42)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.72), (1.82, -1.55), (0.70, -0.68)
     else:
-        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.48), (1.04, -1.06), (0.68, -0.48)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.24, -0.54), (1.10, -1.18), (0.72, -0.55)
     u = 1.0 - t
     x = (u ** 3 * p0[0] + 3.0 * u * u * t * p1[0]
          + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
     z = (u ** 3 * p0[1] + 3.0 * u * u * t * p1[1]
          + 3.0 * u * t * t * p2[1] + t ** 3 * p3[1])
-    return 1.10 * Vector((x, arm_curve_y(t), z))
+    return 1.14 * Vector((x, arm_curve_y(t), z))
 
 
 def make_arm_tube(name, parent, style):
@@ -828,11 +834,11 @@ for i in range(8):
             cup_normal = Vector((0.0, 1.0, 0.0))
         cup_normal.normalize()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
-        hole_pos = center + cup_normal * rr * 0.965
+        hole_pos = center + cup_normal * rr * 0.985
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.36, rr * 0.33, rr * 0.08), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerRim{i}_{q}", rr * 0.28, rr * 0.018,
-              tuple(hole_pos + cup_normal * 0.015), SUCKER, root, rot=normal_rot(cup_normal))
+               scale=(rr * 0.25, rr * 0.23, rr * 0.035), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.27, rr * 0.025,
+              tuple(hole_pos + cup_normal * 0.008), PURPLE_DARK, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
