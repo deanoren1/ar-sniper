@@ -126,7 +126,7 @@ private const val ZOOM_STEP = 0.5f
 private const val BASE_ZOOM = 1.2f
 
 /** חיים לכל מפלצת, לפי סדר השורות בגיליון המפלצות: ורוד, סגול, ירוק, כתום, כחול */
-private val MONSTER_HP = intArrayOf(2, 3, 1, 3, 3)
+private val MONSTER_HP = intArrayOf(2, 3, 1, 4, 3)
 
 /** ניקוד על פגיעה שלא הורגת (הריגה נותנת את הניקוד המלא) */
 private const val HURT_POINTS = 25
@@ -947,11 +947,11 @@ fun GameScreen(
                 val cut = kotlin.math.ceil(e.maxHp * Shockwave.BOSS_DAMAGE_FRACTION).toInt()
                 e.copy(hp = (e.hp - cut).coerceAtLeast(1), hurtAt = now)
             } else if (Hover.isBalloonMonster(e)) {
-                // מפלצת הבלונים: בלון שלם הוא שליש מהחיים, ופגיעת חיים בודדת לא משנה את מספר הבלונים שרואים.
+                // מפלצת הבלונים: "חיים" שלמים הם רבע מהחיים, ופגיעת חיים בודדת לא משנה את מספר הבלונים שרואים.
                 // לכן ההלם מפוצץ בלון שלם (הבלון האחרון הורג אותה)
                 val max = if (e.maxHp > 0) e.maxHp else hpFor(e.id)
                 val hp = if (e.maxHp > 0) e.hp else max
-                val pop = max(1, kotlin.math.ceil(max / 3f).toInt())
+                val pop = max(1, kotlin.math.ceil(max / Hover.LIVES.toFloat()).toInt())
                 if (hp > pop) {
                     e.copy(maxHp = max, hp = hp - pop, hurtAt = now)
                 } else {

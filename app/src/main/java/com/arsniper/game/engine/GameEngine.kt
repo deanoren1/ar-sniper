@@ -177,6 +177,8 @@ class GameEngine(
     private fun stepOpen(enemy: Enemy, dt: Float, all: List<Enemy>): Enemy? {
         val hiding = enemy.spot
         if (hiding != null) return stepEmerging(enemy, hiding, dt)
+        // מפלצת בלונים בלי בלונים: מוממת על הקרקע, לא זזה
+        if (Hover.isGrounded(enemy)) return enemy.copy(state = EnemyState.Idle, timer = 1f)
 
         val timer = enemy.timer - dt
         return when (enemy.state) {

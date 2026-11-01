@@ -82,7 +82,9 @@ class MonsterSheet(
     /** מפלצת rig עם גיליון חזית: כשהיא מציצה מאחורי עצם מציירים אותה מלפנים ולא מהצד */
     val frontPeek: Boolean = false,
     /** מפלצת בפורמט rig2 (רב-זוויתי): הכנה, פגיעה, מוות וירייה בזווית קדמית ובצד */
-    val rig: RigAnim? = null
+    val rig: RigAnim? = null,
+    /** מפלצת הבלונים: הגיליון של כל מצב לפי מספר הבלונים שנשארו (0 = נפלה ומוממת, 1, 2). שלושה בלונים הוא הגיליון הזה עצמו */
+    val balloonStates: Map<Int, MonsterSheet> = emptyMap()
 )
 
 /** פריימים של מפלצת rig2, לפי הזווית: front = אל המצלמה, side = מהצד (פונה ימינה) */
@@ -102,7 +104,10 @@ class RigAnim(
      * שחרור הקליע לצדדים (הקיפוד): [שמאלה רחוק, שמאלה קרוב, ימינה קרוב, ימינה רחוק], תאים רחבים יותר מהרגילים באותו קנה מידה.
      * המפלצת משמאל למסך יורה ימינה (אל מרכז המסך) ולהפך. null אם אין
      */
-    val releaseSides: List<MonsterSprite>? = null
+    val releaseSides: List<MonsterSprite>? = null,
+    /** מפלצת הבלונים המומה על הקרקע: לולאת עמידה מסוחררת, ונפילה (6 פריימים) כשהבלון האחרון נפל */
+    val idleLoop: List<MonsterSprite>? = null,
+    val fall: List<MonsterSprite>? = null
 )
 
 /** לולאות הליכה: 6 פריימים בכל כיוון. צד = פונה ימינה (מתהפך לשמאל), קדימה = אל המצלמה, אחורה = מתרחקת */
@@ -200,6 +205,7 @@ class MonsterSprites private constructor(
             if (sheets.isEmpty()) return null
             val pools = List(5) { mutableListOf(sheets[minOf(it, sheets.size - 1)]) }
             addRigs(context, "classic", pools)
+            loadBalloon(context)?.let { pools[3].clear(); pools[3].add(it) }
             return MonsterSprites(pools, loadBoss(context))
         }
 
@@ -313,6 +319,80 @@ class MonsterSprites private constructor(
          * שורות: 0 מבטים (חזית, 3/4 קדמי, צד, 3/4 אחורי, גב, צד שמאל), 1 הליכה צד, 2 הליכה אל המצלמה, 3 הליכה מהמצלמה,
          * 4 הכנה (3) ופגיעה (3) מהצד, 5 מוות מהצד (6), 6 הכנה (3) ומוות (3) מלפנים, 7 פגיעה (3) וירייה (3) מלפנים, 8 הכנה בגז (5: מיכלים נדלקים, צינורות, כדור בבטן) ושחרור (1).
          */
+        /**
+         * מפלצת הבלונים בארבעה מצבים (balloon_k3, k2, k1: 5 שורות של 6 פריימים, balloon_k0: 3 שורות). הכול באותו גודל תא ובאותו חיתוך,
+         * ולכן באותו קנה מידה; גובה הריחוף של כל מצב מצויר בגיליון עצמו. null אם הקבצים חסרים (חוזרים לגיליון המקורי).
+         * שורות k1..k3: מבטים, הליכה לצד, הליכה קדימה, הליכה אחורה, פגיעה וירייה. שורות k0: נפילה, מוממת (לולאה), פגיעה ומוות
+         */
+        private fun loadBalloon(context: Context): MonsterSheet? {
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            fun rowsOf(n: Int, rows: Int): List<List<MonsterSprite>>? {
+                val id = context.resources.getIdentifier("balloon_k$n", "drawable", context.packageName)
+                if (id == 0) return null
+                val bitmap = BitmapFactory.decodeResource(context.resources, id, options) ?: return null
+                val cw = bitmap.width / RIG_COLUMNS
+                val ch = bitmap.height / rows
+                if (cw < 8 || ch < 8) return null
+                val out = (0 until rows).map { r ->
+                    (0 until RIG_COLUMNS).map { c ->
+                        val f = Bitmap.createBitmap(bitmap, c * cw, r * ch, cw, ch)
+                        f.density = Bitmap.DENSITY_NONE
+                        MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
+                    }
+                }
+                bitmap.recycle()
+                return out
+            }
+            val grounded = rowsOf(0, 3) ?: return null
+            val fall = grounded[0]
+            val stun = grounded[1]
+            val death = grounded[2]
+            val states = HashMap<Int, MonsterSheet>()
+            states[0] = MonsterSheet(
+                idle = stun[0], walk = stun.take(4), peek = stun[0], hit = death[0],
+                sizeScale = BALLOON_SIZE_SCALE,
+                rig = RigAnim(
+                    idleFront = stun[0], idleSide = stun[0],
+                    chargeFront = List(5) { stun[0] }, chargeSide = List(3) { stun[0] },
+                    hitFront = listOf(death[0], death[1], death[1]), hitSide = listOf(death[0], death[1], death[1]),
+                    deathFront = death.subList(2, 6), deathSide = death.subList(2, 6),
+                    fireFront = List(3) { stun[0] },
+                    idleLoop = stun, fall = fall
+                )
+            )
+            for (n in 1..3) {
+                val rows = rowsOf(n, 5) ?: return null
+                val views = rows[0]
+                val hf = rows[4]
+                states[n] = MonsterSheet(
+                    idle = views[0], walk = rows[1], peek = views[0], hit = hf[0],
+                    sizeScale = BALLOON_SIZE_SCALE,
+                    moves = WalkSet(rows[1], rows[2], rows[3], rows[1]),
+                    rig = RigAnim(
+                        idleFront = views[0], idleSide = views[2],
+                        // הכנה: עומדת, אחר כך מחזיקה את בלון הטיל; שחרור: הבלון נשלף עם להבה
+                        chargeFront = listOf(views[0], views[0], hf[3], hf[3], hf[3]),
+                        chargeSide = rows[1].take(3),
+                        hitFront = listOf(hf[0], hf[1], hf[1]), hitSide = listOf(hf[0], hf[1], hf[1]),
+                        deathFront = hf.takeLast(3), deathSide = hf,
+                        fireFront = hf.takeLast(3),
+                        releaseFront = hf[4]
+                    )
+                )
+            }
+            val full = states.getValue(3)
+            return MonsterSheet(
+                idle = full.idle, walk = full.walk, peek = full.peek, hit = full.hit, sizeScale = full.sizeScale,
+                moves = full.moves, rig = full.rig, frontPeek = true,
+                balloonStates = mapOf(0 to states.getValue(0), 1 to states.getValue(1), 2 to states.getValue(2), 3 to full)
+            )
+        }
+
+        private const val BALLOON_SIZE_SCALE = 1.0f
+
         private fun loadRig2(context: Context, id: Int): MonsterSheet? {
             val options = BitmapFactory.Options().apply {
                 inScaled = false

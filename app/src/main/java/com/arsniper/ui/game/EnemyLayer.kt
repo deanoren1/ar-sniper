@@ -62,6 +62,16 @@ private fun deathSeconds(enemy: Enemy): Float = if (enemy.id == ArenaDirector.BO
 /** משך הבהוב האדום והרעידה אחרי פגיעה שלא הורגת (שניות) */
 private const val HURT_SECONDS = 0.35f
 
+/** מפלצת הבלונים: הפגיעה (בלון שנשמט, נפילה לקרקע) ארוכה יותר, כדי שהאנימציה תראה */
+private fun hurtSecondsFor(enemy: Enemy): Float = if (Hover.isBalloonMonster(enemy)) 0.7f else HURT_SECONDS
+
+/** הגיליון לפי מצב הבלונים של מפלצת הבלונים (מתה: תמיד המצב הנופל, שבו אנימציית המוות) */
+private fun MonsterSprites.sheetFor(enemy: Enemy, dead: Boolean): MonsterSheet {
+    val base = forEnemy(enemy.id)
+    if (base.balloonStates.isEmpty() || !Hover.isBalloonMonster(enemy)) return base
+    return base.balloonStates[if (dead) 0 else Hover.balloons(enemy)] ?: base
+}
+
 /** מאיזה חלק גלוי של מציץ מתחילים להציג לו מד חיים (0..1) */
 private const val PEEK_BAR_EXPOSURE = 0.15f
 
@@ -163,8 +173,8 @@ fun EnemyLayer(
 
             // אחרי פגיעה שלא הורגת: הבהוב אדום ורעידה קלה, שדועכים
             val sinceHurt = (nowS - enemy.hurtAt).toFloat()
-            val hurtLevel = if (!item.dead && sinceHurt >= 0f && sinceHurt <= HURT_SECONDS) {
-                1f - sinceHurt / HURT_SECONDS
+            val hurtLevel = if (!item.dead && sinceHurt >= 0f && sinceHurt <= hurtSecondsFor(enemy)) {
+                1f - sinceHurt / hurtSecondsFor(enemy)
             } else {
                 0f
             }
@@ -189,7 +199,7 @@ fun EnemyLayer(
             fun figure(withShadow: Boolean): DrawScope.() -> Unit = {
                 if (sprites != null) {
                     drawMonster(
-                        sheet = sprites.forEnemy(enemy.id),
+                        sheet = sprites.sheetFor(enemy, item.dead),
                         enemy = enemy,
                         dead = item.dead,
                         progress = item.progress,
@@ -215,7 +225,7 @@ fun EnemyLayer(
                 }
                 // מד חיים מעל הראש: הרגליים מוסתרות, אז לא מתחתן
                 if (!item.dead && sprites != null && enemy.maxHp > 1 && enemy.exposure >= PEEK_BAR_EXPOSURE) {
-                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius, true)
+                    drawHealthBar(monsterBox(sprites.sheetFor(enemy, item.dead), drawCenter, radius), enemy, radius, true)
                 }
             } else if (isPeeker && spot != null && scene != null) {
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
@@ -230,7 +240,7 @@ fun EnemyLayer(
                 drawFigureBehind(figure(!rising), spot, mask, scene, clipBottom)
                 // מציץ: מד החיים מעל הראש, כי הרגליים מוסתרות מאחורי העצם
                 if (!item.dead && sprites != null && enemy.maxHp > 1 && enemy.exposure >= PEEK_BAR_EXPOSURE) {
-                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius, true)
+                    drawHealthBar(monsterBox(sprites.sheetFor(enemy, item.dead), drawCenter, radius), enemy, radius, true)
                 }
             } else {
                 // עצמים שקרובים יותר למצלמה מכסים דמות הולכת שנמצאת מאחוריהם (לפי עומק הרגליים)
@@ -250,17 +260,17 @@ fun EnemyLayer(
                 // רק כשהמפלצת חופשית ומוצגת מלפנים (עומדת, מתכוננת לירות, או מתקרבת אל המצלמה)
                 val free = (enemy.kind == EnemyKind.Open && enemy.spot == null) || enemy.kind == EnemyKind.Static
                 if (!item.dead && sprites != null && enemy.isAlive && free) {
-                    val box = monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius)
+                    val box = monsterBox(sprites.sheetFor(enemy, item.dead), drawCenter, radius)
                     val telegraphing = AttackPose.ids.contains(enemy.id)
                     if (monsterSet == "tundra") drawBreath(box, enemy.id, anim)
                     if (Hover.isBalloonMonster(enemy)) {
-                        // פחות בלונים: אזור הפגיעה קטן יותר
-                        val share = if (enemy.maxHp > 0) kotlin.math.ceil(enemy.hp * 3f / enemy.maxHp).toInt().coerceIn(1, 3) else 3
+                        // פחות בלונים: אזור הפגיעה קטן יותר. בלי בלונים (מוממת על הקרקע) אין אזור: פוגעים בגוף
+                        val share = Hover.balloons(enemy)
                         val px = box.cx
                         val py = box.headY + box.height * 0.2f
-                        val rr = box.halfWidth * (0.45f + 0.15f * share)
+                        val rr = box.halfWidth * (0.45f + 0.15f * share.coerceAtLeast(1))
                         // הבלונים מרחפים מעל הכול: עצמים בסצנה לא מסתירים אותם
-                        run {
+                        if (share > 0) {
                             ZoneRegistry.add(
                                 ZoneTarget(enemy, WeakZones.BALLOONS, Vec2(px / size.width, py / size.height), rr * 1.15f / size.height)
                             )
@@ -279,7 +289,7 @@ fun EnemyLayer(
                 }
                 // מד חיים מתחת לרגליים, למפלצת עם יותר מפגיעה אחת (לא כשעצם מכסה אותה)
                 if (!item.dead && sprites != null && enemy.maxHp > 1 && blockers.isEmpty()) {
-                    drawHealthBar(monsterBox(sprites.forEnemy(enemy.id), drawCenter, radius), enemy, radius, false)
+                    drawHealthBar(monsterBox(sprites.sheetFor(enemy, item.dead), drawCenter, radius), enemy, radius, false)
                 }
             }
         }
@@ -406,7 +416,7 @@ private fun DrawScope.drawMonster(
             list[((raw % list.size) + list.size) % list.size]
         } else if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
     } else if (sheet.rig != null) {
-        rigFrame(sheet.rig, enemy, hurt)
+        rigFrame(sheet.rig, enemy, hurt, anim)
     } else if (sheet.frontPeek && (enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window)) {
         // מציץ מאחורי עצם או חלון: רק מבט קדמי (נושם בלולאת העמידה של הגיליון הקדמי)
         movesFor(sheet, enemy)?.front?.firstOrNull() ?: sheet.idle
@@ -450,7 +460,7 @@ private fun DrawScope.drawMonster(
         sy = 1f + 0.025f * breath
         sx = 1f - 0.015f * breath
         tilt = sin(anim * 1.3f + enemy.id) * 1f
-        if (Hover.isBalloonMonster(enemy)) {
+        if (Hover.isBalloonMonster(enemy) && sheet.rig?.idleLoop == null) {
             // בלון הליום: מתנדנדת בעדינות מצד לצד
             tilt = sin(anim * 1.8f + enemy.id) * 4f
         }
@@ -502,7 +512,7 @@ private fun DrawScope.drawMonster(
     val flip = sheet.bossAnim == null && (walking || dead) && enemy.direction < 0f && (dead || abs(enemy.dirY) <= 0.5f)
 
     // מפלצת בלונים שנפגעה למוות: הבלונים התפוצצו, אז מציירים רק את הגוף (בלי החלק העליון עם הבלונים)
-    val cropTop = if (dead && sheet.bossAnim == null && Hover.isBalloonMonster(enemy)) 0.4f else 0f
+    val cropTop = if (dead && sheet.bossAnim == null && Hover.isBalloonMonster(enemy) && sheet.rig?.idleLoop == null) 0.4f else 0f
     val srcCut = (sprite.image.height * cropTop).toInt()
     val dstCut = height * cropTop
     // לפגיעה לפי הגוף: הפריים שמצויר עכשיו ומיקומו על המסך (ראו BodyRegistry)
@@ -544,7 +554,7 @@ private fun DrawScope.drawMonster(
     }
 
     // ענן קטן בזמן הפגיעה
-    if (dead && sheet.bossAnim == null && progress < 0.6f) {
+    if (dead && sheet.bossAnim == null && progress < 0.6f && sheet.rig?.idleLoop == null) {
         val puff = progress / 0.6f
         val puffAlpha = (1f - puff) * 0.7f
         // מפלצת בלונים: הבלונים מתפוצצים בחתיכות אדומות מעל הראש
@@ -610,7 +620,17 @@ private fun releaseFor(rig: RigAnim, enemy: Enemy): MonsterSprite? {
 }
 
 /** מפלצת rig2 שלא הולכת ולא מתה: הכנה לירי לפי ההתקדמות, פגיעה לפי עוצמת ההבהוב, אחרת עמידה מלפנים */
-private fun rigFrame(rig: RigAnim, enemy: Enemy, hurt: Float): MonsterSprite {
+private fun rigFrame(rig: RigAnim, enemy: Enemy, hurt: Float, anim: Float): MonsterSprite {
+    // מפלצת בלונים מוממת על הקרקע: נופלת (בחיים האחרונים שלפני), אחר כך מסוחררת בלולאה; פגיעה נוספת: פריימי כאב
+    val loop = rig.idleLoop
+    if (loop != null) {
+        val fall = rig.fall
+        val justFell = enemy.maxHp > 0 && enemy.hp * Hover.LIVES * 2 > enemy.maxHp   // יותר מחצי "חיים" אחד: זה עתה נפלה
+        if (hurt > 0f && fall != null && justFell) return fall[((1f - hurt) * fall.size).toInt().coerceIn(0, fall.size - 1)]
+        if (hurt > 0.55f) return rig.hitFront[1]
+        if (hurt > 0.1f) return rig.hitFront[0]
+        return loop[((anim * 7f).toInt() % loop.size + loop.size) % loop.size]
+    }
     if (AttackPose.ids.contains(enemy.id)) {
         val p = AttackPose.progress[enemy.id] ?: 1f
         return rig.chargeFront[(p * rig.chargeFront.size).toInt().coerceIn(0, rig.chargeFront.size - 1)]
