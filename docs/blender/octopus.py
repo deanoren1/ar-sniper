@@ -257,11 +257,11 @@ def pipe_curve(name, points, material, parent, bevel=0.045):
 
 def flame_icon(name, x, y, z, parent, scale=2.75):
     outline = [
-        (0.000, -0.120), (-0.070, -0.095), (-0.105, -0.035),
-        (-0.092, 0.020), (-0.055, 0.000), (-0.060, 0.075),
-        (-0.018, 0.045), (0.000, 0.145), (0.036, 0.075),
-        (0.078, 0.035), (0.105, -0.020), (0.082, -0.082),
-        (0.030, -0.112)
+        (0.000, -0.125), (-0.080, -0.105), (-0.120, -0.045),
+        (-0.115, 0.020), (-0.075, 0.060), (-0.052, 0.018),
+        (-0.035, 0.095), (0.000, 0.158), (0.026, 0.102),
+        (0.040, 0.045), (0.090, 0.078), (0.122, 0.025),
+        (0.112, -0.048), (0.070, -0.105)
     ]
     def add_flame_layer(layer_name, points, layer_y, material):
         # Triangulate the concave flame silhouette explicitly. The previous single
@@ -378,7 +378,7 @@ def body_band(name, parent, z_bottom, z_top, material):
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
-            z = z_base + 0.20 * abs(math.cos(a))
+            z = z_base + 0.12 * abs(math.cos(a))
             verts.append((radius * math.cos(a), radius * 0.90 * math.sin(a), z))
     for j in range(sides):
         nxt = (j + 1) % sides
@@ -544,32 +544,32 @@ eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.24, -0.18))
-mouth.scale = (1.58, 1.0, 0.98)
+mouth.scale = (1.24, 1.0, 0.82)
 mouth_parts = [sphere("MouthCavity", 0.37, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.45, 0.34, 0.90), seg=64)]
+                      scale=(1.12, 0.34, 0.86), seg=64)]
 mouth_lip = torus("MouthLip", 0.37, 0.035, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.45, 0.62, 0.94)
-for i, (x, h, width) in enumerate(((-0.34, 0.17, 0.082), (0.34, 0.17, 0.082))):
+mouth_lip.scale = (1.12, 0.62, 0.88)
+for i, (x, h, width) in enumerate(((-0.28, 0.15, 0.072), (0.28, 0.15, 0.072))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.13, 0.18 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.36, 0.12), (0.36, 0.12))):
+for i, (x, h) in enumerate(((-0.30, 0.10), (0.30, 0.10))):
     mouth_parts.append(cone(f"ToothL{i}", 0.062, 0.0, h,
                             (x, -0.20, -0.15 + h / 2), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.17, (0, -0.28, -0.20), TONGUE, mouth,
                           scale=(1.0, 0.45, 0.30), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.18, -0.70, COLLAR)
-collar_radius = shell_radius_at(-0.70) + 0.14
-torus("CollarUpperSteelTrim", collar_radius, 0.040, (0, 0, -0.70), METAL, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.040, (0, 0, -1.18), METAL, pivot)
+body_band("LowerPinkBand", pivot, -1.22, -0.94, COLLAR)
+collar_radius = shell_radius_at(-0.94) + 0.12
+torus("CollarUpperSteelTrim", collar_radius, 0.040, (0, 0, -0.94), METAL, pivot)
+torus("CollarLowerSteelTrim", collar_radius, 0.040, (0, 0, -1.22), METAL, pivot)
 for i in range(16):
     a = i * (2 * math.pi / 16)
-    z = -0.94 + 0.055 * abs(math.cos(a))
-    r = collar_radius + 0.055
-    sphere(f"BandRivet{i}", 0.072, (r * math.cos(a), r * 0.92 * math.sin(a), z),
+    z = -1.08 + 0.035 * abs(math.cos(a))
+    r = collar_radius + 0.045
+    sphere(f"BandRivet{i}", 0.060, (r * math.cos(a), r * 0.92 * math.sin(a), z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
@@ -658,7 +658,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -1.20
-DOME_RADII = (2.22, 1.90, 4.00)
+DOME_RADII = (2.22, 1.90, 3.20)
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
@@ -679,8 +679,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.006), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -1.25, 1.88, 0.20, 0.39, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 1.25, 1.96, 0.22, 0.36, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -0.98, 1.40, 0.18, 0.31, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 0.98, 1.46, 0.20, 0.29, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.32, 0.28, 0.23, 0.18]
@@ -736,7 +736,7 @@ def arm_center(t, style="outer"):
          + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
     z = (u ** 3 * p0[1] + 3.0 * u * u * t * p1[1]
          + 3.0 * u * t * t * p2[1] + t ** 3 * p3[1])
-    return 0.98 * Vector((x, arm_curve_y(t), z))
+    return 1.10 * Vector((x, arm_curve_y(t), z))
 
 
 def make_arm_tube(name, parent, style):
@@ -818,7 +818,7 @@ for i in range(8):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.24, 0.42, 0.60, 0.78)):
+    for q, t in enumerate((0.20, 0.36, 0.52, 0.68, 0.84)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
         after = arm_center(min(1.0, t + 0.002), style)
@@ -828,11 +828,11 @@ for i in range(8):
             cup_normal = Vector((0.0, 1.0, 0.0))
         cup_normal.normalize()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
-        hole_pos = center + cup_normal * rr * 0.91
+        hole_pos = center + cup_normal * rr * 0.985
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.36, rr * 0.36, rr * 0.065), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerRim{i}_{q}", rr * 0.30, rr * 0.030,
-              tuple(hole_pos + cup_normal * 0.015), SPOT_DARK, root, rot=normal_rot(cup_normal))
+               scale=(rr * 0.43, rr * 0.40, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.35, rr * 0.035,
+              tuple(hole_pos + cup_normal * 0.025), SPOT_DARK, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
