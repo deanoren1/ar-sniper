@@ -131,6 +131,25 @@ fun SceneScreen(
     var aiImage by remember { mutableStateOf<Bitmap?>(com.arsniper.ml.AiWorld.loadLast(context)) }
     var aiStatus by remember { mutableStateOf("") }
     var aiBusy by remember { mutableStateOf(false) }
+    // טעינת תמונה מוכנה מהגלריה (למשל תוצאה של AI שכבר נוצרה), כדי לא לשלם שוב על יצירה
+    val pickAi = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val bmp = try {
+                context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+            } catch (_: Exception) {
+                null
+            }
+            if (bmp != null) {
+                aiImage = bmp
+                com.arsniper.ml.AiWorld.rememberLast(context, bmp)
+                aiStatus = "Loaded ${bmp.width}x${bmp.height} from the gallery. USE AI makes it the game photo"
+            } else {
+                aiStatus = "Could not read that image"
+            }
+        }
+    }
     val muModels = listOf(
         "qwen3-image-to-image", "qwen-image-edit-plus", "qwen-image-edit", "seedream-5.0-flash-edit",
         "kling-o3-image-edit", "flux-kontext-pro-i2i", "flux-2-klein-9b-edit", "muse-image-edit",
@@ -660,6 +679,7 @@ fun SceneScreen(
                     ActionButton("MU: ${muModels[muIndex]}", !aiBusy) { muIndex = (muIndex + 1) % muModels.size }
                     ActionButton("MU RUN", !aiBusy) { runAi(current, model = muModels[muIndex], provider = "muapi") }
                     ActionButton("MU TEST", !aiBusy) { runAi(current, model = muModels[muIndex], provider = "muapi", sandbox = true) }
+                    ActionButton("LOAD", !aiBusy) { pickAi.launch("image/*") }
                     ActionButton("SAVE", aiImage != null) {
                         aiImage?.let { img ->
                             aiStatus = if (com.arsniper.ml.AiWorld.saveToGallery(context, img)) "Saved to Gallery (Pictures/SnapBoo)" else "Could not save to Gallery"
