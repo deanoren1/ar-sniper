@@ -125,7 +125,7 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.36, 0.008, 0.64), rough=0.25, coat=0.60)
+PURPLE = mat("Purple", (0.48, 0.012, 0.66), rough=0.25, coat=0.60)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.40, 0.014, 0.66), rough=0.22, coat=0.66)
@@ -136,7 +136,7 @@ SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.68, 0.26), rough=0.28, coat=0.28,
                 emit=(0.035, 0.012, 0.001), strength=0.012)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.095, 0.002), rough=0.22, coat=0.38, emit=(0.30, 0.035, 0.001), strength=0.045)
+IRIS = mat("Iris", (1.0, 0.24, 0.006), rough=0.22, coat=0.38, emit=(0.28, 0.055, 0.002), strength=0.035)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -418,8 +418,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.02, 0.84, 0.075, 0.050, 0.0),
 )):
     x, z = sx, sz
-    rx *= 1.60
-    rz *= 1.60
+    rx *= 1.82
+    rz *= 1.82
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.006
     spot_material = SPOT_DARK if i in (1, 5, 7) else SPOT
@@ -452,7 +452,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.008
     sphere(f"ExtraBodySpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
-           scale=(rx * 1.42, 0.007, rz * 1.42), rot=(0, angle, 0), seg=24)
+           scale=(rx * 1.58, 0.007, rz * 1.58), rot=(0, angle, 0), seg=24)
 
 # Exposed crown patches above the enlarged eye, matching the spotted forehead in the reference.
 for i, (sx, sz, rx, rz) in enumerate((
@@ -462,7 +462,7 @@ for i, (sx, sz, rx, rz) in enumerate((
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.012
     sphere(f"CrownSpot{i}", 1.0, (sx, surface, sz), SPOT, pivot,
-           scale=(rx, 0.008, rz), seg=24)
+           scale=(rx * 1.18, 0.008, rz * 1.18), seg=24)
 
 # Small rounded crown spikes; the reference uses short bumps, not tall fins.
 for i, (az_deg, pol_deg, height) in enumerate((
@@ -490,21 +490,21 @@ for i in range(14):
 
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -1.00, 0.40
+EYE_Y, EYE_Z = -0.90, 0.40
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye.scale = (1.12, 0.98, 1.08)  # enlarge the cyclopean eye to match the dominant reference proportions
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
-    sphere("EyeWhite", 0.82, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.56, 1.00), seg=64),
+    sphere("EyeWhite", 0.90, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.58, 1.00), seg=64),
     # Place the iris and pupil well in front of the sclera so the orange ring cannot be occluded.
-    sphere("Iris", 0.42, (0, -0.46, -0.015), IRIS, eye, scale=(1.00, 0.36, 1.00), seg=64),
-    sphere("Pupil", 0.245, (0, -0.67, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
-    sphere("Shine", 0.082, (0.105, -0.79, 0.13), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    sphere("Iris", 0.46, (0, -0.50, -0.015), IRIS, eye, scale=(1.00, 0.40, 1.00), seg=64),
+    sphere("Pupil", 0.235, (0, -0.72, -0.015), PUPIL, eye, scale=(1.00, 0.50, 1.00), seg=56),
+    sphere("Shine", 0.085, (0.12, -0.84, 0.14), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.88, 0.075, (0, -0.49, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
-eye_socket.scale = (1.04, 1.0, 0.96)
-eye_socket_accent = torus("EyeSocketAccent", 0.91, 0.026, (0, -0.53, 0), LID, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.94, 0.045, (0, -0.51, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket.scale = (1.02, 1.0, 0.98)
+eye_socket_accent = torus("EyeSocketAccent", 0.98, 0.018, (0, -0.55, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.02, 1.0, 0.98)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -560,12 +560,12 @@ eye_parts.extend([eye_socket, eye_socket_accent])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.24, -0.18))
-mouth.scale = (1.52, 1.0, 0.98)
+mouth.scale = (1.78, 1.0, 0.98)
 mouth_parts = [sphere("MouthCavity", 0.40, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.12, 0.34, 0.86), seg=64)]
+                      scale=(1.18, 0.34, 0.86), seg=64)]
 mouth_lip = torus("MouthLip", 0.40, 0.035, (0, -0.075, 0), PURPLE_DARK, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.12, 0.62, 0.88)
+mouth_lip.scale = (1.18, 0.62, 0.88)
 for i, (x, h, width) in enumerate(((-0.28, 0.15, 0.072), (0.28, 0.15, 0.072))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.13, 0.18 - h / 2), TEETH, mouth,
@@ -674,7 +674,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -1.20
-DOME_RADII = (2.52, 2.05, 3.80)  # taller, rounder bubble with visible clearance above the crown spikes
+DOME_RADII = (2.58, 2.10, 4.25)  # taller, rounder bubble with visible clearance above the crown spikes
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
