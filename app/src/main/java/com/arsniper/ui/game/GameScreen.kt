@@ -1454,7 +1454,7 @@ fun GameScreen(
                             clipPath(path) { this@drawWithContent.drawContent() }
                             if (themedAlpha < 0.995f) {
                                 drawCircle(
-                                    color = Color(0xFFBFEFFF).copy(alpha = 0.85f * (1f - themedAlpha)),
+                                    color = androidx.compose.ui.graphics.Color(0xFFBFEFFF).copy(alpha = 0.85f * (1f - themedAlpha)),
                                     radius = r,
                                     center = center,
                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = size.height * 0.035f)
