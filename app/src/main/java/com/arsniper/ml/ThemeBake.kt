@@ -389,7 +389,7 @@ object ThemeBake {
             }
         }
         out.setPixels(px, 0, w, 0, 0, w, h)
-        drawIcicles(context, out, a)
+        // בלי נטיפים: בטונדרה נשאר רק השלג
         return out
     }
 

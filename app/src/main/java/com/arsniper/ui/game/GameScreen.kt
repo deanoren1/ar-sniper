@@ -1384,7 +1384,7 @@ fun GameScreen(
                     }
                 }
         ) {
-            BackgroundLayer(photo = photo, colorFilter = remember(style) { arenaColorFilter(style) })
+            BackgroundLayer(photo = photo, colorFilter = null)
             // התמונה המעוצבת נכנסת בהדרגה מעל המקורית (בלי קפיצה כשהחישוב מסתיים)
             themed?.let { t ->
                 var fadeIn by remember { mutableStateOf(false) }
@@ -1394,16 +1394,11 @@ fun GameScreen(
                     BackgroundLayer(photo = t, colorFilter = null)
                 }
             }
-            ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, drawFrame = false, frameVariant = if (themed != null) frameVariant else -1, worldViewAspect = if (panoMode) viewAspect else 0f)
+            // בלי קישוטים ואפקטים בכל הארנות: רק השלג בטונדרה
             // ערפל הטונדרה, המעבר האחורי: מאחורי המפלצות
             if (style == ArenaStyle.Tundra) TundraSnow(nowNanos = frameNanos)
-            if (style == ArenaStyle.Tundra) TundraFog(nowNanos = frameNanos, front = false)
             EnemyLayer(enemies = enemies, scene = scene, monsterSet = style.name.lowercase())
             // ערפל צף מעל המפלצות: בטונדרה שני סוגי ערפל שמתחלפים (המעבר הקדמי), בשאר הארנות המעוצבות הכתמים הישנים
-            if (style == ArenaStyle.Tundra) TundraFog(nowNanos = frameNanos, front = true)
-            else if (themed != null) MistLayer(nowNanos = frameNanos)
-            // המסגרת הקדמית (קישוטי הקצוות של הארנה) מעל המפלצות: הן עומדות מאחוריה ולא עליה
-            if (!(themed != null && SHOW_FRAME_ON_THEMED.not())) ArenaStyleLayer(style = style, nowNanos = frameNanos, props = true, frameOnly = true, frameVariant = if (themed != null) frameVariant else -1, worldViewAspect = if (panoMode) viewAspect else 0f)
             CombatLayer(
                 shots = fire.shots.toList(),
                 telegraphs = fire.telegraphViews.toList(),
@@ -1418,7 +1413,6 @@ fun GameScreen(
         }
 
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
-        if (panoMode) ArenaStyleLayer(style = style, nowNanos = frameNanos, drawFrame = false, screenOnly = true)
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
         SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)

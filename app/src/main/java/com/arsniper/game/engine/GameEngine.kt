@@ -494,8 +494,9 @@ class GameEngine(
     ): Boolean {
         val mapper = ctx.mapper
         val aspect = mapper.screenAspect
-        val ys = floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r)
-        val dxs = floatArrayOf(-0.4f, 0f, 0.4f)
+        // דגימה צפופה יותר (גם ראש וכתפיים, וכל רוחב הגוף): דמות לא תעמוד כשחלק ממנה נחתך בקצה מרוטש של עצם
+        val ys = floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r, feetY - 2.4f * r)
+        val dxs = floatArrayOf(-1.0f, -0.5f, 0f, 0.5f, 1.0f)
         for (spot in ctx.spots) {
             if (spot === ignore) continue
             for (y in ys) {
