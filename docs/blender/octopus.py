@@ -136,7 +136,7 @@ SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.68, 0.26), rough=0.28, coat=0.28,
                 emit=(0.035, 0.012, 0.001), strength=0.012)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.055, 0.001), rough=0.20, coat=0.34, emit=(1.0, 0.08, 0.002), strength=0.16)
+IRIS = mat("Iris", (1.0, 0.17, 0.002), rough=0.24, coat=0.26, emit=(1.0, 0.20, 0.001), strength=0.42)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -498,13 +498,13 @@ eye_parts = [
     sphere("EyeWhite", 0.84, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.58, 1.00), seg=64),
     # Place the iris and pupil well in front of the sclera so the orange ring cannot be occluded.
     sphere("Iris", 0.43, (0, -0.47, -0.015), IRIS, eye, scale=(1.00, 0.40, 1.00), seg=64),
-    sphere("Pupil", 0.205, (0, -0.68, -0.015), PUPIL, eye, scale=(1.00, 0.50, 1.00), seg=56),
+    sphere("Pupil", 0.265, (0, -0.70, -0.015), PUPIL, eye, scale=(1.00, 0.50, 1.00), seg=56),
     sphere("Shine", 0.080, (0.11, -0.80, 0.13), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.89, 0.050, (0, -0.49, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.875, 0.028, (0, -0.49, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.02, 1.0, 0.98)
-eye_socket_accent = torus("EyeSocketAccent", 0.93, 0.020, (0, -0.53, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
+eye_socket_accent = torus("EyeSocketAccent", 0.905, 0.010, (0, -0.53, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
 eye_socket_accent.scale = (1.02, 1.0, 0.98)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -591,37 +591,37 @@ for i in range(16):
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.16, 0.075, 0.032), rough=0.27, metal=0.78, coat=0.28)
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 2.28 * sx, 0.24  # wider, more exposed side canisters like the reference
-    tank_body = cylinder(f"Tank{side}", 0.52, 1.72, (tx, ty, 0.015), TANK, torso)
+    tx, ty = 2.42 * sx, 0.24  # larger side canisters, with their outer silhouette kept visible
+    tank_body = cylinder(f"Tank{side}", 0.61, 1.82, (tx, ty, 0.015), TANK, torso)
     tank_bevel = tank_body.modifiers.new("TankBodySoftEdges", "BEVEL")
     tank_bevel.width = 0.070
     tank_bevel.segments = 4
     # Rounded enamel shoulders soften the hard, box-like ends of the canisters.
-    sphere(f"TankShoulderTop{side}", 0.51, (tx, ty, 0.84), TANK, torso, scale=(1.0, 1.0, 0.45))
-    sphere(f"TankShoulderBot{side}", 0.51, (tx, ty, -0.80), TANK, torso, scale=(1.0, 1.0, 0.45))
-    cap_top = cylinder(f"TankCapTop{side}", 0.55, 0.18, (tx, ty, 0.98), METAL, torso)
-    cap_bottom = cylinder(f"TankCapBot{side}", 0.55, 0.18, (tx, ty, -0.94), METAL, torso)
+    sphere(f"TankShoulderTop{side}", 0.60, (tx, ty, 0.89), TANK, torso, scale=(1.0, 1.0, 0.45))
+    sphere(f"TankShoulderBot{side}", 0.60, (tx, ty, -0.86), TANK, torso, scale=(1.0, 1.0, 0.45))
+    cap_top = cylinder(f"TankCapTop{side}", 0.65, 0.18, (tx, ty, 1.04), METAL, torso)
+    cap_bottom = cylinder(f"TankCapBot{side}", 0.65, 0.18, (tx, ty, -1.00), METAL, torso)
     for cap in (cap_top, cap_bottom):
         cap_bevel = cap.modifiers.new("RoundedTankCap", "BEVEL")
         cap_bevel.width = 0.050
         cap_bevel.segments = 4
-    torus(f"TankBand1{side}", 0.535, 0.056, (tx, ty, 0.55), METAL, torso)
-    torus(f"TankBand2{side}", 0.535, 0.056, (tx, ty, -0.58), METAL, torso)
-    torus(f"TankGoldRing{side}", 0.525, 0.032, (tx, ty, 0.80), COPPER, torso)
-    torus(f"TankGoldRingLow{side}", 0.525, 0.028, (tx, ty, -0.82), COPPER, torso)
-    cylinder(f"TankNozzle{side}", 0.075, 0.14, (tx, ty, 1.13), METAL, torso)
-    sphere(f"Valve{side}", 0.060, (tx, ty, 1.23), COPPER, torso, seg=20)
+    torus(f"TankBand1{side}", 0.625, 0.056, (tx, ty, 0.58), METAL, torso)
+    torus(f"TankBand2{side}", 0.625, 0.056, (tx, ty, -0.62), METAL, torso)
+    torus(f"TankGoldRing{side}", 0.615, 0.032, (tx, ty, 0.86), COPPER, torso)
+    torus(f"TankGoldRingLow{side}", 0.615, 0.028, (tx, ty, -0.88), COPPER, torso)
+    cylinder(f"TankNozzle{side}", 0.085, 0.14, (tx, ty, 1.19), METAL, torso)
+    sphere(f"Valve{side}", 0.068, (tx, ty, 1.29), COPPER, torso, seg=20)
     cylinder(f"Connector{side}", 0.095, 0.34, (1.70 * sx, ty - 0.005, 0.20),
              COPPER, torso, rot=(0, math.pi / 2, 0))
-    badge_y = ty - 0.625  # keep the larger yellow emblem plate just ahead of the enlarged tank shell
-    cylinder(f"Badge{side}", 0.35, 0.050, (tx, badge_y, 0.015),
+    badge_y = ty - 0.725  # keep the enlarged emblem plate just ahead of the wider tank shell
+    cylinder(f"Badge{side}", 0.41, 0.050, (tx, badge_y, 0.015),
              BADGE_YELLOW, torso, rot=(math.pi / 2, 0, 0))
-    torus(f"BadgeRim{side}", 0.35, 0.024, (tx, badge_y - 0.045, 0.015), METAL, torso,
+    torus(f"BadgeRim{side}", 0.41, 0.024, (tx, badge_y - 0.045, 0.015), METAL, torso,
           rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.067, 0.015, torso, scale=1.48)
-    for j, (bx, bz) in enumerate(((-0.245, 0.155), (0.245, 0.155),
-                                  (-0.245, -0.155), (0.245, -0.155))):
-        sphere(f"TankBolt{side}{j}", 0.038, (tx + bx, badge_y - 0.060, bz),
+    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.067, 0.015, torso, scale=1.68)
+    for j, (bx, bz) in enumerate(((-0.285, 0.175), (0.285, 0.175),
+                                  (-0.285, -0.175), (0.285, -0.175))):
+        sphere(f"TankBolt{side}{j}", 0.042, (tx + bx, badge_y - 0.060, bz),
                COPPER, torso, scale=(1, 0.35, 1), seg=16)
     pipe_curve(f"TankPipe{side}", (
         (tx, ty, 1.13), (tx, ty, 1.28), (tx - 0.16 * sx, ty, 1.42),
@@ -847,9 +847,9 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         hole_pos = center + cup_normal * rr * 0.965
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.38, rr * 0.34, rr * 0.028), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerRim{i}_{q}", rr * 0.38, rr * 0.018,
-              tuple(hole_pos + cup_normal * 0.035), TENTACLE, root, rot=normal_rot(cup_normal))
+               scale=(rr * 0.42, rr * 0.38, rr * 0.040), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.42, rr * 0.012,
+              tuple(hole_pos + cup_normal * 0.030), PURPLE_DARK, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
