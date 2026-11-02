@@ -573,7 +573,7 @@ mouth_parts = [sphere("MouthCavity", 0.43, (0, 0, 0), MOUTH, mouth,
 mouth_lip = torus("MouthLip", 0.43, 0.028, (0, -0.085, 0), LID, mouth,
                   rot=(math.pi / 2, 0, 0))
 mouth_lip.scale = (1.30, 0.68, 0.70)
-for i, (x, h, width) in enumerate(((-0.50, 0.19, 0.095), (0.50, 0.19, 0.095)):
+for i, (x, h, width) in enumerate(((-0.50, 0.19, 0.095), (0.50, 0.19, 0.095))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.23, 0.19 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
