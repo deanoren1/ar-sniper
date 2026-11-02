@@ -622,6 +622,12 @@ class GameEngine(
         val outEnd = edgeX + outward * (0.65f * r) / aspect
         if (coverage(ctx, spot, edgeX + outward * 0.02f, outEnd, yTop, yBottom) > 0.15f) return null
 
+        // העצם חייב להיות קרוב יותר אלינו מהמקום שהדמות יוצאת אליו. דלת או קיר שטוחים (אותו עומק משני צדי הקצה)
+        // נראים כמו חיתוך ישר בדמות ולא כמו הסתתרות מאחורי עצם
+        val dIn = ctx.depthAt(edgeX - outward * (0.3f * r) / aspect, centerY)
+        val dOut = ctx.depthAt(edgeX + outward * (0.5f * r) / aspect, centerY)
+        if (!dIn.isNaN() && !dOut.isNaN() && dOut < dIn * SIDE_PEEK_MIN_DEPTH_GAP) return rej(10)
+
         val peek = Vec2(peekX, centerY)
         val hide = Vec2(hideX, centerY)
         return Enemy(
@@ -995,6 +1001,8 @@ class GameEngine(
         from + random.nextFloat() * (to - from)
 
     companion object {
+        /** יחס עומק מינימלי בין מחוץ לקצה לבין העצם עצמו כדי שייחשב עצם בולט */
+        private const val SIDE_PEEK_MIN_DEPTH_GAP = 1.12f
         private const val PEEK_SECONDS = 0.3f
 
         /** דמות הולכת שלא מתקדמת כל כך הרבה זמן (שניות) נחשבת תקועה */
