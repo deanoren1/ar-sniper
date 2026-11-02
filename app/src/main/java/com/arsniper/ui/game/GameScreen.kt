@@ -413,7 +413,11 @@ fun GameScreen(
                                 if (made == null && kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         com.arsniper.ml.AiWorldWorker.isDead(context, key, aiStyle)
                                     }
-                                ) break
+                                ) {
+                                    val why = try { com.arsniper.ml.AiWorld.statusFile(context).readText().takeLast(160) } catch (_: Throwable) { "" }
+                                    showToast("AI world failed" + if (why.isNotEmpty()) ": $why" else "")
+                                    break
+                                }
                             }
                             if (made != null) {
                                 themedFresh = true

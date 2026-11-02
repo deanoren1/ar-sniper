@@ -103,6 +103,8 @@ object AiWorld {
     private const val WORLD_MODEL = "seedream-5.0-flash-edit"
     private const val WORLD_FALLBACK_MODEL = "muse-image-edit"
 
+    fun statusFile(context: Context) = java.io.File(context.filesDir, "ai_world_status.txt")
+
     private fun worldFile(context: Context, photoKey: String, serverStyle: String) =
         java.io.File(java.io.File(context.filesDir, "ai_world").apply { mkdirs() }, "${photoKey}_$serverStyle.jpg")
 
@@ -111,6 +113,8 @@ object AiWorld {
         worldFile(context, photoKey, serverStyle).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
 
     /** יוצר עולם AI לתמונה (seedream, ואם נכשל muse), שומר במטמון. חוסם: להריץ מחוץ לתהליך הראשי. null בכישלון */
+    @Volatile var lastError: String = ""
+
     fun createWorld(context: Context, photoKey: String, serverStyle: String, source: Bitmap): Bitmap? {
         for (model in listOf(WORLD_MODEL, WORLD_FALLBACK_MODEL)) {
             val result = generate(context, serverStyle, source, provider = "muapi", model = model)
@@ -123,6 +127,8 @@ object AiWorld {
             }
             // מכסה יומית או תקציב: אין טעם לנסות דגם אחר
             val message = (result as Result.Error).message
+            lastError = message
+            statusFile(context).writeText("${java.util.Date()} $model: $message")
             if (message.contains("limit", true) || message.contains("budget", true) || message.contains("server address", true)) return null
         }
         return null
