@@ -118,7 +118,7 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.06  # Keep the bubble clear; blue remains in the rim and studio reflections.
+    mix.inputs[0].default_value = 0.025  # Keep the bubble nearly invisible; reflections define the glass.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -128,13 +128,13 @@ def glass_mat():
 PURPLE = mat("Purple", (0.56, 0.010, 0.72), rough=0.25, coat=0.60)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
-LID = mat("Lid", (0.40, 0.014, 0.66), rough=0.22, coat=0.66)
+LID = mat("Lid", (0.66, 0.020, 0.72), rough=0.22, coat=0.66)
 add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.82, 0.010, 0.52), rough=0.36, coat=0.24, emit=(0.10, 0.002, 0.045), strength=0.025)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.76, 0.43), rough=0.25, coat=0.30,
-                emit=(0.035, 0.012, 0.001), strength=0.012)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.66, 0.27), rough=0.25, coat=0.30,
+                emit=(0.070, 0.026, 0.003), strength=0.020)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.17, 0.002), rough=0.24, coat=0.26, emit=(1.0, 0.20, 0.001), strength=0.42)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
@@ -175,11 +175,11 @@ GLASS = glass_mat()
 DOME_RIM = mat("DomeRim", (0.10, 0.55, 1.0), rough=0.17, metal=0.05,
                emit=(0.05, 0.24, 0.78), strength=0.15, coat=0.42)
 def dome_highlight(name, color):
-    m = mat(name, color, rough=0.34, emit=color, strength=0.035, coat=0.08)
+    m = mat(name, color, rough=0.28, emit=color, strength=0.065, coat=0.12)
     try:
         m.surface_render_method = "BLENDED"
         m.use_transparency_overlap = False
-        bsdf_of(m).inputs["Alpha"].default_value = 0.42
+        bsdf_of(m).inputs["Alpha"].default_value = 0.68
     except Exception:
         pass
     return m
@@ -499,7 +499,7 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -1.08, 0.40  # Bring the sclera out of the mantle so the full cream eye is visible.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.06, 0.92, 1.03)  # slightly recess the eye and reveal more of the spotted purple mantle
+eye.scale = (0.82, 0.92, 0.90)  # expose the spotted cheeks and keep the eye inside the mantle silhouette
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
     sphere("EyeWhite", 0.84, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.58, 1.00), seg=64),
@@ -564,8 +564,9 @@ def make_upper_eyelid(parent):
 eye_parts.extend([eye_socket])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
-mouth = empty("Mouth", pivot, loc=(0, -1.30, -0.24))
-mouth.scale = (1.92, 1.0, 1.16)
+mouth = empty("Mouth", pivot, loc=(0, -1.27, -0.40))
+# A compact, lower-set grin leaves the cheek spots and lower face visible.
+mouth.scale = (1.48, 1.0, 1.08)
 mouth_parts = [sphere("MouthCavity", 0.40, (0, 0, 0), MOUTH, mouth,
                       scale=(1.28, 0.38, 0.98), seg=64)]
 mouth_lip = torus("MouthLip", 0.40, 0.030, (0, -0.075, 0), LID, mouth,
@@ -700,12 +701,12 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.006), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -1.48, 1.48, 0.24, 0.44, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 1.48, 1.50, 0.25, 0.42, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -1.48, 1.48, 0.33, 0.58, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 1.48, 1.50, 0.32, 0.54, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.34, 0.29, 0.24, 0.19]
-ARM_RAD = [0.19, 0.17, 0.15, 0.14, 0.16]
+ARM_RAD = [0.22, 0.20, 0.18, 0.16, 0.19]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
@@ -734,13 +735,13 @@ def arm_radius(t):
     # Tapered, soft tentacles: broad at the mantle, slimmer toward rounded curled tips.
     # Broad mantle attachment, a gentle mid-arm taper, then a soft distal bulb.
     if t < 0.22:
-        return 0.34 + 0.020 * math.sin((t / 0.22) * math.pi * 0.5)
+        return 0.39 + 0.022 * math.sin((t / 0.22) * math.pi * 0.5)
     if t < 0.68:
         u = (t - 0.22) / 0.46
-        return 0.36 - 0.050 * u
+        return 0.41 - 0.055 * u
     u = min(1.0, max(0.0, (t - 0.68) / 0.32))
     # A fuller distal lobe makes the arms read as soft octopus tentacles, not fingers.
-    bulb = 0.275 + 0.075 * math.sin(math.pi * u)
+    bulb = 0.315 + 0.090 * math.sin(math.pi * u)
     return bulb * (1.0 + 0.035 * u)
 
 
@@ -852,7 +853,7 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         hole_pos = center + cup_normal * rr * 0.94
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.40, rr * 0.36, rr * 0.028), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.48, rr * 0.44, rr * 0.040), rot=normal_rot(cup_normal), seg=24)
         torus(f"SuckerRim{i}_{q}", rr * 0.30, rr * 0.004,
               tuple(hole_pos + cup_normal * 0.018), SPOT_DARK, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
