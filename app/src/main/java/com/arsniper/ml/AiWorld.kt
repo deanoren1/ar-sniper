@@ -53,7 +53,7 @@ object AiWorld {
             val jpeg = ByteArrayOutputStream().also { small.compress(Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
             val portrait = source.height > source.width
             val query = buildString {
-                append("style=$style&size=${if (portrait) "portrait" else "landscape"}")
+                append("style=$style&size=${if (portrait) "portrait" else "landscape"}&aspect=${"%.4f".format(java.util.Locale.US, source.width.toFloat() / source.height)}")
                 if (provider != null) append("&provider=$provider")
                 if (quality != null) append("&quality=$quality")
                 if (model != null) append("&model=$model")
@@ -79,11 +79,53 @@ object AiWorld {
                 }
                 val bytes = response.body?.bytes() ?: return Result.Error("Empty answer")
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return Result.Error("Could not decode the image")
-                Result.Image(bitmap, response.header("x-provider") ?: "?")
+                // היחס של התוצאה קרוב ליחס המקור אבל לא זהה: מותחים בקלות ליחס המדויק, כדי שהניתוח של המקור יתאים לפיקסל
+                val target = source.width.toFloat() / source.height
+                val got = bitmap.width.toFloat() / bitmap.height
+                val aligned = if (kotlin.math.abs(got / target - 1f) > 0.005f) {
+                    Bitmap.createScaledBitmap(bitmap, bitmap.width, (bitmap.width / target).toInt().coerceAtLeast(1), true)
+                } else bitmap
+                Result.Image(aligned, response.header("x-provider") ?: "?")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: e.toString())
         }
+    }
+
+    /** הסגנון בשרת לכל ארנה, או null אם אין עדיין עולם AI לארנה הזאת */
+    fun serverStyle(style: com.arsniper.game.progress.ArenaStyle): String? = when (style) {
+        com.arsniper.game.progress.ArenaStyle.Tundra -> "tundra"
+        com.arsniper.game.progress.ArenaStyle.Jungle -> "jungle"
+        com.arsniper.game.progress.ArenaStyle.Forest -> "rockforest"
+        else -> null
+    }
+
+    private const val WORLD_MODEL = "seedream-5.0-flash-edit"
+    private const val WORLD_FALLBACK_MODEL = "muse-image-edit"
+
+    private fun worldFile(context: Context, photoKey: String, serverStyle: String) =
+        java.io.File(java.io.File(context.filesDir, "ai_world").apply { mkdirs() }, "${photoKey}_$serverStyle.jpg")
+
+    /** עולם AI שכבר נוצר לתמונה הזאת (מטמון בדיסק), או null */
+    fun cachedWorld(context: Context, photoKey: String, serverStyle: String): Bitmap? =
+        worldFile(context, photoKey, serverStyle).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+
+    /** יוצר עולם AI לתמונה (seedream, ואם נכשל muse), שומר במטמון. חוסם: להריץ מחוץ לתהליך הראשי. null בכישלון */
+    fun createWorld(context: Context, photoKey: String, serverStyle: String, source: Bitmap): Bitmap? {
+        for (model in listOf(WORLD_MODEL, WORLD_FALLBACK_MODEL)) {
+            val result = generate(context, serverStyle, source, provider = "muapi", model = model)
+            if (result is Result.Image) {
+                try {
+                    worldFile(context, photoKey, serverStyle).outputStream().use { result.bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+                } catch (_: Exception) {
+                }
+                return result.bitmap
+            }
+            // מכסה יומית או תקציב: אין טעם לנסות דגם אחר
+            val message = (result as Result.Error).message
+            if (message.contains("limit", true) || message.contains("budget", true) || message.contains("server address", true)) return null
+        }
+        return null
     }
 
     private fun lastFile(context: Context) = java.io.File(context.filesDir, "ai_last.jpg")

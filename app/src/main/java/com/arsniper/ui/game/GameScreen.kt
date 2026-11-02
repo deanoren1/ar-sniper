@@ -81,6 +81,7 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
 /** הניקוד הפנימי מחולק בעשר: כך מטבעות הם מספרים קטנים ונוחים */
@@ -377,8 +378,45 @@ fun GameScreen(
             }
             scene = sceneContext
             engine.configure(sceneContext)
+            // עולם AI: המשחק מתחיל מיד על התמונה המקורית (הניתוח כבר מוכן), ותמונת ה-AI נכנסת בהדרגה כשהיא מוכנה
+            // (מטמון בדיסק: בפעם הבאה היא מיידית). הניתוח הוא של המקור, לכן התמונה חייבת להישאר ביחס המקורי.
+            val aiStyle = com.arsniper.ml.AiWorld.serverStyle(style)
+            var aiHandled = false
+            if (analysis != null && photo != null && aiStyle != null && !isGuest) {
+                val file = PhotoRepository.currentFile(context)
+                if (file != null) {
+                    val key = com.arsniper.ml.AnalysisCache.keyFor(file)
+                    val source = photo.asAndroidBitmap()
+                    val cached = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.arsniper.ml.AiWorld.cachedWorld(context, key, aiStyle)
+                    }
+                    if (cached != null) {
+                        themed = cached.asImageBitmap()
+                        aiHandled = true
+                    } else {
+                        aiHandled = true
+                        launch {
+                            val made = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                com.arsniper.ml.AiWorld.createWorld(context, key, aiStyle, source)
+                            }
+                            if (made != null) {
+                                themed = made.asImageBitmap()
+                            } else if (style == ArenaStyle.Tundra) {
+                                // אין AI (בלי רשת, מכסה או תקלה): העיצוב המקומי של הטונדרה
+                                themed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                                    try {
+                                        com.arsniper.ml.ThemeBake.bake(context, style, source, analysis, key, com.arsniper.ml.ThemeBake.extrasOn(context))?.asImageBitmap()
+                                    } catch (_: Throwable) {
+                                        null
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             // עיצוב הארנה לפי גיאומטריית התמונה (טונדרה: שלג, כפור, קרחונים); מטמון בדיסק
-            if (analysis != null && photo != null && style == ArenaStyle.Tundra) {
+            if (!aiHandled && analysis != null && photo != null && style == ArenaStyle.Tundra) {
                 val file = PhotoRepository.currentFile(context)
                 if (file != null) {
                     themed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {

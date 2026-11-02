@@ -111,7 +111,7 @@ async function restyle(request: Request, env: Env): Promise<Response> {
     const model = /^gpt-image-[a-z0-9.\-]{1,30}$/.test(q.get("model") ?? "") ? (q.get("model") as string) : undefined;
     const muModel = MUAPI_MODELS.includes(q.get("model") ?? "") ? (q.get("model") as string) : "qwen3-image-to-image";
     const result =
-      provider === "muapi" ? await callMuapi(env, style, prompt, body, muModel, q.get("sandbox") === "1", size === "1024x1536")
+      provider === "muapi" ? await callMuapi(env, style, prompt, body, muModel, q.get("sandbox") === "1", wantedAspect(q, size === "1024x1536"))
       : provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model)
       : await callGemini(env, prompt, body);
     if ("error" in result) return fail(502, result.error, result.url);
@@ -119,6 +119,13 @@ async function restyle(request: Request, env: Env): Promise<Response> {
   } catch {
     return fail(502, "upstream-error");
   }
+}
+
+/** יחס רוחב/גובה מבוקש (aspect=1.333), או לפי כיוון התמונה */
+function wantedAspect(q: URLSearchParams, portrait: boolean): number {
+  const a = parseFloat(q.get("aspect") ?? "");
+  if (a >= 0.4 && a <= 2.5) return a;
+  return portrait ? 9 / 16 : 16 / 9;
 }
 
 type ImageResult = { bytes: Uint8Array; mime: string } | { error: string; url?: string };
@@ -203,7 +210,18 @@ const SHORT_PROMPTS: Record<string, string> = {
 const MUAPI_BASE = "https://api.muapi.ai/api/v1";
 
 /** Muapi: מעלים את התמונה, שולחים בקשה לדגם ובודקים את התוצאה עד שהיא מוכנה (עד כדקה) */
-async function callMuapi(env: Env, style: string, prompt: string, body: Uint8Array, model: string, sandbox: boolean, portrait: boolean): Promise<ImageResult> {
+async function callMuapi(env: Env, style: string, prompt: string, body: Uint8Array, model: string, sandbox: boolean, aspect: number): Promise<ImageResult> {
+  // יחס התמונה הקרוב ביותר מהרשימה שהדגמים תומכים בה. כך המבנה נשמר והניתוח של המקור מתאים לתמונה החדשה
+  const presets = [
+    { r: 16 / 9, a: "16:9", w: 1536, h: 864 },
+    { r: 3 / 2, a: "3:2", w: 1440, h: 960 },
+    { r: 4 / 3, a: "4:3", w: 1376, h: 1032 },
+    { r: 1, a: "1:1", w: 1024, h: 1024 },
+    { r: 3 / 4, a: "3:4", w: 1032, h: 1376 },
+    { r: 2 / 3, a: "2:3", w: 960, h: 1440 },
+    { r: 9 / 16, a: "9:16", w: 864, h: 1536 },
+  ];
+  const pick = presets.reduce((best, p) => (Math.abs(Math.log(p.r / aspect)) < Math.abs(Math.log(best.r / aspect)) ? p : best));
   const key = sandbox ? env.MUAPI_KEY_TEST : env.MUAPI_KEY;
   if (!key) return { error: "muapi-not-configured" };
   const clip = async (res: Response) => (await res.text()).slice(0, 160).replace(/[^\w .:,-]/g, "");
@@ -222,9 +240,9 @@ async function callMuapi(env: Env, style: string, prompt: string, body: Uint8Arr
       prompt: (SHORT_PROMPTS[style] ?? prompt).slice(0, 790),
       image_url: imageUrl,
       images_list: [imageUrl],
-      aspect_ratio: portrait ? "9:16" : "16:9",
-      width: portrait ? 864 : 1536,
-      height: portrait ? 1536 : 864,
+      aspect_ratio: pick.a,
+      width: pick.w,
+      height: pick.h,
     }),
   });
   if (!submit.ok) return { error: `muapi-submit-${submit.status}-${await clip(submit)}` };
