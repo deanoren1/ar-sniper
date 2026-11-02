@@ -92,6 +92,22 @@ class AiWorldWorker(private val ctx: Context, params: WorkerParameters) : Corout
             WorkManager.getInstance(context).enqueueUniqueWork(name(key, style), ExistingWorkPolicy.KEEP, req)
         }
 
+        /** מתחיל יצירת עולם לתמונה הנוכחית ברגע שנבחרה ארנה (במקביל לניתוח); לא עושה כלום אם אין סגנון AI או שכבר קיים */
+        fun startFor(context: Context, style: com.arsniper.game.progress.ArenaStyle) {
+            val app = context.applicationContext
+            val server = AiWorld.serverStyle(style) ?: return
+            Thread {
+                try {
+                    val file = com.arsniper.data.PhotoRepository.currentFile(app) ?: return@Thread
+                    val key = AnalysisCache.keyFor(file)
+                    if (AiWorld.cachedWorld(app, key, server) != null) return@Thread
+                    val bmp = com.arsniper.data.PhotoRepository.load(app) ?: return@Thread
+                    enqueue(app, key, server, bmp)
+                } catch (_: Throwable) {
+                }
+            }.start()
+        }
+
         /** true אם העבודה נכשלה/בוטלה סופית (אין טעם להמתין) */
         fun isDead(context: Context, key: String, style: String): Boolean = try {
             val infos = WorkManager.getInstance(context).getWorkInfosForUniqueWork(name(key, style)).get()

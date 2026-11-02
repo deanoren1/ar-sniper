@@ -30,11 +30,27 @@ fun AppNavigation() {
     val context = LocalContext.current
     var screen by rememberSaveable { mutableStateOf(Screen.Start) }
     var quick by rememberSaveable { mutableStateOf(false) }
-
     // כפתור/מחוות חזרה מחזיר למסך הפתיחה
     var arenaIndex by rememberSaveable { mutableStateOf(0) }
     // משחק משותף: "host" / "guest" בזמן משחק, אחרת ריק
     var coopRole by rememberSaveable { mutableStateOf("") }
+    // בחירת ארנה לפני הניתוח: יצירת עולם ה-AI מתחילה מיד ורצה במקביל לניתוח
+    var arenaFirst by rememberSaveable { mutableStateOf(false) }
+    fun goScene() {
+        if (coopRole.isNotEmpty()) { screen = Screen.Scene; return }
+        if (quick) {
+            val open = ArenaStyle.values().filter { PlayerProfile.isUnlocked(it) }
+            val pick = open.randomOrNull() ?: ArenaStyle.values()[0]
+            arenaIndex = pick.ordinal
+            com.arsniper.ml.AiWorldWorker.startFor(context, pick)
+            arenaFirst = true
+            screen = Screen.Scene
+        } else {
+            arenaFirst = true
+            screen = Screen.Arena
+        }
+    }
+
 
     BackHandler(enabled = screen != Screen.Start) {
         screen = when (screen) {
@@ -63,7 +79,7 @@ fun AppNavigation() {
                 com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                 quick = false
                 // ניתוח אנשים הוא חובה: תמונה שלא נסקרה עוברת קודם במסך הסקירה
-                screen = if (PhotoLibrary.isReviewed(file)) Screen.Scene else Screen.Review
+                if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
             },
             onQuick = {
                 val all = PhotoLibrary.list(context)
@@ -73,7 +89,7 @@ fun AppNavigation() {
                     PhotoLibrary.clearPending()
                     com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                     quick = true
-                    screen = if (PhotoLibrary.isReviewed(file)) Screen.Scene else Screen.Review
+                    if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
                 }
             }
         )
@@ -88,12 +104,13 @@ fun AppNavigation() {
             onPlay = { quick = false; screen = Screen.Review }
         )
         Screen.Review -> ReviewScreen(
-            onContinue = { com.arsniper.pano.PanoGame.finalizeReview(context); screen = Screen.Scene },
+            onContinue = { com.arsniper.pano.PanoGame.finalizeReview(context); goScene() },
             onRetake = { screen = Screen.Capture }
         )
         Screen.Scene -> SceneScreen(
             onContinue = {
-                if (coopRole.isNotEmpty()) {
+                if (coopRole.isNotEmpty() || arenaFirst) {
+                    arenaFirst = false
                     screen = Screen.Game
                 } else if (quick) {
                     val open = ArenaStyle.values().filter { PlayerProfile.isUnlocked(it) }
@@ -107,8 +124,16 @@ fun AppNavigation() {
         )
         Screen.SceneDebug -> SceneScreen(onContinue = { screen = Screen.Settings })
         Screen.Arena -> ArenaSelectScreen(
-            onPick = { arenaIndex = it.ordinal; screen = Screen.Game },
-            onBack = { screen = Screen.Play }
+            onPick = {
+                arenaIndex = it.ordinal
+                if (arenaFirst) {
+                    com.arsniper.ml.AiWorldWorker.startFor(context, it)
+                    screen = Screen.Scene
+                } else {
+                    screen = Screen.Game
+                }
+            },
+            onBack = { arenaFirst = false; screen = Screen.Play }
         )
         Screen.Game -> GameScreen(
             style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
@@ -122,7 +147,7 @@ fun AppNavigation() {
                     screen = Screen.Play
                 }
             },
-            onNextArena = { quick = false; screen = Screen.Arena }
+            onNextArena = { quick = false; arenaFirst = false; screen = Screen.Arena }
         )
         Screen.Shop -> ShopScreen(onBack = { screen = Screen.Start })
         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug }, onCoop = { screen = Screen.Coop })
