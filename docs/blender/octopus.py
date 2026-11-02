@@ -118,14 +118,14 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.12  # Keep the bubble visibly blue, but let the face read through it.
+    mix.inputs[0].default_value = 0.06  # Keep the bubble clear; blue remains in the rim and studio reflections.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
-PURPLE = mat("Purple", (0.48, 0.012, 0.66), rough=0.25, coat=0.60)
+PURPLE = mat("Purple", (0.56, 0.010, 0.72), rough=0.25, coat=0.60)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.40, 0.014, 0.66), rough=0.22, coat=0.66)
@@ -136,7 +136,7 @@ SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.68, 0.26), rough=0.28, coat=0.28,
                 emit=(0.035, 0.012, 0.001), strength=0.012)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.075, 0.001), rough=0.22, coat=0.38, emit=(0.20, 0.018, 0.0), strength=0.028)
+IRIS = mat("Iris", (1.0, 0.055, 0.001), rough=0.20, coat=0.34, emit=(1.0, 0.08, 0.002), strength=0.16)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -166,8 +166,8 @@ STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.045, 0.004, 0.085), rough=0.78, coat=0.05)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.30, 0.006, 0.59), rough=0.31, coat=0.38,
-               emit=(0.008, 0.001, 0.025), strength=0.006)
+TENTACLE = mat("Tentacle", (0.44, 0.008, 0.72), rough=0.31, coat=0.38,
+               emit=(0.018, 0.001, 0.040), strength=0.012)
 TANK = mat("Tank", (0.68, 0.014, 0.40), rough=0.40, metal=0.20, coat=0.34)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -490,7 +490,7 @@ for i in range(14):
 
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -0.84, 0.40
+EYE_Y, EYE_Z = -1.08, 0.40  # Bring the sclera out of the mantle so the full cream eye is visible.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
 eye.scale = (1.06, 0.92, 1.03)  # slightly recess the eye and reveal more of the spotted purple mantle
 eye_parts = [
@@ -845,11 +845,11 @@ for i in range(8):
             cup_normal = Vector((0.0, 1.0, 0.0))
         cup_normal.normalize()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
-        hole_pos = center + cup_normal * rr * 0.985
+        hole_pos = center + cup_normal * rr * 0.965
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.34, rr * 0.30, rr * 0.035), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.014,
-              tuple(hole_pos + cup_normal * 0.006), TENTACLE, root, rot=normal_rot(cup_normal))
+               scale=(rr * 0.38, rr * 0.34, rr * 0.028), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.38, rr * 0.018,
+              tuple(hole_pos + cup_normal * 0.035), TENTACLE, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
