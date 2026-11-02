@@ -412,6 +412,8 @@ class GameEngine(
         val usedIds = existing.mapNotNull { it.spot?.id }.toSet()
         val candidates = ctx.spots
             .filter { it.id !in usedIds }
+            // עצם גדול שסומן "קיר" הוא בדרך כלל פתח או חדר ברקע (למשל מבט דרך דלת), לא עצם להסתתר מאחוריו
+            .filter { !(it.kind == SpotKind.COVER && it.classIndex == 0 && it.cellCount.toFloat() / (it.gridWidth * it.gridHeight) >= 0.04f) }
             // עדיפות למחבואים גדולים, עם מעט אקראיות
             .sortedByDescending { random.nextFloat() * sqrt(it.cellCount.toFloat()) }
         for (spot in candidates.take(12)) {
