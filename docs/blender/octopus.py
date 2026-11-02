@@ -118,7 +118,7 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.38
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.16  # Visible blue glass tint while preserving the face and spots.
+    mix.inputs[0].default_value = 0.23  # Slightly stronger blue bubble tint, still clearly transparent.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -133,8 +133,8 @@ add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.84, 0.012, 0.50), rough=0.54, coat=0.10, emit=(0.035, 0.001, 0.018), strength=0.010)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.66, 0.18), rough=0.22, coat=0.42,
-                emit=(0.090, 0.040, 0.002), strength=0.025)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.56, 0.09), rough=0.22, coat=0.42,
+                 emit=(0.075, 0.032, 0.001), strength=0.020)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.17, 0.002), rough=0.24, coat=0.26, emit=(1.0, 0.20, 0.001), strength=0.42)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
@@ -497,9 +497,9 @@ for i in range(14):
 
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -1.08, 0.40  # Bring the sclera out of the mantle so the full cream eye is visible.
+EYE_Y, EYE_Z = -1.08, 0.28  # Lower the eye to leave a visible spotted crown above it.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.00, 0.94, 1.00)  # restore the reference-sized cyclopean eye without hiding the crown
+eye.scale = (1.04, 0.94, 0.86)  # a wider, less vertically dominant eye like the reference
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
     sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.58, 1.00), seg=64),
@@ -567,7 +567,7 @@ eye_parts.extend([eye_socket])
 # Broad, low grin with four larger fangs and a clearly visible tongue.
 mouth = empty("Mouth", pivot, loc=(0, -1.29, -0.62))
 # A deeper open grin gives the reference fangs and pink tongue room to read clearly.
-mouth.scale = (1.20, 1.0, 0.92)
+mouth.scale = (1.28, 1.0, 1.05)
 mouth_parts = [sphere("MouthCavity", 0.40, (0, 0, 0), MOUTH, mouth,
                       scale=(1.35, 0.42, 0.60), seg=64)]
 mouth_lip = torus("MouthLip", 0.40, 0.030, (0, -0.085, 0), LID, mouth,
@@ -750,7 +750,7 @@ def arm_center(t, style="outer"):
     """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
         # Deep outward sweep followed by a raised tip: a true open C-curl like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.62, -0.58), (2.28, -1.12), (1.52, 0.30)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.62, -0.58), (2.05, -1.08), (1.12, 0.48)
     elif style == "front":
         p0, p1, p2, p3 = (0.0, 0.0), (0.46, -0.76), (1.95, -1.62), (0.84, -0.82)
     else:
@@ -852,9 +852,9 @@ for i in range(8):
             cup_normal = Vector((0.0, 1.0, 0.0))
         cup_normal.normalize()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
-        hole_pos = center + cup_normal * rr * 1.008
+        hole_pos = center + cup_normal * rr * 1.002
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.38, rr * 0.34, rr * 0.040), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.24, rr * 0.22, rr * 0.025), rot=normal_rot(cup_normal), seg=24)
         # Keep suction cups recessed and organic; no raised mechanical rim.
     for q, t in enumerate((0.24, 0.50, 0.76)):
         center = arm_center(t, style)
@@ -870,7 +870,7 @@ for i in range(8):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.40, rr * 0.30, rr * 0.014), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.23, tip_loc, TENTACLE if style != "rear" else PURPLE_DARK, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.27, tip_loc, TENTACLE if style != "rear" else PURPLE_DARK, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
