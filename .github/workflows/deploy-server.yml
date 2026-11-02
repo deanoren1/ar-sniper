@@ -70,6 +70,22 @@ jobs:
           else
             echo "::warning::OPENAI_API_KEY secret is not set, OpenAI provider disabled"
           fi
+      - name: Muapi keys
+        if: steps.check.outputs.ready == 'true'
+        env:
+          MUAPI_KEY: ${{ secrets.SNAPBOO }}
+          MUAPI_KEY_TEST: ${{ secrets.SNAPBOO_TEST }}
+        run: |
+          if [ -n "$MUAPI_KEY" ]; then
+            printf '%s' "$MUAPI_KEY" | npx wrangler secret put MUAPI_KEY
+          else
+            echo "::warning::SNAPBOO secret is not set, Muapi real key disabled"
+          fi
+          if [ -n "$MUAPI_KEY_TEST" ]; then
+            printf '%s' "$MUAPI_KEY_TEST" | npx wrangler secret put MUAPI_KEY_TEST
+          else
+            echo "::warning::SNAPBOO_TEST secret is not set, Muapi sandbox key disabled"
+          fi
       - name: Show address
         if: steps.check.outputs.ready == 'true'
         run: grep -o 'https://[^ ]*workers.dev' deploy.log | head -1 | sed 's/^/::notice title=Server address::/'

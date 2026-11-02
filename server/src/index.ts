@@ -25,6 +25,9 @@ export interface Env {
   OPENAI_API_KEY?: string;
   OPENAI_IMAGE_MODEL?: string;
   OPENAI_IMAGE_QUALITY?: string;
+  /** מפתח Muapi האמיתי (סוד בשרת בלבד) ומפתח ה-Sandbox שלהם (נתוני דמה, בלי עלות) */
+  MUAPI_KEY?: string;
+  MUAPI_KEY_TEST?: string;
   /** תקרת עיבודים יומית לכל המשתמשים יחד (ברירת מחדל 100) */
   DAILY_BUDGET?: string;
   /** כמה עיבודים חינם ביום לכל מכשיר (ברירת מחדל 20 בזמן בדיקות) */
@@ -71,7 +74,7 @@ function toBase64(bytes: Uint8Array): string {
 /** POST /restyle?style=tundra, גוף: JPEG, כותרת x-device. עיבוד אחד ביום לכל מכשיר + תקרה יומית כללית. */
 async function restyle(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return new Response("POST only", { status: 405 });
-  if (!env.GEMINI_API_KEY && !env.OPENAI_API_KEY) return Response.json({ error: "not-configured" }, { status: 503 });
+  if (!env.GEMINI_API_KEY && !env.OPENAI_API_KEY && !env.MUAPI_KEY && !env.MUAPI_KEY_TEST) return Response.json({ error: "not-configured" }, { status: 503 });
   const device = request.headers.get("x-device") ?? "";
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(device)) return Response.json({ error: "bad-device" }, { status: 400 });
   const style = new URL(request.url).searchParams.get("style") ?? "tundra";
@@ -102,7 +105,11 @@ async function restyle(request: Request, env: Env): Promise<Response> {
     const q = new URL(request.url).searchParams;
     const quality = ["low", "medium", "high"].includes(q.get("quality") ?? "") ? (q.get("quality") as string) : undefined;
     const model = /^gpt-image-[a-z0-9.\-]{1,30}$/.test(q.get("model") ?? "") ? (q.get("model") as string) : undefined;
-    const result = provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model) : await callGemini(env, prompt, body);
+    const muModel = MUAPI_MODELS.includes(q.get("model") ?? "") ? (q.get("model") as string) : "qwen3-image-to-image";
+    const result =
+      provider === "muapi" ? await callMuapi(env, prompt, body, muModel, q.get("sandbox") === "1")
+      : provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model)
+      : await callGemini(env, prompt, body);
     if ("error" in result) return fail(502, result.error);
     return new Response(result.bytes, { headers: { "content-type": result.mime, "cache-control": "no-store", "x-provider": provider } });
   } catch {
@@ -161,6 +168,65 @@ async function callOpenAI(env: Env, prompt: string, body: Uint8Array, size: stri
   const data: string | undefined = json?.data?.[0]?.b64_json;
   if (!data) return { error: "openai-no-image" };
   return { bytes: fromBase64(data), mime: "image/jpeg" };
+}
+
+/** רשימה לבנה של דגמי עריכה ב-Muapi (כדי שאי אפשר יהיה להפעיל דגם יקר אחר דרך השרת) */
+const MUAPI_MODELS = [
+  "qwen3-image-to-image",
+  "qwen-image-edit-plus",
+  "qwen-image-edit",
+  "qwen-image-edit-2511",
+  "qwen2-1-image-to-image",
+  "seedream-5.0-flash-edit",
+  "kling-o3-image-edit",
+  "flux-kontext-pro-i2i",
+  "flux-2-klein-9b-edit",
+  "muse-image-edit",
+  "bytedance-seededit-v3",
+];
+const MUAPI_BASE = "https://api.muapi.ai/api/v1";
+
+/** Muapi: מעלים את התמונה, שולחים בקשה לדגם ובודקים את התוצאה עד שהיא מוכנה (עד כדקה) */
+async function callMuapi(env: Env, prompt: string, body: Uint8Array, model: string, sandbox: boolean): Promise<ImageResult> {
+  const key = sandbox ? env.MUAPI_KEY_TEST : env.MUAPI_KEY;
+  if (!key) return { error: "muapi-not-configured" };
+  const clip = async (res: Response) => (await res.text()).slice(0, 160).replace(/[^\w .:,-]/g, "");
+  const form = new FormData();
+  form.append("file", new Blob([body], { type: "image/jpeg" }), "photo.jpg");
+  const up = await fetch(`${MUAPI_BASE}/upload_file`, { method: "POST", headers: { "x-api-key": key }, body: form });
+  if (!up.ok) return { error: `muapi-upload-${up.status}-${await clip(up)}` };
+  const imageUrl: string | undefined = ((await up.json()) as any)?.url;
+  if (!imageUrl) return { error: "muapi-no-upload-url" };
+
+  const submit = await fetch(`${MUAPI_BASE}/${model}`, {
+    method: "POST",
+    headers: { "x-api-key": key, "content-type": "application/json" },
+    body: JSON.stringify({
+      prompt: prompt + " Keep the exact image dimensions and aspect ratio; do not crop, zoom or rotate.",
+      images_list: [imageUrl],
+    }),
+  });
+  if (!submit.ok) return { error: `muapi-submit-${submit.status}-${await clip(submit)}` };
+  const id: string | undefined = ((await submit.json()) as any)?.request_id;
+  if (!id) return { error: "muapi-no-request-id" };
+
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const res = await fetch(`${MUAPI_BASE}/predictions/${id}/result`, { headers: { "x-api-key": key } });
+    if (!res.ok) return { error: `muapi-result-${res.status}-${await clip(res)}` };
+    const json = (await res.json()) as any;
+    const status = String(json?.status ?? "").toLowerCase();
+    if (status === "completed") {
+      const first = json?.outputs?.[0];
+      const url: string | undefined = typeof first === "string" ? first : first?.url;
+      if (!url) return { error: "muapi-no-output" };
+      const img = await fetch(url);
+      if (!img.ok) return { error: `muapi-download-${img.status}` };
+      return { bytes: new Uint8Array(await img.arrayBuffer()), mime: img.headers.get("content-type") ?? "image/jpeg" };
+    }
+    if (status === "failed" || status === "error") return { error: `muapi-failed-${String(json?.error ?? "").slice(0, 100).replace(/[^\w .:,-]/g, "")}` };
+  }
+  return { error: "muapi-timeout" };
 }
 
 /** מונה יומי פשוט: מפתח אחד לכל יום. אובייקט לכל מכשיר ואחד גלובלי. */

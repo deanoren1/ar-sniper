@@ -131,12 +131,17 @@ fun SceneScreen(
     var aiImage by remember { mutableStateOf<Bitmap?>(com.arsniper.ml.AiWorld.loadLast(context)) }
     var aiStatus by remember { mutableStateOf("") }
     var aiBusy by remember { mutableStateOf(false) }
-    fun runAi(view: SceneView, quality: String? = null, model: String? = null) {
+    val muModels = listOf(
+        "qwen3-image-to-image", "qwen-image-edit-plus", "qwen-image-edit", "seedream-5.0-flash-edit",
+        "kling-o3-image-edit", "flux-kontext-pro-i2i", "flux-2-klein-9b-edit", "muse-image-edit",
+    )
+    var muIndex by remember { mutableStateOf(0) }
+    fun runAi(view: SceneView, quality: String? = null, model: String? = null, provider: String? = null, sandbox: Boolean = false) {
         scope.launch {
             aiBusy = true
             aiStatus = "AI is creating the world (up to a minute)..."
             val result = withContext(Dispatchers.IO) {
-                com.arsniper.ml.AiWorld.generate(context, "tundra", view.bitmap, null, quality, model)
+                com.arsniper.ml.AiWorld.generate(context, "tundra", view.bitmap, provider, quality, model, sandbox)
             }
             when (result) {
                 is com.arsniper.ml.AiWorld.Result.Image -> {
@@ -652,6 +657,9 @@ fun SceneScreen(
                     ActionButton("AI", !aiBusy) { runAi(current) }
                     ActionButton("AI HQ", !aiBusy) { runAi(current, quality = "high") }
                     ActionButton("AI BIG", !aiBusy) { runAi(current, quality = "high", model = "gpt-image-1.5") }
+                    ActionButton("MU: ${muModels[muIndex]}", !aiBusy) { muIndex = (muIndex + 1) % muModels.size }
+                    ActionButton("MU RUN", !aiBusy) { runAi(current, model = muModels[muIndex], provider = "muapi") }
+                    ActionButton("MU TEST", !aiBusy) { runAi(current, model = muModels[muIndex], provider = "muapi", sandbox = true) }
                     ActionButton("SAVE", aiImage != null) {
                         aiImage?.let { img ->
                             aiStatus = if (com.arsniper.ml.AiWorld.saveToGallery(context, img)) "Saved to Gallery (Pictures/SnapBoo)" else "Could not save to Gallery"
