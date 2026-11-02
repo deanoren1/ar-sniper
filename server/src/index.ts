@@ -94,10 +94,10 @@ async function restyle(request: Request, env: Env): Promise<Response> {
     await refundQuota(env, `dev:${device}`);
     return Response.json({ error: "budget-reached" }, { status: 429 });
   }
-  const fail = async (status: number, error: string) => {
+  const fail = async (status: number, error: string, url?: string) => {
     await refundQuota(env, `dev:${device}`);
     await refundQuota(env, "global");
-    return Response.json({ error }, { status });
+    return Response.json({ error, url }, { status });
   };
 
   try {
@@ -112,14 +112,14 @@ async function restyle(request: Request, env: Env): Promise<Response> {
       provider === "muapi" ? await callMuapi(env, style, prompt, body, muModel, q.get("sandbox") === "1", size === "1024x1536")
       : provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model)
       : await callGemini(env, prompt, body);
-    if ("error" in result) return fail(502, result.error);
+    if ("error" in result) return fail(502, result.error, result.url);
     return new Response(result.bytes, { headers: { "content-type": result.mime, "cache-control": "no-store", "x-provider": provider } });
   } catch {
     return fail(502, "upstream-error");
   }
 }
 
-type ImageResult = { bytes: Uint8Array; mime: string } | { error: string };
+type ImageResult = { bytes: Uint8Array; mime: string } | { error: string; url?: string };
 
 function fromBase64(data: string): Uint8Array {
   const bin = atob(data);
@@ -240,7 +240,7 @@ async function callMuapi(env: Env, style: string, prompt: string, body: Uint8Arr
       let img = await fetch(url);
       // אם הכתובת מוגנת, מנסים שוב עם המפתח; בשגיאה מציגים את שם המארח כדי להבין אם זו כתובת דמה
       if (img.status === 403 || img.status === 401) img = await fetch(url, { headers: { "x-api-key": key } });
-      if (!img.ok) return { error: `muapi-download-${img.status}-${new URL(url).host}${sandbox ? "-sandbox" : ""}` };
+      if (!img.ok) return { error: `muapi-download-${img.status}-${new URL(url).host}${sandbox ? "-sandbox" : ""}`, url };
       return { bytes: new Uint8Array(await img.arrayBuffer()), mime: img.headers.get("content-type") ?? "image/jpeg" };
     }
     if (status === "failed" || status === "error") return { error: `muapi-failed-${String(json?.error ?? "").slice(0, 100).replace(/[^\w .:,-]/g, "")}` };

@@ -58,7 +58,10 @@ document.getElementById("run").onclick=async function(){
   var t=Date.now(),q="style=tundra&size="+(portrait?"portrait":"landscape"),label=m;
   if(m.indexOf("openai:")===0){q+="&provider=openai&model="+m.slice(7)}else{q+="&provider=muapi&model="+m+(sandbox?"&sandbox=1":"")}
   try{var r=await fetch("/restyle?"+q,{method:"POST",headers:{"x-device":device()},body:blob});
-   if(!r.ok){var tx=await r.text();card.innerHTML="<b>"+label+"</b><span class=bad>"+r.status+" "+tx.slice(0,200).replace(/</g,"&lt;")+"</span>";return}
+   if(!r.ok){var tx=await r.text(),ju=null;try{ju=JSON.parse(tx).url}catch(e){}
+    card.innerHTML="<b>"+label+"</b><span class=bad>"+r.status+" "+tx.slice(0,200).replace(/</g,"&lt;")+"</span>";
+    if(ju){var im2=new Image();im2.onerror=function(){im2.remove()};im2.src=ju;card.appendChild(im2);var lk=document.createElement("a");lk.href=ju;lk.target="_blank";lk.textContent="פתח את התמונה";lk.style.color="#4aa3ff";card.appendChild(lk)}
+    return}
    var b=await r.blob(),u=URL.createObjectURL(b),secs=((Date.now()-t)/1000).toFixed(0);
    if(b.type.indexOf("image")!==0){card.innerHTML="<b>"+label+"</b><span class=bad>not an image: "+b.type+"</span>";return}
    var im=new Image();im.onload=function(){card.innerHTML='<b>'+label+'</b><span class="mut">'+im.naturalWidth+"x"+im.naturalHeight+" · "+secs+"s</span>";card.appendChild(im)};im.src=u;
