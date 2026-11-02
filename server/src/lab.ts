@@ -20,6 +20,7 @@ button:disabled{opacity:.5}.mut{color:var(--mut);font-size:13px}.bad{color:var(-
   <img id="pre" hidden>
   <p class="mut">התמונה מוקטנת ל-1280 בצלע הארוכה לפני השליחה. כל תוצאה נספרת במכסה היומית.</p>
 </div>
+<div class="card">סגנון: <select id="style"><option value="tundra">טונדרה</option><option value="jungle">ג'ונגל</option><option value="rockforest">יער סלעי</option></select></div>
 <div class="card" id="models"></div>
 <div class="card">
   <label class="m"><input type="checkbox" id="sandbox"> Sandbox (נתוני דמה, בלי עלות)</label><br>
@@ -55,7 +56,7 @@ document.getElementById("run").onclick=async function(){
  document.getElementById("msg").textContent="רץ... עד כדקה";
  await Promise.all(sel.map(async function(m){
   var card=document.createElement("div");card.className="res";card.innerHTML="<b>"+m+"</b><span class=mut>מעבד...</span>";grid.prepend(card);
-  var t=Date.now(),q="style=tundra&size="+(portrait?"portrait":"landscape"),label=m;
+  var t=Date.now(),q="style="+document.getElementById("style").value+"&size="+(portrait?"portrait":"landscape"),label=m;
   if(m.indexOf("openai:")===0){q+="&provider=openai&model="+m.slice(7)}else{q+="&provider=muapi&model="+m+(sandbox?"&sandbox=1":"")}
   try{var r=await fetch("/restyle?"+q,{method:"POST",headers:{"x-device":device()},body:blob});
    if(!r.ok){var tx=await r.text(),ju=null;try{ju=JSON.parse(tx).url}catch(e){}
