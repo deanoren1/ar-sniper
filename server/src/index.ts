@@ -16,6 +16,8 @@
  * שליחת הטקסט "ping" מחזירה "pong".
  */
 
+import { LAB_HTML } from "./lab";
+
 export interface Env {
   ROOMS: DurableObjectNamespace;
   QUOTA: DurableObjectNamespace;
@@ -274,6 +276,7 @@ export default {
     }
 
     if (url.pathname === "/restyle") return restyle(request, env);
+    if (url.pathname === "/lab") return new Response(LAB_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 
     const match = url.pathname.match(/^\/room\/([A-Za-z0-9]{4,8})$/);
     if (match) {
