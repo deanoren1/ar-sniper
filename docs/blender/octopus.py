@@ -512,7 +512,7 @@ eye_parts = [
 iris_rim = torus("IrisRim", 0.37, 0.035, (0, -0.79, 0), IRIS, eye, rot=(math.pi / 2, 0, 0))
 eye_parts.insert(2, iris_rim)
 eye_parts.insert(0, torus("EyeSocketRim", 0.96, 0.070, (0, -0.13, 0), LID, eye, rot=(math.pi / 2, 0, 0)))
-look_parts = eye_parts[1:5]
+look_parts = eye_parts[2:6]  # iris, iris rim, pupil and highlight move together
 
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
