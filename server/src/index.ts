@@ -237,9 +237,14 @@ async function callMuapi(env: Env, style: string, prompt: string, body: Uint8Arr
       const first = json?.outputs?.[0];
       const url: string | undefined = typeof first === "string" ? first : first?.url;
       if (!url) return { error: "muapi-no-output" };
-      let img = await fetch(url);
-      // אם הכתובת מוגנת, מנסים שוב עם המפתח; בשגיאה מציגים את שם המארח כדי להבין אם זו כתובת דמה
-      if (img.status === 403 || img.status === 401) img = await fetch(url, { headers: { "x-api-key": key } });
+      // ה-CDN של Muapi חוסם בקשות בלי כותרות של דפדפן (403), לכן מזדהים כדפדפן
+      const browserHeaders = {
+        "user-agent": "Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+        accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
+        referer: "https://muapi.ai/",
+      };
+      let img = await fetch(url, { headers: browserHeaders });
+      if (img.status === 403 || img.status === 401) img = await fetch(url, { headers: { ...browserHeaders, "x-api-key": key } });
       if (!img.ok) return { error: `muapi-download-${img.status}-${new URL(url).host}${sandbox ? "-sandbox" : ""}`, url };
       return { bytes: new Uint8Array(await img.arrayBuffer()), mime: img.headers.get("content-type") ?? "image/jpeg" };
     }
