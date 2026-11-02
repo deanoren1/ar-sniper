@@ -237,8 +237,10 @@ async function callMuapi(env: Env, style: string, prompt: string, body: Uint8Arr
       const first = json?.outputs?.[0];
       const url: string | undefined = typeof first === "string" ? first : first?.url;
       if (!url) return { error: "muapi-no-output" };
-      const img = await fetch(url);
-      if (!img.ok) return { error: `muapi-download-${img.status}` };
+      let img = await fetch(url);
+      // אם הכתובת מוגנת, מנסים שוב עם המפתח; בשגיאה מציגים את שם המארח כדי להבין אם זו כתובת דמה
+      if (img.status === 403 || img.status === 401) img = await fetch(url, { headers: { "x-api-key": key } });
+      if (!img.ok) return { error: `muapi-download-${img.status}-${new URL(url).host}${sandbox ? "-sandbox" : ""}` };
       return { bytes: new Uint8Array(await img.arrayBuffer()), mime: img.headers.get("content-type") ?? "image/jpeg" };
     }
     if (status === "failed" || status === "error") return { error: `muapi-failed-${String(json?.error ?? "").slice(0, 100).replace(/[^\w .:,-]/g, "")}` };
