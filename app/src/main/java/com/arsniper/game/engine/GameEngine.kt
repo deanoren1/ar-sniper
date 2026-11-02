@@ -495,8 +495,8 @@ class GameEngine(
         val mapper = ctx.mapper
         val aspect = mapper.screenAspect
         // דגימה צפופה יותר (גם ראש וכתפיים, וכל רוחב הגוף): דמות לא תעמוד כשחלק ממנה נחתך בקצה מרוטש של עצם
-        val ys = floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r, feetY - 2.4f * r)
-        val dxs = floatArrayOf(-1.0f, -0.5f, 0f, 0.5f, 1.0f)
+        val ys = if (strictSpots) floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r, feetY - 2.4f * r) else floatArrayOf(feetY - 0.2f * r, feetY - r, feetY - 1.8f * r)
+        val dxs = if (strictSpots) floatArrayOf(-1.0f, -0.5f, 0f, 0.5f, 1.0f) else floatArrayOf(-0.4f, 0f, 0.4f)
         for (spot in ctx.spots) {
             if (spot === ignore) continue
             for (y in ys) {
@@ -627,7 +627,7 @@ class GameEngine(
         // נראים כמו חיתוך ישר בדמות ולא כמו הסתתרות מאחורי עצם
         val dIn = ctx.depthAt(edgeX - outward * (0.3f * r) / aspect, centerY)
         val dOut = ctx.depthAt(edgeX + outward * (0.5f * r) / aspect, centerY)
-        if (!dIn.isNaN() && !dOut.isNaN() && dOut < dIn * SIDE_PEEK_MIN_DEPTH_GAP) return rej(10)
+        if (strictSpots && !dIn.isNaN() && !dOut.isNaN() && dOut < dIn * SIDE_PEEK_MIN_DEPTH_GAP) return rej(10)
 
         val peek = Vec2(peekX, centerY)
         val hide = Vec2(hideX, centerY)
@@ -698,6 +698,12 @@ class GameEngine(
 
     /** דמות הולכת חדשה: יוצאת מאחורי עצם גבוה, נכנסת מקצה התמונה, או מגיעה מקצה הרצפה הרחוק */
     private val failCounts = IntArray(4)
+
+    /**
+     * בדיקות מחמירות למיקום דמויות (דגימת הסתרה צפופה, מציץ רק מעצם בולט). אם בתמונה כמעט אין איפה לשים
+     * דמויות בכללים האלה, המסך מכבה אותן (strictSpots = false) במקום להציג "אין מקום למפלצות"
+     */
+    var strictSpots: Boolean = true
 
     /** מונה סיבות דחייה של מחבואים (לאבחון): 0 מחוץ למסך, 1 אין קרקע, 2 גודל, 3-8 עולה מאחורי עצם נמוך, 9 קרוב מדי, 10 מציץ מהצד, 11 חלון */
     private val coverFail = IntArray(12)

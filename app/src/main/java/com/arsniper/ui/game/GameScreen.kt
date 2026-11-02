@@ -435,6 +435,10 @@ fun GameScreen(
                 return@LaunchedEffect
             }
             // תמונה בלי רצפה או מחבואים (למשל אמבטיה מלאה במשטחים): אין איפה לשים מפלצות. לא מתחילים משחק ריק.
+            if (sceneContext != null) {
+                engine.strictSpots = true
+                if (engine.replenish(emptyList(), 4, aspect).size < 2) engine.strictSpots = false
+            }
             if (sceneContext != null && engine.replenish(emptyList(), 4, aspect).size < 2) {
                 noRoom = true
                 return@LaunchedEffect
