@@ -33,11 +33,11 @@ var box=document.getElementById("models");
 MODELS.forEach(function(m,i){var l=document.createElement("label");l.className="m";
  l.innerHTML='<input type="checkbox" value="'+m+'"'+(i<4?" checked":"")+'> '+m;box.appendChild(l)});
 var oa=document.createElement("label");oa.className="m";oa.innerHTML='<input type="checkbox" value="openai:gpt-image-1-mini"> openai gpt-image-1-mini';box.appendChild(oa);
-var blob=null,file=document.getElementById("file");
+var blob=null,portrait=false,file=document.getElementById("file");
 function device(){try{var d=localStorage.getItem("dev");if(!d){d=(crypto.randomUUID?crypto.randomUUID():String(Math.random())).replace(/-/g,"").slice(0,32);localStorage.setItem("dev",d)}return d}catch(e){return "lab"+Math.random().toString(36).slice(2,14)}}
 file.onchange=function(){var f=file.files[0];if(!f)return;var img=new Image();img.onload=function(){
  var s=Math.min(1,1280/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
- c.getContext("2d").drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){blob=b;var p=document.getElementById("pre");p.src=URL.createObjectURL(b);p.hidden=false;
+ portrait=c.height>c.width;c.getContext("2d").drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){blob=b;var p=document.getElementById("pre");p.src=URL.createObjectURL(b);p.hidden=false;
  document.getElementById("msg").textContent=c.width+"x"+c.height+", "+Math.round(b.size/1024)+" KB"},"image/jpeg",0.9)};img.src=URL.createObjectURL(f)};
 document.getElementById("diag").onclick=async function(){
  var o=document.getElementById("dout");o.textContent="";
@@ -55,7 +55,7 @@ document.getElementById("run").onclick=async function(){
  document.getElementById("msg").textContent="רץ... עד כדקה";
  await Promise.all(sel.map(async function(m){
   var card=document.createElement("div");card.className="res";card.innerHTML="<b>"+m+"</b><span class=mut>מעבד...</span>";grid.prepend(card);
-  var t=Date.now(),q="style=tundra",label=m;
+  var t=Date.now(),q="style=tundra&size="+(portrait?"portrait":"landscape"),label=m;
   if(m.indexOf("openai:")===0){q+="&provider=openai&model="+m.slice(7)}else{q+="&provider=muapi&model="+m+(sandbox?"&sandbox=1":"")}
   try{var r=await fetch("/restyle?"+q,{method:"POST",headers:{"x-device":device()},body:blob});
    if(!r.ok){var tx=await r.text();card.innerHTML="<b>"+label+"</b><span class=bad>"+r.status+" "+tx.slice(0,200).replace(/</g,"&lt;")+"</span>";return}

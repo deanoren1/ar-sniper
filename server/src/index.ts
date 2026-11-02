@@ -109,7 +109,7 @@ async function restyle(request: Request, env: Env): Promise<Response> {
     const model = /^gpt-image-[a-z0-9.\-]{1,30}$/.test(q.get("model") ?? "") ? (q.get("model") as string) : undefined;
     const muModel = MUAPI_MODELS.includes(q.get("model") ?? "") ? (q.get("model") as string) : "qwen3-image-to-image";
     const result =
-      provider === "muapi" ? await callMuapi(env, prompt, body, muModel, q.get("sandbox") === "1")
+      provider === "muapi" ? await callMuapi(env, prompt, body, muModel, q.get("sandbox") === "1", size === "1024x1536")
       : provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model)
       : await callGemini(env, prompt, body);
     if ("error" in result) return fail(502, result.error);
@@ -189,7 +189,7 @@ const MUAPI_MODELS = [
 const MUAPI_BASE = "https://api.muapi.ai/api/v1";
 
 /** Muapi: מעלים את התמונה, שולחים בקשה לדגם ובודקים את התוצאה עד שהיא מוכנה (עד כדקה) */
-async function callMuapi(env: Env, prompt: string, body: Uint8Array, model: string, sandbox: boolean): Promise<ImageResult> {
+async function callMuapi(env: Env, prompt: string, body: Uint8Array, model: string, sandbox: boolean, portrait: boolean): Promise<ImageResult> {
   const key = sandbox ? env.MUAPI_KEY_TEST : env.MUAPI_KEY;
   if (!key) return { error: "muapi-not-configured" };
   const clip = async (res: Response) => (await res.text()).slice(0, 160).replace(/[^\w .:,-]/g, "");
@@ -203,9 +203,14 @@ async function callMuapi(env: Env, prompt: string, body: Uint8Array, model: stri
   const submit = await fetch(`${MUAPI_BASE}/${model}`, {
     method: "POST",
     headers: { "x-api-key": key, "content-type": "application/json" },
+    // לדגמים שונים שמות שדות שונים לתמונה ולגודל: שולחים את כולם (שדות מיותרים מתעלמים מהם)
     body: JSON.stringify({
       prompt: prompt + " Keep the exact image dimensions and aspect ratio; do not crop, zoom or rotate.",
+      image_url: imageUrl,
       images_list: [imageUrl],
+      aspect_ratio: portrait ? "9:16" : "16:9",
+      width: portrait ? 864 : 1536,
+      height: portrait ? 1536 : 864,
     }),
   });
   if (!submit.ok) return { error: `muapi-submit-${submit.status}-${await clip(submit)}` };
