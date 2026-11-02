@@ -125,18 +125,18 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.70, 0.008, 0.84), rough=0.23, coat=0.58)
+PURPLE = mat("Purple", (0.78, 0.012, 0.78), rough=0.23, coat=0.58)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.66, 0.020, 0.72), rough=0.22, coat=0.66)
 add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (0.92, 0.018, 0.54), rough=0.48, coat=0.12, emit=(0.018, 0.001, 0.010), strength=0.005)
+SPOT = mat("Spot", (0.92, 0.018, 0.54), rough=0.36, coat=0.28, emit=(0.018, 0.001, 0.010), strength=0.005)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.74, 0.30), rough=0.20, coat=0.46,
                  emit=(0.10, 0.060, 0.006), strength=0.026)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.17, 0.002), rough=0.24, coat=0.26, emit=(1.0, 0.20, 0.001), strength=0.42)
+IRIS = mat("Iris", (1.0, 0.22, 0.004), rough=0.34, coat=0.34, emit=(1.0, 0.18, 0.002), strength=0.12)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=1.0, coat=0.0, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -164,9 +164,10 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.075, 0.008, 0.14), rough=0.72, coat=0.10)
+SUCKER = mat("Sucker", (0.055, 0.004, 0.11), rough=0.78, coat=0.06)
+SUCKER_RIM = mat("SuckerRim", (0.22, 0.018, 0.31), rough=0.48, coat=0.18)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.44, 0.008, 0.72), rough=0.31, coat=0.38,
+TENTACLE = mat("Tentacle", (0.58, 0.010, 0.74), rough=0.31, coat=0.38,
                emit=(0.018, 0.001, 0.040), strength=0.012)
 TANK = mat("Tank", (0.82, 0.010, 0.52), rough=0.34, metal=0.16, coat=0.42)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
@@ -504,14 +505,16 @@ eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
     sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.58, 1.00), seg=64),
     # Place the iris and pupil well in front of the sclera so the orange ring cannot be occluded.
-    sphere("Iris", 0.55, (0, -0.49, -0.015), IRIS, eye, scale=(1.00, 0.46, 1.00), seg=64),
-    sphere("Pupil", 0.25, (0, -0.70, -0.015), PUPIL, eye, scale=(1.00, 0.52, 1.00), seg=56),
-    sphere("Shine", 0.105, (0.11, -0.81, 0.16), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    sphere("Iris", 0.49, (0, -0.56, 0.0), IRIS, eye, scale=(1.00, 0.22, 1.00), seg=64),
+    sphere("Pupil", 0.25, (0, -0.75, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
+    sphere("Shine", 0.105, (0.11, -0.86, 0.16), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
-look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.975, 0.038, (0, -0.50, 0), LID, eye, rot=(math.pi / 2, 0, 0))
+iris_rim = torus("IrisRim", 0.37, 0.055, (0, -0.79, 0), IRIS, eye, rot=(math.pi / 2, 0, 0))
+eye_parts.insert(2, iris_rim)
+look_parts = eye_parts[1:5]
+eye_socket = torus("EyeSocket", 0.935, 0.020, (0, -0.55, 0), PURPLE, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.0, 1.0, 0.99)
-eye_outer_rim = torus("EyeOuterRim", 0.994, 0.009, (0, -0.47, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_outer_rim = torus("EyeOuterRim", 0.955, 0.006, (0, -0.54, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
 def make_upper_eyelid(parent):
@@ -570,9 +573,9 @@ mouth = empty("Mouth", pivot, loc=(0, -1.29, -0.62))
 mouth.scale = (1.42, 1.0, 1.12)
 mouth_parts = [sphere("MouthCavity", 0.43, (0, 0, 0), MOUTH, mouth,
                       scale=(1.42, 0.46, 0.64), seg=64)]
-mouth_lip = torus("MouthLip", 0.43, 0.028, (0, -0.085, 0), LID, mouth,
+mouth_lip = torus("MouthLip", 0.43, 0.018, (0, -0.085, 0), PURPLE, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.30, 0.68, 0.70)
+mouth_lip.scale = (1.24, 0.64, 0.62)
 for i, (x, h, width) in enumerate(((-0.50, 0.19, 0.095), (0.50, 0.19, 0.095))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.23, 0.19 - h / 2), TEETH, mouth,
@@ -750,9 +753,9 @@ def arm_center(t, style="outer"):
     """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
         # Deep outward sweep followed by a raised tip: a true open C-curl like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.62, -0.58), (2.05, -1.08), (1.12, 0.48)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.72, -0.46), (2.15, -1.00), (1.55, 0.18)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.46, -0.76), (1.95, -1.62), (0.84, -0.82)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.50, -0.72), (1.78, -1.48), (1.12, -0.72)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.24, -0.54), (1.10, -1.18), (0.72, -0.55)
     u = 1.0 - t
@@ -852,10 +855,14 @@ for i in range(8):
             cup_normal = Vector((0.0, 1.0, 0.0))
         cup_normal.normalize()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
-        hole_pos = center + cup_normal * rr * 1.002
+        # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
+        hole_pos = center + cup_normal * rr * 0.984
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.32, rr * 0.28, rr * 0.040), rot=normal_rot(cup_normal), seg=24)
-        # Keep suction cups recessed and organic; no raised mechanical rim.
+               scale=(rr * 0.22, rr * 0.22, rr * 0.014), rot=normal_rot(cup_normal), seg=24)
+        rim_pos = center + cup_normal * rr * 0.998
+        torus(f"SuckerRim{i}_{q}", rr * 0.235, rr * 0.048, tuple(rim_pos),
+              SUCKER_RIM, root, rot=normal_rot(cup_normal))
+        # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.24, 0.50, 0.76)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
