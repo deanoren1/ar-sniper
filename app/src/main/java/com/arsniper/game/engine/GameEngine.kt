@@ -178,9 +178,7 @@ class GameEngine(
         val hiding = enemy.spot
         if (hiding != null) return stepEmerging(enemy, hiding, dt)
         // מפלצת בלונים בלי בלונים: מוממת על הקרקע, לא זזה
-        if (Hover.isGrounded(enemy)) return landed(enemy).copy(state = EnemyState.Idle, timer = 1f)
-        // מפלצת בלונים עם בלונים: עפה באוויר ממקום למקום, בלי קשר לקרקע
-        if (Hover.isBalloonMonster(enemy) && enemy.maxHp > 0) return flyStep(enemy, dt)
+        if (Hover.isGrounded(enemy)) return enemy.copy(state = EnemyState.Idle, timer = 1f)
 
         val timer = enemy.timer - dt
         return when (enemy.state) {
@@ -820,78 +818,6 @@ class GameEngine(
         return true
     }
 
-    /** מפלצת בלונים באוויר: סחיפה לרוחב, מתהפכת בקצוות ולפעמים באמצע. הגובה נשאר, והציור מרים אותה */
-    private fun flyStep(enemy: Enemy, dt: Float): Enemy {
-        var dir = if (enemy.direction >= 0f) 1f else -1f
-        var timer = enemy.timer - dt
-        val x = enemy.position.x + dir * BALLOON_FLY_SPEED * dt
-        if (x < BALLOON_MIN_X && dir < 0f) dir = 1f
-        if (x > BALLOON_MAX_X && dir > 0f) dir = -1f
-        if (timer <= 0f) {
-            if (x > BALLOON_MIN_X + 0.1f && x < BALLOON_MAX_X - 0.1f && random.nextFloat() < 0.5f) dir = -dir
-            timer = randomBetween(3f, 6f)
-        }
-        return enemy.copy(
-            position = Vec2(x, enemy.position.y),
-            direction = dir,
-            timer = timer,
-            state = EnemyState.Walking,
-            phase = enemy.phase + WALK_SPEED * dt * PHASE_PER_RADIUS * 0.3f
-        )
-    }
-
-    /** מפלצת בלונים שנפלה: אם הנקודה שמתחתיה לא קרקע, היא נוחתת בנקודת הקרקע הקרובה ביותר */
-    private fun landed(enemy: Enemy): Enemy {
-        val ctx = scene ?: return enemy
-        val feetY = enemy.position.y + enemy.radius
-        if (ctx.isWalkable(enemy.position.x, feetY + GROUND_PROBE)) return enemy
-        for (k in 1..40) {
-            val d = k * 0.02f
-            // קודם למטה (נפילה), ואז לצדדים
-            val offsets = arrayOf(
-                0f to d, -d to d, d to d, -d to 0f, d to 0f, 0f to -d, -d to -d, d to -d
-            )
-            for ((dx, dy) in offsets) {
-                val nx = enemy.position.x + dx
-                val ny = feetY + dy
-                if (nx < 0.06f || nx > 0.94f || ny < 0.2f || ny > 0.95f) continue
-                if (!ctx.isWalkable(nx, ny + GROUND_PROBE)) continue
-                val r = radiusForFeet(ny)
-                if (!sizeOk(r)) continue
-                return enemy.copy(position = Vec2(nx, ny - r), radius = r)
-            }
-        }
-        return enemy
-    }
-
-    /** כניסה של מפלצת בלונים מקצה המסך, באוויר: בלי צורך בקרקע. הצד הריק יותר מועדף. null אם אין מקום מתאים */
-    fun balloonEntry(existing: List<Enemy>): Enemy? {
-        val ctx = scene ?: return null
-        val aspect = ctx.mapper.screenAspect
-        val onLeft = existing.count { it.isAlive && it.position.x < 0.5f }
-        val onRight = existing.count { it.isAlive && it.position.x >= 0.5f }
-        repeat(15) {
-            val fromLeft = if (onLeft != onRight) onLeft < onRight else random.nextBoolean()
-            val farLimit = (ctx.mapper.worldY(ground.horizon) + 0.05f).coerceIn(0.3f, 0.7f)
-            val feetY = farLimit + (0.9f - farLimit) * random.nextFloat()
-            val r = radiusForFeet(feetY)
-            if (!sizeOk(r)) return@repeat
-            val inward = if (fromLeft) 1f else -1f
-            val startX = if (fromLeft) -(FIGURE_HALF_WIDTH * r / aspect) - 0.01f
-            else 1f + (FIGURE_HALF_WIDTH * r / aspect) + 0.01f
-            return Enemy(
-                id = nextEnemyId++,
-                position = Vec2(startX, feetY - r),
-                radius = r,
-                kind = EnemyKind.Open,
-                state = EnemyState.Walking,
-                timer = randomBetween(3f, 6f),
-                direction = inward
-            )
-        }
-        return null
-    }
-
     /**
      * דמות שמתחילה מחוץ לתמונה (בקצה ימין או שמאל) על קרקע שמתחילה שם, וצועדת פנימה.
      * בודקים שהדרך הראשונה פנימה פנויה (קרקע, בלי עצמים קרובים יותר), ושהגודל סביר.
@@ -1079,10 +1005,6 @@ class GameEngine(
         from + random.nextFloat() * (to - from)
 
     companion object {
-        /** מהירות הסחיפה של מפלצת בלונים (יחידות מסך לשנייה) וגבולות התנועה */
-        private const val BALLOON_FLY_SPEED = 0.09f
-        private const val BALLOON_MIN_X = 0.1f
-        private const val BALLOON_MAX_X = 0.9f
         /** יחס עומק מינימלי בין מחוץ לקצה לבין העצם עצמו כדי שייחשב עצם בולט */
         private const val SIDE_PEEK_MIN_DEPTH_GAP = 1.12f
         private const val PEEK_SECONDS = 0.3f

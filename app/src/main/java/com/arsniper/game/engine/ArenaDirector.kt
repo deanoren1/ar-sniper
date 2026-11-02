@@ -399,7 +399,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
             val next = if (moving != null) foeOfRow(moving) else queue.first()
             if (aliveArena == 0 || threat + next.threat <= currentWave.maxThreat) {
                 val grown = engine.replenish(enemies, alive + 1, aspect)
-                val adopted = adopt(grown, engine)
+                val adopted = adopt(grown)
                 rememberAlive(adopted)
                 return adopted
             }
@@ -418,7 +418,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     }
 
     /** מפלצת חדשה שהמנוע יצר מקבלת סוג מהתור: מספר חדש (id % 5 = שורת הספרייט) וחיים לפי הסוג */
-    private fun adopt(list: List<Enemy>, engine: GameEngine): List<Enemy> {
+    private fun adopt(list: List<Enemy>): List<Enemy> {
         var assigned = false
         val out = ArrayList<Enemy>(list.size)
         for (e in list) {
@@ -453,12 +453,10 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                     assigned = true
                     continue
                 }
-                // מפלצת בלונים עפה: נכנסת מהצד באוויר גם כשאין שם קרקע. אם אין מקום מתאים, נשארת כפי שנוצרה
-                val base = if (foe == Foe.Balloon) engine.balloonEntry(list + out) ?: e else e
                 val id = ID_BASE + nextSeq * 5 + foe.row
                 nextSeq++
                 foeById[id] = foe
-                out.add(base.copy(id = id, maxHp = foe.hp * HP_SCALE, hp = foe.hp * HP_SCALE))
+                out.add(e.copy(id = id, maxHp = foe.hp * HP_SCALE, hp = foe.hp * HP_SCALE))
                 assigned = true
             } else {
                 out.add(e)
