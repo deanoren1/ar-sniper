@@ -109,7 +109,7 @@ async function restyle(request: Request, env: Env): Promise<Response> {
     const model = /^gpt-image-[a-z0-9.\-]{1,30}$/.test(q.get("model") ?? "") ? (q.get("model") as string) : undefined;
     const muModel = MUAPI_MODELS.includes(q.get("model") ?? "") ? (q.get("model") as string) : "qwen3-image-to-image";
     const result =
-      provider === "muapi" ? await callMuapi(env, prompt, body, muModel, q.get("sandbox") === "1", size === "1024x1536")
+      provider === "muapi" ? await callMuapi(env, style, prompt, body, muModel, q.get("sandbox") === "1", size === "1024x1536")
       : provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model)
       : await callGemini(env, prompt, body);
     if ("error" in result) return fail(502, result.error);
@@ -186,10 +186,20 @@ const MUAPI_MODELS = [
   "muse-image-edit",
   "bytedance-seededit-v3",
 ];
+/** גרסה קצרה של הפרומפט (ל-Muapi יש תקרה של 800 תווים לפרומפט) */
+const SHORT_PROMPTS: Record<string, string> = {
+  tundra:
+    "Transform this exact photo into a dramatic frozen tundra winter scene, photorealistic, AAA game look. " +
+    "Heavy fresh snow on every upward-facing surface, frost and ice crystals on walls and objects, glossy icy reflective floor with snow patches. " +
+    "Cold cinematic light, deep blue shadows, soft cyan highlights, but keep natural color variety: warm lights and colored objects stay recognizable. " +
+    "Keep the far end of the scene clearly visible and detailed, only a light haze, no white fog wall. Sharp, high contrast, not monochrome. " +
+    "Keep the exact same camera, framing and composition, and the exact position, size and shape of every wall, pillar, object and opening. " +
+    "Do not add, remove or move anything. No people, no text. Keep exact image dimensions and aspect ratio; no crop, zoom or rotate.",
+};
 const MUAPI_BASE = "https://api.muapi.ai/api/v1";
 
 /** Muapi: מעלים את התמונה, שולחים בקשה לדגם ובודקים את התוצאה עד שהיא מוכנה (עד כדקה) */
-async function callMuapi(env: Env, prompt: string, body: Uint8Array, model: string, sandbox: boolean, portrait: boolean): Promise<ImageResult> {
+async function callMuapi(env: Env, style: string, prompt: string, body: Uint8Array, model: string, sandbox: boolean, portrait: boolean): Promise<ImageResult> {
   const key = sandbox ? env.MUAPI_KEY_TEST : env.MUAPI_KEY;
   if (!key) return { error: "muapi-not-configured" };
   const clip = async (res: Response) => (await res.text()).slice(0, 160).replace(/[^\w .:,-]/g, "");
@@ -205,7 +215,7 @@ async function callMuapi(env: Env, prompt: string, body: Uint8Array, model: stri
     headers: { "x-api-key": key, "content-type": "application/json" },
     // לדגמים שונים שמות שדות שונים לתמונה ולגודל: שולחים את כולם (שדות מיותרים מתעלמים מהם)
     body: JSON.stringify({
-      prompt: prompt + " Keep the exact image dimensions and aspect ratio; do not crop, zoom or rotate.",
+      prompt: (SHORT_PROMPTS[style] ?? prompt).slice(0, 790),
       image_url: imageUrl,
       images_list: [imageUrl],
       aspect_ratio: portrait ? "9:16" : "16:9",
