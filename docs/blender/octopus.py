@@ -112,13 +112,13 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.10, 0.26, 0.48, 1.0)
+    shell.inputs["Base Color"].default_value = (0.055, 0.18, 0.34, 1.0)
     shell.inputs["Roughness"].default_value = 0.08
     shell.inputs["Metallic"].default_value = 0.0
     shell.inputs["Coat Weight"].default_value = 0.26
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.72  # Mostly transparent glass; blue remains in the rim and softbox reflections.
+    mix.inputs[0].default_value = 0.12  # Keep the dome genuinely clear; color comes mainly from its rim and reflections.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -133,7 +133,7 @@ add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.92, 0.045, 0.62), rough=0.42, coat=0.18)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.64, 0.22), rough=0.22, coat=0.42,
+EYE_WHITE = mat("EyeWhite", (1.0, 0.78, 0.46), rough=0.22, coat=0.42,
                  emit=(0.08, 0.055, 0.010), strength=0.018)
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
 IRIS = mat("Iris", (1.0, 0.13, 0.002), rough=0.34, coat=0.32, emit=(0.72, 0.08, 0.002), strength=0.025)
@@ -478,9 +478,12 @@ for i, (sx, sz, rx, rz) in enumerate((
 
 # Short crown spikes are seated on the actual mantle profile, not on an unrelated sphere.
 # This removes the visible floating gap and follows the rounded forehead silhouette.
-for i, (x, height) in enumerate(((-1.02, 0.22), (-0.55, 0.25), (0.0, 0.28), (0.55, 0.25), (1.02, 0.22))):
-    # The spikes sit on the crown silhouette and emerge above the large eye instead of hiding behind it.
-    horn = cone(f"Horn{i}", 0.095, 0.0, height, (x, -0.34, 1.24 + height / 2),
+for i, (x, base_z, height) in enumerate((
+    (-1.02, 0.80, 0.22), (-0.55, 1.16, 0.25), (0.0, 1.28, 0.28),
+    (0.55, 1.16, 0.25), (1.02, 0.80, 0.22)
+)):
+    # Each spike base meets the curved mantle surface instead of floating beside it or being buried.
+    horn = cone(f"Horn{i}", 0.095, 0.0, height, (x, -0.34, base_z + height / 2),
                 SPOT, pivot, rot=(0.0, 0.0, (x / 1.02) * 0.22))
     horn_bevel = horn.modifiers.new("HornSoftEdges", "BEVEL")
     horn_bevel.width = 0.022
@@ -689,7 +692,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -1.20
-DOME_RADII = (2.58, 2.10, 3.90)  # a taller bubble with clear breathing room above the crown
+DOME_RADII = (2.40, 2.00, 3.15)  # tighter bubble, closer to the reference proportions
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A smooth blue arch traces only the upper glass silhouette.
 dome_arch = []
@@ -710,8 +713,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.006), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -1.48, 1.48, 0.29, 0.46, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 1.48, 1.50, 0.27, 0.42, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -1.28, 1.45, 0.23, 0.38, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 1.28, 1.45, 0.23, 0.36, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.34, 0.29, 0.24, 0.19]
@@ -861,10 +864,10 @@ for i in range(8):
         cup_normal.normalize()
         rr = arm_radius(t) * (0.82 if style == "rear" else 0.88)
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
-        hole_pos = center + cup_normal * rr * 0.945
+        hole_pos = center + cup_normal * rr * 0.965
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.30, rr * 0.30, rr * 0.018), rot=normal_rot(cup_normal), seg=24)
-        rim_pos = center + cup_normal * rr * 0.982
+               scale=(rr * 0.34, rr * 0.34, rr * 0.030), rot=normal_rot(cup_normal), seg=24)
+        rim_pos = center + cup_normal * rr * 0.995
         torus(f"SuckerRim{i}_{q}", rr * 0.29, rr * 0.018, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
