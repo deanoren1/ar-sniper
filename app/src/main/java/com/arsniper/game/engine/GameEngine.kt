@@ -36,12 +36,14 @@ class GameEngine(
 
     /** כמה זמן (שניות) כל דמות הולכת נתקעה במקום (מסתובבת בלי להתקדם); מי שנתקעה זמן רב מוסרת */
     private val stuckTime = HashMap<Int, Float>()
+    private val turnScore = HashMap<Int, Float>()
     private var scene: SceneContext? = null
 
     /** מגדיר את הסצנה (או null אם אין ניתוח: אז האויבים עומדים במקומות אקראיים) */
     fun configure(scene: SceneContext?) {
         this.scene = scene
         stuckTime.clear()
+        turnScore.clear()
         this.scale = if (scene != null) calibrateScale(scene) else DEFAULT_SCALE
         this.ground = if (scene != null) GroundModel.fit(scene) else GroundModel.default()
     }
@@ -227,6 +229,15 @@ class GameEngine(
      * וכל צעד לשני הכיוונים נחסם. דמות תקועה מוסרת, ובמקומה תיכנס אחרת.
      */
     private fun isStuck(before: Enemy, after: Enemy, dt: Float): Boolean {
+        // ריצוד בקצה: צעד אחד, חסימה, הסתובבות, צעד חזרה, חסימה... המיקום משתנה אז הבדיקה הרגילה לא תופסת. סופרים הסתובבויות
+        val score = max((turnScore[before.id] ?: 0f) - dt * 2f, 0f) +
+            if (after.direction != before.direction) 1f else 0f
+        if (score >= TURN_STUCK_SCORE) {
+            turnScore.remove(before.id)
+            stuckTime.remove(before.id)
+            return true
+        }
+        if (score > 0f) turnScore[before.id] = score else turnScore.remove(before.id)
         if (after.position != before.position || after.radius != before.radius) {
             stuckTime.remove(before.id)
             return false
@@ -1018,6 +1029,7 @@ class GameEngine(
 
         /** דמות הולכת שלא מתקדמת כל כך הרבה זמן (שניות) נחשבת תקועה */
         private const val STUCK_SECONDS = 0.7f
+        private const val TURN_STUCK_SCORE = 6f
 
         /** סימולציית הליכה לפני יצירת דמות: כמה צעדים, אורך צעד (שניות), ואחרי כמה זמן בלי תזוזה פוסלים */
         private const val ROAM_STEPS = 40
