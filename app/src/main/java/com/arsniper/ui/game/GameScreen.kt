@@ -81,6 +81,8 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
 import kotlinx.coroutines.delay
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.draw.drawWithContent
 import kotlinx.coroutines.launch
 
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
@@ -183,6 +185,8 @@ fun GameScreen(
     val photo = remember { PhotoRepository.load(context)?.asImageBitmap() }
     val frameVariant = 0 // מסגרת טונדרה מעוצבת: הפוטוריאליסטית (arena_frame_tundra_v0)
     var themed by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    // עולם AI שנוצר עכשיו (לא מהמטמון): נחשף במעבר דרמטי. מהמטמון או מהעיצוב המקומי: דהייה רגילה
+    var themedFresh by remember { mutableStateOf(false) }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
     val soundPlayer = remember { SoundPlayer(context) }
@@ -400,6 +404,7 @@ fun GameScreen(
                                 com.arsniper.ml.AiWorld.createWorld(context, key, aiStyle, source)
                             }
                             if (made != null) {
+                                themedFresh = true
                                 themed = made.asImageBitmap()
                             } else if (style == ArenaStyle.Tundra) {
                                 // אין AI (בלי רשת, מכסה או תקלה): העיצוב המקומי של הטונדרה
@@ -1431,9 +1436,38 @@ fun GameScreen(
             themed?.let { t ->
                 var fadeIn by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { fadeIn = true }
-                val themedAlpha by androidx.compose.animation.core.animateFloatAsState(if (fadeIn) 1f else 0f, androidx.compose.animation.core.tween(900), label = "themedFade")
-                androidx.compose.foundation.layout.Box(Modifier.graphicsLayer { alpha = themedAlpha }) {
-                    BackgroundLayer(photo = t, colorFilter = null)
+                val fresh = themedFresh
+                val themedAlpha by androidx.compose.animation.core.animateFloatAsState(
+                    if (fadeIn) 1f else 0f,
+                    if (fresh) androidx.compose.animation.core.tween(2200, easing = androidx.compose.animation.core.FastOutSlowInEasing) else androidx.compose.animation.core.tween(900),
+                    label = "themedFade"
+                )
+                if (fresh) {
+                    // מעבר ראשון: גל שמתפשט מהמרכז וממיר את המקור לעולם החדש, עם טבעת זוהרת בקצה
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.drawWithContent {
+                            val maxR = kotlin.math.hypot(size.width, size.height) / 2f
+                            val r = maxR * themedAlpha
+                            val path = androidx.compose.ui.graphics.Path().apply {
+                                addOval(androidx.compose.ui.geometry.Rect(center, r))
+                            }
+                            clipPath(path) { this@drawWithContent.drawContent() }
+                            if (themedAlpha < 0.995f) {
+                                drawCircle(
+                                    color = Color(0xFFBFEFFF).copy(alpha = 0.85f * (1f - themedAlpha)),
+                                    radius = r,
+                                    center = center,
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = size.height * 0.035f)
+                                )
+                            }
+                        }
+                    ) {
+                        BackgroundLayer(photo = t, colorFilter = null)
+                    }
+                } else {
+                    androidx.compose.foundation.layout.Box(Modifier.graphicsLayer { alpha = themedAlpha }) {
+                        BackgroundLayer(photo = t, colorFilter = null)
+                    }
                 }
             }
             // בלי קישוטים ואפקטים בכל הארנות: רק השלג בטונדרה
