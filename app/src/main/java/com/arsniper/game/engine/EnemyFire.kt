@@ -84,6 +84,7 @@ class EnemyFire(private val random: Random = Random.Default) {
     private class Telegraph(val enemyId: Int, val start: Float, val duration: Float)
 
     private val telegraphs = ArrayList<Telegraph>()
+    private val lostSince = HashMap<Int, Float>()
     private val nextAttack = HashMap<Int, Float>()
     private var nextShotId = 1
 
@@ -158,6 +159,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         while (tIterator.hasNext()) {
             val t = tIterator.next()
             val enemy = enemies.firstOrNull { it.id == t.enemyId }
+            if (enemy != null && canAttack(enemy)) lostSince.remove(enemy.id)
             if (enemy == null) {
                 tIterator.remove()
             } else if (!enemy.isAlive) {
@@ -167,10 +169,15 @@ class EnemyFire(private val random: Random = Random.Default) {
                 // הושבתה באמצע ההכנה (פגיעה בנקודת תורפה)
                 tIterator.remove()
             } else if (!canAttack(enemy)) {
-                // התחבאה באמצע ההכנה: לא יורה
-                tIterator.remove()
-                nextAttack[enemy.id] = time + cooldownFor(enemy.id, wave, director)
+                // התחבאה באמצע ההכנה: לא יורה. הפסקה קצרה (למשל דמות שמתהפכת בין כיוונים כשהיא תקועה) לא מבטלת
+                val since = lostSince.getOrPut(enemy.id) { time }
+                if (time - since >= LOST_GRACE) {
+                    lostSince.remove(enemy.id)
+                    tIterator.remove()
+                    nextAttack[enemy.id] = time + cooldownFor(enemy.id, wave, director)
+                }
             } else if (time - t.start >= t.duration) {
+                lostSince.remove(enemy.id)
                 launch(enemy, director, wave)
                 tIterator.remove()
                 nextAttack[enemy.id] = time + cooldownFor(enemy.id, wave, director)
@@ -358,6 +365,7 @@ class EnemyFire(private val random: Random = Random.Default) {
     companion object {
         /** כמה זמן המפלצת מהבהבת לפני שהיא יורה */
         const val TELEGRAPH_SECONDS = 0.8f
+        private const val LOST_GRACE = 0.4f
 
         /** גודל מינימלי לפגיעה בקליע (גם כשהוא עוד קטן), ביחידות גובה מסך */
         private const val MIN_REACH = 0.05f
