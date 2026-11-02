@@ -4,6 +4,7 @@
 הפלט: <outdir>/frames/<angle>_<row>_<col>.png (פריים לכל תא בגיליון 6x4) ועוד hero_*.png לבדיקה.
 את הגיליון עצמו מרכיב docs/blender/make_sheet.py (Pillow).
 """
+import base64
 import math
 import os
 import random
@@ -1233,6 +1234,22 @@ for name in ("hero_front", "hero_34"):
     source = os.path.join(OUT, name + ".png")
     if os.path.exists(source):
         shutil.copy2(source, os.path.join(OUT, f"{name}_{RUN_TAG}.png"))
+
+# Compact JPEG previews are embedded in render.log so the CI result can be
+# visually inspected even when GitHub's artifact download endpoint is unavailable.
+for name in ("hero_front", "hero_34"):
+    source = os.path.join(OUT, name + ".png")
+    preview_path = os.path.join(OUT, name + "_preview.jpg")
+    preview = bpy.data.images.load(source, check_existing=False)
+    preview.scale(512, 512)
+    preview.file_format = "JPEG"
+    preview.quality = 82
+    preview.filepath_raw = preview_path
+    preview.save()
+    with open(preview_path, "rb") as preview_file:
+        payload = base64.b64encode(preview_file.read()).decode("ascii")
+    print(f"OCTOPUS_PREVIEW_BASE64_{name.upper()}={payload}")
+    bpy.data.images.remove(preview)
 
 scene.eevee.taa_render_samples = max(4, SAMPLES)
 for angle in ANGLES:
