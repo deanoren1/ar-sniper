@@ -119,6 +119,13 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
     private var minionCycle = 0
 
+    /** כמה מפלצות רגילות חיות בגל הבוס, והזמן שנשאר בחלון שבו הבוס פגיע (אין מפלצות) */
+    private var minionsAlive = 0
+    private var bossWindow = BOSS_WINDOW_SECONDS
+
+    /** הבוס מוגן כל עוד יש מפלצת רגילה חיה: אי אפשר לפגוע בבטן ובראש, רק בפה כשהוא נוצץ */
+    val bossShielded: Boolean get() = isBossWave && bossAlive && minionsAlive > 0
+
     /** הבוס נפל: אנימציית מוות רצה, ואז הארנה נוצחת */
     var bossDying: Boolean = false
         private set
@@ -325,10 +332,23 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                 return enemies.map { if (it.id != BOSS_ID && it.isAlive) it.copy(isAlive = false) else it }
             }
         }
-        // בגל הבוס המפלצות הרגילות ממשיכות להגיע עד שהבוס נופל
+        // כמה מפלצות רגילות חיות עכשיו: כל עוד יש כאלה, הבוס מוגן (הבטן והראש חסינים), רק הפה פגיע
+        var minions = 0
+        for (e in enemies) if (e.isAlive && e.id != BOSS_ID && foeById.containsKey(e.id)) minions++
+        minionsAlive = minions
+        // בגל הבוס המפלצות הרגילות ממשיכות להגיע עד שהבוס נופל. אחרי שהאחרונה נהרגת יש לשחקן חלון
+        // קצר לירות בבוס לפני שמגיעה הבאה
         if (isBossWave && bossAlive && queue.isEmpty() && teleportQueue.isEmpty()) {
-            queue.addLast(MINIONS[minionCycle % MINIONS.size])
-            minionCycle++
+            if (minions > 0) {
+                bossWindow = BOSS_WINDOW_SECONDS
+            } else {
+                bossWindow -= dt
+                if (bossWindow <= 0f) {
+                    queue.addLast(MINIONS[minionCycle % MINIONS.size])
+                    minionCycle++
+                    bossWindow = BOSS_WINDOW_SECONDS
+                }
+            }
         }
         val present = HashSet<Int>()
         for (e in enemies) present.add(e.id)
@@ -450,6 +470,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
     companion object {
         const val MAX_HEARTS = 3
+
+        /** כמה זמן הבוס פגיע אחרי שהמפלצות הרגילות נהרגו, לפני שמגיעה הבאה */
+        const val BOSS_WINDOW_SECONDS = 4f
         const val REVIVE_HEARTS = 2
         const val INTRO_SECONDS = 1.4f
         const val CLEAR_SECONDS = 1.8f

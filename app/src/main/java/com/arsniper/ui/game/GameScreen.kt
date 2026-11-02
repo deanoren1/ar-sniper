@@ -1057,6 +1057,13 @@ fun GameScreen(
             val zone = zoneHit.zone
             if (zone.damage <= 0) usedFreeZones.add("${zoneHit.enemy.id}:${zone.id}")
             val target = enemies.firstOrNull { it.id == zoneHit.enemy.id }
+            // בוס מוגן: הבטן והראש חסינים כל עוד יש מפלצת רגילה חיה. רק הפה (ההכנה לירי) פגיע תמיד
+            if (target != null && target.id == ArenaDirector.BOSS_ID && director.bossShielded && !zone.onlyTelegraph) {
+                soundPlayer.play(Sfx.Deflect)
+                showToast("SHIELDED!")
+                combo.reset()
+                return
+            }
             if (target != null) {
                 val now = nowSeconds()
                 val remaining = if (target.maxHp > 0) target.hp else hpFor(target.id)
@@ -1103,7 +1110,11 @@ fun GameScreen(
                 aspect
             )
             when (result) {
-                is FireResult.Hit -> if (Hover.isBalloonMonster(result.enemy) && Hover.lift(result.enemy, nowSeconds()) > 0f) {
+                is FireResult.Hit -> if (result.enemy.id == ArenaDirector.BOSS_ID && director.bossShielded) {
+                    soundPlayer.play(Sfx.Deflect)
+                    showToast("SHIELDED!")
+                    combo.reset()
+                } else if (Hover.isBalloonMonster(result.enemy) && Hover.lift(result.enemy, nowSeconds()) > 0f) {
                     // מפלצת בלונים: הגוף חסין, רק פיצוץ בלונים פוגע בה (אזור הבלונים מטופל למעלה)
                     combo.reset()
                 } else {
@@ -1630,7 +1641,7 @@ fun GameScreen(
         if (director.phase == ArenaPhase.Intro) {
             ArenaBanner(
                 title = if (director.isBossWave) "BOSS!" else "WAVE ${director.waveIndex + 1}",
-                subtitle = if (director.isBossWave) "SHOOT THE MOUTH WHEN IT GLOWS" else null,
+                subtitle = if (director.isBossWave) "DEFEAT THE MINIONS TO BREAK ITS SHIELD" else null,
                 modifier = Modifier.align(Alignment.Center)
             )
         }
