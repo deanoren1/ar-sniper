@@ -118,14 +118,14 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.26
     shell.inputs["Coat Roughness"].default_value = 0.025
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.14  # Keep the bubble clear; blue should live mainly in reflections.
+    mix.inputs[0].default_value = 0.085  # Keep the bubble clear; blue should live mainly in reflections.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
-PURPLE = mat("Purple", (0.48, 0.018, 0.70), rough=0.25, coat=0.52)
+PURPLE = mat("Purple", (0.58, 0.016, 0.66), rough=0.25, coat=0.54)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.54, 0.020, 0.68), rough=0.24, coat=0.58)
@@ -167,7 +167,7 @@ XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.055, 0.004, 0.11), rough=0.78, coat=0.06)
 SUCKER_RIM = mat("SuckerRim", (0.22, 0.018, 0.31), rough=0.48, coat=0.18)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.42, 0.012, 0.66), rough=0.34, coat=0.35,
+TENTACLE = mat("Tentacle", (0.54, 0.014, 0.64), rough=0.31, coat=0.40,
                emit=(0.006, 0.001, 0.014), strength=0.006)
 TANK = mat("Tank", (0.82, 0.010, 0.52), rough=0.34, metal=0.16, coat=0.42)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
@@ -180,7 +180,7 @@ def dome_highlight(name, color):
     try:
         m.surface_render_method = "BLENDED"
         m.use_transparency_overlap = False
-        bsdf_of(m).inputs["Alpha"].default_value = 0.52
+        bsdf_of(m).inputs["Alpha"].default_value = 0.38
     except Exception:
         pass
     return m
@@ -382,7 +382,7 @@ def body_band(name, parent, z_bottom, z_top, material):
     """Even-width circular collar; avoid the oversized triangular flare of the old band."""
     sides = 128
     verts, faces = [], []
-    radius = shell_radius_at(z_top) + 0.42
+    radius = shell_radius_at(z_top) + 0.48
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
@@ -500,10 +500,10 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -1.08, 0.28  # Lower the eye to leave a visible spotted crown above it.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.04, 0.96, 0.90)  # a wider, less vertically dominant eye like the reference
+eye.scale = (1.18, 0.98, 1.02)  # enlarge the cyclops eye to match the reference face ratio
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
-    sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.58, 1.00), seg=64),
+    sphere("EyeWhite", 0.96, (0, 0, 0), EYE_WHITE, eye, scale=(1.00, 0.58, 1.00), seg=64),
     # Place the iris and pupil well in front of the sclera so the orange ring cannot be occluded.
     sphere("Iris", 0.49, (0, -0.56, 0.0), IRIS, eye, scale=(1.00, 0.22, 1.00), seg=64),
     sphere("Pupil", 0.25, (0, -0.75, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
@@ -511,6 +511,7 @@ eye_parts = [
 ]
 iris_rim = torus("IrisRim", 0.37, 0.035, (0, -0.79, 0), IRIS, eye, rot=(math.pi / 2, 0, 0))
 eye_parts.insert(2, iris_rim)
+eye_parts.insert(0, torus("EyeSocketRim", 0.96, 0.070, (0, -0.13, 0), LID, eye, rot=(math.pi / 2, 0, 0)))
 look_parts = eye_parts[1:5]
 
 
@@ -567,28 +568,28 @@ def make_upper_eyelid(parent):
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
 mouth = empty("Mouth", pivot, loc=(0, -1.29, -0.62))
-mouth.scale = (1.05, 1.0, 1.28)
+mouth.scale = (1.18, 1.0, 0.94)
 mouth_parts = [sphere("MouthCavity", 0.43, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.16, 0.46, 0.78), seg=64)]
-for i, (x, h, width) in enumerate(((-0.42, 0.18, 0.080), (-0.14, 0.16, 0.070),
-                                   (0.14, 0.16, 0.070), (0.42, 0.18, 0.080))):
+                      scale=(1.36, 0.46, 0.58), seg=64)]
+for i, (x, h, width) in enumerate(((-0.42, 0.13, 0.070), (-0.14, 0.12, 0.060),
+                                   (0.14, 0.12, 0.060), (0.42, 0.13, 0.070))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.23, 0.20 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.28, 0.12), (0.0, 0.14), (0.28, 0.12))):
+for i, (x, h) in enumerate(((-0.28, 0.085), (0.28, 0.085))):
     mouth_parts.append(cone(f"ToothL{i}", 0.065, 0.0, h,
                             (x, -0.25, -0.22 + h / 2), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.22, (0, -0.32, -0.17), TONGUE, mouth,
-                          scale=(1.05, 0.50, 0.38), seg=40))
+                          scale=(1.08, 0.50, 0.32), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.38, -0.94, COLLAR)
-collar_radius = shell_radius_at(-0.94) + 0.42
-torus("CollarUpperSteelTrim", collar_radius, 0.012, (0, -0.24, -0.94), COLLAR, pivot)
-torus("CollarLowerSteelTrim", collar_radius, 0.012, (0, -0.24, -1.38), COLLAR, pivot)
-for i in range(16):
-    a = i * (2 * math.pi / 16)
-    z = -1.16 + 0.020 * abs(math.cos(a))
+body_band("LowerPinkBand", pivot, -1.48, -0.94, COLLAR)
+collar_radius = shell_radius_at(-0.94) + 0.48
+torus("CollarUpperSteelTrim", collar_radius, 0.018, (0, -0.24, -0.94), COLLAR, pivot)
+torus("CollarLowerSteelTrim", collar_radius, 0.018, (0, -0.24, -1.48), COLLAR, pivot)
+for i in range(20):
+    a = i * (2 * math.pi / 20)
+    z = -1.21 + 0.020 * abs(math.cos(a))
     r = collar_radius + 0.045
     sphere(f"BandRivet{i}", 0.060, (r * math.cos(a), r * 0.92 * math.sin(a) - 0.24, z),
            COPPER, pivot, scale=(1.0, 0.72, 1.0), seg=24)
@@ -700,8 +701,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.006), rot=normal_rot(normal), seg=48)
 
 # A cool elongated softbox on the left and a rounder, softer key reflection on the right.
-add_dome_reflection("DomeReflectionL", -1.48, 1.48, 0.30, 0.50, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 1.48, 1.50, 0.28, 0.46, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -1.48, 1.48, 0.23, 0.39, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 1.48, 1.50, 0.22, 0.36, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.34, 0.29, 0.24, 0.19]
@@ -748,7 +749,7 @@ def arm_center(t, style="outer"):
     """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
         # Deep outward sweep followed by a raised tip: a true open C-curl like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.78, -0.48), (2.32, -1.10), (1.72, 0.26)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.72, -0.42), (2.08, -0.98), (1.34, 0.24)
     elif style == "front":
         p0, p1, p2, p3 = (0.0, 0.0), (0.55, -0.74), (1.92, -1.55), (1.25, -0.68)
     else:
@@ -853,9 +854,9 @@ for i in range(8):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 0.984
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.24, rr * 0.24, rr * 0.014), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.30, rr * 0.30, rr * 0.024), rot=normal_rot(cup_normal), seg=24)
         rim_pos = center + cup_normal * rr * 0.998
-        torus(f"SuckerRim{i}_{q}", rr * 0.26, rr * 0.035, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.31, rr * 0.045, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.24, 0.50, 0.76)):
