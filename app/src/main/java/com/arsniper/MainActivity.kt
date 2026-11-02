@@ -36,6 +36,13 @@ class MainActivity : ComponentActivity() {
 
         com.arsniper.data.PlayerProfile.init(this)
 
+        // התראה "העולם מוכן" כשהיצירה ברקע מסתיימת (אנדרואיד 13+)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 77)
+        }
+
         // יומן קריסות: שומר את סיבת הקריסה לקובץ, ובהפעלה הבאה מציג אותה (לצילום מסך)
         val crashFile = File(filesDir, "last_crash.txt")
         val previous = Thread.getDefaultUncaughtExceptionHandler()

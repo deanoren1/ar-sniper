@@ -400,8 +400,20 @@ fun GameScreen(
                     } else {
                         aiHandled = true
                         launch {
-                            val made = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                com.arsniper.ml.AiWorld.createWorld(context, key, aiStyle, source)
+                            // היצירה רצה ב-WorkManager (ממשיכה גם ביציאה מהאפליקציה); כאן רק ממתינים לקובץ
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                com.arsniper.ml.AiWorldWorker.enqueue(context, key, aiStyle, source)
+                            }
+                            var made: android.graphics.Bitmap? = null
+                            while (made == null) {
+                                kotlinx.coroutines.delay(2000)
+                                made = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    com.arsniper.ml.AiWorld.cachedWorld(context, key, aiStyle)
+                                }
+                                if (made == null && kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        com.arsniper.ml.AiWorldWorker.isDead(context, key, aiStyle)
+                                    }
+                                ) break
                             }
                             if (made != null) {
                                 themedFresh = true
