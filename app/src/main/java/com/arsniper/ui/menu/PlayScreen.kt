@@ -262,7 +262,7 @@ fun PlayScreen(
                                     .fillMaxWidth()
                                     .verticalScroll(androidx.compose.foundation.rememberScrollState())
                             ) {
-                                for (rowItems in shown.chunked(5)) {
+                                for (rowItems in shown.chunked(2)) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(ui.dp(8f)),
                                         modifier = Modifier.fillMaxWidth().padding(bottom = ui.dp(8f))
@@ -272,7 +272,7 @@ fun PlayScreen(
                                             val thumb = item.thumb
                                             Thumb(thumb, Modifier.weight(1f), badge = item.label, favorite = item.favorite, onLong = { pendingDelete = file to thumb }) { onPickSaved(file) }
                                         }
-                                        repeat(5 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                                        repeat(2 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                                     }
                                 }
                             }
