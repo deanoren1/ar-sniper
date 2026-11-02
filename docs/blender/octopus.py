@@ -509,7 +509,7 @@ eye_parts = [
     sphere("Shine", 0.080, (0.11, -0.80, 0.13), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 look_parts = eye_parts[1:4]
-eye_socket = torus("EyeSocket", 0.858, 0.018, (0, -0.49, 0), PURPLE_DARK, eye, rot=(math.pi / 2, 0, 0))
+eye_socket = torus("EyeSocket", 0.870, 0.040, (0, -0.50, 0), LID, eye, rot=(math.pi / 2, 0, 0))
 eye_socket.scale = (1.0, 1.0, 0.99)
 
 # A shaped skin lid, not a floating capsule: its lower edge slopes into an angry squint.
@@ -564,22 +564,22 @@ def make_upper_eyelid(parent):
 eye_parts.extend([eye_socket])
 
 # Broad, low grin with four larger fangs and a clearly visible tongue.
-mouth = empty("Mouth", pivot, loc=(0, -1.24, -0.18))
-mouth.scale = (1.78, 1.0, 0.98)
+mouth = empty("Mouth", pivot, loc=(0, -1.30, -0.24))
+mouth.scale = (1.92, 1.0, 1.16)
 mouth_parts = [sphere("MouthCavity", 0.40, (0, 0, 0), MOUTH, mouth,
-                      scale=(1.18, 0.34, 0.86), seg=64)]
-mouth_lip = torus("MouthLip", 0.40, 0.028, (0, -0.075, 0), PURPLE_DARK, mouth,
+                      scale=(1.28, 0.38, 0.98), seg=64)]
+mouth_lip = torus("MouthLip", 0.40, 0.030, (0, -0.075, 0), LID, mouth,
                   rot=(math.pi / 2, 0, 0))
 mouth_lip.scale = (1.18, 0.62, 0.88)
-for i, (x, h, width) in enumerate(((-0.28, 0.15, 0.072), (0.28, 0.15, 0.072))):
+for i, (x, h, width) in enumerate(((-0.42, 0.15, 0.072), (-0.14, 0.17, 0.068), (0.14, 0.17, 0.068), (0.42, 0.15, 0.072))):
     mouth_parts.append(cone(f"ToothU{i}", width, 0.0, h,
                             (x, -0.13, 0.18 - h / 2), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, (x, h) in enumerate(((-0.30, 0.10), (0.30, 0.10))):
+for i, (x, h) in enumerate(((-0.30, 0.10), (0.0, 0.12), (0.30, 0.10))):
     mouth_parts.append(cone(f"ToothL{i}", 0.062, 0.0, h,
                             (x, -0.20, -0.15 + h / 2), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.17, (0, -0.28, -0.20), TONGUE, mouth,
-                          scale=(1.0, 0.45, 0.30), seg=40))
+mouth_parts.append(sphere("Tongue", 0.19, (0, -0.30, -0.22), TONGUE, mouth,
+                          scale=(1.12, 0.48, 0.34), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
 body_band("LowerPinkBand", pivot, -1.30, -0.86, COLLAR)
@@ -734,13 +734,13 @@ def arm_radius(t):
     # Tapered, soft tentacles: broad at the mantle, slimmer toward rounded curled tips.
     # Broad mantle attachment, a gentle mid-arm taper, then a soft distal bulb.
     if t < 0.22:
-        return 0.30 + 0.025 * math.sin((t / 0.22) * math.pi * 0.5)
+        return 0.34 + 0.020 * math.sin((t / 0.22) * math.pi * 0.5)
     if t < 0.68:
         u = (t - 0.22) / 0.46
-        return 0.33 - 0.055 * u
+        return 0.36 - 0.050 * u
     u = min(1.0, max(0.0, (t - 0.68) / 0.32))
     # A fuller distal lobe makes the arms read as soft octopus tentacles, not fingers.
-    bulb = 0.245 + 0.070 * math.sin(math.pi * u)
+    bulb = 0.275 + 0.075 * math.sin(math.pi * u)
     return bulb * (1.0 + 0.035 * u)
 
 
@@ -852,8 +852,8 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         hole_pos = center + cup_normal * rr * 0.94
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.34, rr * 0.32, rr * 0.032), rot=normal_rot(cup_normal), seg=24)
-        torus(f"SuckerRim{i}_{q}", rr * 0.35, rr * 0.008,
+               scale=(rr * 0.40, rr * 0.36, rr * 0.028), rot=normal_rot(cup_normal), seg=24)
+        torus(f"SuckerRim{i}_{q}", rr * 0.30, rr * 0.004,
               tuple(hole_pos + cup_normal * 0.018), SPOT_DARK, root, rot=normal_rot(cup_normal))
     for q, t in enumerate((0.22, 0.48, 0.72)):
         center = arm_center(t, style)
@@ -869,7 +869,7 @@ for i in range(8):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.42, rr * 0.30, rr * 0.035), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.13, tip_loc, TENTACLE if style != "rear" else PURPLE_DARK, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.17, tip_loc, TENTACLE if style != "rear" else PURPLE_DARK, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
