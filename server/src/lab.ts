@@ -25,6 +25,7 @@ button:disabled{opacity:.5}.mut{color:var(--mut);font-size:13px}.bad{color:var(-
   <label class="m"><input type="checkbox" id="sandbox"> Sandbox (נתוני דמה, בלי עלות)</label><br>
   <button id="run">הרץ</button> <span id="msg" class="mut"></span>
 </div>
+<div class="card"><button id="diag">בדיקת חיבור</button> <pre id="dout" class="mut" style="white-space:pre-wrap;direction:ltr"></pre></div>
 <div id="grid"></div>
 <script>
 var MODELS=["qwen3-image-to-image","qwen-image-edit-plus","qwen-image-edit","seedream-5.0-flash-edit","kling-o3-image-edit","flux-kontext-pro-i2i","flux-2-klein-9b-edit","muse-image-edit"];
@@ -38,6 +39,15 @@ file.onchange=function(){var f=file.files[0];if(!f)return;var img=new Image();im
  var s=Math.min(1,1280/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
  c.getContext("2d").drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){blob=b;var p=document.getElementById("pre");p.src=URL.createObjectURL(b);p.hidden=false;
  document.getElementById("msg").textContent=c.width+"x"+c.height+", "+Math.round(b.size/1024)+" KB"},"image/jpeg",0.9)};img.src=URL.createObjectURL(f)};
+document.getElementById("diag").onclick=async function(){
+ var o=document.getElementById("dout");o.textContent="";
+ function log(s){o.textContent+=s+"\\n"}
+ async function step(name,fn){var t0=Date.now();try{var r=await fn();log(name+": "+r+" ("+(Date.now()-t0)+"ms)")}catch(e){log(name+": FAIL "+e+" ("+(Date.now()-t0)+"ms)")}}
+ await step("GET /create",async function(){var r=await fetch("/create");return r.status});
+ await step("POST tiny /restyle",async function(){var r=await fetch("/restyle?style=tundra&provider=muapi&sandbox=1",{method:"POST",headers:{"x-device":device()},body:"x"});return r.status+" "+(await r.text()).slice(0,80)});
+ if(blob){await step("POST photo "+Math.round(blob.size/1024)+"KB",async function(){var r=await fetch("/lab",{method:"POST",body:blob});return r.status})}
+ else log("בחר תמונה כדי לבדוק גם העלאה");
+};
 document.getElementById("run").onclick=async function(){
  if(!blob){document.getElementById("msg").textContent="בחר תמונה קודם";return}
  var sel=[].slice.call(box.querySelectorAll("input:checked")).map(function(i){return i.value});
@@ -53,7 +63,7 @@ document.getElementById("run").onclick=async function(){
    if(b.type.indexOf("image")!==0){card.innerHTML="<b>"+label+"</b><span class=bad>not an image: "+b.type+"</span>";return}
    var im=new Image();im.onload=function(){card.innerHTML='<b>'+label+'</b><span class="mut">'+im.naturalWidth+"x"+im.naturalHeight+" · "+secs+"s</span>";card.appendChild(im)};im.src=u;
    var a=document.createElement("a");a.href=u;a.download=label.replace(/[^\\w.-]/g,"_")+".jpg";a.textContent=" שמור";a.style.color="#4aa3ff";card.appendChild(a);
-  }catch(e){card.innerHTML="<b>"+label+"</b><span class=bad>"+e+"</span>"}
+  }catch(e){card.innerHTML="<b>"+label+"</b><span class=bad>"+e+" אחרי "+((Date.now()-t)/1000).toFixed(1)+" שניות</span>"}
  }));
  btn.disabled=false;document.getElementById("msg").textContent="סיום";
 };
