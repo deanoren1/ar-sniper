@@ -190,7 +190,7 @@ fun EnemyLayer(
                 val fall = (item.progress * 2.5f).coerceIn(0f, 1f)
                 liftPx *= 1f - fall * fall
             }
-            val drawCenter = Offset(center.x + shakePx + Hover.shove(enemy, nowS) * size.height, center.y - liftPx)
+            val drawCenter = Offset(center.x + shakePx, center.y - liftPx)
 
             // התאמה לתאורה בתמונה: באזור כהה האויב כהה יותר, באזור בהיר בהיר יותר
             val shade = if (scene != null) {
