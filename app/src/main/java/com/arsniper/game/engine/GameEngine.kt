@@ -830,7 +830,10 @@ class GameEngine(
         val ctx = scene ?: return null
         val aspect = ctx.mapper.screenAspect
         repeat(30) {
-            val fromLeft = random.nextBoolean()
+            // איזון: אם בצד אחד יש יותר דמויות, מעדיפים להכניס את הבאה מהצד השני
+            val onLeft = existing.count { it.isAlive && it.position.x < 0.5f }
+            val onRight = existing.count { it.isAlive && it.position.x >= 0.5f }
+            val fromLeft = if (onLeft != onRight) onLeft < onRight else random.nextBoolean()
             val inward = if (fromLeft) 1f else -1f
             val gateX = if (fromLeft) EDGE_GATE else 1f - EDGE_GATE
             // יותר ניסיונות לרחוק (למעלה במסך) כדי שהחלל הגדול יתמלא בדמויות קטנות
