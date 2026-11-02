@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -500,12 +501,8 @@ private fun DrawScope.drawMonster(
 
     // צל על הקרקע מתחת לרגליים
     if (shadow) {
-        val shadowWidth = sheet.idle.width * k * 0.75f
-        drawOval(
-            color = Color.Black.copy(alpha = 0.38f * alpha),
-            topLeft = Offset(cx - shadowWidth / 2f, feetY + groundLift - r * 0.14f),
-            size = Size(shadowWidth, r * 0.3f)
-        )
+        val shadowWidth = sheet.idle.width * k * 0.95f
+        drawGroundShadow(cx, feetY + groundLift - r * 0.02f, shadowWidth, r * 0.42f, 0.62f * alpha * (0.6f + 0.4f * shade.coerceIn(0.55f, 1f)))
     }
 
     val gray = (0.3f + 0.7f * shade).coerceIn(0.4f, 1f)
@@ -835,17 +832,35 @@ private fun Color.shaded(factor: Float): Color = Color(
  * הצבעים מוכהים או מובהרים לפי התאורה בתמונה (shade), ויש צל מתחת לרגליים.
  * הליכה: הרגליים והידיים מתנדנדות בניגוד זו לזו, והגוף עולה ויורד קלות עם כל צעד.
  */
+/** צל רך על הרצפה: שמאל-ימין רחב, כהה במרכז ונמוג בקצוות (אליפסה מתוחה עם מעבר צבע) */
+private fun DrawScope.drawGroundShadow(cx: Float, cy: Float, width: Float, height: Float, alpha: Float) {
+    if (width <= 0f || height <= 0f) return
+    val a = alpha.coerceIn(0f, 1f)
+    withTransform({
+        translate(cx, cy)
+        scale(1f, height / (width / 2f), pivot = Offset.Zero)
+    }) {
+        drawCircle(
+            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                0f to Color.Black.copy(alpha = a),
+                0.55f to Color.Black.copy(alpha = a * 0.55f),
+                1f to Color.Transparent,
+                center = Offset.Zero,
+                radius = width / 2f
+            ),
+            radius = width / 2f,
+            center = Offset.Zero
+        )
+    }
+}
+
 private fun DrawScope.drawPerson(center: Offset, r: Float, shade: Float, shadow: Boolean, gait: Gait) {
     val cx = center.x
     val feetY = center.y + r
 
     // צל על הקרקע, בדיוק מתחת לרגליים (נשאר על הקרקע גם כשהגוף עולה)
     if (shadow) {
-        drawOval(
-            color = Color.Black.copy(alpha = 0.4f),
-            topLeft = Offset(cx - r * 0.8f, feetY - r * 0.14f),
-            size = Size(r * 1.6f, r * 0.3f)
-        )
+        drawGroundShadow(cx, feetY - r * 0.02f, r * 1.9f, r * 0.42f, 0.6f)
     }
 
     val swingSin = sin(gait.phase)
