@@ -1064,7 +1064,7 @@ class GameEngine(
         private const val DEPTH_SPEED = 0.8f
         private const val DEPTH_WALK_LATERAL = 0.35f
         private const val MIN_ABOVE_HORIZON = 0.03f
-        private const val MIN_WALK_RADIUS = 0.055f
+        private const val MIN_WALK_RADIUS = 0.04f
 
         /** דמות שמגיעה מרחוק: טווח גובה (חלק מגובה המסך) ומספר צעדי הבדיקה קדימה */
         private const val FAR_MIN_HEIGHT = 0.02f
