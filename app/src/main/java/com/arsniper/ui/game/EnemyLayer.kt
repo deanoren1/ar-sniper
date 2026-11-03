@@ -215,7 +215,9 @@ fun EnemyLayer(
                         shadow = withShadow,
                         anim = anim,
                         hurt = hurtLevel,
-                        groundLift = liftPx
+                        groundLift = liftPx,
+                        ambient = SceneTint.ambientAt(scene, enemy.position.x, enemy.position.y),
+                        gloss = if (scene != null) 0.07f + 0.16f * scene.lumaAt(enemy.position.x, enemy.position.y + enemy.radius) else 0f
                     )
                 } else {
                     drawPerson(drawCenter, radius, shade, withShadow, gait)
@@ -400,7 +402,9 @@ private fun DrawScope.drawMonster(
     shadow: Boolean,
     anim: Float,
     hurt: Float = 0f,
-    groundLift: Float = 0f
+    groundLift: Float = 0f,
+    ambient: Color = Color.White,
+    gloss: Float = 0f
 ) {
     val gait = Gait.of(enemy)
     // דמות rig2 שמתכוננת לירות או שזה עתה ירתה: תמיד מלפנים, גם אם היא באמצע הליכה (לא יורה עם הגב אל השחקן)
@@ -514,7 +518,7 @@ private fun DrawScope.drawMonster(
         // פגיעה שלא הורגת: הבהוב אדום שדועך
         ColorFilter.tint(Color(1f, 0.3f, 0.3f, 0.65f * hurt), BlendMode.SrcAtop)
     } else {
-        ColorFilter.tint(Color(gray, gray, gray, 1f), BlendMode.Modulate)
+        ColorFilter.tint(Color(gray * ambient.red, gray * ambient.green, gray * ambient.blue, 1f), BlendMode.Modulate)
     }
     val width = sprite.image.width * k * sx
     val height = sprite.image.height * k * sy
@@ -562,6 +566,37 @@ private fun DrawScope.drawMonster(
                     blendMode = BlendMode.SrcAtop
                 )
             }
+            canvas.restore()
+        }
+    }
+    // השתקפות עמומה על הרצפה מתחת לרגליים (נמוגה כלפי מטה); רק למפלצת שעומדת על הקרקע
+    if (!dead && gloss > 0.02f && groundLift <= r * 0.2f && width > 1f) {
+        val reflH = height * 0.45f
+        drawIntoCanvas { canvas ->
+            canvas.saveLayer(Rect(left, feetY, left + width, feetY + reflH), Paint())
+            withTransform({
+                scale(1f, -1f, pivot = Offset(cx, feetY))
+                if (flip) scale(-1f, 1f, pivot = Offset(cx, feetY))
+            }) {
+                drawImage(
+                    image = sprite.image,
+                    dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
+                    dstSize = IntSize(width.roundToInt().coerceAtLeast(1), height.roundToInt().coerceAtLeast(1)),
+                    alpha = (gloss * alpha).coerceIn(0f, 1f),
+                    colorFilter = tint
+                )
+            }
+            drawRect(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to Color.White,
+                    1f to Color.Transparent,
+                    startY = feetY,
+                    endY = feetY + reflH
+                ),
+                topLeft = Offset(left, feetY),
+                size = Size(width, reflH),
+                blendMode = BlendMode.DstIn
+            )
             canvas.restore()
         }
     }

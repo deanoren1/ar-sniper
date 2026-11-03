@@ -187,6 +187,11 @@ fun GameScreen(
     var themed by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     // עולם AI שנוצר עכשיו (לא מהמטמון): נחשף במעבר דרמטי. מהמטמון או מהעיצוב המקומי: דהייה רגילה
     var themedFresh by remember { mutableStateOf(false) }
+    // גוון הרקע המוצג (עולם AI אם יש) למפלצות: משתנה כשהעולם נטען
+    LaunchedEffect(themed) {
+        val bmp = (themed ?: photo)?.asAndroidBitmap()
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { SceneTint.set(bmp) }
+    }
     val engine = remember { GameEngine() }
     val scoreManager = remember { ScoreManager() }
     val soundPlayer = remember { SoundPlayer(context) }
