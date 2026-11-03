@@ -138,6 +138,8 @@ class AiWorldWorker(private val ctx: Context, params: WorkerParameters) : Corout
                     val key = AnalysisCache.keyFor(file)
                     if (AiWorld.cachedWorld(app, key, server) != null) return@Thread
                     val bmp = com.arsniper.data.PhotoRepository.load(app) ?: return@Thread
+                    // פנורמה רחבה (180/360): המודל לא יוצר יחס כזה ויהיה עיוות, אז לא מייצרים עולם AI
+                    if (bmp.width.toFloat() / bmp.height >= 2.6f) return@Thread
                     enqueue(app, key, server, bmp)
                 } catch (_: Throwable) {
                 }
