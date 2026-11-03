@@ -55,8 +55,14 @@ object CoopClient {
     private var socket: WebSocket? = null
     private var pingSentAt = 0L
 
-    fun savedServer(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_SERVER, "") ?: ""
+    /** כתובת ברירת המחדל: pages.dev נפתח גם ברשתות סלולר שחוסמות workers.dev (מעביר לאותו שרת) */
+    const val DEFAULT_SERVER = "snapboo-front.pages.dev"
+
+    fun savedServer(context: Context): String {
+        val saved = (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_SERVER, "") ?: "").trim()
+        // ריק, או הכתובת הישנה שלנו ב-workers.dev: עוברים לכתובת החדשה
+        return if (saved.isEmpty() || (saved.contains("snapboo-rooms") && saved.endsWith("workers.dev"))) DEFAULT_SERVER else saved
+    }
 
     fun saveServer(context: Context, server: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_SERVER, server.trim()).apply()
