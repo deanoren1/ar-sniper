@@ -34,6 +34,9 @@ object SceneSession {
     private const val REPLACE_MAX_RATIO = 2.5f
 
     private var autoSpots: List<HidingSpot> = emptyList()
+
+    /** מחבואי צמחים שנוספו מתמונת ה-AI (נשמרים גם אחרי בנייה מחדש של הרשימה) */
+    private var extraSpots: List<HidingSpot> = emptyList()
     private var guide: GuideImage? = null
 
     /** המחבואים שנמצאו לפי סוגי העצמים (לפני כל שינוי): הבסיס לזיהוי האוטומטי של SAM */
@@ -55,6 +58,7 @@ object SceneSession {
         }
         this.userObjects = emptyList()
         this.samMasks = emptyList()
+        this.extraSpots = emptyList()
         this.spots = autoSpots
         this.luma = if (guide != null) buildLuma(analysis, guide) else null
     }
@@ -111,7 +115,7 @@ object SceneSession {
             nextId++
         }
         val kept = base.filter { b -> raw.none { user -> mostlyInside(b, user) } }
-        spots = kept + extra
+        spots = kept + extra + extraSpots
     }
 
     /**
@@ -134,7 +138,47 @@ object SceneSession {
         return total > 0 && inside * 2 > total
     }
 
+    /**
+     * מוסיף מחבואים (צמחים) מניתוח ממוזג של תמונת ה-AI, בלי לגעת במחבואים הקיימים (כדי שדמויות שכבר במשחק לא יושפעו).
+     * מחבוא שרוב שטחו כבר מכוסה במחבוא קיים לא נוסף. מחזיר כמה נוספו.
+     */
+    fun addExtraSpots(merged: SceneAnalysis, classes: Set<Int>, aiGuide: GuideImage?): Int {
+        val current = analysis ?: return 0
+        if (merged.width != current.width || merged.height != current.height) return 0
+        var nextId = (spots.maxOfOrNull { it.id } ?: -1) + 1
+        val added = ArrayList<HidingSpot>()
+        for (found in HidingSpotFinder.find(merged)) {
+            if (found.kind != com.arsniper.game.spots.SpotKind.COVER || found.classIndex !in classes) continue
+            if (spots.any { existing -> overlap(found, existing) > 0.5f }) continue
+            var spot = UserObjects.addSkirt(found.copy(id = nextId))
+            if (aiGuide != null) spot = SpotRefiner.refine(spot, aiGuide)
+            added.add(spot)
+            nextId++
+        }
+        if (added.isEmpty()) return 0
+        extraSpots = extraSpots + added
+        spots = spots + added
+        return added.size
+    }
+
+    /** איזה חלק משטח inner נמצא בתוך outer (0..1) */
+    private fun overlap(inner: HidingSpot, outer: HidingSpot): Float {
+        var total = 0
+        var inside = 0
+        for (ly in 0 until inner.maskHeight) {
+            for (lx in 0 until inner.maskWidth) {
+                if (!inner.mask[ly * inner.maskWidth + lx]) continue
+                total++
+                val nx = (inner.cellX + lx + 0.5f) / inner.gridWidth
+                val ny = (inner.cellY + ly + 0.5f) / inner.gridHeight
+                if (outer.contains(nx, ny)) inside++
+            }
+        }
+        return if (total == 0) 1f else inside.toFloat() / total
+    }
+
     fun clear() {
+        extraSpots = emptyList()
         analysis = null
         spots = emptyList()
         autoSpots = emptyList()

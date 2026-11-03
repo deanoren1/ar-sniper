@@ -39,6 +39,11 @@ class GameEngine(
     private val turnScore = HashMap<Int, Float>()
     private var scene: SceneContext? = null
 
+    /** מחליף רק את הסצנה (מחבואים חדשים) באמצע משחק, בלי לאפס כיול, קרקע ודמויות */
+    fun swapScene(scene: SceneContext?) {
+        this.scene = scene
+    }
+
     /** מגדיר את הסצנה (או null אם אין ניתוח: אז האויבים עומדים במקומות אקראיים) */
     fun configure(scene: SceneContext?) {
         this.scene = scene

@@ -368,23 +368,35 @@ fun GameScreen(
         )
     }
 
+    // בונה את הסצנה לפי הניתוח והמחבואים הנוכחיים (נקראת גם כשנוספים מחבואי צמחים מעולם ה-AI)
+    fun buildSceneContext(analysis: com.arsniper.ml.SceneAnalysis): SceneContext = SceneContext(
+        analysis = analysis,
+        // 360: ההרחבות בקצוות הן רק המשך ציור. מפלצות ומחבואים נשארים באמצע (המעגל האמיתי)
+        spots = if (wraps) SceneSession.spots.filter { (it.minX + it.maxX) / 2f in (ext + 0.01f)..(1f - ext - 0.01f) } else SceneSession.spots,
+        mapper = WorldMapper(analysis.width.toFloat() / analysis.height, aspect),
+        luma = SceneSession.luma,
+        walkMinX = if (wraps) ext + 0.02f else 0.04f,
+        walkMaxX = if (wraps) 1f - ext - 0.02f else 0.96f
+    )
+
+    // מוסיף מחבואי צמחים מתמונת העולם (ג'ונגל), ומעדכן את המשחק בלי להפסיק אותו
+    suspend fun addWorldPlantSpots(world: android.graphics.Bitmap) {
+        val added = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            try { com.arsniper.ml.AiWorldSpots.addPlantSpots(context, world) } catch (_: Throwable) { 0 }
+        }
+        val current = SceneSession.analysis
+        if (added > 0 && current != null) {
+            val updated = buildSceneContext(current)
+            scene = updated
+            engine.swapScene(updated)
+        }
+    }
+
     // אחרי שגודל המסך ידוע: בונים את הסצנה (מחבואים לפי ניתוח התמונה) ויוצרים אויבים
     LaunchedEffect(sizeKnown) {
         if (sizeKnown) {
             val analysis = SceneSession.analysis
-            val sceneContext = if (analysis != null) {
-                SceneContext(
-                    analysis = analysis,
-                    // 360: ההרחבות בקצוות הן רק המשך ציור. מפלצות ומחבואים נשארים באמצע (המעגל האמיתי)
-                    spots = if (wraps) SceneSession.spots.filter { (it.minX + it.maxX) / 2f in (ext + 0.01f)..(1f - ext - 0.01f) } else SceneSession.spots,
-                    mapper = WorldMapper(analysis.width.toFloat() / analysis.height, aspect),
-                    luma = SceneSession.luma,
-                    walkMinX = if (wraps) ext + 0.02f else 0.04f,
-                    walkMaxX = if (wraps) 1f - ext - 0.02f else 0.96f
-                )
-            } else {
-                null
-            }
+            val sceneContext = if (analysis != null) buildSceneContext(analysis) else null
             scene = sceneContext
             engine.configure(sceneContext)
             // עולם AI: המשחק מתחיל מיד על התמונה המקורית (הניתוח כבר מוכן), ותמונת ה-AI נכנסת בהדרגה כשהיא מוכנה
@@ -402,6 +414,7 @@ fun GameScreen(
                     if (cached != null) {
                         themed = cached.asImageBitmap()
                         aiHandled = true
+                        launch { addWorldPlantSpots(cached) }
                     } else {
                         aiHandled = true
                         launch {
@@ -427,6 +440,7 @@ fun GameScreen(
                             if (made != null) {
                                 themedFresh = true
                                 themed = made.asImageBitmap()
+                                addWorldPlantSpots(made)
                             } else if (style == ArenaStyle.Tundra) {
                                 // אין AI (בלי רשת, מכסה או תקלה): העיצוב המקומי של הטונדרה
                                 themed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
