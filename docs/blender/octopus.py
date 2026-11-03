@@ -123,7 +123,7 @@ def glass_mat():
     except Exception:
         pass
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.14  # 86% transparent: a clearer blue glass tint with visible studio reflections.
+    mix.inputs[0].default_value = 0.075  # 92.5% transparent: preserve the reference's clear bubble while keeping crisp blue reflections.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
@@ -139,7 +139,7 @@ add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
 SPOT = mat("Spot", (0.98, 0.028, 0.76), rough=0.36, coat=0.28)
 SPOT_DARK = mat("SpotDark", (0.22, 0.006, 0.38), rough=0.34, coat=0.30)
 add_skin(SPOT, scale=22.0, strength=0.012)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.67, 0.22), rough=0.24, coat=0.44,
+EYE_WHITE = mat("EyeWhite", (1.0, 0.62, 0.16), rough=0.24, coat=0.44,
                  emit=(0.08, 0.055, 0.010), strength=0.018)
 # Radial warm sclera gradient: creamy center fading to a golden-orange edge.
 eye_white_nodes = EYE_WHITE.node_tree
@@ -151,11 +151,11 @@ eye_white_dist.inputs[1].default_value = (0.5, 0.5, 0.5)
 eye_white_nodes.links.new(eye_white_tex.outputs["Generated"], eye_white_dist.inputs[0])
 eye_white_ramp = eye_white_nodes.nodes.new("ShaderNodeValToRGB")
 eye_white_ramp.color_ramp.elements[0].position = 0.48
-eye_white_ramp.color_ramp.elements[0].color = (1.0, 0.92, 0.60, 1.0)
+eye_white_ramp.color_ramp.elements[0].color = (1.0, 0.82, 0.40, 1.0)
 eye_white_ramp.color_ramp.elements[1].position = 0.76
-eye_white_ramp.color_ramp.elements[1].color = (1.0, 0.28, 0.008, 1.0)
+eye_white_ramp.color_ramp.elements[1].color = (1.0, 0.20, 0.004, 1.0)
 eye_white_mid = eye_white_ramp.color_ramp.elements.new(0.64)
-eye_white_mid.color = (1.0, 0.64, 0.16, 1.0)
+eye_white_mid.color = (1.0, 0.50, 0.08, 1.0)
 eye_white_nodes.links.new(eye_white_dist.outputs["Value"], eye_white_ramp.inputs["Fac"])
 eye_white_nodes.links.new(eye_white_ramp.outputs["Color"], eye_white_bsdf.inputs["Base Color"])
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
@@ -531,18 +531,18 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -1.08, 0.28  # Lower the eye to leave a visible spotted crown above it.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.94, 0.98, 0.92)  # restore the dominant cyclopean eye proportions from the reference
+eye.scale = (0.88, 0.96, 0.88)  # expose more spotted mantle around the eye, as in the reference
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
-    sphere("EyeWhite", 1.05, (0, 0, 0), EYE_WHITE, eye, scale=(1.06, 0.58, 0.95), seg=64),
+    sphere("EyeWhite", 1.05, (0, 0, 0), EYE_WHITE, eye, scale=(1.02, 0.58, 0.92), seg=64),
     # A compact orange iris with a larger glossy black pupil, avoiding concentric mechanical rings.
-    sphere("Iris", 0.60, (0, -0.62, 0.0), IRIS, eye, scale=(1.00, 0.22, 1.00), seg=64),
-    sphere("Pupil", 0.33, (0, -0.77, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
-    sphere("Shine", 0.14, (0.12, -0.89, 0.17), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    sphere("Iris", 0.56, (0, -0.62, 0.0), IRIS, eye, scale=(1.00, 0.22, 1.00), seg=64),
+    sphere("Pupil", 0.36, (0, -0.77, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
+    sphere("Shine", 0.15, (0.12, -0.89, 0.17), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
-eye_parts.append(torus("EyeDarkOutline", 1.10, 0.032, (0, -0.13, 0), PURPLE_DARK, eye,
+eye_parts.append(torus("EyeDarkOutline", 1.07, 0.028, (0, -0.13, 0), PURPLE_DARK, eye,
                         rot=(math.pi / 2, 0, 0)))
-eye_parts.append(torus("EyeMagentaRim", 1.08, 0.055, (0, -0.19, 0), LID, eye,
+eye_parts.append(torus("EyeMagentaRim", 1.05, 0.048, (0, -0.19, 0), LID, eye,
                        rot=(math.pi / 2, 0, 0)))
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 
@@ -605,17 +605,17 @@ mouth.scale = (1.00, 1.0, 0.98)
 # rather than a large detached black oval.
 mouth_parts = [
     sphere("MouthLip", 0.46, (0, 0.035, 0), MOUTH_LIP, mouth,
-           scale=(1.72, 0.50, 0.74), seg=64),
+           scale=(1.78, 0.50, 0.86), seg=64),
     sphere("MouthCavity", 0.46, (0, -0.018, 0), MOUTH, mouth,
-           scale=(1.62, 0.48, 0.62), seg=64),
+           scale=(1.68, 0.48, 0.72), seg=64),
 ]
 # Two upper and two lower fangs echo the broad, sparse teeth in the reference.
 for i, x in enumerate((-0.52, 0.52)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.092, 0.0, 0.19,
+    mouth_parts.append(cone(f"ToothU{i}", 0.105, 0.0, 0.22,
                             (x, -0.25, 0.16 - 0.02 * abs(x) / 0.52), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
 for i, x in enumerate((-0.36, 0.36)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.078, 0.0, 0.16,
+    mouth_parts.append(cone(f"ToothL{i}", 0.088, 0.0, 0.19,
                             (x, -0.255, -0.15 + 0.02 * abs(x) / 0.36), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.22, (0, -0.32, -0.14), TONGUE, mouth,
                           scale=(1.18, 0.50, 0.38), seg=40))
@@ -727,7 +727,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -1.25
-DOME_RADII = (2.35, 2.15, 4.00)  # narrower, more reference-like bubble; tanks remain clearly outside it
+DOME_RADII = (2.48, 2.24, 4.15)  # a slightly broader, taller clear bubble, like the supplied reference
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A bright blue arch sits on the front-facing glass surface, not behind the head.
 dome_arch = []
@@ -799,9 +799,9 @@ def arm_center(t, style="outer"):
     """Smooth cubic centerlines: two broad C-hooks, four hanging front arms, two rear supports."""
     if style == "outer":
         # Deep outward sweep followed by a raised tip: a true open C-curl like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.82, -0.42), (2.35, -0.90), (1.62, 0.12)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.88, -0.40), (2.42, -0.78), (1.72, 0.20)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.58, -0.86), (2.02, -1.92), (1.52, -0.42)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.72, -0.72), (2.10, -1.48), (1.58, -0.10)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.56), (1.18, -1.24), (0.78, -0.50)
     u = 1.0 - t
@@ -830,7 +830,7 @@ def make_arm_tube(name, parent, style):
             normal = reference - tangent * reference.dot(tangent)
         normal.normalize()
         binormal = tangent.cross(normal).normalized()
-        radius = arm_radius(t) * (0.88 if style == "rear" else 0.90)
+        radius = arm_radius(t) * (0.94 if style == "rear" else 1.00)
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
             p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
@@ -904,9 +904,9 @@ for i in range(8):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 0.925
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.29, rr * 0.29, rr * 0.050), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.33, rr * 0.33, rr * 0.052), rot=normal_rot(cup_normal), seg=24)
         rim_pos = center + cup_normal * rr * 0.945
-        torus(f"SuckerRim{i}_{q}", rr * 0.29, rr * 0.014, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.33, rr * 0.016, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.24, 0.50, 0.76)):
@@ -921,9 +921,9 @@ for i in range(8):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         spot_pos = center + spot_normal * rr * 1.006
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.27, rr * 0.21, rr * 0.014), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.31, rr * 0.23, rr * 0.014), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.16, tuple(arm_center(0.975, style)), TENTACLE if style != "rear" else REAR_TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.18, tuple(arm_center(0.975, style)), TENTACLE if style != "rear" else REAR_TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
