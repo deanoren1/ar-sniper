@@ -20,7 +20,7 @@ button:disabled{opacity:.5}.mut{color:var(--mut);font-size:13px}.bad{color:var(-
   <img id="pre" hidden>
   <p class="mut">התמונה מוקטנת ל-1280 בצלע הארוכה לפני השליחה. כל תוצאה נספרת במכסה היומית.</p>
 </div>
-<div class="card">סגנון: <select id="style"><option value="tundra">טונדרה</option><option value="jungle">ג'ונגל (ריאליסטי)</option><option value="jungle_mid">ג'ונגל (אמצע)</option><option value="jungle_toon">ג'ונגל (קריקטורי)</option><option value="rockforest">יער סלעי</option></select></div>
+<div class="card">סגנון: <select id="style"><option value="tundra">טונדרה (ריאליסטי)</option><option value="tundra_mid">טונדרה (אמצע)</option><option value="jungle">ג'ונגל (ריאליסטי)</option><option value="jungle_mid">ג'ונגל (אמצע)</option><option value="jungle_toon">ג'ונגל (קריקטורי)</option><option value="rockforest">יער סלעי (ריאליסטי)</option><option value="rockforest_mid">יער סלעי (אמצע)</option></select></div>
 <div class="card" id="models"></div>
 <div class="card">
   <label class="m"><input type="checkbox" id="sandbox"> Sandbox (נתוני דמה, בלי עלות)</label><br>
