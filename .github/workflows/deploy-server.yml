@@ -45,6 +45,17 @@ jobs:
           echo "::notice title=Deploy log::$(tail -30 deploy.log | tr '\n' ' ' | cut -c1-1500)"
           echo "::notice title=Whoami::$(tail -15 who.log | tr '\n' ' ' | cut -c1-900)"
           exit $code
+      - name: Pages front (pages.dev entry, works on networks that block workers.dev)
+        if: steps.check.outputs.ready == 'true'
+        continue-on-error: true
+        working-directory: server/front
+        run: |
+          npx --yes wrangler pages project create snapboo-front --production-branch main > pages-create.log 2>&1 || true
+          npx --yes wrangler pages deploy public --project-name snapboo-front --branch main > pages.log 2>&1
+          code=$?
+          echo "::notice title=Pages log::$(tail -15 pages.log | tr '\n' ' ' | cut -c1-900)"
+          echo "::notice title=Pages create::$(tail -6 pages-create.log | tr '\n' ' ' | cut -c1-500)"
+          exit $code
       - name: Gemini key
         if: steps.check.outputs.ready == 'true'
         env:
