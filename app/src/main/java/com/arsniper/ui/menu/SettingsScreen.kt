@@ -47,6 +47,7 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
                     ) {
                         SettingRow("SOUND EFFECTS", PlayerProfile.soundOn) { PlayerProfile.soundOn = it }
                         SettingRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
+                        SoundTest()
                         GameButton(
                             text = "CO-OP (BETA)",
                             onClick = onCoop,
@@ -94,5 +95,38 @@ private fun SettingRow(label: String, checked: Boolean, onChange: (Boolean) -> U
     ) {
         OutlinedText(label, fontSize = 20.sp, outline = null, modifier = Modifier.weight(1f))
         GameToggle(checked = checked, onChange = onChange)
+    }
+}
+
+@Composable
+private fun SoundTest() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val player = androidx.compose.runtime.remember { com.arsniper.audio.SoundPlayer(context) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { player.release() } }
+    val items = listOf(
+        "BLASTER" to com.arsniper.audio.Sfx.Blaster, "MINIGUN" to com.arsniper.audio.Sfx.Minigun,
+        "SNIPER" to com.arsniper.audio.Sfx.SniperShot, "ROCKET" to com.arsniper.audio.Sfx.Rocket,
+        "TESLA" to com.arsniper.audio.Sfx.Tesla, "ICE" to com.arsniper.audio.Sfx.Ice,
+        "GROWL" to com.arsniper.audio.Sfx.MonsterGrowl, "SPAWN" to com.arsniper.audio.Sfx.MonsterSpawn,
+        "SCUTTLE" to com.arsniper.audio.Sfx.MonsterScuttle, "CHITTER" to com.arsniper.audio.Sfx.MonsterChitter,
+        "DRAGON ROAR" to com.arsniper.audio.Sfx.DragonRoar, "BOSS ENTRANCE" to com.arsniper.audio.Sfx.BossEntrance,
+        "WAVE START" to com.arsniper.audio.Sfx.WaveStartNew, "BOSS WINDUP" to com.arsniper.audio.Sfx.BossWindup
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedText("SOUND TEST", fontSize = 18.sp, outline = null)
+        items.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { (name, sfx) ->
+                    GameButton(
+                        text = name,
+                        onClick = { player.play(sfx) },
+                        style = GameButtonStyle.Secondary,
+                        height = 38.dp,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
     }
 }

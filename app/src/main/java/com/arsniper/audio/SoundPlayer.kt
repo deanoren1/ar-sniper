@@ -61,7 +61,25 @@ enum class Sfx(val res: Int, val volume: Float = 1f) {
     Boom(R.raw.sfx_boom),
 
     /** מטבע או יהלום */
-    Gem(R.raw.sfx_gem, 0.8f)
+    Gem(R.raw.sfx_gem, 0.8f),
+
+    // נשקים (חדש, מצורפים בסוף)
+    Blaster(R.raw.weapon_blaster_shot, 0.7f),
+    Minigun(R.raw.weapon_minigun_shot, 0.65f),
+    SniperShot(R.raw.weapon_sniper_shot, 0.8f),
+    Rocket(R.raw.weapon_rocket_launch, 0.8f),
+    Tesla(R.raw.weapon_tesla_zap, 0.7f),
+    Ice(R.raw.weapon_ice_shot, 0.75f),
+
+    // יצורים ובוס
+    MonsterGrowl(R.raw.monster_growl, 0.6f),
+    MonsterSpawn(R.raw.monster_spawn_cry, 0.6f),
+    MonsterScuttle(R.raw.monster_scuttle, 0.5f),
+    MonsterChitter(R.raw.monster_chitter, 0.6f),
+    DragonRoar(R.raw.boss_dragon_roar, 0.85f),
+    BossEntrance(R.raw.boss_entrance_sting, 0.8f),
+    WaveStartNew(R.raw.wave_start, 0.7f),
+    BossWindup(R.raw.boss_attack_windup, 0.8f)
 }
 
 /** עטיפה ל-SoundPool: טוענת את כל האפקטים ומנגנת אותם בהשהיה נמוכה. */
@@ -102,6 +120,17 @@ class SoundPlayer(context: Context) {
     }
 
     fun playShot() = play(Sfx.Shot)
+
+    /** ירייה לפי הנשק המצויד */
+    fun playShot(weapon: com.arsniper.game.progress.WeaponId) = play(
+        when (weapon.name) {
+            "Plasma" -> Sfx.Blaster
+            "Auto" -> Sfx.Minigun
+            "Sniper" -> Sfx.SniperShot
+            "Spread" -> Sfx.Tesla
+            else -> Sfx.Shot
+        }
+    )
 
     fun release() {
         soundPool.release()

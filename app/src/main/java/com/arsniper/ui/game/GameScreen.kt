@@ -1249,7 +1249,7 @@ fun GameScreen(
     // לחיצה על ירי: פרס בכוונת, מחסנית/טעינה, ואז כל הכדורים של הנשק (פיזור = כמה כדורים)
     fun fireNow() {
         if (director.phase != ArenaPhase.Fighting) {
-            soundPlayer.playShot()
+            soundPlayer.playShot(equippedId)
             return
         }
         // כוונת על פרס: אוספים אותו (בלי לצרוך כדור)
@@ -1266,7 +1266,7 @@ fun GameScreen(
         }
         when (weapon.tryFire()) {
             ShotResult.Fired -> {
-                soundPlayer.playShot()
+                soundPlayer.playShot(equippedId)
                 tracerTarget = Offset(crosshairOnScreen.x, crosshairOnScreen.y)
             }
             else -> {
