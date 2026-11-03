@@ -1004,7 +1004,8 @@ class GameEngine(
     private fun radiusForFeet(feetWorldY: Float): Float {
         val ctx = scene ?: return 0.08f
         val photoHeight = ground.personHeight(ctx.mapper.photoY(feetWorldY))
-        return ctx.mapper.heightToWorld(photoHeight) / FIGURE_HEIGHT_RADII
+        // רצפה לגודל: דמות רחוקה לא נהיית זעירה עד שאי אפשר לראות או לכוון אליה
+        return max(ctx.mapper.heightToWorld(photoHeight) / FIGURE_HEIGHT_RADII, MIN_WALK_RADIUS)
     }
 
     /** שורת אבחון קצרה להצגה במשחק: מודל הקרקע ומספר הדמויות לפי סוג */
@@ -1058,6 +1059,7 @@ class GameEngine(
         private const val DEPTH_SPEED = 0.8f
         private const val DEPTH_WALK_LATERAL = 0.35f
         private const val MIN_ABOVE_HORIZON = 0.03f
+        private const val MIN_WALK_RADIUS = 0.055f
 
         /** דמות שמגיעה מרחוק: טווח גובה (חלק מגובה המסך) ומספר צעדי הבדיקה קדימה */
         private const val FAR_MIN_HEIGHT = 0.02f
