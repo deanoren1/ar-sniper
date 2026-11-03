@@ -123,7 +123,7 @@ def glass_mat():
     except Exception:
         pass
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.80  # 80% transparent: preserve a clear face with only a light blue glass tint.
+    mix.inputs[0].default_value = 0.12  # 88% transparent: keep the face vivid; separate rim/highlights sell the glass.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
