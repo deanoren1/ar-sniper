@@ -113,32 +113,32 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.28, 0.60, 0.90, 1.0)
-    shell.inputs["Roughness"].default_value = 0.040
+    shell.inputs["Base Color"].default_value = (0.48, 0.72, 0.96, 1.0)
+    shell.inputs["Roughness"].default_value = 0.060
     shell.inputs["Metallic"].default_value = 0.0
     shell.inputs["Coat Weight"].default_value = 0.34
     shell.inputs["Coat Roughness"].default_value = 0.014
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.70
+        shell.inputs["Transmission Weight"].default_value = 0.90
     except Exception:
         pass
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = 0.055  # 89.5% transparent: slightly richer blue glass without hiding the face.
+    mix.inputs[0].default_value = 0.025  # 97.5% transparent: keep the face clear; explicit highlights provide the glass read.
     nt.links.new(transparent.outputs["BSDF"], mix.inputs[1])
     nt.links.new(shell.outputs["BSDF"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     return m
 
 
-PURPLE = mat("Purple", (0.43, 0.012, 0.72), rough=0.25, coat=0.62)
+PURPLE = mat("Purple", (0.38, 0.012, 0.68), rough=0.29, coat=0.54)
 add_skin(PURPLE, scale=18.0, strength=0.018)  # rich glossy violet, with restrained surface texture
 PURPLE_DARK = mat("PurpleDark", (0.16, 0.008, 0.28), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.34, 0.008, 0.43), rough=0.30, coat=0.46)
 add_skin(LID, scale=18.0, strength=0.025)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (1.0, 0.015, 0.70), rough=0.45, coat=0.16, emit=(0.35, 0.0, 0.18), strength=0.025)
+SPOT = mat("Spot", (0.78, 0.035, 0.55), rough=0.62, coat=0.08, emit=(0.08, 0.0, 0.035), strength=0.008)
 SPOT_DARK = mat("SpotDark", (0.16, 0.004, 0.31), rough=0.45, coat=0.16)
-add_skin(SPOT, scale=22.0, strength=0.012)
+add_skin(SPOT, scale=22.0, strength=0.005)
 EYE_WHITE = mat("EyeWhite", (1.0, 0.78, 0.30), rough=0.22, coat=0.50,
                  emit=(0.08, 0.055, 0.010), strength=0.018)
 # Radial warm sclera gradient: creamy center fading to a golden-orange edge.
@@ -188,13 +188,13 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.095, 0.006, 0.18), rough=0.76, coat=0.06)
-SUCKER_RIM = mat("SuckerRim", (0.18, 0.012, 0.30), rough=0.64, coat=0.08)
+SUCKER = mat("Sucker", (0.065, 0.004, 0.13), rough=0.82, coat=0.025)
+SUCKER_RIM = mat("SuckerRim", (0.20, 0.018, 0.32), rough=0.72, coat=0.04)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.52, 0.012, 0.70), rough=0.27, coat=0.56,
+TENTACLE = mat("Tentacle", (0.40, 0.012, 0.66), rough=0.33, coat=0.42,
                emit=(0.004, 0.001, 0.012), strength=0.004)
-REAR_TENTACLE = mat("RearTentacle", (0.36, 0.008, 0.62), rough=0.31, coat=0.52)
-TANK = mat("Tank", (0.68, 0.018, 0.62), rough=0.34, metal=0.16, coat=0.42)
+REAR_TENTACLE = mat("RearTentacle", (0.30, 0.008, 0.54), rough=0.36, coat=0.40)
+TANK = mat("Tank", (0.54, 0.018, 0.56), rough=0.38, metal=0.20, coat=0.32)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
@@ -545,14 +545,14 @@ for i in range(14):
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -1.08, 0.10  # Lower the eye to leave a visible spotted crown above it.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.90, 0.98, 0.90)  # enlarge the eye slightly while preserving the reference-like round profile
+eye.scale = (0.76, 0.98, 0.78)  # restore more spotted mantle around the eye, closer to the reference proportions
 eye_parts = [
     # Broad cream sclera, a smaller amber iris ring and a genuinely black, inset pupil.
-    sphere("EyeWhite", 1.05, (0, 0, 0), EYE_WHITE, eye, scale=(1.06, 0.58, 0.86), seg=64),
+    sphere("EyeWhite", 1.05, (0, 0, 0), EYE_WHITE, eye, scale=(1.02, 0.58, 0.82), seg=64),
     # A compact orange iris with a larger glossy black pupil, avoiding concentric mechanical rings.
-    sphere("Iris", 0.60, (0, -0.62, 0.0), IRIS, eye, scale=(1.00, 0.22, 1.00), seg=64),
-    sphere("Pupil", 0.35, (0, -0.79, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
-    sphere("Shine", 0.15, (0.12, -0.89, 0.17), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
+    sphere("Iris", 0.54, (0, -0.62, 0.0), IRIS, eye, scale=(1.00, 0.22, 1.00), seg=64),
+    sphere("Pupil", 0.33, (0, -0.79, -0.015), PUPIL, eye, scale=(1.00, 0.48, 1.00), seg=56),
+    sphere("Shine", 0.12, (0.12, -0.89, 0.17), SHINE, eye, scale=(1.0, 0.28, 0.90), seg=28),
 ]
 eye_parts.append(torus("EyeDarkOutline", 1.07, 0.020, (0, -0.13, 0), PURPLE_DARK, eye,
                         rot=(math.pi / 2, 0, 0)))
@@ -927,12 +927,12 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 1.005
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.34, rr * 0.34, rr * 0.040), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.42, rr * 0.42, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
         rim_pos = center + cup_normal * rr * 1.040
-        torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.025, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.42, rr * 0.028, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
-    for q, t in enumerate((0.25, 0.50, 0.75, 0.88)):
+    for q, t in enumerate((0.34, 0.62, 0.84)):
         center = arm_center(t, style)
         before = arm_center(max(0.0, t - 0.002), style)
         after = arm_center(min(1.0, t + 0.002), style)
@@ -942,11 +942,11 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
             spot_normal = Vector((0.0, 1.0, 0.0))
         spot_normal.normalize()
         side_normal = tangent.cross(spot_normal).normalized()
-        spot_normal = (spot_normal * 0.82 + side_normal * (0.55 if i % 2 else -0.55)).normalized()
+        spot_normal = (spot_normal * 0.48 + side_normal * (0.88 if i % 2 else -0.88)).normalized()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         spot_pos = center + spot_normal * rr * 1.002
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.40, rr * 0.30, rr * 0.014), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.28, rr * 0.20, rr * 0.010), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
     sphere(f"ArmRoundedTip{i}", 0.27, tuple(arm_center(0.975, style)), TENTACLE if style != "rear" else REAR_TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
