@@ -703,24 +703,24 @@ tank_rig = empty("TankRig", torso)
 tank_rig.scale = (1.0, 1.0, 1.20)
 for side, sx in (("L", -1), ("R", 1)):
     tx, ty = 2.42 * sx, 0.24  # keep the slimmer canisters clearly visible outside the mantle
-    tank_body = cylinder(f"Tank{side}", 0.58, 2.08, (tx, ty, 0.015), TANK, torso)
+    tank_body = cylinder(f"Tank{side}", 0.58, 2.08, (tx, ty, 0.015), TANK, tank_rig)
     tank_bevel = tank_body.modifiers.new("TankBodySoftEdges", "BEVEL")
     tank_bevel.width = 0.070
     tank_bevel.segments = 4
     # Rounded enamel shoulders soften the hard, box-like ends of the canisters.
     sphere(f"TankShoulderTop{side}", 0.57, (tx, ty, 1.02), TANK, tank_rig, scale=(1.0, 1.0, 0.45))
     sphere(f"TankShoulderBot{side}", 0.57, (tx, ty, -1.00), TANK, tank_rig, scale=(1.0, 1.0, 0.45))
-    cap_top = cylinder(f"TankCapTop{side}", 0.62, 0.18, (tx, ty, 1.18), METAL, torso)
-    cap_bottom = cylinder(f"TankCapBot{side}", 0.62, 0.18, (tx, ty, -1.14), METAL, torso)
+    cap_top = cylinder(f"TankCapTop{side}", 0.62, 0.18, (tx, ty, 1.18), METAL, tank_rig)
+    cap_bottom = cylinder(f"TankCapBot{side}", 0.62, 0.18, (tx, ty, -1.14), METAL, tank_rig)
     for cap in (cap_top, cap_bottom):
         cap_bevel = cap.modifiers.new("RoundedTankCap", "BEVEL")
         cap_bevel.width = 0.050
         cap_bevel.segments = 4
-    torus(f"TankBand1{side}", 0.59, 0.050, (tx, ty, 0.68), METAL, torso)
-    torus(f"TankBand2{side}", 0.59, 0.050, (tx, ty, -0.72), METAL, torso)
-    torus(f"TankGoldRing{side}", 0.58, 0.046, (tx, ty, 0.99), BADGE_YELLOW, torso)
-    torus(f"TankGoldRingLow{side}", 0.58, 0.042, (tx, ty, -1.01), BADGE_YELLOW, torso)
-    cylinder(f"TankNozzle{side}", 0.085, 0.14, (tx, ty, 1.33), METAL, torso)
+    torus(f"TankBand1{side}", 0.59, 0.050, (tx, ty, 0.68), METAL, tank_rig)
+    torus(f"TankBand2{side}", 0.59, 0.050, (tx, ty, -0.72), METAL, tank_rig)
+    torus(f"TankGoldRing{side}", 0.58, 0.046, (tx, ty, 0.99), BADGE_YELLOW, tank_rig)
+    torus(f"TankGoldRingLow{side}", 0.58, 0.042, (tx, ty, -1.01), BADGE_YELLOW, tank_rig)
+    cylinder(f"TankNozzle{side}", 0.085, 0.14, (tx, ty, 1.33), METAL, tank_rig)
     sphere(f"Valve{side}", 0.068, (tx, ty, 1.43), COPPER, tank_rig, seg=20)
     cylinder(f"Connector{side}", 0.095, 0.34, (1.58 * sx, ty - 0.005, 0.20),
              COPPER, tank_rig, rot=(0, math.pi / 2, 0))
