@@ -350,6 +350,9 @@ fun GameScreen(
     }
 
     var noRoom by remember { mutableStateOf(false) }
+    // "שחק בכל זאת": מתחילים בלי חוקי הקרקע (מפלצות במקומות אקראיים), לתמונות שהמערכת לא מצליחה להציב בהן לפי הרצפה
+    var playAnyway by remember { mutableStateOf(false) }
+    var noRoomInfo by remember { mutableStateOf("") }
     if (noRoom) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = {},
@@ -357,8 +360,15 @@ fun GameScreen(
             text = {
                 androidx.compose.material3.Text(
                     "This photo has no floor or hiding places the monsters can use.\n" +
-                        "Take a new photo with a visible floor or ground and a few objects (a table, a door, plants)."
+                        "Take a new photo with a visible floor or ground and a few objects (a table, a door, plants).\n" +
+                        "Or play anyway: monsters will appear in random places." +
+                        (if (noRoomInfo.isNotEmpty()) "\n\n$noRoomInfo" else "")
                 )
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { playAnyway = true; noRoom = false }) {
+                    androidx.compose.material3.Text("PLAY ANYWAY")
+                }
             },
             confirmButton = {
                 androidx.compose.material3.Button(onClick = onExit) {
@@ -393,10 +403,10 @@ fun GameScreen(
     }
 
     // אחרי שגודל המסך ידוע: בונים את הסצנה (מחבואים לפי ניתוח התמונה) ויוצרים אויבים
-    LaunchedEffect(sizeKnown) {
+    LaunchedEffect(sizeKnown, playAnyway) {
         if (sizeKnown) {
             val analysis = SceneSession.analysis
-            val sceneContext = if (analysis != null) buildSceneContext(analysis) else null
+            val sceneContext = if (analysis != null && !playAnyway) buildSceneContext(analysis) else null
             scene = sceneContext
             engine.configure(sceneContext)
             // עולם AI: המשחק מתחיל מיד על התמונה המקורית (הניתוח כבר מוכן), ותמונת ה-AI נכנסת בהדרגה כשהיא מוכנה
@@ -480,6 +490,7 @@ fun GameScreen(
                 if (engine.replenish(emptyList(), 4, aspect).size < 2) engine.strictSpots = false
             }
             if (sceneContext != null && engine.replenish(emptyList(), 4, aspect).size < 2) {
+                noRoomInfo = try { engine.debugInfo(emptyList()) } catch (_: Throwable) { "" }
                 noRoom = true
                 return@LaunchedEffect
             }
