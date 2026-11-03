@@ -33,15 +33,50 @@ class AiWorldWorker(private val ctx: Context, params: WorkerParameters) : Corout
         val src = sourceFile(ctx, key)
         if (!src.exists()) return Result.failure()
         if (AiWorld.cachedWorld(ctx, key, style) != null) return Result.success()
+        // כל הרצה עולה כסף: לא יותר משתי הרצות לאותה תמונה וסגנון בתוך 10 דקות (למשל אם התהליך נהרג באמצע והעבודה התחילה מחדש)
+        if (!allowStart(ctx, key, style)) {
+            AiWorld.statusFile(ctx).writeText("${java.util.Date()} skipped: too many runs for this photo")
+            return Result.failure()
+        }
+        // רץ כשירות קדמי: לא נהרג כשיוצאים מהאפליקציה, ולכן לא מתחיל מחדש (ולא מחויב שוב)
+        try { setForeground(foregroundInfo()) } catch (_: Throwable) { }
         val bmp = BitmapFactory.decodeFile(src.absolutePath) ?: return Result.failure()
         val made = AiWorld.createWorld(ctx, key, style, bmp)
         return if (made != null) {
             notifyReady()
             Result.success()
-        } else if (runAttemptCount < 2) {
+        } else if (runAttemptCount < 1 && !AiWorld.lastError.contains("limit", true) && !AiWorld.lastError.contains("budget", true)) {
             Result.retry()
         } else {
             Result.failure()
+        }
+    }
+
+    private fun allowStart(context: Context, key: String, style: String): Boolean {
+        val prefs = context.getSharedPreferences("aiworld_runs", Context.MODE_PRIVATE)
+        val k = "${key}_$style"
+        val now = System.currentTimeMillis()
+        val times = (prefs.getString(k, "") ?: "").split(",").mapNotNull { it.toLongOrNull() }.filter { now - it < 10 * 60_000L }
+        if (times.size >= 2) return false
+        prefs.edit().putString(k, (times + now).joinToString(",")).apply()
+        return true
+    }
+
+    private fun foregroundInfo(): androidx.work.ForegroundInfo {
+        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= 26) {
+            nm.createNotificationChannel(NotificationChannel(CHANNEL_RUN, "Creating worlds", NotificationManager.IMPORTANCE_LOW))
+        }
+        val n = NotificationCompat.Builder(ctx, CHANNEL_RUN)
+            .setSmallIcon(ctx.applicationInfo.icon)
+            .setContentTitle("SnapBoo")
+            .setContentText("Creating your world...")
+            .setOngoing(true)
+            .build()
+        return if (Build.VERSION.SDK_INT >= 29) {
+            androidx.work.ForegroundInfo(1002, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            androidx.work.ForegroundInfo(1002, n)
         }
     }
 
@@ -69,6 +104,7 @@ class AiWorldWorker(private val ctx: Context, params: WorkerParameters) : Corout
         private const val KEY_PHOTO = "photo"
         private const val KEY_STYLE = "style"
         private const val CHANNEL = "ai_world"
+        private const val CHANNEL_RUN = "ai_world_run"
 
         fun sourceFile(context: Context, key: String) =
             File(File(context.filesDir, "ai_world").apply { mkdirs() }, "src_$key.jpg")
