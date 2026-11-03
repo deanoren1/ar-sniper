@@ -188,10 +188,10 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.11, 0.012, 0.24), rough=0.88, coat=0.0)
-SUCKER_RIM = mat("SuckerRim", (0.25, 0.025, 0.40), rough=0.78, coat=0.02)
+SUCKER = mat("Sucker", (0.18, 0.025, 0.34), rough=0.76, coat=0.02)
+SUCKER_RIM = mat("SuckerRim", (0.34, 0.055, 0.50), rough=0.68, coat=0.04)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.62, 0.018, 0.72), rough=0.32, coat=0.42,
+TENTACLE = mat("Tentacle", (0.52, 0.012, 0.66), rough=0.32, coat=0.42,
                emit=(0.004, 0.001, 0.012), strength=0.004)
 REAR_TENTACLE = mat("RearTentacle", (0.45, 0.012, 0.58), rough=0.36, coat=0.38)
 TANK = mat("Tank", (0.54, 0.018, 0.56), rough=0.38, metal=0.20, coat=0.32)
@@ -412,7 +412,7 @@ def skin_patch(name, x, z, rx, rz, material, parent, angle=0.0, segments=40):
 
     def surface_y(px, pz):
         radius = shell_radius_at(pz)
-        return -0.88 * radius * math.sqrt(max(0.025, 1.0 - (px / radius) ** 2)) - 0.004
+        return -0.88 * radius * math.sqrt(max(0.025, 1.0 - (px / radius) ** 2)) - 0.018
 
     verts.append((x, surface_y(x, z), z))
     ring_starts = []
@@ -463,11 +463,12 @@ def body_band(name, parent, z_bottom, z_top, material):
     """Even-width circular collar; avoid the oversized triangular flare of the old band."""
     sides = 128
     verts, faces = [], []
-    radius = shell_radius_at(z_top) + 0.45
+    radius = shell_radius_at(z_top) + 0.10
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
-            z = z_base + 0.40 * abs(math.cos(a))
+            # A shallow front dip keeps the band circular instead of forming a V-shaped bib.
+            z = z_base - 0.045 * max(0.0, -math.sin(a))
             verts.append((radius * math.cos(a), radius * 0.90 * math.sin(a) - 0.24, z))
     for j in range(sides):
         nxt = (j + 1) % sides
@@ -500,8 +501,8 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     (0.02, 0.84, 0.075, 0.050, 0.0),
 )):
     x, z = sx, sz
-    rx *= 1.95
-    rz *= 1.95
+    rx *= 1.65
+    rz *= 1.65
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.025
     spot_material = SPOT_DARK if i in (1, 3, 5, 7, 9) else SPOT
@@ -515,8 +516,8 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-0.18, -0.41, 0.050, 0.035), (0.52, 0.46, 0.060, 0.045),
     (-0.52, 0.38, 0.060, 0.045),
 )):
-    rx *= 1.42
-    rz *= 1.58
+    rx *= 1.25
+    rz *= 1.32
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.020
     skin_patch(f"SmallBodySpot{i}", sx, sz, rx, rz, SPOT, pivot, segments=28)
@@ -531,7 +532,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
 )):
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.026
-    skin_patch(f"ExtraBodySpot{i}", sx, sz, rx * 1.92, rz * 1.92, SPOT, pivot, angle=angle)
+    skin_patch(f"ExtraBodySpot{i}", sx, sz, rx * 1.55, rz * 1.55, SPOT, pivot, angle=angle)
 
 # Additional exposed cheek patches sit outside the eye silhouette, like the reference's organic magenta markings.
 for i, (sx, sz, rx, rz, angle) in enumerate((
@@ -542,7 +543,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.028
     cheek_material = SPOT_DARK if i in (1, 4) else SPOT
-    skin_patch(f"CheekSpot{i}", sx, sz, rx * 1.92, rz * 1.92, cheek_material, pivot, angle=angle)
+    skin_patch(f"CheekSpot{i}", sx, sz, rx * 1.50, rz * 1.50, cheek_material, pivot, angle=angle)
 
 # Exposed crown patches above the enlarged eye, matching the spotted forehead in the reference.
 for i, (sx, sz, rx, rz) in enumerate((
@@ -551,7 +552,7 @@ for i, (sx, sz, rx, rz) in enumerate((
 )):
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.030
-    skin_patch(f"CrownSpot{i}", sx, sz, rx * 1.35, rz * 1.35, SPOT, pivot, segments=28)
+    skin_patch(f"CrownSpot{i}", sx, sz, rx * 1.15, rz * 1.15, SPOT, pivot, segments=28)
 
 # Larger irregular patches on the visible front crown and cheeks; these sit outside the eye silhouette.
 for i, (sx, sz, rx, rz, angle) in enumerate((
@@ -564,7 +565,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(sz)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (sx / radius)**2)) - 0.040
     spot_material = SPOT_DARK if i in (1, 4, 6, 8) else SPOT
-    skin_patch(f"FrontPatch{i}", sx, sz, rx * 1.90, rz * 1.90, spot_material, pivot, angle=angle, segments=36)
+    skin_patch(f"FrontPatch{i}", sx, sz, rx * 1.55, rz * 1.55, spot_material, pivot, angle=angle, segments=36)
 
 # Short crown spikes are seated on the actual mantle profile, not on an unrelated sphere.
 # This removes the visible floating gap and follows the rounded forehead silhouette.
@@ -686,10 +687,10 @@ mouth_parts.append(sphere("Tongue", 0.22, (0, -0.32, -0.14), TONGUE, mouth,
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
 body_band("LowerPinkBand", pivot, -1.32, -0.84, COLLAR)
-collar_radius = shell_radius_at(-0.84) + 0.45
+collar_radius = shell_radius_at(-0.84) + 0.10
 torus("CollarUpperPinkTrim", collar_radius, 0.022, (0, -0.24, -0.84), RING, pivot)
 # The lower edge stays soft and metallic instead of reading as a detached horizontal rail.
-# torus("CollarLowerPinkTrim", collar_radius, 0.022, (0, -0.24, -1.32), RING, pivot)
+torus("CollarLowerPinkTrim", collar_radius, 0.018, (0, -0.24, -1.32), RING, pivot)
 for i in range(12):
     a = i * (2 * math.pi / 12)
     z = -1.08 + 0.010 * abs(math.cos(a))
@@ -725,13 +726,13 @@ for side, sx in (("L", -1), ("R", 1)):
     cylinder(f"Connector{side}", 0.095, 0.34, (1.58 * sx, ty - 0.005, 0.20),
              COPPER, tank_rig, rot=(0, math.pi / 2, 0))
     badge_y = ty - 0.790  # keep the emblem just ahead of the slimmer tank shell
-    cylinder(f"Badge{side}", 0.50, 0.050, (tx, badge_y, 0.015),
+    cylinder(f"Badge{side}", 0.38, 0.050, (tx, badge_y, 0.015),
              BADGE_YELLOW, tank_rig, rot=(math.pi / 2, 0, 0))
-    torus(f"BadgeRim{side}", 0.50, 0.024, (tx, badge_y - 0.045, 0.015), METAL, tank_rig,
+    torus(f"BadgeRim{side}", 0.38, 0.022, (tx, badge_y - 0.045, 0.015), METAL, tank_rig,
           rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.067, 0.015, tank_rig, scale=2.35)
-    for j, (bx, bz) in enumerate(((-0.300, 0.16), (0.300, 0.16),
-                                  (-0.300, -0.16), (0.300, -0.16))):
+    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.067, 0.015, tank_rig, scale=1.85)
+    for j, (bx, bz) in enumerate(((-0.235, 0.15), (0.235, 0.15),
+                                  (-0.235, -0.15), (0.235, -0.15))):
         sphere(f"TankBolt{side}{j}", 0.042, (tx + bx, badge_y - 0.060, bz),
                COPPER, tank_rig, scale=(1, 0.35, 1), seg=16)
     pipe_curve(f"TankPipe{side}", (
@@ -862,24 +863,26 @@ def arm_radius(t):
     # Tapered, soft tentacles: broad at the mantle, slimmer toward rounded curled tips.
     # Broad mantle attachment, a gentle mid-arm taper, then a soft distal bulb.
     if t < 0.18:
-        return 0.48 + 0.020 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.42 + 0.020 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.48 - 0.08 * u
+        return 0.42 - 0.08 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
     # A softer distal bulb follows the curl without making the tip look like a cut cylinder.
-    bulb = 0.38 + 0.055 * math.sin(math.pi * u)
+    bulb = 0.30 + 0.055 * math.sin(math.pi * u)
     return bulb * (1.0 + 0.02 * u)
 
 
 def arm_center(t, style="outer"):
     """Screen-readable paths: two outer hooks, two mid curls, two hanging front arms and two rear supports."""
     if style == "outer":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.62, -0.22), (2.00, -0.82), (1.62, 0.58)
+        # Sweep out, dip, then curl back toward the mantle to form a readable C-hook.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.50, -0.34), (1.72, -1.06), (1.06, 0.40)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.88), (0.82, -2.00), (1.00, -1.70)
+        # Front arms splay outward before curling back instead of hanging as parallel pillars.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.32, -0.60), (1.10, -1.65), (0.88, -1.15)
     elif style == "inner":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.10, -0.92), (0.40, -2.05), (0.48, -2.22)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.72), (0.70, -1.75), (0.34, -1.95)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.30, -0.55), (0.95, -1.15), (0.82, -0.55)
     u = 1.0 - t
@@ -981,9 +984,9 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 1.005
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.25, rr * 0.25, rr * 0.045), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.30, rr * 0.30, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
         rim_pos = center + cup_normal * rr * 1.030
-        torus(f"SuckerRim{i}_{q}", rr * 0.25, rr * 0.015, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.30, rr * 0.018, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.42, 0.76)):
@@ -1002,7 +1005,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.22, rr * 0.16, rr * 0.008), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style))
-    sphere(f"ArmRoundedTip{i}", 0.32, tuple(arm_center(0.975, style)), TENTACLE if style != "rear" else REAR_TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.28, tuple(arm_center(0.975, style)), TENTACLE if style != "rear" else REAR_TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
@@ -1098,8 +1101,8 @@ def fit_character_camera():
         centers_z.append((min_z + max_z) * 0.5)
     monster.rotation_euler[2] = original_angle
     bpy.context.view_layer.update()
-    # Leave breathing room: the previous 0.92 scale clipped both the dome and arm tips.
-    cam_data.ortho_scale = max(max(widths), max(heights)) * 0.94
+    # Ortho scale must exceed the character bounds; 1.10 leaves a safe margin around the dome and arm tips.
+    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.10
     cam.location.x = sum(centers_x) / len(centers_x)
     cam.location.z = sum(centers_z) / len(centers_z)
     bpy.context.view_layer.update()
