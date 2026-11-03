@@ -305,10 +305,10 @@ fun GameScreen(
     var frameNanos by remember { mutableStateOf(0L) }
     var floaters by remember { mutableStateOf(emptyList<Floater>()) }
     // הודעת בונוס אחת במקום קבוע בראש המסך (החדשה מחליפה את הקודמת)
-    var toast by remember { mutableStateOf<BonusToastData?>(null) }
+    var toasts by remember { mutableStateOf(emptyList<BonusToastData>()) }
     fun showToast(text: String) {
         if (text.isNotEmpty()) {
-            toast = BonusToastData(text, frameNanos)
+            toasts = (toasts + BonusToastData(text, frameNanos)).takeLast(TOAST_MAX)
             if (isHost) CoopSync.queueToast(text)
         }
     }
@@ -1629,12 +1629,12 @@ fun GameScreen(
                 .padding(16.dp)
         )
 
-        BonusToast(
-            data = toast,
+        BonusFeed(
+            items = toasts,
             nowNanos = frameNanos,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 128.dp)
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 140.dp)
         )
 
         ComboBadge(

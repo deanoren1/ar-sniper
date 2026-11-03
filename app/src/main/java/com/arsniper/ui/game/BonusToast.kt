@@ -1,47 +1,50 @@
 package com.arsniper.ui.game
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.arsniper.ui.components.OutlinedText
 
 /** הודעת בונוס: טקסט והזמן (ננו-שניות של הפריים) שבו הופיעה */
 class BonusToastData(val text: String, val bornNanos: Long)
 
-/** כמה זמן ההודעה נשארת על המסך, בשניות */
-const val TOAST_SECONDS = 1.4f
+/** כמה זמן כל הודעה נשארת על המסך, בשניות */
+const val TOAST_SECONDS = 2.6f
+
+/** כמה הודעות לכל היותר בו-זמנית */
+const val TOAST_MAX = 4
 
 /**
- * הודעת הבונוס במקום הקבוע בראש המסך. מופיעה בקפיצה קטנה ונעלמת בהדרגה.
- * יש תמונה לחלק מההודעות; לשאר מציירים טקסט.
+ * פיד הודעות קטן וחצי שקוף בצד שמאל: ההודעה החדשה למטה, הישנות דועכות ונעלמות.
  */
 @Composable
-fun BonusToast(data: BonusToastData?, nowNanos: Long, modifier: Modifier = Modifier) {
-    if (data == null) return
-    val age = (nowNanos - data.bornNanos) / 1e9f
-    if (age < 0f || age > TOAST_SECONDS) return
-    val pop = if (age < 0.15f) 0.8f + 0.2f * (age / 0.15f) else 1f
-    val fade = if (age > TOAST_SECONDS - 0.4f) ((TOAST_SECONDS - age) / 0.4f).coerceIn(0f, 1f) else 1f
-    val res = LabelArt.resFor(data.text)
-    Box(modifier = modifier.alpha(fade).scale(pop)) {
-        if (res != null) {
-            Image(
-                painter = painterResource(res),
-                contentDescription = null,
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier.width(200.dp)
+fun BonusFeed(items: List<BonusToastData>, nowNanos: Long, modifier: Modifier = Modifier) {
+    val live = items.filter { (nowNanos - it.bornNanos) / 1e9f in 0f..TOAST_SECONDS }.takeLast(TOAST_MAX)
+    if (live.isEmpty()) return
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        live.forEach { data ->
+            val age = (nowNanos - data.bornNanos) / 1e9f
+            val fade = if (age > TOAST_SECONDS - 0.6f) ((TOAST_SECONDS - age) / 0.6f).coerceIn(0f, 1f) else 1f
+            Text(
+                text = data.text,
+                color = Color(0xFFFFEB3B),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                modifier = Modifier
+                    .alpha(0.6f * fade)
+                    .background(Color(0xFF0B1B33), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
             )
-        } else {
-            OutlinedText(text = data.text, fontSize = 22.sp, color = Color(0xFFFFEB3B))
         }
     }
 }
