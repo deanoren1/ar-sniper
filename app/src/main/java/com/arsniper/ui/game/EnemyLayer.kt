@@ -532,15 +532,38 @@ private fun DrawScope.drawMonster(
         BodyRegistry.register(enemy.id, sprite.image, left / size.width, top / size.height, width / size.width, height / size.height, flip)
     }
     val drawSprite: DrawScope.() -> Unit = {
-        drawImage(
-            image = sprite.image,
-            srcOffset = IntOffset(0, srcCut),
-            srcSize = IntSize(sprite.image.width, sprite.image.height - srcCut),
-            dstOffset = IntOffset(left.roundToInt(), (top + dstCut).roundToInt()),
-            dstSize = IntSize(width.roundToInt().coerceAtLeast(1), (height - dstCut).roundToInt().coerceAtLeast(1)),
-            alpha = alpha,
-            colorFilter = tint
-        )
+        val dstTop = (top + dstCut).roundToInt()
+        val dstW = width.roundToInt().coerceAtLeast(1)
+        val dstH = (height - dstCut).roundToInt().coerceAtLeast(1)
+        val dstLeft = left.roundToInt()
+        // הצללה על הגוף: כהה יותר ליד הרצפה (הסתרה סביבתית) ובהירה למעלה. מצוירת רק על פיקסלי הדמות (שכבה + SrcAtop)
+        drawIntoCanvas { canvas ->
+            canvas.saveLayer(Rect(dstLeft.toFloat(), dstTop.toFloat(), (dstLeft + dstW).toFloat(), (dstTop + dstH).toFloat()), Paint())
+            drawImage(
+                image = sprite.image,
+                srcOffset = IntOffset(0, srcCut),
+                srcSize = IntSize(sprite.image.width, sprite.image.height - srcCut),
+                dstOffset = IntOffset(dstLeft, dstTop),
+                dstSize = IntSize(dstW, dstH),
+                alpha = alpha,
+                colorFilter = tint
+            )
+            if (!dead) {
+                drawRect(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        0f to Color.White.copy(alpha = 0.10f),
+                        0.45f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.34f),
+                        startY = dstTop.toFloat(),
+                        endY = (dstTop + dstH).toFloat()
+                    ),
+                    topLeft = Offset(dstLeft.toFloat(), dstTop.toFloat()),
+                    size = Size(dstW.toFloat(), dstH.toFloat()),
+                    blendMode = BlendMode.SrcAtop
+                )
+            }
+            canvas.restore()
+        }
     }
     rotate(tilt, Offset(cx, feetY)) {
         if (flip) {
