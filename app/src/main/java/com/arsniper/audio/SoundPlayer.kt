@@ -79,7 +79,28 @@ enum class Sfx(val res: Int, val volume: Float = 1f) {
     DragonRoar(R.raw.boss_dragon_roar, 0.85f),
     BossEntrance(R.raw.boss_entrance_sting, 0.8f),
     WaveStartNew(R.raw.wave_start, 0.7f),
-    BossWindup(R.raw.boss_attack_windup, 0.8f)
+    BossWindup(R.raw.boss_attack_windup, 0.8f),
+
+    // חבילה 2: פגיעות ופרסים
+    HitCartoon(R.raw.monster_hit_cartoon, 0.6f),
+    DefeatPop(R.raw.monster_defeat_pop, 0.65f),
+    ExplosionArcade(R.raw.explosion_arcade, 0.75f),
+    Freeze(R.raw.monster_freeze, 0.7f),
+    CoinPickup(R.raw.reward_coin_pickup, 0.5f),
+    GemPickup(R.raw.reward_gem_pickup, 0.55f),
+    ComboUp(R.raw.combo_increase, 0.6f),
+    BossHit(R.raw.boss_hit_heavy, 0.8f),
+
+    // חבילה 3: ממשק ומשחק
+    UiClick(R.raw.ui_button_click, 0.45f),
+    WeaponSelect(R.raw.ui_weapon_select, 0.5f),
+    ReloadNew(R.raw.weapon_reload, 0.7f),
+    UpgradeOk(R.raw.ui_upgrade_success, 0.6f),
+    ChestOpen(R.raw.ui_chest_open, 0.7f),
+    Victory(R.raw.match_victory, 0.75f),
+    Defeat(R.raw.match_defeat, 0.75f),
+    CountTick(R.raw.match_countdown_tick, 0.5f),
+    PauseResume(R.raw.ui_pause_resume, 0.5f)
 }
 
 /** עטיפה ל-SoundPool: טוענת את כל האפקטים ומנגנת אותם בהשהיה נמוכה. */

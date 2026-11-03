@@ -110,7 +110,16 @@ private fun SoundTest() {
         "GROWL" to com.arsniper.audio.Sfx.MonsterGrowl, "SPAWN" to com.arsniper.audio.Sfx.MonsterSpawn,
         "SCUTTLE" to com.arsniper.audio.Sfx.MonsterScuttle, "CHITTER" to com.arsniper.audio.Sfx.MonsterChitter,
         "DRAGON ROAR" to com.arsniper.audio.Sfx.DragonRoar, "BOSS ENTRANCE" to com.arsniper.audio.Sfx.BossEntrance,
-        "WAVE START" to com.arsniper.audio.Sfx.WaveStartNew, "BOSS WINDUP" to com.arsniper.audio.Sfx.BossWindup
+        "WAVE START" to com.arsniper.audio.Sfx.WaveStartNew, "BOSS WINDUP" to com.arsniper.audio.Sfx.BossWindup,
+        "MONSTER HIT" to com.arsniper.audio.Sfx.HitCartoon, "MONSTER POP" to com.arsniper.audio.Sfx.DefeatPop,
+        "EXPLOSION" to com.arsniper.audio.Sfx.ExplosionArcade, "FREEZE" to com.arsniper.audio.Sfx.Freeze,
+        "COIN" to com.arsniper.audio.Sfx.CoinPickup, "GEM" to com.arsniper.audio.Sfx.GemPickup,
+        "COMBO UP" to com.arsniper.audio.Sfx.ComboUp, "BOSS HIT" to com.arsniper.audio.Sfx.BossHit,
+        "CLICK" to com.arsniper.audio.Sfx.UiClick, "WEAPON SELECT" to com.arsniper.audio.Sfx.WeaponSelect,
+        "RELOAD" to com.arsniper.audio.Sfx.ReloadNew, "UPGRADE" to com.arsniper.audio.Sfx.UpgradeOk,
+        "CHEST" to com.arsniper.audio.Sfx.ChestOpen, "VICTORY" to com.arsniper.audio.Sfx.Victory,
+        "DEFEAT" to com.arsniper.audio.Sfx.Defeat, "COUNTDOWN" to com.arsniper.audio.Sfx.CountTick,
+        "PAUSE/RESUME" to com.arsniper.audio.Sfx.PauseResume
     )
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedText("SOUND TEST", fontSize = 18.sp, outline = null)
