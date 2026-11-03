@@ -124,7 +124,11 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     private var bossWindow = BOSS_WINDOW_SECONDS
 
     /** הבוס מוגן כל עוד יש מפלצת רגילה חיה: אי אפשר לפגוע בבטן ובראש, רק בפה כשהוא נוצץ */
-    val bossShielded: Boolean get() = isBossWave && bossAlive && minionsAlive > 0
+    val bossShielded: Boolean get() = isBossWave && bossAlive && minionsAlive > 0 && !shieldBroken
+
+    /** גיבוי נגד תקיעה: אם המגן נשאר זמן רב (מפלצת שאי אפשר להגיע אליה או לראות), הוא נשבר עד שהמפלצות נהרגות */
+    private var shieldTime = 0f
+    private var shieldBroken = false
 
     /** הבוס נפל: אנימציית מוות רצה, ואז הארנה נוצחת */
     var bossDying: Boolean = false
@@ -175,6 +179,8 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         bossMax = 0
         bossAlive = false
         minionCycle = 0
+        shieldTime = 0f
+        shieldBroken = false
         bossDying = false
         bossAge = 0f
         phase = ArenaPhase.Intro
@@ -336,6 +342,13 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         var minions = 0
         for (e in enemies) if (e.isAlive && e.id != BOSS_ID && foeById.containsKey(e.id)) minions++
         minionsAlive = minions
+        if (isBossWave && bossAlive && minions > 0) {
+            shieldTime += dt
+            if (shieldTime >= SHIELD_FAILSAFE_SECONDS) shieldBroken = true
+        } else {
+            shieldTime = 0f
+            shieldBroken = false
+        }
         // בגל הבוס המפלצות הרגילות ממשיכות להגיע עד שהבוס נופל. אחרי שהאחרונה נהרגת יש לשחקן חלון
         // קצר לירות בבוס לפני שמגיעה הבאה
         if (isBossWave && bossAlive && queue.isEmpty() && teleportQueue.isEmpty()) {
@@ -471,6 +484,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
 
         /** כמה זמן הבוס פגיע אחרי שהמפלצות הרגילות נהרגו, לפני שמגיעה הבאה */
         const val BOSS_WINDOW_SECONDS = 4f
+        const val SHIELD_FAILSAFE_SECONDS = 22f
         const val REVIVE_HEARTS = 2
         const val INTRO_SECONDS = 1.4f
         const val CLEAR_SECONDS = 1.8f

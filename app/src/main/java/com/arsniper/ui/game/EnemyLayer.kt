@@ -157,7 +157,8 @@ fun EnemyLayer(
             }
         }
         // מהרחוק לקרוב: הדמות שרגליה נמוכות יותר במסך (קרובה יותר) מצוירת אחרונה, מעל האחרות
-        items.sortBy { depthKey(it.enemy) }
+        // הבוס תמיד מצויר ראשון (מאחור): מפלצת רגילה שעומדת מאחוריו לא נעלמת מאחוריו ואפשר לראות ולפגוע בה
+        items.sortBy { if (it.enemy.id == ArenaDirector.BOSS_ID) -1f else depthKey(it.enemy) }
 
         for (item in items) {
             val enemy = item.enemy
