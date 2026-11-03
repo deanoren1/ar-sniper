@@ -36,7 +36,10 @@ fun AppNavigation() {
     var coopRole by rememberSaveable { mutableStateOf("") }
     // בחירת ארנה לפני הניתוח: יצירת עולם ה-AI מתחילה מיד ורצה במקביל לניתוח
     var arenaFirst by rememberSaveable { mutableStateOf(false) }
+    // אחרי שהמערכת סגרה את האפליקציה ברקע ופתחה אותה במסך המשחק, הניתוח בזיכרון נעלם: חוזרים פעם אחת למסך הניתוח (מהמטמון)
+    var restoreTried by rememberSaveable { mutableStateOf(false) }
     fun goScene() {
+        restoreTried = false
         if (coopRole.isNotEmpty()) { screen = Screen.Scene; return }
         if (quick) {
             val open = ArenaStyle.values().filter { PlayerProfile.isUnlocked(it) }
@@ -135,7 +138,13 @@ fun AppNavigation() {
             },
             onBack = { arenaFirst = false; screen = Screen.Play }
         )
-        Screen.Game -> GameScreen(
+        Screen.Game -> if (coopRole.isEmpty() && com.arsniper.ml.SceneSession.analysis == null && !restoreTried) {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                restoreTried = true
+                arenaFirst = true
+                screen = Screen.Scene
+            }
+        } else GameScreen(
             style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
             coop = coopRole.ifEmpty { null },
             onExit = {
