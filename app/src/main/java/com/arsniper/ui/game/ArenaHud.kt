@@ -1,5 +1,7 @@
 package com.arsniper.ui.game
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -89,9 +91,30 @@ fun WaveStatus(wave: Int, waves: Int, left: Int, modifier: Modifier = Modifier) 
     }
 }
 
-/** כרזה באמצע המסך (תחילת גל, בוס, סוף גל, זעם). קטנה כדי לא להסתיר את הזירה; כותרת לא מוכרת חוזרת לטקסט */
+/** כמה זמן כל כרזה נמשכת בסך הכול (כניסה + עצירה + יציאה), בשניות */
+fun bannerTotal(title: String): Float = when (title) {
+    "BOSS!" -> 2.6f
+    "WAVE CLEAR!" -> 2.0f
+    "ENRAGED!" -> 1.3f
+    else -> 1.6f
+}
+
+private fun easeOutBack(t: Float): Float {
+    val c1 = 1.70158f
+    val c3 = c1 + 1f
+    val x = t - 1f
+    return 1f + c3 * x * x * x + c1 * x * x
+}
+
+private fun easeOut(t: Float): Float = 1f - (1f - t) * (1f - t)
+
+/**
+ * כרזה דינמית באמצע המסך. age = שניות מאז שהופיעה.
+ * גל: נכנסת מלמעלה בקפיצה, עוצרת ומתכווצת. בוס: פיצוץ עם טבעת ויוצאת הצידה.
+ * זעם: נכנסת משמאל. סוף גל: קופצת פנימה. כותרת לא מוכרת חוזרת לטקסט.
+ */
 @Composable
-fun ArenaBanner(title: String, subtitle: String?, modifier: Modifier = Modifier) {
+fun ArenaBanner(title: String, subtitle: String?, age: Float, modifier: Modifier = Modifier) {
     val waveNumber = if (title.startsWith("WAVE ") && title != "WAVE CLEAR!") title.removePrefix("WAVE ").trim().toIntOrNull() else null
     val waveRes = intArrayOf(
         com.arsniper.R.drawable.banner_wave_1, com.arsniper.R.drawable.banner_wave_2,
@@ -106,31 +129,109 @@ fun ArenaBanner(title: String, subtitle: String?, modifier: Modifier = Modifier)
         title == "ENRAGED!" -> com.arsniper.R.drawable.banner_enraged
         else -> null
     }
-    val bannerW = when {
-        title == "BOSS!" -> 230.dp
-        title == "ENRAGED!" -> 210.dp
-        title == "WAVE CLEAR!" -> 170.dp
+    val bannerW = when (title) {
+        "BOSS!" -> 230.dp
+        "ENRAGED!" -> 210.dp
         else -> 170.dp
+    }
+    val total = bannerTotal(title)
+    if (age < 0f || age > total) return
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+
+    var scale = 1f
+    var alpha = 1f
+    var tx = 0f   // dp
+    var ty = 0f   // dp
+    when {
+        title == "BOSS!" -> {
+            val inT = 0.25f; val outT = 0.35f
+            if (age < inT) {
+                val p = age / inT
+                scale = 2.4f - 1.4f * easeOutBack(p)
+                alpha = p.coerceIn(0f, 1f)
+            } else if (age > total - outT) {
+                val p = (age - (total - outT)) / outT
+                tx = 520f * p * p
+                alpha = 1f - p * p
+            }
+        }
+        title == "ENRAGED!" -> {
+            val inT = 0.18f; val outT = 0.25f
+            if (age < inT) {
+                tx = -420f * (1f - easeOut(age / inT))
+            } else if (age > total - outT) {
+                alpha = ((total - age) / outT).coerceIn(0f, 1f)
+            }
+            if (age >= inT && age < total - outT) {
+                scale = 1f + 0.04f * kotlin.math.sin(age * 40f)
+            }
+        }
+        title == "WAVE CLEAR!" -> {
+            val inT = 0.3f; val outT = 0.3f
+            if (age < inT) {
+                scale = 0.3f + 0.7f * easeOutBack(age / inT)
+                alpha = (age / (inT * 0.5f)).coerceIn(0f, 1f)
+            } else if (age > total - outT) {
+                alpha = ((total - age) / outT).coerceIn(0f, 1f)
+                scale = 0.9f + 0.1f * alpha
+            } else if (subtitle != null) {
+                // יש לב: הבאנר פועם קלות
+                scale = 1f + 0.05f * kotlin.math.sin((age - inT) * 9f).coerceAtLeast(0f)
+            }
+        }
+        else -> {
+            val inT = 0.22f; val outT = 0.25f
+            if (age < inT) {
+                val p = age / inT
+                ty = -170f * (1f - easeOut(p))
+                scale = 1.6f - 0.6f * easeOutBack(p)
+                alpha = (p * 2f).coerceIn(0f, 1f)
+            } else if (age > total - outT) {
+                val p = (age - (total - outT)) / outT
+                alpha = 1f - p
+                scale = 1f - 0.2f * p
+            }
+        }
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         if (bannerRes != null) {
-            // הכיתוב של הבוס והלב של סוף הגל כבר מצוירים בתמונה
             Image(
                 painter = androidx.compose.ui.res.painterResource(bannerRes),
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
-                modifier = Modifier.width(bannerW)
+                modifier = Modifier
+                    .width(bannerW)
+                    .drawBehind {
+                        if (title == "BOSS!" && age < 0.6f) {
+                            val p = age / 0.6f
+                            drawCircle(
+                                Color(0xFFFFC107).copy(alpha = (1f - p) * 0.9f),
+                                radius = size.width * (0.2f + 1.0f * p),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 14f * (1f - p) + 2f)
+                            )
+                            drawCircle(
+                                Color(0xFFFF5252).copy(alpha = (1f - p) * 0.6f),
+                                radius = size.width * (0.15f + 0.8f * p),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f * (1f - p) + 1f)
+                            )
+                        }
+                    }
+                    .graphicsLayer {
+                        this.alpha = alpha.coerceIn(0f, 1f)
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = tx * density
+                        translationY = ty * density
+                    }
             )
         } else {
             Text(
                 text = title,
                 color = Color(0xFFFFEB3B),
                 fontSize = 32.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.graphicsLayer { this.alpha = alpha.coerceIn(0f, 1f) }
             )
-            if (subtitle != null) {
-                OutlinedText(text = subtitle, fontSize = 14.sp, color = Color.White)
-            }
         }
     }
 }

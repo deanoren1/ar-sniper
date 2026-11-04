@@ -219,6 +219,9 @@ fun GameScreen(
     val loot = remember { Loot() }
     val shock = remember { Shockwave() }
     var shockStart by remember { mutableStateOf(0L) }
+    // זמן תחילת הכרזה הנוכחית (גל/בוס/סוף גל) וכרזת הזעם, לאנימציה
+    var bannerStart by remember { mutableStateOf(0L) }
+    var enragedStart by remember { mutableStateOf(0L) }
     val weaponArt = rememberWeaponArt(equippedId)
     var ammoShown by remember { mutableStateOf(weapon.ammo) }
     var reloadingShown by remember { mutableStateOf(false) }
@@ -313,6 +316,23 @@ fun GameScreen(
         }
     }
     var poofs by remember { mutableStateOf(emptyList<Poof>()) }
+
+    // כרזות: מתחילות מחדש בכל שינוי שלב/גל; בכניסת בוס המסך רועד. כרזת הזעם: בעלייה של דגל הזעם
+    LaunchedEffect(director.phase, director.waveIndex) {
+        bannerStart = frameNanos
+        if (director.phase == ArenaPhase.Intro && director.isBossWave) shake = maxOf(shake, 0.7f)
+    }
+    val wasEnraged = remember { booleanArrayOf(false) }
+    androidx.compose.runtime.SideEffect {
+        val now = AttackPose.bossEnraged
+        if (now && !wasEnraged[0]) {
+            enragedStart = frameNanos
+            flash = maxOf(flash, 0.3f)
+        } else if (!now && wasEnraged[0]) {
+            enragedStart = 0L
+        }
+        wasEnraged[0] = now
+    }
 
     // ניקוד עם מכפיל הקומבו, וניקוד צף במקום ההצלחה. register=false: לא מאריך את הרצף
     fun award(points: Int, x: Float, y: Float, register: Boolean = true, showText: Boolean = true) {
@@ -1757,11 +1777,13 @@ fun GameScreen(
             )
         }
 
-        // כרזות בין הגלים
+        // כרזות בין הגלים (דינמיות: כניסה, עצירה, יציאה)
+        val bannerAge = (frameNanos - bannerStart) / 1e9f
         if (director.phase == ArenaPhase.Intro) {
             ArenaBanner(
                 title = if (director.isBossWave) "BOSS!" else "WAVE ${director.waveIndex + 1}",
-                subtitle = if (director.isBossWave) "DEFEAT THE MINIONS TO BREAK ITS SHIELD" else null,
+                subtitle = null,
+                age = bannerAge,
                 modifier = Modifier.align(Alignment.Center)
             )
         }
@@ -1769,7 +1791,16 @@ fun GameScreen(
             ArenaBanner(
                 title = "WAVE CLEAR!",
                 subtitle = if (director.healedOnClear) "+1 \u2665" else null,
+                age = bannerAge,
                 modifier = Modifier.align(Alignment.Center)
+            )
+        }
+        if (enragedStart != 0L) {
+            ArenaBanner(
+                title = "ENRAGED!",
+                subtitle = null,
+                age = (frameNanos - enragedStart) / 1e9f,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 70.dp)
             )
         }
 

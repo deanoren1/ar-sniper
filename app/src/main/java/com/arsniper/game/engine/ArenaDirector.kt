@@ -184,7 +184,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         bossDying = false
         bossAge = 0f
         phase = ArenaPhase.Intro
-        phaseTimer = INTRO_SECONDS
+        phaseTimer = if (isBossWave) BOSS_INTRO_SECONDS else INTRO_SECONDS
         spawnCooldown = 0f
     }
 
@@ -486,8 +486,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         const val BOSS_WINDOW_SECONDS = 4f
         const val SHIELD_FAILSAFE_SECONDS = 22f
         const val REVIVE_HEARTS = 2
-        const val INTRO_SECONDS = 1.4f
-        const val CLEAR_SECONDS = 1.8f
+        const val INTRO_SECONDS = 1.6f
+        const val BOSS_INTRO_SECONDS = 2.6f
+        const val CLEAR_SECONDS = 2.0f
 
         /** מרווח מינימלי בין יצירת מפלצות, כדי שלא ייכנסו כולן בבת אחת */
         const val SPAWN_GAP_SECONDS = 0.8f

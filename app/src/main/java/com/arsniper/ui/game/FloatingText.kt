@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** כמה זמן ניקוד צף נראה, בשניות */
-const val FLOATER_SECONDS = 1.0f
+const val FLOATER_SECONDS = 0.7f
 
 /** ניקוד צף: מספר שעולה ונעלם מנקודת ההצלחה. x ו-y בקואורדינטות עולם (0..1) */
 class Floater(
@@ -38,10 +38,13 @@ fun FloatingTextLayer(floaters: List<Floater>, nowNanos: Long, modifier: Modifie
             if (age < 0f || age > FLOATER_SECONDS) continue
             val p = age / FLOATER_SECONDS
             val cx = f.x * size.width
-            val cy = (f.y - 0.14f * p) * size.height
+            // קפיצה קלה למעלה, וגודל: גדל לרגע (עד 1.35) ואז מתכווץ
+            val hop = 1f - (1f - p) * (1f - p)
+            val cy = (f.y - 0.12f * hop) * size.height
+            val pop = if (p < 0.2f) 0.7f + 0.65f * (p / 0.2f) else 1.35f - 0.55f * ((p - 0.2f) / 0.8f)
             val art = labelImages[f.text]
             if (art != null) {
-                val w = size.height * LabelArt.widthFor(f.text)
+                val w = size.height * LabelArt.widthFor(f.text) * pop
                 val h = w * art.height / art.width
                 drawImage(
                     art,
@@ -53,7 +56,7 @@ fun FloatingTextLayer(floaters: List<Floater>, nowNanos: Long, modifier: Modifie
             }
             val keys = LabelArt.scoreKeys(f.text)
             if (keys != null) {
-                val gh = size.height * (if (f.big) 0.085f else 0.06f)
+                val gh = size.height * (if (f.big) 0.085f else 0.06f) * pop
                 val imgs = keys.mapNotNull { digitImages[it] }
                 val gap = gh * 0.04f
                 var total = -gap
@@ -72,7 +75,7 @@ fun FloatingTextLayer(floaters: List<Floater>, nowNanos: Long, modifier: Modifie
                 }
                 continue
             }
-            val textSize = size.height * (if (f.big) 0.075f else 0.05f)
+            val textSize = size.height * (if (f.big) 0.075f else 0.05f) * pop
             val alpha = (255 * (1f - p * p)).toInt().coerceIn(0, 255)
             drawIntoCanvas { canvas ->
                 val fill = android.graphics.Paint().apply {
