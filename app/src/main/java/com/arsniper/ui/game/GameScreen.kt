@@ -318,7 +318,10 @@ fun GameScreen(
     fun award(points: Int, x: Float, y: Float, register: Boolean = true, showText: Boolean = true) {
         val multiplierBefore = combo.multiplier
         if (register) combo.register()
-        if (combo.multiplier > multiplierBefore) soundPlayer.play(Sfx.Combo, 0.9f + 0.1f * combo.multiplier)
+        if (combo.multiplier > multiplierBefore) {
+            soundPlayer.play(Sfx.Combo, 0.9f + 0.1f * combo.multiplier)
+            showToast("COMBO x${combo.multiplier}")
+        }
         val gained = scaled(points * combo.multiplier)
         score += gained
         scoreBy[shooter[0]] += gained
@@ -1182,6 +1185,7 @@ fun GameScreen(
                 if (!killed && !balloons && zone.damage > 0) soundPlayer.play(Sfx.EnemyHurt)
                 award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y)
                 showToast(zone.label)
+                if (killed) showToast("Monster Eliminated")
                 blasts = blasts + Blast(
                     x = zoneHit.anchor.x,
                     y = zoneHit.anchor.y,

@@ -35,7 +35,7 @@ fun BonusFeed(items: List<BonusToastData>, nowNanos: Long, modifier: Modifier = 
             val age = (nowNanos - data.bornNanos) / 1e9f
             val fade = if (age > TOAST_SECONDS - 0.6f) ((TOAST_SECONDS - age) / 0.6f).coerceIn(0f, 1f) else 1f
             Text(
-                text = data.text,
+                text = iconFor(data.text) + "  " + data.text,
                 color = Color(0xFFFFEB3B),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -46,5 +46,23 @@ fun BonusFeed(items: List<BonusToastData>, nowNanos: Long, modifier: Modifier = 
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             )
         }
+    }
+}
+
+/** אייקון קטן לפי תוכן ההודעה */
+private fun iconFor(text: String): String {
+    val t = text.uppercase()
+    return when {
+        "HEADSHOT" in t -> "\uD83C\uDFAF"
+        "COMBO" in t -> "\uD83D\uDD25"
+        "ELIMINATED" in t -> "\uD83D\uDC80"
+        "DIAMOND" in t || "GEM" in t -> "\uD83D\uDC8E"
+        "HEART" in t -> "\u2764\uFE0F"
+        "AMMO" in t || "+15" in t -> "\uD83D\uDD0B"
+        "SHIELD" in t || "BLOCK" in t || "STOPPED" in t -> "\uD83D\uDEE1\uFE0F"
+        "SHOCK" in t -> "\u26A1"
+        "COIN" in t || t.startsWith("+") -> "\uD83E\uDE99"
+        "BALLOON" in t -> "\uD83C\uDF88"
+        else -> "\u2B50"
     }
 }
