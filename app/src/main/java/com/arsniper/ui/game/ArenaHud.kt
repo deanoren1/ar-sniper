@@ -89,66 +89,48 @@ fun WaveStatus(wave: Int, waves: Int, left: Int, modifier: Modifier = Modifier) 
     }
 }
 
-/** כרזה גדולה באמצע המסך (תחילת גל, סוף גל). משתמשת בתמונות הבאנר; כותרת לא מוכרת חוזרת לטקסט */
+/** כרזה באמצע המסך (תחילת גל, בוס, סוף גל, זעם). קטנה כדי לא להסתיר את הזירה; כותרת לא מוכרת חוזרת לטקסט */
 @Composable
 fun ArenaBanner(title: String, subtitle: String?, modifier: Modifier = Modifier) {
     val waveNumber = if (title.startsWith("WAVE ") && title != "WAVE CLEAR!") title.removePrefix("WAVE ").trim().toIntOrNull() else null
+    val waveRes = intArrayOf(
+        com.arsniper.R.drawable.banner_wave_1, com.arsniper.R.drawable.banner_wave_2,
+        com.arsniper.R.drawable.banner_wave_3, com.arsniper.R.drawable.banner_wave_4,
+        com.arsniper.R.drawable.banner_wave_5, com.arsniper.R.drawable.banner_wave_6
+    )
     val bannerRes = when {
-        waveNumber != null -> com.arsniper.R.drawable.banner_wave
+        waveNumber != null -> waveRes[(waveNumber - 1).coerceIn(0, 5)]
         title == "BOSS!" -> com.arsniper.R.drawable.banner_boss
-        title == "WAVE CLEAR!" -> com.arsniper.R.drawable.banner_clear
+        title == "WAVE CLEAR!" ->
+            if (subtitle != null) com.arsniper.R.drawable.banner_clear_heart else com.arsniper.R.drawable.banner_clear
         title == "ENRAGED!" -> com.arsniper.R.drawable.banner_enraged
         else -> null
     }
+    val bannerW = when {
+        title == "BOSS!" -> 230.dp
+        title == "ENRAGED!" -> 210.dp
+        title == "WAVE CLEAR!" -> 170.dp
+        else -> 170.dp
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         if (bannerRes != null) {
-            val bannerW = 300.dp
-            val k = bannerW.value / 481f   // סקאלה לפי באנר ה-WAVE (481 פיקסלים רוחב)
-            Box(modifier = Modifier.width(bannerW)) {
-                Image(
-                    painter = androidx.compose.ui.res.painterResource(bannerRes),
-                    contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (waveNumber != null) {
-                    // החלון הריק של הבאנר: x 315-416, y 61-141 (בפיקסלים של התמונה)
-                    val digits = waveNumber.toString().map { it - '0' }
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .offset(x = (315 * k).dp, y = (61 * k).dp)
-                            .width((101 * k).dp)
-                            .height((80 * k).dp)
-                    ) {
-                        for (d in digits) {
-                            Image(
-                                painter = androidx.compose.ui.res.painterResource(LabelArt.goldRes(d)),
-                                contentDescription = null,
-                                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                                modifier = Modifier
-                                    .height((70 * k).dp)
-                                    .width((if (digits.size > 1) 44 * k else 60 * k).dp)
-                            )
-                        }
-                    }
-                }
-            }
+            // הכיתוב של הבוס והלב של סוף הגל כבר מצוירים בתמונה
+            Image(
+                painter = androidx.compose.ui.res.painterResource(bannerRes),
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                modifier = Modifier.width(bannerW)
+            )
         } else {
             Text(
                 text = title,
                 color = Color(0xFFFFEB3B),
-                fontSize = 48.sp,
+                fontSize = 32.sp,
                 fontWeight = FontWeight.Bold
             )
-        }
-        if (subtitle != null) {
-            OutlinedText(
-                text = subtitle,
-                fontSize = 14.sp,
-                color = Color.White
-            )
+            if (subtitle != null) {
+                OutlinedText(text = subtitle, fontSize = 14.sp, color = Color.White)
+            }
         }
     }
 }
