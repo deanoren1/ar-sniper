@@ -727,7 +727,7 @@ for side, sx in (("L", -1), ("R", 1)):
     flame_icon(f"FlameIcon{side}", tx, badge_y - 0.067, 0.015, tank_rig, scale=2.05)
     for j, (bx, bz) in enumerate(((-0.280, 0.18), (0.280, 0.18),
                                   (-0.280, -0.18), (0.280, -0.18))):
-        sphere(f"TankBolt{side}{j}", 0.046), (tx + bx, badge_y - 0.060, bz),
+        sphere(f"TankBolt{side}{j}", 0.046, (tx + bx, badge_y - 0.060, bz),
                COPPER, tank_rig, scale=(1, 0.35, 1), seg=16)
     pipe_curve(f"TankPipe{side}", (
         (tx, ty, 1.37), (tx, ty, 1.55), (tx - 0.16 * sx, ty, 1.70),
