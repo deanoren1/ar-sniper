@@ -326,6 +326,8 @@ fun ReviewScreen(
                 }
                 .onFailure {
                     removeInfo = "Removal failed: ${it.message ?: it}"
+                    // לא נשארים תקועים: ההודעה מוצגת ו-OK ממשיך בלי הסרה (כך קרה אחרי תמונה רחבה)
+                    errorText = "Removal failed (${it.message ?: it.javaClass.simpleName})"
                 }
         }
     }

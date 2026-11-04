@@ -125,11 +125,12 @@ fun ArenaBanner(title: String, subtitle: String?, age: Float, modifier: Modifier
         waveNumber != null -> waveRes[(waveNumber - 1).coerceIn(0, 5)]
         title == "BOSS!" -> com.arsniper.R.drawable.banner_boss
         title == "WAVE CLEAR!" ->
-            if (subtitle != null) com.arsniper.R.drawable.banner_clear_heart else com.arsniper.R.drawable.banner_clear
+            if (subtitle != null) com.arsniper.R.drawable.banner_clear_heart_base else com.arsniper.R.drawable.banner_clear_base
         title == "ENRAGED!" -> com.arsniper.R.drawable.banner_enraged
         else -> null
     }
     val bannerW = when (title) {
+        "WAVE CLEAR!" -> 200.dp
         "BOSS!" -> 230.dp
         "ENRAGED!" -> 210.dp
         else -> 170.dp
@@ -195,6 +196,17 @@ fun ArenaBanner(title: String, subtitle: String?, age: Float, modifier: Modifier
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         if (bannerRes != null) {
+            val layerMod = Modifier.graphicsLayer {
+                this.alpha = alpha.coerceIn(0f, 1f)
+                scaleX = scale
+                scaleY = scale
+                translationX = tx * density
+                translationY = ty * density
+            }
+            if (title == "WAVE CLEAR!") {
+                ClearBanner(bannerRes, hasHeart = subtitle != null, age = age, width = bannerW, modifier = layerMod)
+                return@Column
+            }
             Image(
                 painter = androidx.compose.ui.res.painterResource(bannerRes),
                 contentDescription = null,
@@ -490,6 +502,88 @@ private fun GameOverPanel(
                     .offset(x = u(275f), y = u(745f + shift)).size(width = u(608f), height = u(127f))
                     .clip(RoundedCornerShape(u(40f))).clickable(onClick = onRetry)
             )
+        }
+    }
+}
+
+/** סוף גל: הבאנר, ואז שלושה כוכבים נדלקים בזה אחר זה, ואם יש לב אז הלב קופץ עם הילה */
+@Composable
+private fun ClearBanner(baseRes: Int, hasHeart: Boolean, age: Float, width: androidx.compose.ui.unit.Dp, modifier: Modifier) {
+    // גודל התמונה וקופסאות הכוכבים והלב (בפיקסלים של התמונה)
+    val imgW = if (hasHeart) 524f else 544f
+    val imgH = if (hasHeart) 262f else 241f
+    val starBoxes = if (hasHeart)
+        arrayOf(floatArrayOf(177f, 37f, 220f, 90f), floatArrayOf(220f, 12f, 288f, 89f), floatArrayOf(288f, 36f, 333f, 90f))
+    else
+        arrayOf(floatArrayOf(203f, 53f, 243f, 100f), floatArrayOf(243f, 33f, 308f, 100f), floatArrayOf(308f, 53f, 350f, 100f))
+    val starRes = if (hasHeart)
+        intArrayOf(com.arsniper.R.drawable.clear_b_star1, com.arsniper.R.drawable.clear_b_star2, com.arsniper.R.drawable.clear_b_star3)
+    else
+        intArrayOf(com.arsniper.R.drawable.clear_a_star1, com.arsniper.R.drawable.clear_a_star2, com.arsniper.R.drawable.clear_a_star3)
+    val k = width.value / imgW
+    val starTimes = floatArrayOf(0.35f, 0.6f, 0.85f)
+    val heartTime = 1.15f
+    Box(modifier = modifier.width(width).height((imgH * k).dp)) {
+        Image(
+            painter = androidx.compose.ui.res.painterResource(baseRes),
+            contentDescription = null,
+            contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+        for (i in 0 until 3) {
+            val t = (age - starTimes[i]) / 0.25f
+            if (t <= 0f) continue
+            val bx = starBoxes[i]
+            val p = t.coerceIn(0f, 1f)
+            val sc = easeOutBack(p) * (if (p < 1f) 1.25f else 1f)
+            val glow = (1f - ((age - starTimes[i]) / 0.5f)).coerceIn(0f, 1f)
+            Box(
+                modifier = Modifier
+                    .offset(x = (bx[0] * k).dp, y = (bx[1] * k).dp)
+                    .size(width = ((bx[2] - bx[0]) * k).dp, height = ((bx[3] - bx[1]) * k).dp)
+                    .drawBehind {
+                        if (glow > 0f) drawCircle(
+                            Color(0xFFFFF176).copy(alpha = 0.7f * glow),
+                            radius = size.maxDimension * (0.7f + 0.5f * (1f - glow))
+                        )
+                    }
+                    .graphicsLayer { scaleX = sc; scaleY = sc }
+            ) {
+                Image(
+                    painter = androidx.compose.ui.res.painterResource(starRes[i]),
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+        if (hasHeart) {
+            val t = (age - heartTime) / 0.3f
+            if (t > 0f) {
+                val p = t.coerceIn(0f, 1f)
+                val sc = easeOutBack(p) * (if (p < 1f) 1.3f else 1f)
+                val glow = (1f - ((age - heartTime) / 0.7f)).coerceIn(0f, 1f)
+                val bx = floatArrayOf(272f, 166f, 347f, 232f)
+                Box(
+                    modifier = Modifier
+                        .offset(x = (bx[0] * k).dp, y = (bx[1] * k).dp)
+                        .size(width = ((bx[2] - bx[0]) * k).dp, height = ((bx[3] - bx[1]) * k).dp)
+                        .drawBehind {
+                            if (glow > 0f) drawCircle(
+                                Color(0xFFFF5252).copy(alpha = 0.6f * glow),
+                                radius = size.maxDimension * (0.65f + 0.6f * (1f - glow))
+                            )
+                        }
+                        .graphicsLayer { scaleX = sc; scaleY = sc }
+                ) {
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.clear_heart_icon),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
         }
     }
 }

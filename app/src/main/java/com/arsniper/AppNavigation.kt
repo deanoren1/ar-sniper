@@ -107,7 +107,10 @@ fun AppNavigation() {
             onPlay = { quick = false; screen = Screen.Review }
         )
         Screen.Review -> ReviewScreen(
-            onContinue = { com.arsniper.pano.PanoGame.finalizeReview(context); goScene() },
+            onContinue = {
+                try { com.arsniper.pano.PanoGame.finalizeReview(context) } catch (e: Throwable) { android.util.Log.w("SnapBoo", "finalizeReview failed", e) }
+                goScene()
+            },
             onRetake = { screen = Screen.Capture }
         )
         Screen.Scene -> SceneScreen(
