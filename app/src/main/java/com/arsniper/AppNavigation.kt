@@ -74,11 +74,11 @@ fun AppNavigation() {
         )
         Screen.Play -> PlayScreen(
             onBack = { screen = Screen.Start },
-            onTakePhoto = { PhotoLibrary.clearPending(); com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Capture },
+            onTakePhoto = { PhotoLibrary.clearPending(context); com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Capture },
             onGalleryPicked = { com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Review },
             onPickSaved = { file ->
                 PhotoLibrary.select(context, file)
-                PhotoLibrary.clearPending()
+                PhotoLibrary.clearPending(context)
                 com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                 quick = false
                 // ניתוח אנשים הוא חובה: תמונה שלא נסקרה עוברת קודם במסך הסקירה
@@ -89,7 +89,7 @@ fun AppNavigation() {
                 val file = all.filter { PhotoLibrary.isReviewed(it) }.randomOrNull() ?: all.randomOrNull()
                 if (file != null) {
                     PhotoLibrary.select(context, file)
-                    PhotoLibrary.clearPending()
+                    PhotoLibrary.clearPending(context)
                     com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                     quick = true
                     if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }

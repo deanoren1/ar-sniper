@@ -18,9 +18,20 @@ object PhotoLibrary {
     private fun dir(context: Context) = File(context.filesDir, "library").apply { mkdirs() }
 
     /** מפתח התמונה שנשמרה מיד אחרי בחירה מהגלריה, לפני שעברה סקירת אנשים (תוחלף בגרסה המאושרת) */
-    @Volatile private var pendingKey: String? = null
+    // נשמר בקובץ ולא רק בזיכרון: אם התהליך נהרג בזמן הסקירה, העותק שלפני הסקירה עדיין יוחלף (אחרת נוצרה תמונה כפולה)
+    private fun pendingFile(context: Context) = File(dir(context), ".pending")
 
-    fun clearPending() { pendingKey = null }
+    private fun readPending(context: Context): String? =
+        try { pendingFile(context).takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null } } catch (_: Exception) { null }
+
+    private fun writePending(context: Context, key: String?) {
+        try {
+            if (key == null) pendingFile(context).delete() else pendingFile(context).writeText(key)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun clearPending(context: Context) { writePending(context, null) }
 
     /**
      * שומר עותק של התמונה הנוכחית (אם עוד אין כזאת) ומנקה ישנות.
@@ -34,16 +45,16 @@ object PhotoLibrary {
             if (!target.exists()) current.copyTo(target, overwrite = true)
             target.setLastModified(System.currentTimeMillis())
             if (finalizing) {
-                val old = pendingKey
+                val old = readPending(context)
                 if (old != null && old != key) {
                     File(dir(context), "$old.jpg").delete()
                     File(dir(context), "$old.ok").delete()
                     File(dir(context), "$old.pano").delete()
                 }
-                pendingKey = null
+                writePending(context, null)
                 File(dir(context), "$key.ok").writeText("2")
             } else {
-                pendingKey = key
+                writePending(context, key)
             }
             val files = list(context)
             // מועדפות לא נמחקות כשהספרייה מלאה
