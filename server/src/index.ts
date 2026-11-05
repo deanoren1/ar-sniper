@@ -101,20 +101,45 @@ async function restyle(request: Request, env: Env): Promise<Response> {
   const body = new Uint8Array(await request.arrayBuffer());
   if (body.length < 1000 || body.length > MAX_UPLOAD_BYTES) return Response.json({ error: "bad-size" }, { status: 413 });
 
+  // בדיקת כפילות: אותה תמונה ואותן הגדרות כבר עובדו (על ידי מישהו כלשהו)? מחזירים אותה, בלי מכסה ובלי עלות.
+  const reqUrl = new URL(request.url);
+  const dedupe = reqUrl.searchParams.get("sandbox") !== "1" && reqUrl.searchParams.get("nocache") !== "1";
+  let cacheStub: DurableObjectStub | null = null;
+  if (dedupe) {
+    const keyText = `${await sha256Hex(body)}:${await sha256Hex(new TextEncoder().encode(reqUrl.search))}`;
+    cacheStub = env.QUOTA.get(env.QUOTA.idFromName(`img:${keyText}`));
+    for (let wait = 0; wait < 45; wait++) {
+      const begin = await (await cacheStub.fetch("https://quota/img-begin", { method: "POST" })).text();
+      if (begin === "have") {
+        const hit = await cacheStub.fetch("https://quota/img-get");
+        if (hit.status === 200) {
+          return new Response(hit.body, { headers: { "content-type": hit.headers.get("content-type") ?? "image/jpeg", "cache-control": "no-store", "x-provider": "cache" } });
+        }
+        break;
+      }
+      if (begin === "ok") break;
+      await new Promise((r) => setTimeout(r, 2000)); // מישהו כבר מעבד את אותה תמונה: מחכים לתוצאה שלו
+    }
+  }
+  const releaseBegin = async () => { if (cacheStub) { try { await cacheStub.fetch("https://quota/img-end", { method: "POST" }); } catch { /* ignore */ } } };
+
   const perDevice = Number(env.DAILY_PER_DEVICE ?? "20");
   const budget = Number(env.DAILY_BUDGET ?? "100");
   const ownerHeader = request.headers.get("x-owner") ?? "";
   const isOwner = !!env.OWNER_KEY && ownerHeader.length === env.OWNER_KEY.length && ownerHeader === env.OWNER_KEY;
   if (!isOwner) {
     if (!(await takeQuota(env, `dev:${device}`, perDevice))) {
+      await releaseBegin();
       return Response.json({ error: "daily-limit" }, { status: 429 });
     }
     if (!(await takeQuota(env, "global", budget))) {
       await refundQuota(env, `dev:${device}`);
+      await releaseBegin();
       return Response.json({ error: "budget-reached" }, { status: 429 });
     }
   }
   const fail = async (status: number, error: string, url?: string) => {
+    await releaseBegin();
     if (!isOwner) {
       await refundQuota(env, `dev:${device}`);
       await refundQuota(env, "global");
@@ -135,10 +160,18 @@ async function restyle(request: Request, env: Env): Promise<Response> {
       : provider === "openai" ? await callOpenAI(env, prompt, body, size, quality, model)
       : await callGemini(env, prompt, body);
     if ("error" in result) return fail(502, result.error, result.url);
+    if (cacheStub) {
+      try { await cacheStub.fetch(`https://quota/img-put?mime=${encodeURIComponent(result.mime)}`, { method: "POST", body: result.bytes }); } catch { await releaseBegin(); }
+    }
     return new Response(result.bytes, { headers: { "content-type": result.mime, "cache-control": "no-store", "x-provider": provider } });
   } catch {
     return fail(502, "upstream-error");
   }
+}
+
+async function sha256Hex(data: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** יחס רוחב/גובה מבוקש (aspect=1.333), או לפי כיוון התמונה */
@@ -311,6 +344,7 @@ export class Quota implements DurableObject {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname.startsWith("/img-")) return this.imageCache(url, request);
     const day = url.searchParams.get("day") ?? "";
     const key = `day:${day}`;
     const used = (await this.ctx.storage.get<number>(key)) ?? 0;
@@ -326,7 +360,60 @@ export class Quota implements DurableObject {
     }
     return new Response("?", { status: 404 });
   }
+
+  /**
+   * מטמון תוצאות העיבוד (בדיקת כפילות): אותה תמונה + אותו סגנון = אותה תוצאה, בלי לשלם שוב.
+   * נשמר בחלקים של עד מגה (מגבלת ערך באחסון), ופג אחרי 60 יום. "begin" מסמן עיבוד שבתהליך, כדי שבקשות מקבילות לא ישלמו פעמיים.
+   */
+  private async imageCache(url: URL, request: Request): Promise<Response> {
+    const st = this.ctx.storage;
+    const meta = await st.get<{ at: number; chunks: number; mime: string }>("meta");
+    const fresh = !!meta && Date.now() - meta.at < IMG_TTL_MS;
+    if (url.pathname === "/img-get") {
+      if (!fresh || !meta) return new Response("none", { status: 404 });
+      const parts: Uint8Array[] = [];
+      let total = 0;
+      for (let i = 0; i < meta.chunks; i++) {
+        const c = await st.get<ArrayBuffer>(`c${i}`);
+        if (!c) return new Response("none", { status: 404 });
+        const u = new Uint8Array(c);
+        parts.push(u);
+        total += u.length;
+      }
+      const out = new Uint8Array(total);
+      let o = 0;
+      for (const u of parts) { out.set(u, o); o += u.length; }
+      return new Response(out, { headers: { "content-type": meta.mime } });
+    }
+    if (url.pathname === "/img-begin") {
+      if (fresh) return new Response("have");
+      const busy = await st.get<number>("busy");
+      if (busy && Date.now() - busy < 150_000) return new Response("busy");
+      await st.put("busy", Date.now());
+      return new Response("ok");
+    }
+    if (url.pathname === "/img-end") {
+      await st.delete("busy");
+      return new Response("ok");
+    }
+    if (url.pathname === "/img-put") {
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.length === 0 || bytes.length > 8_000_000) return new Response("bad", { status: 400 });
+      const chunks = Math.ceil(bytes.length / IMG_CHUNK);
+      for (let i = 0; i < chunks; i++) {
+        const part = bytes.slice(i * IMG_CHUNK, (i + 1) * IMG_CHUNK);
+        await st.put(`c${i}`, part.buffer.slice(part.byteOffset, part.byteOffset + part.byteLength));
+      }
+      await st.put("meta", { at: Date.now(), chunks, mime: url.searchParams.get("mime") ?? "image/jpeg" });
+      await st.delete("busy");
+      return new Response("ok");
+    }
+    return new Response("?", { status: 404 });
+  }
 }
+
+const IMG_CHUNK = 1_000_000;
+const IMG_TTL_MS = 60 * 24 * 3600 * 1000;
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // בלי O,0,I,1,L שמתבלבלים
 const CODE_LENGTH = 5;
