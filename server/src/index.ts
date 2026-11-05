@@ -34,6 +34,8 @@ export interface Env {
   DAILY_BUDGET?: string;
   /** כמה עיבודים חינם ביום לכל מכשיר (ברירת מחדל 20 בזמן בדיקות) */
   DAILY_PER_DEVICE?: string;
+  /** מפתח הבעלים (סוד בשרת בלבד): מי ששולח אותו בכותרת x-owner עוקף את המכסות */
+  OWNER_KEY?: string;
 }
 
 const GEMINI_MODEL = "gemini-2.5-flash-image";
@@ -101,16 +103,22 @@ async function restyle(request: Request, env: Env): Promise<Response> {
 
   const perDevice = Number(env.DAILY_PER_DEVICE ?? "20");
   const budget = Number(env.DAILY_BUDGET ?? "100");
-  if (!(await takeQuota(env, `dev:${device}`, perDevice))) {
-    return Response.json({ error: "daily-limit" }, { status: 429 });
-  }
-  if (!(await takeQuota(env, "global", budget))) {
-    await refundQuota(env, `dev:${device}`);
-    return Response.json({ error: "budget-reached" }, { status: 429 });
+  const ownerHeader = request.headers.get("x-owner") ?? "";
+  const isOwner = !!env.OWNER_KEY && ownerHeader.length === env.OWNER_KEY.length && ownerHeader === env.OWNER_KEY;
+  if (!isOwner) {
+    if (!(await takeQuota(env, `dev:${device}`, perDevice))) {
+      return Response.json({ error: "daily-limit" }, { status: 429 });
+    }
+    if (!(await takeQuota(env, "global", budget))) {
+      await refundQuota(env, `dev:${device}`);
+      return Response.json({ error: "budget-reached" }, { status: 429 });
+    }
   }
   const fail = async (status: number, error: string, url?: string) => {
-    await refundQuota(env, `dev:${device}`);
-    await refundQuota(env, "global");
+    if (!isOwner) {
+      await refundQuota(env, `dev:${device}`);
+      await refundQuota(env, "global");
+    }
     return Response.json({ error, url }, { status });
   };
 

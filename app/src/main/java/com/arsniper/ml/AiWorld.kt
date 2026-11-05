@@ -62,6 +62,7 @@ object AiWorld {
             val request = Request.Builder()
                 .url("https://$server/restyle?$query")
                 .header("x-device", deviceId(context))
+                .apply { OwnerKey.get(context).takeIf { it.isNotEmpty() }?.let { header("x-owner", it) } }
                 .post(jpeg.toRequestBody("image/jpeg".toMediaType()))
                 .build()
             http.newCall(request).execute().use { response ->
@@ -169,4 +170,11 @@ object AiWorld {
     } catch (_: Exception) {
         false
     }
+}
+
+/** מפתח הבעלים (מוקלד בהגדרות בלבד, נשמר במכשיר, לא נכנס לקוד או לצ'אט). מאפשר יצירת AI בלי מכסה */
+object OwnerKey {
+    private fun prefs(context: Context) = context.getSharedPreferences("owner", Context.MODE_PRIVATE)
+    fun get(context: Context): String = prefs(context).getString("key", "") ?: ""
+    fun set(context: Context, value: String) { prefs(context).edit().putString("key", value.trim()).apply() }
 }

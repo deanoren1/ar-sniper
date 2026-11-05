@@ -1,6 +1,7 @@
 package com.arsniper.ui.menu
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +50,7 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
                         SettingRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
                         SettingRow("FPS METER (DEBUG)", PlayerProfile.fpsMeter) { PlayerProfile.fpsMeter = it }
                         SoundTest()
+                        OwnerKeyField()
                         GameButton(
                             text = "CO-OP (BETA)",
                             onClick = onCoop,
@@ -140,3 +142,40 @@ private fun SoundTest() {
         }
     }
 }
+
+/** שדה נסתר למפתח הבעלים: לחיצה ארוכה על הכותרת "AI ACCESS" פותחת אותו. המפתח נשמר במכשיר בלבד */
+@Composable
+private fun OwnerKeyField() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var text by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var saved by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.arsniper.ml.OwnerKey.get(context).isNotEmpty()) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedText(
+            if (saved) "AI ACCESS: UNLIMITED" else "AI ACCESS",
+            fontSize = 12.sp, color = if (saved) GameColors.Green else GameColors.Ice, outline = null,
+            modifier = Modifier.androidx_combinedClickable { open = !open }
+        )
+        if (open) {
+            androidx.compose.material3.OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                label = { androidx.compose.material3.Text("Owner key") },
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GameButton(text = "SAVE", onClick = {
+                    com.arsniper.ml.OwnerKey.set(context, text); saved = text.trim().isNotEmpty(); text = ""; open = false
+                }, style = GameButtonStyle.Success, height = 36.dp, fontSize = 14.sp)
+                GameButton(text = "CLEAR", onClick = {
+                    com.arsniper.ml.OwnerKey.set(context, ""); saved = false; text = ""
+                }, style = GameButtonStyle.Secondary, height = 36.dp, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+private fun Modifier.androidx_combinedClickable(onClick: () -> Unit): Modifier =
+    this.clickable(onClick = onClick)
