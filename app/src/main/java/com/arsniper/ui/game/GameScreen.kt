@@ -1,5 +1,6 @@
 package com.arsniper.ui.game
 
+import androidx.compose.foundation.background
 import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -1672,10 +1673,10 @@ fun GameScreen(
             if (text.isNotEmpty()) {
                 androidx.compose.material3.Text(
                     text = text,
-                    color = Color(0xFF7CFC00),
+                    color = androidx.compose.ui.graphics.Color(0xFF7CFC00),
                     fontSize = 11.sp,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp)
-                        .background(Color(0x99000000)).padding(horizontal = 6.dp)
+                        .background(androidx.compose.ui.graphics.Color(0x99000000)).padding(horizontal = 6.dp)
                 )
             }
         }
