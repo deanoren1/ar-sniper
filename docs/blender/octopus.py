@@ -113,23 +113,23 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.26, 0.50, 0.82, 1.0)
+    shell.inputs["Base Color"].default_value = (0.40, 0.62, 0.90, 1.0)
     shell.inputs["Roughness"].default_value = 0.055
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.48
+    shell.inputs["Coat Weight"].default_value = 0.30
     shell.inputs["Coat Roughness"].default_value = 0.025
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.92
-        shell.inputs["Emission Color"].default_value = (0.025, 0.075, 0.16, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.06
+        shell.inputs["Transmission Weight"].default_value = 0.98
+        shell.inputs["Emission Color"].default_value = (0.035, 0.10, 0.22, 1.0)
+        shell.inputs["Emission Strength"].default_value = 0.04
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
     layer.inputs["Blend"].default_value = 0.35
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.24
-    edge_tint.inputs[2].default_value = 0.025
+    edge_tint.inputs[1].default_value = 0.15
+    edge_tint.inputs[2].default_value = 0.015
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -210,14 +210,14 @@ TANK = mat("Tank", (0.52, 0.012, 0.56), rough=0.23, metal=0.12, coat=0.68)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
 GLASS = glass_mat()
-DOME_RIM = mat("DomeRim", (0.16, 0.38, 0.62), rough=0.16, metal=0.04,
-               emit=(0.012, 0.045, 0.11), strength=0.045, coat=0.35)
+DOME_RIM = mat("DomeRim", (0.12, 0.48, 0.86), rough=0.16, metal=0.04,
+               emit=(0.025, 0.085, 0.20), strength=0.075, coat=0.35)
 def dome_highlight(name, color):
     m = mat(name, color, rough=0.24, emit=color, strength=0.08, coat=0.24)
     try:
         m.surface_render_method = "BLENDED"
         m.use_transparency_overlap = False
-        bsdf_of(m).inputs["Alpha"].default_value = 0.52
+        bsdf_of(m).inputs["Alpha"].default_value = 0.38
     except Exception:
         pass
     return m
@@ -551,12 +551,12 @@ for i, (x, base_z, height) in enumerate((
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -1.04, 0.34  # Recess and lower the eye slightly into the spotted mantle.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.96, 1.00, 0.96)  # keep the eye dominant but expose more of the spotted mantle.
+eye.scale = (1.02, 1.00, 1.00)  # restore the reference's dominant cyclops eye.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
-    sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.04, 0.80, 1.00), seg=64),
+    sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.06, 0.82, 1.02), seg=64),
     sphere("Iris", 0.52, (0, -0.66, 0.0), IRIS, eye, scale=(1.04, 0.31, 0.94), seg=64),
-    sphere("Pupil", 0.35, (0, -0.91, -0.015), PUPIL, eye, scale=(1.00, 0.62, 0.94), seg=64),
+    sphere("Pupil", 0.32, (0, -0.91, -0.015), PUPIL, eye, scale=(0.98, 0.62, 0.92), seg=64),
     sphere("Shine", 0.11, (0.17, -1.10, 0.20), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
 eye_parts.append(torus("EyeMagentaRim", 0.94, 0.050, (0, -0.18, 0), LID, eye,
@@ -617,21 +617,21 @@ def make_upper_eyelid(parent):
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
 mouth = empty("Mouth", pivot, loc=(0, -1.64, -0.48))
-mouth.scale = (0.84, 1.0, 0.90)
+mouth.scale = (0.84, 1.0, 0.86)
 # A wider, curved opening with a small set of readable fangs, matching the reference grin.
 mouth_parts = [
     sphere("MouthLip", 0.50, (0, 0.035, 0), MOUTH_LIP, mouth,
-           scale=(1.90, 0.58, 0.82), seg=64),
+           scale=(1.90, 0.54, 0.82), seg=64),
     sphere("MouthCavity", 0.50, (0, -0.018, 0), MOUTH, mouth,
-           scale=(1.82, 0.50, 0.70), seg=64),
+           scale=(1.82, 0.46, 0.70), seg=64),
 ]
 # Two prominent upper fangs and two shorter lower teeth keep the expression clean.
 for i, x in enumerate((-0.34, 0.34)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.105, 0.0, 0.26,
+    mouth_parts.append(cone(f"ToothU{i}", 0.082, 0.0, 0.21,
                             (x, -0.30, 0.105), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
 for i, x in enumerate((-0.30, 0.30)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.082, 0.0, 0.18,
+    mouth_parts.append(cone(f"ToothL{i}", 0.066, 0.0, 0.14,
                             (x, -0.30, -0.13), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.17, (0, -0.36, -0.13), TONGUE, mouth,
                           scale=(0.92, 0.52, 0.22), seg=40))
@@ -652,7 +652,7 @@ for i in range(18):
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.34, 0.17, 0.065), rough=0.25, metal=0.78, coat=0.34)
 tank_rig = empty("TankRig", torso)
-tank_rig.scale = (1.02, 1.00, 0.92)
+tank_rig.scale = (1.10, 1.00, 0.84)  # slightly wider, less tower-like side canisters.
 for side, sx in (("L", -1), ("R", 1)):
     tx, ty = 2.42 * sx, 0.24  # tuck the canisters slightly closer to the bubble
     tank_body = cylinder(f"Tank{side}", 0.60, 2.88, (tx, ty, 0.015), TANK, tank_rig)
@@ -758,7 +758,7 @@ for i in range(65):
     nz = (z - DOME_CENTER_Z) / DOME_RADII[2]
     y = -DOME_RADII[1] * math.sqrt(max(0.02, 1.0 - nx * nx - nz * nz)) - 0.018
     dome_arch.append((x, y, z))
-pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.007)
+pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.010)
 # Thin side contours reinforce the spherical bubble without crossing the face.
 for side in (-1, 1):
     side_arc = []
@@ -769,7 +769,7 @@ for side in (-1, 1):
         nx = x / DOME_RADII[0]
         y = -DOME_RADII[1] * math.sqrt(max(0.02, 1.0 - nx * nx - nz * nz)) - 0.014
         side_arc.append((x, y, z))
-    pipe_curve(f"DomeSide{side}", side_arc, DOME_RIM, torso, bevel=0.0025)
+    pipe_curve(f"DomeSide{side}", side_arc, DOME_RIM, torso, bevel=0.0035)
 # Reflections sit on exposed front-side glass where the body cannot hide them.
 def add_dome_reflection(name, x, z, width, height, material):
     nx = x / DOME_RADII[0]
@@ -780,8 +780,8 @@ def add_dome_reflection(name, x, z, width, height, material):
                   scale=(width, height, 0.012), rot=(math.pi / 2, 0.0, 0.0), seg=48)
 
 # Smaller, lower softboxes sit safely inside the visible glass silhouette.
-add_dome_reflection("DomeReflectionL", -0.86, 2.12, 0.27, 0.54, DOME_HIGHLIGHT_CYAN)
-add_dome_reflection("DomeReflectionR", 0.86, 2.12, 0.29, 0.48, DOME_HIGHLIGHT_WHITE)
+add_dome_reflection("DomeReflectionL", -0.86, 2.06, 0.23, 0.46, DOME_HIGHLIGHT_CYAN)
+add_dome_reflection("DomeReflectionR", 0.86, 2.06, 0.25, 0.41, DOME_HIGHLIGHT_WHITE)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.30, 0.26, 0.22, 0.18]
@@ -814,26 +814,26 @@ def arm_radius(t):
     # Tapered, soft tentacles: broad at the mantle, slimmer toward rounded curled tips.
     # Broad mantle attachment, a gentle mid-arm taper, then a soft distal bulb.
     if t < 0.18:
-        return 0.39 + 0.012 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.43 + 0.010 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.36 - 0.045 * u
+        return 0.39 - 0.040 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
     # A plush but narrower distal bulb keeps adjacent legs visually separated.
-    bulb = 0.33 + 0.12 * math.sin(math.pi * u)
+    bulb = 0.36 + 0.09 * math.sin(math.pi * u)
     return bulb * (1.0 + 0.025 * u)
 
 
 def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.44, -0.10), (1.78, -1.18), (1.12, 0.42)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.52, -0.06), (1.92, -0.92), (1.05, 0.82)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.24), (1.68, -1.40), (1.28, -0.78)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.36, -0.18), (1.55, -1.18), (1.52, -0.22)
     elif style == "inner":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.24), (1.08, -1.46), (0.82, -0.92)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.14, -0.18), (0.94, -1.20), (0.78, -0.42)
     else:
-        p0, p1, p2, p3 = (0.0, 0.0), (0.30, -0.30), (0.88, -1.30), (0.72, -0.88)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.24, -0.20), (0.78, -1.05), (0.68, -0.50)
     u = 1.0 - t
     x = (u ** 3 * p0[0] + 3.0 * u * u * t * p1[0]
          + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
@@ -841,7 +841,7 @@ def arm_center(t, style="outer", mirror=False):
          + 3.0 * u * t * t * p2[1] + t ** 3 * p3[1])
     if mirror:
         x = -x
-    scale = 1.08 if style == "outer" else (1.04 if style == "front" else (1.00 if style == "inner" else 1.05))
+    scale = 1.00 if style == "outer" else (0.94 if style == "front" else (0.88 if style == "inner" else 0.90))
     return scale * Vector((x, arm_curve_y(t, style), z))
 
 
@@ -935,9 +935,9 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 0.90
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.38, rr * 0.38, rr * 0.035), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.42, rr * 0.42, rr * 0.035), rot=normal_rot(cup_normal), seg=24)
         rim_pos = center + cup_normal * rr * 0.96
-        torus(f"SuckerRim{i}_{q}", rr * 0.40, rr * 0.022, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.44, rr * 0.025, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.30, 0.54, 0.78)):
@@ -956,7 +956,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.48, rr * 0.36, rr * 0.010), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style, mirror))
-    sphere(f"ArmRoundedTip{i}", 0.30, tuple(arm_center(0.995, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.25, tuple(arm_center(0.995, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
