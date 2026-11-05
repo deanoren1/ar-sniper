@@ -110,7 +110,14 @@ object AiWorld {
 
     /** עולם AI שכבר נוצר לתמונה הזאת (מטמון בדיסק), או null */
     fun cachedWorld(context: Context, photoKey: String, serverStyle: String): Bitmap? =
-        worldFile(context, photoKey, serverStyle).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+        worldFile(context, photoKey, serverStyle).takeIf { it.exists() }?.let { f ->
+            // תמונת AI גדולה מאוד מכבידה על ה-GPU בכל פריים: מקטינים בפענוח לצלע ארוכה של עד ~2200
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(f.absolutePath, bounds)
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 2200) sample *= 2
+            BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+        }
 
     /** יוצר עולם AI לתמונה (seedream, ואם נכשל muse), שומר במטמון. חוסם: להריץ מחוץ לתהליך הראשי. null בכישלון */
     @Volatile var lastError: String = ""
