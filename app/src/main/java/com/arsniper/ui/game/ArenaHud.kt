@@ -302,7 +302,7 @@ fun EndOverlay(
                     outlineWidth = 10f
                 )
                 if (won) {
-                    StarRow(stars = stars, size = 32.dp)
+                    StarRow(stars = stars, size = 32.dp, animate = true)
                 } else {
                     OutlinedText("You reached wave $wave", fontSize = 18.sp, outline = null)
                 }

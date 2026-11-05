@@ -1,5 +1,6 @@
 package com.arsniper.ui.components
 
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -220,19 +221,49 @@ fun MonsterPortraitFrame(
 
 /** שלושה כוכבים: מלאים עד stars, והשאר כהים */
 @Composable
-fun StarRow(stars: Int, modifier: Modifier = Modifier, size: Dp = 20.dp) {
+fun StarRow(stars: Int, modifier: Modifier = Modifier, size: Dp = 20.dp, animate: Boolean = false) {
     val gray = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
         androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
     )
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (i in 1..3) {
-            Image(
-                painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.icon_star),
-                contentDescription = null,
-                colorFilter = if (i <= stars) null else gray,
-                alpha = if (i <= stars) 1f else 0.35f,
-                modifier = Modifier.size(size)
-            )
+            val earned = i <= stars
+            // כוכב שהושג נדלק בזה אחר זה: קפיצה, הילה וצבע. כוכב שלא הושג נשאר אפור
+            val lit = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(if (animate) 0f else 1f) }
+            androidx.compose.runtime.LaunchedEffect(animate, earned) {
+                if (animate && earned) {
+                    lit.snapTo(0f)
+                    kotlinx.coroutines.delay(450L + 450L * (i - 1))
+                    lit.animateTo(1f, androidx.compose.animation.core.tween(380, easing = androidx.compose.animation.core.LinearEasing))
+                }
+            }
+            val t = if (earned) lit.value else 0f
+            // קפיצה עם חריגה קטנה (easeOutBack) והילה שדועכת
+            val x = t - 1f
+            val pop = if (t <= 0f) 0.6f else 1f + 2.70158f * x * x * x + 1.70158f * x * x
+            val scale = if (earned && animate) (0.6f + 0.4f * pop).coerceAtLeast(0.6f) * (if (t in 0.01f..0.99f) 1.15f else 1f) else 1f
+            val glow = if (earned && animate && t in 0.01f..1f) (1f - t) else 0f
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(size)
+                    .drawBehind {
+                        if (glow > 0f) drawCircle(
+                            Color(0xFFFFF176).copy(alpha = 0.8f * glow),
+                            radius = this.size.maxDimension * (0.55f + 0.5f * (1f - glow))
+                        )
+                    }
+            ) {
+                Image(
+                    painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.icon_star),
+                    contentDescription = null,
+                    colorFilter = if (earned && t >= 0.5f || (earned && !animate)) null else gray,
+                    alpha = if (earned) (0.35f + 0.65f * t).coerceIn(0f, 1f) else 0.35f,
+                    modifier = Modifier
+                        .size(size)
+                        .graphicsLayer { scaleX = scale; scaleY = scale }
+                )
+            }
         }
     }
 }
