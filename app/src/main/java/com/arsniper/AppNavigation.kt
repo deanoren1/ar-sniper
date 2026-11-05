@@ -23,7 +23,7 @@ import com.arsniper.ui.menu.ScanLabScreen
 import com.arsniper.ui.menu.SettingsScreen
 import com.arsniper.ui.menu.StatsScreen
 
-enum class Screen { Start, ArenaMode, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
+enum class Screen { Start, ArenaMode, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Armory, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
 
 @Composable
 fun AppNavigation() {
@@ -74,6 +74,8 @@ fun AppNavigation() {
             Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (modeArena) Screen.ArenaMode else Screen.Play
             Screen.Arena -> if (mapFromStart) Screen.Start else Screen.Play
             Screen.Coop -> Screen.Settings
+            Screen.Armory -> Screen.Shop
+            Screen.Shop -> if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start
             else -> Screen.Start
         }
     }
@@ -157,6 +159,7 @@ fun AppNavigation() {
             },
             onMyPhotos = { arenaFirst = false; screen = Screen.Play },
             onShop = { screen = Screen.Shop },
+            onArmory = { screen = Screen.Armory },
             onBack = { if (mapFromStart && !arenaFirst) { screen = Screen.Start } else { arenaFirst = false; screen = Screen.Play } }
         )
         Screen.ArenaMode -> com.arsniper.ui.arena.ArenaModeScreen(
@@ -171,7 +174,8 @@ fun AppNavigation() {
                 modeArena = true
                 goScene()
             },
-            onPlayWorld = { file ->
+            onPlayWorld = { file, worldStyle ->
+                arenaIndex = worldStyle.ordinal
                 PhotoLibrary.select(context, file)
                 PhotoLibrary.clearPending(context)
                 com.arsniper.pano.PanoramaStore.clearPendingGame(context)
@@ -213,7 +217,11 @@ fun AppNavigation() {
             },
             onNextArena = { quick = false; arenaFirst = false; screen = Screen.Arena }
         )
-        Screen.Shop -> ShopScreen(onBack = { screen = if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start })
+        Screen.Shop -> com.arsniper.ui.shop.CurrencyShopScreen(
+            onBack = { screen = if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start },
+            onArmory = { screen = Screen.Armory }
+        )
+        Screen.Armory -> ShopScreen(onBack = { screen = Screen.Shop })
         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug }, onCoop = { screen = Screen.Coop })
         Screen.ScanLab -> ScanLabScreen(onBack = { screen = Screen.Settings })
         Screen.ArtLab -> ArtLabScreen(onBack = { screen = Screen.Settings }, onUsePhoto = { screen = Screen.Review })

@@ -53,7 +53,7 @@ import com.arsniper.ui.theme.ResponsiveBox
  * בסגנון המשחק: אותם רכיבים כמו התפריט הראשי. הלוגיקה (קנייה, שדרוג) לא השתנתה.
  */
 @Composable
-fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier, title: String = "ARMORY") {
     var selected by remember { mutableStateOf(PlayerProfile.equipped) }
     // קריאה למאזנים גורמת לציור מחדש בכל שינוי בפרופיל
     val coins = PlayerProfile.coins
@@ -62,7 +62,7 @@ fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         com.arsniper.ui.components.MenuBackdrop()
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
-            ScreenHeader(title = "SHOP", onBack = onBack) {
+            ScreenHeader(title = title, onBack = onBack) {
                 CurrencyBar(coins, diamonds)
             }
             Spacer(Modifier.height(ui.dp(10f)))

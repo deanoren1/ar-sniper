@@ -52,9 +52,27 @@ import com.arsniper.ui.theme.GameColors
 import java.io.File
 
 /** עולם AI שמור בארנה: תמונת המקור שלו, ותמונת העולם */
-private class SavedWorld(val source: File, val world: File)
+private class SavedWorld(val source: File, val world: File, val style: ArenaStyle, val key: String)
 
-/** העולמות השמורים של הארנה (החדש ראשון). רק כאלה שאפשר להפעיל, כלומר שתמונת המקור שלהם עדיין קיימת */
+/** מועדפים: מפתחות התמונות שסומנו בכוכב */
+private object WorldFavorites {
+    private fun prefs(context: android.content.Context) = context.getSharedPreferences("world_favorites", android.content.Context.MODE_PRIVATE)
+    fun all(context: android.content.Context): Set<String> = prefs(context).getStringSet("keys", emptySet()) ?: emptySet()
+    fun toggle(context: android.content.Context, key: String) {
+        val set = all(context).toMutableSet()
+        if (!set.add(key)) set.remove(key)
+        prefs(context).edit().putStringSet("keys", set).apply()
+    }
+}
+
+/** כל העולמות השמורים בכל הארנות (החדש ראשון). רק כאלה שאפשר להפעיל, כלומר שתמונת המקור שלהם עדיין קיימת */
+private fun allSavedWorlds(context: android.content.Context): List<SavedWorld> {
+    val result = ArrayList<SavedWorld>()
+    for (style in ArenaStyle.values()) result += savedWorlds(context, style)
+    return result.sortedByDescending { it.world.lastModified() }
+}
+
+/** העולמות השמורים של ארנה אחת */
 private fun savedWorlds(context: android.content.Context, style: ArenaStyle): List<SavedWorld> {
     val serverStyle = AiWorld.serverStyle(style) ?: return emptyList()
     val dir = File(context.filesDir, "ai_world")
@@ -72,7 +90,7 @@ private fun savedWorlds(context: android.content.Context, style: ArenaStyle): Li
         .mapNotNull { (key, world) ->
             val lib = File(File(context.filesDir, "library"), "$key.jpg")
             val src = if (lib.exists()) lib else AiWorldWorker.sourceFile(context, key).takeIf { it.exists() }
-            src?.let { SavedWorld(it, world) }
+            src?.let { SavedWorld(it, world, style, key) }
         }
 }
 
@@ -87,7 +105,7 @@ fun ArenaModeScreen(
     onBack: () -> Unit,
     onShop: () -> Unit,
     onUseLast: (File) -> Unit,
-    onPlayWorld: (File) -> Unit,
+    onPlayWorld: (File, ArenaStyle) -> Unit,
     onCamera: () -> Unit,
     onGalleryImported: () -> Unit,
     modifier: Modifier = Modifier
@@ -96,7 +114,10 @@ fun ArenaModeScreen(
     val context = LocalContext.current
     val lastFile = remember { PhotoLibrary.list(context).firstOrNull { PhotoLibrary.isReviewed(it) } }
     val lastThumb = remember(lastFile) { lastFile?.let { PhotoLibrary.thumbnail(it, 480) } }
-    val worlds = remember(style) { savedWorlds(context, style) }
+    val worlds = remember(style) { allSavedWorlds(context) }
+    val thisArenaWorlds = remember(worlds) { worlds.filter { it.style == style } }
+    var favorites by remember { mutableStateOf(WorldFavorites.all(context)) }
+    var filter by remember { mutableStateOf<Any>(style) } // ArenaStyle, או "fav", או "all"
     val worldThumbs = remember(worlds) { worlds.take(4).map { PhotoLibrary.thumbnail(it.world, 240) } }
     var message by remember { mutableStateOf<String?>(null) }
     var showWorlds by remember { mutableStateOf(false) }
@@ -158,13 +179,24 @@ fun ArenaModeScreen(
                 .fillMaxHeight(0.66f)
                 .padding(start = 16.dp, end = 16.dp, bottom = 18.dp)
         ) {
+            ModeCard(
+                title = "RANDOM",
+                color = Color(0xFFFF8A2B),
+                caption = "Play a community world (soon)",
+                modifier = Modifier.weight(1f),
+                onClick = { message = "Community worlds are coming soon" }
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    OutlinedText("?", fontSize = 64.sp, color = Color.White, outlineWidth = 12f)
+                }
+            }
             if (worlds.isNotEmpty()) {
                 ModeCard(
                     title = "MY WORLDS",
                     color = Color(0xFF8E4DFF),
                     caption = "PLAY YOUR SAVED AI WORLDS",
                     modifier = Modifier.weight(1f),
-                    onClick = { if (worlds.size == 1) onPlayWorld(worlds.first().source) else showWorlds = true }
+                    onClick = { showWorlds = true }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxSize()) {
                         for (rowItems in worldThumbs.chunked(2)) {
@@ -210,32 +242,73 @@ fun ArenaModeScreen(
         }
 
         if (showWorlds) {
-            // בחירת עולם שמור: כל העולמות של הארנה, הלחיצה על אחד מפעילה אותו
+            // גלריית העולמות: סינון לפי ארנה או מועדפים, כוכב לכל עולם, ולחיצה מפעילה אותו
+            val shown = when (val f = filter) {
+                "fav" -> worlds.filter { it.key in favorites }
+                "all" -> worlds
+                is ArenaStyle -> worlds.filter { it.style == f }
+                else -> worlds
+            }
+            val arenasWithWorlds = ArenaStyle.values().filter { st -> worlds.any { it.style == st } }
             Box(
-                modifier = Modifier.fillMaxSize().background(Color(0xE6050B1C)).clickable { showWorlds = false },
+                modifier = Modifier.fillMaxSize().background(Color(0xF0050B1C)).clickable { showWorlds = false },
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedText("MY WORLDS", fontSize = 26.sp, color = Color.White, outlineWidth = 10f)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.clickable(enabled = false) {}
+                ) {
+                    OutlinedText("MY WORLDS", fontSize = 24.sp, color = Color.White, outlineWidth = 10f)
                     androidx.compose.foundation.lazy.LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp)
                     ) {
-                        items(worlds.size) { i ->
-                            val w = worlds[i]
-                            val bmp = remember(w) { PhotoLibrary.thumbnail(w.world, 480) }
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 240.dp, height = 140.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .border(3.dp, Color(0xFF8E4DFF), RoundedCornerShape(16.dp))
-                                    .background(Color(0x55000000))
-                                    .clickable { onPlayWorld(w.source) }
-                            ) {
-                                if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                OutlinedText("PLAY", fontSize = 14.sp, color = Color.White, outline = null,
-                                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
-                                        .background(Color(0xFF1E9E45), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 2.dp))
+                        item { FilterChip("ALL (${worlds.size})", filter == "all") { filter = "all" } }
+                        item { FilterChip("★ (${worlds.count { it.key in favorites }})", filter == "fav") { filter = "fav" } }
+                        items(arenasWithWorlds.size) { i ->
+                            val st = arenasWithWorlds[i]
+                            FilterChip("${st.title} (${worlds.count { it.style == st }})", filter == st) { filter = st }
+                        }
+                    }
+                    if (shown.isEmpty()) {
+                        OutlinedText(
+                            if (filter == "fav") "No favorites yet. Tap the star on a world." else "No worlds here yet.",
+                            fontSize = 14.sp, color = GameColors.Ice, outline = null,
+                            modifier = Modifier.padding(vertical = 40.dp)
+                        )
+                    } else {
+                        androidx.compose.foundation.lazy.LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp)
+                        ) {
+                            items(shown.size) { i ->
+                                val w = shown[i]
+                                val bmp = remember(w) { PhotoLibrary.thumbnail(w.world, 480) }
+                                val fav = w.key in favorites
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 230.dp, height = 140.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .border(3.dp, Color(0xFF8E4DFF), RoundedCornerShape(16.dp))
+                                        .background(Color(0x55000000))
+                                        .clickable { onPlayWorld(w.source, w.style) }
+                                ) {
+                                    if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                    OutlinedText(w.style.title, fontSize = 11.sp, color = Color.White, outline = null,
+                                        modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)
+                                            .background(Color(0xAA000000), RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 1.dp))
+                                    OutlinedText(if (fav) "★" else "☆", fontSize = 22.sp, color = if (fav) GameColors.Yellow else Color.White, outline = null,
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                                            .background(Color(0xAA000000), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp)
+                                            .clickable {
+                                                WorldFavorites.toggle(context, w.key)
+                                                favorites = WorldFavorites.all(context)
+                                            })
+                                    OutlinedText("PLAY", fontSize = 14.sp, color = Color.White, outline = null,
+                                        modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
+                                            .background(Color(0xFF1E9E45), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 2.dp))
+                                }
                             }
                         }
                     }
@@ -299,4 +372,18 @@ private fun SourceButton(text: String, icon: GameIcon, modifier: Modifier, onCli
         IconGlyph(icon, size = 28.dp)
         OutlinedText(text, fontSize = 14.sp, color = Color.White, outline = null)
     }
+}
+
+@Composable
+private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    OutlinedText(
+        text, fontSize = 13.sp, color = Color.White, outline = null,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) Color(0xFF6A2BD9) else Color(0xFF1A2550))
+            .border(2.dp, if (selected) Color(0xFFC9A7FF) else Color(0xFF3A4A8A), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 5.dp)
+    )
 }

@@ -57,6 +57,7 @@ fun ArenaSelectScreen(
     onBack: () -> Unit,
     onMyPhotos: (() -> Unit)? = null,
     onShop: (() -> Unit)? = null,
+    onArmory: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     PlayerProfile.revision.hashCode()
@@ -124,6 +125,16 @@ fun ArenaSelectScreen(
                     height = 38.dp,
                     fontSize = 14.sp,
                     modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 6.dp)
+                )
+            }
+            if (onArmory != null) {
+                com.arsniper.ui.components.GameButton(
+                    text = "ARMORY",
+                    onClick = onArmory,
+                    style = com.arsniper.ui.theme.GameButtonStyle.Primary,
+                    height = 38.dp,
+                    fontSize = 14.sp,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 6.dp)
                 )
             }
             Column(
