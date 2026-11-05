@@ -135,8 +135,8 @@ fun ArenaModeScreen(
                 icon = GameIcon.Back, onClick = onBack, style = GameButtonStyle.Primary, size = 36.dp,
                 modifier = Modifier.align(Alignment.TopStart)
             )
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.TopCenter)) {
-                OutlinedText(style.title, fontSize = 30.sp, color = Color.White, outlineWidth = 10f)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) {
+                OutlinedText(style.title, fontSize = 20.sp, color = Color.White, outlineWidth = 10f)
                 OutlinedText("Choose how to play", fontSize = 14.sp, color = GameColors.Ice, outline = null)
             }
             Row(
