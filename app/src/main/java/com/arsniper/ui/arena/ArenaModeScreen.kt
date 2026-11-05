@@ -58,11 +58,18 @@ private class SavedWorld(val source: File, val world: File)
 private fun savedWorlds(context: android.content.Context, style: ArenaStyle): List<SavedWorld> {
     val serverStyle = AiWorld.serverStyle(style) ?: return emptyList()
     val dir = File(context.filesDir, "ai_world")
-    val suffix = "_$serverStyle.jpg"
-    return (dir.listFiles { f -> f.name.endsWith(suffix) && !f.name.startsWith("src_") } ?: emptyArray())
-        .sortedByDescending { it.lastModified() }
-        .mapNotNull { world ->
-            val key = world.name.removeSuffix(suffix)
+    // כל העולמות של משפחת הארנה (גם כאלה שנוצרו בסגנון ישן), אחד לכל תמונה; המועדף: הסגנון הנוכחי
+    val family = serverStyle.substringBefore("_")
+    val pattern = Regex("^(.+)_" + Regex.escape(family) + "(_[a-z]+)?\\.jpg$")
+    val byKey = (dir.listFiles() ?: emptyArray())
+        .filter { !it.name.startsWith("src_") && pattern.matches(it.name) }
+        .groupBy { pattern.matchEntire(it.name)!!.groupValues[1] }
+    return byKey.map { (key, list) ->
+        val world = list.firstOrNull { it.name == "${key}_$serverStyle.jpg" } ?: list.maxByOrNull { it.lastModified() }!!
+        key to world
+    }
+        .sortedByDescending { it.second.lastModified() }
+        .mapNotNull { (key, world) ->
             val lib = File(File(context.filesDir, "library"), "$key.jpg")
             val src = if (lib.exists()) lib else AiWorldWorker.sourceFile(context, key).takeIf { it.exists() }
             src?.let { SavedWorld(it, world) }
