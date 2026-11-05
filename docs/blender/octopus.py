@@ -113,23 +113,23 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.24, 0.43, 0.74, 1.0)
-    shell.inputs["Roughness"].default_value = 0.055
+    shell.inputs["Base Color"].default_value = (0.34, 0.55, 0.82, 1.0)
+    shell.inputs["Roughness"].default_value = 0.048
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.46
-    shell.inputs["Coat Roughness"].default_value = 0.025
+    shell.inputs["Coat Weight"].default_value = 0.62
+    shell.inputs["Coat Roughness"].default_value = 0.018
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.88
-        shell.inputs["Emission Color"].default_value = (0.035, 0.10, 0.22, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.04
+        shell.inputs["Transmission Weight"].default_value = 0.58
+        shell.inputs["Emission Color"].default_value = (0.045, 0.12, 0.28, 1.0)
+        shell.inputs["Emission Strength"].default_value = 0.025
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
     layer.inputs["Blend"].default_value = 0.35
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.24
-    edge_tint.inputs[2].default_value = 0.085
+    edge_tint.inputs[1].default_value = 0.34
+    edge_tint.inputs[2].default_value = 0.16
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -139,7 +139,7 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.36, 0.006, 0.62), rough=0.19, coat=0.78,
+PURPLE = mat("Purple", (0.31, 0.006, 0.66), rough=0.19, coat=0.78,
              emit=(0.018, 0.0, 0.014), strength=0.025)
 add_skin(PURPLE, scale=18.0, strength=0.012)  # richer magenta-violet closer to the reference
 PURPLE_DARK = mat("PurpleDark", (0.19, 0.006, 0.31), rough=0.28, coat=0.55)
@@ -203,9 +203,9 @@ XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.035, 0.002, 0.10), rough=0.62, coat=0.05)
 SUCKER_RIM = mat("SuckerRim", (0.10, 0.004, 0.22), rough=0.58, coat=0.08)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.36, 0.006, 0.60), rough=0.20, coat=0.76,
+TENTACLE = mat("Tentacle", (0.30, 0.006, 0.64), rough=0.20, coat=0.76,
                 emit=(0.022, 0.0, 0.016), strength=0.035)
-REAR_TENTACLE = mat("RearTentacle", (0.30, 0.006, 0.40), rough=0.25, coat=0.60)
+REAR_TENTACLE = mat("RearTentacle", (0.25, 0.006, 0.48), rough=0.25, coat=0.60)
 TANK = mat("Tank", (0.52, 0.012, 0.56), rough=0.23, metal=0.12, coat=0.68)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -217,7 +217,7 @@ def dome_highlight(name, color):
     try:
         m.surface_render_method = "BLENDED"
         m.use_transparency_overlap = False
-        bsdf_of(m).inputs["Alpha"].default_value = 0.52
+        bsdf_of(m).inputs["Alpha"].default_value = 0.34
     except Exception:
         pass
     return m
@@ -555,7 +555,7 @@ eye.scale = (1.05, 1.00, 1.00)  # restore the reference's dominant cyclops eye.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.06, 0.82, 1.02), seg=64),
-    sphere("Iris", 0.61, (0, -0.67, 0.0), IRIS, eye, scale=(1.04, 0.35, 0.96), seg=64),
+    sphere("Iris", 0.66, (0, -0.67, 0.0), IRIS, eye, scale=(1.04, 0.35, 0.96), seg=64),
     sphere("Pupil", 0.36, (0, -0.94, -0.015), PUPIL, eye, scale=(0.98, 0.64, 0.94), seg=64),
     sphere("Shine", 0.115, (0.19, -1.15, 0.22), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
@@ -616,25 +616,25 @@ def make_upper_eyelid(parent):
 
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
-mouth = empty("Mouth", pivot, loc=(0, -1.68, -0.52))
-mouth.scale = (0.91, 1.0, 0.96)
+mouth = empty("Mouth", pivot, loc=(0, -1.68, -0.40))
+mouth.scale = (0.80, 1.0, 0.62)
 # A wider, curved opening with a small set of readable fangs, matching the reference grin.
 mouth_parts = [
     sphere("MouthLip", 0.50, (0, 0.035, 0), MOUTH_LIP, mouth,
-           scale=(1.96, 0.62, 0.94), seg=64),
+           scale=(1.82, 0.62, 0.90), seg=64),
     sphere("MouthCavity", 0.50, (0, -0.018, 0), MOUTH, mouth,
-           scale=(1.88, 0.53, 0.84), seg=64),
+           scale=(1.74, 0.53, 0.78), seg=64),
 ]
 # Two prominent upper fangs and two shorter lower teeth keep the expression clean.
-for i, x in enumerate((-0.34, 0.34)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.082, 0.0, 0.21,
-                            (x, -0.30, 0.105), TEETH, mouth,
+for i, x in enumerate((-0.29, 0.29)):
+    mouth_parts.append(cone(f"ToothU{i}", 0.074, 0.0, 0.17,
+                            (x, -0.30, 0.075), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.30, 0.30)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.066, 0.0, 0.14,
-                            (x, -0.30, -0.13), TEETH, mouth))
+for i, x in enumerate((-0.27, 0.27)):
+    mouth_parts.append(cone(f"ToothL{i}", 0.056, 0.0, 0.11,
+                            (x, -0.30, -0.105), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.17, (0, -0.36, -0.13), TONGUE, mouth,
-                          scale=(0.92, 0.52, 0.22), seg=40))
+                          scale=(0.82, 0.50, 0.18), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
 body_band("LowerPinkBand", pivot, -1.26, -0.66, COLLAR)
@@ -775,13 +775,15 @@ def add_dome_reflection(name, x, z, width, height, material, lean=0.0):
     nx = x / DOME_RADII[0]
     nz = (z - DOME_CENTER_Z) / DOME_RADII[2]
     y = -DOME_RADII[1] * math.sqrt(max(0.02, 1.0 - nx * nx - nz * nz))
-    # Keep the softbox patches front-facing so neither reflection collapses edge-on at 34 degrees.
-    return sphere(name, 1.0, (x, y - 0.035, z), material, torso,
-                  scale=(width, height, 0.012), rot=(math.pi / 2, 0.0, lean), seg=48)
+    # Orient each softbox tangent to the ellipsoid so its entire highlight stays on the glass.
+    normal = Vector((x / (DOME_RADII[0] ** 2), y / (DOME_RADII[1] ** 2),
+                     (z - DOME_CENTER_Z) / (DOME_RADII[2] ** 2))).normalized()
+    return sphere(name, 1.0, (x, y - 0.012, z), material, torso,
+                  scale=(width, height, 0.010), rot=normal_rot(normal), seg=48)
 
-# Smaller, lower softboxes sit safely inside the visible glass silhouette.
-add_dome_reflection("DomeReflectionL", -1.12, 2.38, 0.34, 0.68, DOME_HIGHLIGHT_CYAN, lean=-0.34)
-add_dome_reflection("DomeReflectionR", 1.12, 2.38, 0.36, 0.66, DOME_HIGHLIGHT_WHITE, lean=0.34)
+# Narrow softboxes sit fully inside the dome silhouette instead of floating beyond its crown.
+add_dome_reflection("DomeReflectionL", -1.08, 2.02, 0.19, 0.42, DOME_HIGHLIGHT_CYAN, lean=-0.22)
+add_dome_reflection("DomeReflectionR", 1.18, 2.08, 0.20, 0.44, DOME_HIGHLIGHT_WHITE, lean=0.22)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.34, 0.30, 0.26, 0.22]
@@ -829,9 +831,11 @@ def arm_center(t, style="outer", mirror=False):
     if style == "outer":
         p0, p1, p2, p3 = (0.0, 0.0), (0.48, -0.12), (1.98, -1.02), (1.48, 0.46)
     elif style == "front":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.32), (0.62, -1.58), (0.55, -1.82)
+        # Sweep outward, descend, then curl the rounded tip back upward like the reference.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.20), (1.18, -1.52), (0.88, -1.20)
     elif style == "inner":
-        p0, p1, p2, p3 = (0.0, 0.0), (0.12, -0.28), (0.38, -1.60), (0.30, -1.88)
+        # Shorter inner arms fill the gaps without forming four parallel hanging tubes.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.22), (0.88, -1.40), (0.62, -1.12)
     else:
         p0, p1, p2, p3 = (0.0, 0.0), (0.20, -0.22), (0.66, -1.10), (0.58, -0.78)
     u = 1.0 - t
