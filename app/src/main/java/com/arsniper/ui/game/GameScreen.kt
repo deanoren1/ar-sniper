@@ -1677,7 +1677,7 @@ fun GameScreen(
                     text = text,
                     color = androidx.compose.ui.graphics.Color(0xFF7CFC00),
                     fontSize = 13.sp,
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 2.dp)
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 84.dp)
                         .background(androidx.compose.ui.graphics.Color(0xCC000000)).padding(horizontal = 6.dp)
                 )
             }
