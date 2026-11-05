@@ -42,9 +42,12 @@ fun CombatLayer(
     val sprites = remember(altShots) { ShotSprites.load(context, altShots) }
     Canvas(modifier = modifier.fillMaxSize()) {
         for (t in telegraphs) drawTelegraph(t, time)
-        for (s in shots) drawShot(s, time, shotRadius(s), sprites)
+        // בציור בלבד: קליע מתקרב לא גדל מעבר לגודל שמסתיר את כפתורי ה-HUD
+        for (s in shots) drawShot(s, time, shotRadius(s).coerceAtMost(MAX_SHOT_DRAW_RADIUS), sprites)
     }
 }
+
+private const val MAX_SHOT_DRAW_RADIUS = 0.17f
 
 private fun DrawScope.drawTelegraph(t: TelegraphView, time: Float) {
     val cx = t.x * size.width
