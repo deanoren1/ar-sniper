@@ -113,23 +113,23 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.40, 0.68, 0.98, 1.0)
+    shell.inputs["Base Color"].default_value = (0.58, 0.78, 1.0, 1.0)
     shell.inputs["Roughness"].default_value = 0.040
     shell.inputs["Metallic"].default_value = 0.0
     shell.inputs["Coat Weight"].default_value = 0.94
     shell.inputs["Coat Roughness"].default_value = 0.012
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.82
+        shell.inputs["Transmission Weight"].default_value = 0.92
         shell.inputs["Emission Color"].default_value = (0.10, 0.24, 0.52, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.075
+        shell.inputs["Emission Strength"].default_value = 0.035
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
     layer.inputs["Blend"].default_value = 0.25
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.62
-    edge_tint.inputs[2].default_value = 0.14
+    edge_tint.inputs[1].default_value = 0.46
+    edge_tint.inputs[2].default_value = 0.08
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -555,9 +555,9 @@ eye.scale = (1.05, 1.00, 1.00)  # restore the reference's dominant cyclops eye.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 0.92, (0, 0, 0), EYE_WHITE, eye, scale=(1.06, 0.82, 1.02), seg=64),
-    sphere("Iris", 0.66, (0, -0.67, 0.0), IRIS, eye, scale=(1.04, 0.35, 0.96), seg=64),
-    sphere("Pupil", 0.36, (0, -0.94, -0.015), PUPIL, eye, scale=(0.98, 0.64, 0.94), seg=64),
-    sphere("Shine", 0.115, (0.19, -1.15, 0.22), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
+    sphere("Iris", 0.56, (0, -0.64, 0.0), IRIS, eye, scale=(1.04, 0.35, 0.96), seg=64),
+    sphere("Pupil", 0.34, (0, -0.89, -0.015), PUPIL, eye, scale=(0.98, 0.64, 0.94), seg=64),
+    sphere("Shine", 0.115, (0.18, -1.09, 0.22), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
 eye_parts.append(torus("EyeMagentaRim", 0.94, 0.065, (0, -0.18, 0), LID, eye,
                        rot=(math.pi / 2, 0, 0)))
@@ -617,13 +617,13 @@ def make_upper_eyelid(parent):
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
 mouth = empty("Mouth", pivot, loc=(0, -1.72, -0.27))
-mouth.scale = (0.82, 1.0, 0.72)
+mouth.scale = (0.76, 1.0, 0.72)
 # A wider, curved opening with a small set of readable fangs, matching the reference grin.
 mouth_parts = [
     sphere("MouthLip", 0.50, (0, 0.035, 0), MOUTH_LIP, mouth,
-           scale=(1.72, 0.58, 0.88), seg=64),
+           scale=(1.62, 0.58, 0.88), seg=64),
     sphere("MouthCavity", 0.50, (0, -0.018, 0), MOUTH, mouth,
-           scale=(1.64, 0.50, 0.78), seg=64),
+           scale=(1.55, 0.50, 0.78), seg=64),
 ]
 # Two prominent upper fangs and two shorter lower teeth keep the expression clean.
 for i, x in enumerate((-0.35, 0.35)):
@@ -652,7 +652,7 @@ for i in range(18):
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.12, 0.17, 0.25), rough=0.22, metal=0.84, coat=0.42)
 tank_rig = empty("TankRig", torso)
-tank_rig.scale = (1.08, 1.00, 0.80)  # slightly wider, less tower-like side canisters.
+tank_rig.scale = (0.88, 1.00, 0.74)  # slightly wider, less tower-like side canisters.
 for side, sx in (("L", -1), ("R", 1)):
     tx, ty = 2.42 * sx, 0.24  # tuck the canisters slightly closer to the bubble
     tank_body = cylinder(f"Tank{side}", 0.60, 2.88, (tx, ty, 0.015), TANK, tank_rig)
@@ -746,8 +746,8 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     main_parts.append(obj)
     return obj
 
-DOME_CENTER_Z = -1.25
-DOME_RADII = (2.60, 2.40, 4.25)  # fuller spherical bubble, closer to the reference helmet proportions.
+DOME_CENTER_Z = -0.30
+DOME_RADII = (1.90, 1.72, 3.00)  # fuller spherical bubble, closer to the reference helmet proportions.
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A bright blue arch sits on the front-facing glass surface, not behind the head.
 dome_arch = []
@@ -758,7 +758,7 @@ for i in range(65):
     nz = (z - DOME_CENTER_Z) / DOME_RADII[2]
     y = -DOME_RADII[1] * math.sqrt(max(0.02, 1.0 - nx * nx - nz * nz)) - 0.018
     dome_arch.append((x, y, z))
-pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.026)
+pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.018)
 # Omit separate side contour tubes: the continuous glass shell already defines the bubble edge.
 # Reflections sit on exposed front-side glass where the body cannot hide them.
 def add_dome_reflection(name, x, z, width, height, material, lean=0.0):
@@ -772,8 +772,8 @@ def add_dome_reflection(name, x, z, width, height, material, lean=0.0):
                   scale=(width, height, 0.010), rot=normal_rot(normal), seg=48)
 
 # Narrow softboxes sit fully inside the dome silhouette instead of floating beyond its crown.
-add_dome_reflection("DomeReflectionL", -1.52, 2.02, 0.34, 0.90, DOME_HIGHLIGHT_CYAN, lean=-0.22)
-add_dome_reflection("DomeReflectionR", 1.52, 2.02, 0.34, 0.90, DOME_HIGHLIGHT_WHITE, lean=0.22)
+add_dome_reflection("DomeReflectionL", -1.05, 1.78, 0.23, 0.58, DOME_HIGHLIGHT_CYAN, lean=-0.22)
+add_dome_reflection("DomeReflectionR", 1.05, 1.78, 0.23, 0.58, DOME_HIGHLIGHT_WHITE, lean=0.22)
 
 # Eight short, organic arms: compact curled tubes with broad rounded ends.
 ARM_LEN = [0.38, 0.34, 0.30, 0.26]
