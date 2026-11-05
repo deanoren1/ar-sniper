@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -90,6 +92,7 @@ fun ArenaModeScreen(
     val worlds = remember(style) { savedWorlds(context, style) }
     val worldThumbs = remember(worlds) { worlds.take(4).map { PhotoLibrary.thumbnail(it.world, 240) } }
     var message by remember { mutableStateOf<String?>(null) }
+    var showWorlds by remember { mutableStateOf(false) }
 
     val picker = rememberGalleryPicker { uri -> PickImport.start(context, uri) }
     val importState = PickImport.state
@@ -154,7 +157,7 @@ fun ArenaModeScreen(
                     color = Color(0xFF8E4DFF),
                     caption = "PLAY YOUR SAVED AI WORLDS",
                     modifier = Modifier.weight(1f),
-                    onClick = { onPlayWorld(worlds.first().source) }
+                    onClick = { if (worlds.size == 1) onPlayWorld(worlds.first().source) else showWorlds = true }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxSize()) {
                         for (rowItems in worldThumbs.chunked(2)) {
@@ -199,6 +202,40 @@ fun ArenaModeScreen(
             }
         }
 
+        if (showWorlds) {
+            // בחירת עולם שמור: כל העולמות של הארנה, הלחיצה על אחד מפעילה אותו
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0xE6050B1C)).clickable { showWorlds = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedText("MY WORLDS", fontSize = 26.sp, color = Color.White, outlineWidth = 10f)
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp)
+                    ) {
+                        items(worlds.size) { i ->
+                            val w = worlds[i]
+                            val bmp = remember(w) { PhotoLibrary.thumbnail(w.world, 480) }
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 240.dp, height = 140.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .border(3.dp, Color(0xFF8E4DFF), RoundedCornerShape(16.dp))
+                                    .background(Color(0x55000000))
+                                    .clickable { onPlayWorld(w.source) }
+                            ) {
+                                if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                OutlinedText("PLAY", fontSize = 14.sp, color = Color.White, outline = null,
+                                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
+                                        .background(Color(0xFF1E9E45), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 2.dp))
+                            }
+                        }
+                    }
+                    OutlinedText("Tap outside to close", fontSize = 12.sp, color = GameColors.Ice, outline = null)
+                }
+            }
+        }
         message?.let {
             OutlinedText(
                 it, fontSize = 14.sp, outline = null, textAlign = TextAlign.Center,
