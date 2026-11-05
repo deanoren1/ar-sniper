@@ -234,6 +234,23 @@ object PlayerProfile {
         if (value > starsOf(style)) putInt("arena_stars_${style.name}", value)
     }
 
+    /**
+     * בונוס יהלומים של ניצחון: 5 על ניצחון בבוס ו-2 על 3 כוכבים, כל אחד פעם אחת בלבד בכל ארנה.
+     * מחזיר כמה יהלומים מגיע עכשיו וסומן כנוצל (לא מוסיף לפרופיל, הקורא עושה זאת).
+     */
+    fun claimWinGems(style: ArenaStyle, bossWin: Boolean, threeStars: Boolean): Int {
+        var total = 0
+        if (bossWin && getInt("boss_gems_${style.name}") == 0) {
+            putInt("boss_gems_${style.name}", 1)
+            total += 5
+        }
+        if (threeStars && getInt("star3_gems_${style.name}") == 0) {
+            putInt("star3_gems_${style.name}", 1)
+            total += 2
+        }
+        return total
+    }
+
     /** ארנה פתוחה אם היא הראשונה, או שאחד השכנים שלה במפה נוצח לפחות בכוכב אחד */
     fun isUnlocked(style: ArenaStyle): Boolean {
         if (style == ArenaStyle.Classic) return true

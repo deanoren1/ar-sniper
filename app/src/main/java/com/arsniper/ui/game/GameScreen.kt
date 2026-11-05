@@ -667,7 +667,7 @@ fun GameScreen(
                                 }
                                 ArenaPhase.Won -> {
                                     soundPlayer.play(Sfx.Win)
-                                    val bonus = (if (director.isBossWave) 5 else 0) + (if (director.stars == 3) 2 else 0)
+                                    val bonus = PlayerProfile.claimWinGems(style, director.isBossWave, director.stars == 3)
                                     gainDiamonds(bonus, "VICTORY  +$bonus DIAMONDS")
                                     PlayerProfile.recordStars(style, director.stars)
                                     PlayerProfile.recordRun(true, director.waveIndex + 1, score / COINS_DIVISOR)
