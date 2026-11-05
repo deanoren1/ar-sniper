@@ -142,16 +142,8 @@ class SoundPlayer(context: Context) {
 
     fun playShot() = play(Sfx.Shot)
 
-    /** ירייה לפי הנשק המצויד */
-    fun playShot(weapon: com.arsniper.game.progress.WeaponId) = play(
-        when (weapon.name) {
-            "Plasma" -> Sfx.Blaster
-            "Auto" -> Sfx.Minigun
-            "Sniper" -> Sfx.SniperShot
-            "Spread" -> Sfx.Tesla
-            else -> Sfx.Shot
-        }
-    )
+    /** ירייה: חזרנו לצליל הקודם לכל הנשקים (הצלילים החדשים נשארים לבדיקה בהגדרות). לקשר נשק לצליל: Sfx.Blaster / Minigun / SniperShot / Tesla */
+    fun playShot(weapon: com.arsniper.game.progress.WeaponId) = play(Sfx.Shot)
 
     fun release() {
         soundPool.release()
