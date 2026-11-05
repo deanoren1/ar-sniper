@@ -58,6 +58,7 @@ fun ArenaSelectScreen(
     onMyPhotos: (() -> Unit)? = null,
     onShop: (() -> Unit)? = null,
     onArmory: (() -> Unit)? = null,
+    onMultiplayer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     PlayerProfile.revision.hashCode()
@@ -125,6 +126,16 @@ fun ArenaSelectScreen(
                     height = 38.dp,
                     fontSize = 14.sp,
                     modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 6.dp)
+                )
+            }
+            if (onMultiplayer != null) {
+                com.arsniper.ui.components.GameButton(
+                    text = "MULTIPLAYER",
+                    onClick = onMultiplayer,
+                    style = com.arsniper.ui.theme.GameButtonStyle.Success,
+                    height = 38.dp,
+                    fontSize = 14.sp,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp)
                 )
             }
             if (onArmory != null) {

@@ -23,7 +23,7 @@ import com.arsniper.ui.menu.ScanLabScreen
 import com.arsniper.ui.menu.SettingsScreen
 import com.arsniper.ui.menu.StatsScreen
 
-enum class Screen { Start, ArenaMode, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Armory, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
+enum class Screen { Start, ArenaMode, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Armory, Multiplayer, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
 
 @Composable
 fun AppNavigation() {
@@ -42,6 +42,8 @@ fun AppNavigation() {
     var modeArena by rememberSaveable { mutableStateOf(false) }
     // המפה נפתחה ממסך הפתיחה (ולא אחרי בחירת תמונה): בחירת ארנה מובילה למסך אופן המשחק
     var mapFromStart by rememberSaveable { mutableStateOf(false) }
+    // ה-CO-OP נפתח מדף המולטיפלייר (ולא מההגדרות): החזרה אליו
+    var coopFromMulti by rememberSaveable { mutableStateOf(false) }
     fun goScene() {
         restoreTried = false
         if (coopRole.isNotEmpty()) { screen = Screen.Scene; return }
@@ -73,7 +75,8 @@ fun AppNavigation() {
             Screen.ArenaMode -> { modeArena = false; Screen.Arena }
             Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (modeArena) Screen.ArenaMode else Screen.Play
             Screen.Arena -> if (mapFromStart) Screen.Start else Screen.Play
-            Screen.Coop -> Screen.Settings
+            Screen.Coop -> if (coopFromMulti) Screen.Multiplayer else Screen.Settings
+            Screen.Multiplayer -> Screen.Arena
             Screen.Armory -> Screen.Shop
             Screen.Shop -> if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start
             else -> Screen.Start
@@ -160,6 +163,7 @@ fun AppNavigation() {
             onMyPhotos = { arenaFirst = false; screen = Screen.Play },
             onShop = { screen = Screen.Shop },
             onArmory = { screen = Screen.Armory },
+            onMultiplayer = { screen = Screen.Multiplayer },
             onBack = { if (mapFromStart && !arenaFirst) { screen = Screen.Start } else { arenaFirst = false; screen = Screen.Play } }
         )
         Screen.ArenaMode -> com.arsniper.ui.arena.ArenaModeScreen(
@@ -221,13 +225,17 @@ fun AppNavigation() {
             onBack = { screen = if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start },
             onArmory = { screen = Screen.Armory }
         )
+        Screen.Multiplayer -> com.arsniper.ui.menu.MultiplayerScreen(
+            onBack = { screen = Screen.Arena },
+            onCoop = { coopFromMulti = true; screen = Screen.Coop }
+        )
         Screen.Armory -> ShopScreen(onBack = { screen = Screen.Shop })
-        Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug }, onCoop = { screen = Screen.Coop })
+        Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug }, onCoop = { coopFromMulti = false; screen = Screen.Coop })
         Screen.ScanLab -> ScanLabScreen(onBack = { screen = Screen.Settings })
         Screen.ArtLab -> ArtLabScreen(onBack = { screen = Screen.Settings }, onUsePhoto = { screen = Screen.Review })
         Screen.Stats -> StatsScreen(onBack = { screen = Screen.Start })
         Screen.Coop -> com.arsniper.ui.menu.CoopScreen(
-            onBack = { screen = Screen.Settings },
+            onBack = { screen = if (coopFromMulti) Screen.Multiplayer else Screen.Settings },
             onStart = { style, role ->
                 // החיבור נשאר פתוח, והמשחק לוקח את ההודעות מהלובי
                 com.arsniper.coop.CoopSync.keepConnection = true
