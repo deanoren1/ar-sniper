@@ -32,7 +32,9 @@ object AiWorldSpots {
         val model = ModelStore.tipsModelFile(context)
         if (!model.exists()) return 0
         val ai = try {
-            val segmenter = SceneSegmenter(model)
+            // CPU ובעדיפות נמוכה: ניתוח ב-GPU במקביל לציור המשחק גרם לתקיעה של כמה שניות בתחילת הארנה
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            val segmenter = SceneSegmenter(model, useGpu = false)
             try {
                 segmenter.analyze(aiWorld) { _, _ -> }
             } finally {

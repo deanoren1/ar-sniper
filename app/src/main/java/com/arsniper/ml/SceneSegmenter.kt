@@ -15,17 +15,17 @@ import kotlin.math.roundToInt
  * קלט למודל: [1, 3, 448, 448] RGB בטווח 0..1.
  * פלטים לפי הסדר: עומק [448x448] במטרים, נורמלים [3x448x448], סיווג [150x256x256].
  */
-class SceneSegmenter(private val modelFile: File) {
+class SceneSegmenter(private val modelFile: File, useGpu: Boolean = true) {
 
     private var model: CompiledModel = CompiledModel.create(
         modelFile.absolutePath,
-        CompiledModel.Options(Accelerator.GPU)
+        CompiledModel.Options(if (useGpu) Accelerator.GPU else Accelerator.CPU)
     )
     private var inputBuffers = model.createInputBuffers()
     private var outputBuffers = model.createOutputBuffers()
 
     /** "GPU" או "CPU": בחלק מהמכשירים ה-GPU מחזיר ערכים לא תקינים (NaN), ואז עוברים ל-CPU */
-    var accelerator = "GPU"
+    var accelerator = if (useGpu) "GPU" else "CPU"
         private set
 
     private fun switchToCpu() {
