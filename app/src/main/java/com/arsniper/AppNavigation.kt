@@ -23,7 +23,7 @@ import com.arsniper.ui.menu.ScanLabScreen
 import com.arsniper.ui.menu.SettingsScreen
 import com.arsniper.ui.menu.StatsScreen
 
-enum class Screen { Start, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
+enum class Screen { Start, ArenaMode, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
 
 @Composable
 fun AppNavigation() {
@@ -38,9 +38,21 @@ fun AppNavigation() {
     var arenaFirst by rememberSaveable { mutableStateOf(false) }
     // אחרי שהמערכת סגרה את האפליקציה ברקע ופתחה אותה במסך המשחק, הניתוח בזיכרון נעלם: חוזרים פעם אחת למסך הניתוח (מהמטמון)
     var restoreTried by rememberSaveable { mutableStateOf(false) }
+    // הארנה כבר נבחרה (מסך אופן המשחק): אחרי צילום/בחירת תמונה והסקירה ממשיכים ישר לניתוח, בלי לבחור ארנה שוב
+    var modeArena by rememberSaveable { mutableStateOf(false) }
+    // המפה נפתחה ממסך הפתיחה (ולא אחרי בחירת תמונה): בחירת ארנה מובילה למסך אופן המשחק
+    var mapFromStart by rememberSaveable { mutableStateOf(false) }
     fun goScene() {
         restoreTried = false
         if (coopRole.isNotEmpty()) { screen = Screen.Scene; return }
+        if (modeArena) {
+            modeArena = false
+            val style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)]
+            com.arsniper.ml.AiWorldWorker.startFor(context, style)
+            arenaFirst = true
+            screen = Screen.Scene
+            return
+        }
         if (quick) {
             val open = ArenaStyle.values().filter { PlayerProfile.isUnlocked(it) }
             val pick = open.randomOrNull() ?: ArenaStyle.values()[0]
@@ -58,7 +70,9 @@ fun AppNavigation() {
     BackHandler(enabled = screen != Screen.Start) {
         screen = when (screen) {
             Screen.Game -> if (coopRole.isNotEmpty()) Screen.Coop else if (quick) Screen.Play else Screen.Arena
-            Screen.Capture, Screen.Review, Screen.Scene, Screen.Arena, Screen.PanoView -> Screen.Play
+            Screen.ArenaMode -> { modeArena = false; Screen.Arena }
+            Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (modeArena) Screen.ArenaMode else Screen.Play
+            Screen.Arena -> if (mapFromStart) Screen.Start else Screen.Play
             Screen.Coop -> Screen.Settings
             else -> Screen.Start
         }
@@ -66,14 +80,14 @@ fun AppNavigation() {
 
     when (screen) {
         Screen.Start -> MainMenuScreen(
-            onStart = { screen = Screen.Play },
+            onStart = { arenaFirst = false; mapFromStart = true; screen = Screen.Arena },
             onPhotoPicked = { screen = Screen.Review },
             onShop = { screen = Screen.Shop },
             onSettings = { screen = Screen.Settings },
             onStats = { screen = Screen.Stats }
         )
         Screen.Play -> PlayScreen(
-            onBack = { screen = Screen.Start },
+            onBack = { if (mapFromStart) { arenaFirst = false; screen = Screen.Arena } else screen = Screen.Start },
             onTakePhoto = { PhotoLibrary.clearPending(context); com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Capture },
             onGalleryPicked = { com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Review },
             onPickSaved = { file ->
@@ -98,12 +112,12 @@ fun AppNavigation() {
         )
         Screen.Capture -> CaptureScreen(
             onPhotoCaptured = { com.arsniper.pano.PanoramaStore.clearPendingGame(context); screen = Screen.Review },
-            onBack = { screen = Screen.Play },
+            onBack = { screen = if (modeArena) Screen.ArenaMode else Screen.Play },
             onGalleryPicked = { screen = Screen.Review },
             onPanorama = { screen = Screen.PanoView }
         )
         Screen.PanoView -> com.arsniper.ui.capture.PanoViewScreen(
-            onBack = { screen = Screen.Play },
+            onBack = { screen = if (modeArena) Screen.ArenaMode else Screen.Play },
             onPlay = { quick = false; screen = Screen.Review }
         )
         Screen.Review -> ReviewScreen(
@@ -135,11 +149,49 @@ fun AppNavigation() {
                 if (arenaFirst) {
                     com.arsniper.ml.AiWorldWorker.startFor(context, it)
                     screen = Screen.Scene
+                } else if (mapFromStart) {
+                    screen = Screen.ArenaMode
                 } else {
                     screen = Screen.Game
                 }
             },
-            onBack = { arenaFirst = false; screen = Screen.Play }
+            onMyPhotos = { arenaFirst = false; screen = Screen.Play },
+            onShop = { screen = Screen.Shop },
+            onBack = { if (mapFromStart && !arenaFirst) { screen = Screen.Start } else { arenaFirst = false; screen = Screen.Play } }
+        )
+        Screen.ArenaMode -> com.arsniper.ui.arena.ArenaModeScreen(
+            style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
+            onBack = { modeArena = false; screen = Screen.Arena },
+            onShop = { screen = Screen.Shop },
+            onUseLast = { file ->
+                PhotoLibrary.select(context, file)
+                PhotoLibrary.clearPending(context)
+                com.arsniper.pano.PanoramaStore.clearPendingGame(context)
+                quick = false
+                modeArena = true
+                goScene()
+            },
+            onPlayWorld = { file ->
+                PhotoLibrary.select(context, file)
+                PhotoLibrary.clearPending(context)
+                com.arsniper.pano.PanoramaStore.clearPendingGame(context)
+                quick = false
+                modeArena = true
+                if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
+            },
+            onCamera = {
+                PhotoLibrary.clearPending(context)
+                com.arsniper.pano.PanoramaStore.clearPendingGame(context)
+                quick = false
+                modeArena = true
+                screen = Screen.Capture
+            },
+            onGalleryImported = {
+                com.arsniper.pano.PanoramaStore.clearPendingGame(context)
+                quick = false
+                modeArena = true
+                screen = Screen.Review
+            }
         )
         Screen.Game -> if (coopRole.isEmpty() && com.arsniper.ml.SceneSession.analysis == null && !restoreTried) {
             androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -161,7 +213,7 @@ fun AppNavigation() {
             },
             onNextArena = { quick = false; arenaFirst = false; screen = Screen.Arena }
         )
-        Screen.Shop -> ShopScreen(onBack = { screen = Screen.Start })
+        Screen.Shop -> ShopScreen(onBack = { screen = if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start })
         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug }, onCoop = { screen = Screen.Coop })
         Screen.ScanLab -> ScanLabScreen(onBack = { screen = Screen.Settings })
         Screen.ArtLab -> ArtLabScreen(onBack = { screen = Screen.Settings }, onUsePhoto = { screen = Screen.Review })

@@ -55,6 +55,8 @@ import androidx.compose.runtime.withFrameNanos
 fun ArenaSelectScreen(
     onPick: (ArenaStyle) -> Unit,
     onBack: () -> Unit,
+    onMyPhotos: (() -> Unit)? = null,
+    onShop: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     PlayerProfile.revision.hashCode()
@@ -100,8 +102,29 @@ fun ArenaSelectScreen(
                 size = 32.dp,
                 modifier = Modifier.align(Alignment.TopStart)
             )
-            Row(modifier = Modifier.align(Alignment.TopEnd)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
                 CurrencyBar(PlayerProfile.coins, PlayerProfile.diamonds)
+                if (onShop != null) com.arsniper.ui.components.GameIconButton(
+                    icon = GameIcon.Cart,
+                    onClick = onShop,
+                    style = com.arsniper.ui.theme.GameButtonStyle.Secondary,
+                    size = 32.dp
+                )
+            }
+            if (onMyPhotos != null) {
+                com.arsniper.ui.components.GameButton(
+                    text = "MY PHOTOS",
+                    onClick = onMyPhotos,
+                    icon = GameIcon.Gallery,
+                    style = com.arsniper.ui.theme.GameButtonStyle.Secondary,
+                    height = 38.dp,
+                    fontSize = 14.sp,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 6.dp)
+                )
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
