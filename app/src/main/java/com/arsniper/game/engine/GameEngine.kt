@@ -181,9 +181,26 @@ class GameEngine(
         else -> enemy
     }
 
+    /** כמה פריימים רצופים כל דמות עומדת מחוץ לקרקע (לאיתור מפלצת על קיר) */
+    private val offGroundFrames = HashMap<Int, Int>()
+
     private fun stepOpen(enemy: Enemy, dt: Float, all: List<Enemy>): Enemy? {
         val hiding = enemy.spot
         if (hiding != null) return stepEmerging(enemy, hiding, dt)
+        // הגנה: דמות שעומדת על משהו שאינו קרקע (קיר, עמוד) מוסרת, ובמקומה תיווצר חדשה במקום תקין.
+        // תנועה לא מכניסה דמות לשם (כל צעד נבדק), אז זה רק תופס שגיאות מיקום בהיווצרות.
+        scene?.let { ctx ->
+            val x = enemy.position.x
+            if (x >= EDGE_BAND && x <= 1f - EDGE_BAND && !ctx.isWalkable(x, enemy.position.y + enemy.radius + GROUND_PROBE)) {
+                offGroundFrames[enemy.id] = (offGroundFrames[enemy.id] ?: 0) + 1
+                if ((offGroundFrames[enemy.id] ?: 0) > OFF_GROUND_FRAMES) {
+                    offGroundFrames.remove(enemy.id)
+                    return null
+                }
+            } else {
+                offGroundFrames.remove(enemy.id)
+            }
+        }
         // מפלצת בלונים בלי בלונים: מוממת על הקרקע, לא זזה
         if (Hover.isGrounded(enemy)) return enemy.copy(state = EnemyState.Idle, timer = 1f)
 
@@ -1082,6 +1099,7 @@ class GameEngine(
 
         /** כמה (ביחידות תמונה) מתחת לעצם בודקים אם יש קרקע */
         private const val GROUND_PROBE = 0.012f
+        private const val OFF_GROUND_FRAMES = 20
 
 
         /** גובה אדם אמיתי, וגובה הדמות המצוירת ביחידות רדיוס */
