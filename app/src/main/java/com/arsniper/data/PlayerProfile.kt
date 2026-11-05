@@ -59,6 +59,14 @@ object PlayerProfile {
             revision++
         }
 
+    /** מד FPS על המסך במשחק (לאבחון גמגום) */
+    var fpsMeter: Boolean
+        get() = prefs?.getBoolean("fps_meter", false) ?: false
+        set(value) {
+            prefs?.edit()?.putBoolean("fps_meter", value)?.apply()
+            revision++
+        }
+
     var vibrationOn: Boolean
         get() = prefs?.getBoolean("vibration_on", true) ?: true
         set(value) {

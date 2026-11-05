@@ -1653,6 +1653,32 @@ fun GameScreen(
                 .padding(16.dp)
         )
 
+        if (PlayerProfile.fpsMeter) {
+            // מד ביצועים: ממוצע FPS, והפריים הארוך ביותר ב-2 השניות האחרונות, ומספר אויבים/פיצוצים
+            val stats = remember { floatArrayOf(0f, 0f, 0f, 0f, 0f) } // lastNanos, sumMs, frames, maxMs, windowStart
+            var text by remember { mutableStateOf("") }
+            val last = stats[0].toLong()
+            if (frameNanos != 0L && frameNanos != last) {
+                if (last != 0L) {
+                    val ms = (frameNanos - last) / 1e6f
+                    stats[1] += ms; stats[2] += 1f; if (ms > stats[3]) stats[3] = ms
+                }
+                stats[0] = frameNanos.toFloat()
+                if (stats[2] >= 60f) {
+                    text = "FPS ${(1000f * stats[2] / stats[1]).toInt()}  max ${stats[3].toInt()}ms  E${enemies.size} B${blasts.size} P${poofs.size}"
+                    stats[1] = 0f; stats[2] = 0f; stats[3] = 0f
+                }
+            }
+            if (text.isNotEmpty()) {
+                androidx.compose.material3.Text(
+                    text = text,
+                    color = Color(0xFF7CFC00),
+                    fontSize = 11.sp,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp)
+                        .background(Color(0x99000000)).padding(horizontal = 6.dp)
+                )
+            }
+        }
         BonusFeed(
             items = toasts,
             nowNanos = frameNanos,

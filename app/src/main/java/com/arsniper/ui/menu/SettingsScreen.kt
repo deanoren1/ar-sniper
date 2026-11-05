@@ -47,6 +47,7 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
                     ) {
                         SettingRow("SOUND EFFECTS", PlayerProfile.soundOn) { PlayerProfile.soundOn = it }
                         SettingRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
+                        SettingRow("FPS METER (DEBUG)", PlayerProfile.fpsMeter) { PlayerProfile.fpsMeter = it }
                         SoundTest()
                         GameButton(
                             text = "CO-OP (BETA)",
