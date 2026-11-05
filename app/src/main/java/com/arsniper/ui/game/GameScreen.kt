@@ -188,6 +188,8 @@ fun GameScreen(
     var themed by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     // עולם AI שנוצר עכשיו (לא מהמטמון): נחשף במעבר דרמטי. מהמטמון או מהעיצוב המקומי: דהייה רגילה
     var themedFresh by remember { mutableStateOf(false) }
+    // מסך יצירת עולם AI (המשחק מושהה עד שהעולם מוכן, או עד ש"PLAY NOW")
+    var aiOverlay by remember { mutableStateOf(false) }
     // גוון הרקע המוצג (עולם AI אם יש) למפלצות: משתנה כשהעולם נטען
     LaunchedEffect(themed) {
         val bmp = (themed ?: photo)?.asAndroidBitmap()
@@ -453,6 +455,8 @@ fun GameScreen(
                         launch { addWorldPlantSpots(cached) }
                     } else {
                         aiHandled = true
+                        aiOverlay = true
+                        paused = true
                         launch {
                             // היצירה רצה ב-WorkManager (ממשיכה גם ביציאה מהאפליקציה); כאן רק ממתינים לקובץ
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -473,6 +477,7 @@ fun GameScreen(
                                     break
                                 }
                             }
+                            if (aiOverlay) { aiOverlay = false; paused = false }
                             if (made != null) {
                                 themedFresh = true
                                 themed = made.asImageBitmap()
@@ -1854,7 +1859,14 @@ fun GameScreen(
         DamageFlash(alpha = flash)
         if (orbImpact > 0f) OrbImpactOverlay(age = OrbFx.IMPACT_SECONDS - orbImpact)
 
-        if (paused) {
+        if (aiOverlay) {
+            AiWorldProgress(
+                styleTitle = style.title,
+                photo = photo,
+                onPlayNow = { aiOverlay = false; paused = false }
+            )
+        }
+        if (paused && !aiOverlay) {
             PauseMenu(
                 onResume = { paused = false },
                 onRestart = {
