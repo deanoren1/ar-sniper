@@ -62,7 +62,13 @@ sealed class WeaponArt {
     class Still(val idle: ImageBitmap, val fire: ImageBitmap, val muzzleX: Float, val muzzleY: Float) : WeaponArt()
 
     /** Blaster Mk1 ברזולוציה גבוהה: 5 זוויות עמידה בשורה אחת (תאים שווים) + תמונת הבזק נפרדת שמצוירת על הלוע */
-    class Angles(val sheet: ImageBitmap, val flash: ImageBitmap) : WeaponArt() {
+    class Angles(
+        val sheet: ImageBitmap,
+        val flash: ImageBitmap,
+        val muzzleX: FloatArray,
+        val muzzleY: FloatArray,
+        val dirs: FloatArray = ANGLE_DIR
+    ) : WeaponArt() {
         val cw: Int = sheet.width / ANGLE_COUNT
         val ch: Int = sheet.height / ANGLE_ROWS
     }
@@ -72,12 +78,12 @@ const val ANGLE_COUNT = 5   // עמודות: שמאל רחוק ... ימין רח
 const val ANGLE_ROWS = 3    // שורות: מבט למעלה / ישר / למטה
 
 /** מיקום הלוע (קצה הקנה הרחוק) בכל תא, אינדקס = שורה*5 + עמודה: שבר מרוחב ומגובה התא */
-private val ANGLE_MUZZLE_X = floatArrayOf(
+private val MK1_MUZZLE_X = floatArrayOf(
     0.435f, 0.446f, 0.503f, 0.559f, 0.657f,
     0.329f, 0.383f, 0.506f, 0.611f, 0.788f,
     0.259f, 0.346f, 0.508f, 0.657f, 0.834f
 )
-private val ANGLE_MUZZLE_Y = floatArrayOf(
+private val MK1_MUZZLE_Y = floatArrayOf(
     0.100f, 0.100f, 0.080f, 0.104f, 0.096f,
     0.115f, 0.113f, 0.096f, 0.117f, 0.115f,
     0.158f, 0.121f, 0.102f, 0.158f, 0.123f
@@ -85,6 +91,18 @@ private val ANGLE_MUZZLE_Y = floatArrayOf(
 
 /** כיוון הקנה בציור בכל עמודה (מעלות מהאנך, שלילי = שמאלה) */
 private val ANGLE_DIR = floatArrayOf(-38f, -30f, 0f, 30f, 38f)
+
+/** רובה הפלזמה הלבן (AUTO GUN): מיקום הלוע בכל תא */
+private val AUTO_MUZZLE_X = floatArrayOf(
+    0.271f, 0.328f, 0.503f, 0.665f, 0.726f,
+    0.330f, 0.356f, 0.503f, 0.684f, 0.688f,
+    0.285f, 0.298f, 0.499f, 0.693f, 0.721f
+)
+private val AUTO_MUZZLE_Y = floatArrayOf(
+    0.166f, 0.159f, 0.131f, 0.153f, 0.162f,
+    0.188f, 0.175f, 0.134f, 0.181f, 0.197f,
+    0.322f, 0.328f, 0.297f, 0.328f, 0.328f
+)
 
 private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
     val options = BitmapFactory.Options().apply {
@@ -104,10 +122,15 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
             WeaponId.Plasma -> {
                 val sheet = decode(context, R.drawable.weapon_angles)
                 val flash = decode(context, R.drawable.weapon_flash)
-                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y)
                 else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
             }
-            WeaponId.Auto -> still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
+            WeaponId.Auto -> {
+                val sheet = decode(context, R.drawable.weapon_auto_angles)
+                val flash = decode(context, R.drawable.weapon_flash_blue)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, AUTO_MUZZLE_X, AUTO_MUZZLE_Y)
+                else still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
+            }
             WeaponId.Spread -> still(context, R.drawable.weapon_spread_idle, R.drawable.weapon_spread_fire, 0.42f, 0.37f)
             WeaponId.Sniper -> still(context, R.drawable.weapon_sniper_idle, R.drawable.weapon_sniper_fire, 0.39f, 0.35f)
         }
@@ -270,8 +293,8 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val theta = (Math.toDegrees(kotlin.math.atan2(tx - pivot.x, up).toDouble()).toFloat()).coerceIn(-62f, 62f)
             // בחירת הזווית הקרובה ביותר, עם היסטרזיס כדי שלא תהבהב על הגבול
             var idx = state[3].toInt().coerceIn(0, ANGLE_COUNT - 1)
-            while (idx > 0 && theta < (ANGLE_DIR[idx - 1] + ANGLE_DIR[idx]) / 2f - 3f) idx--
-            while (idx < ANGLE_COUNT - 1 && theta > (ANGLE_DIR[idx] + ANGLE_DIR[idx + 1]) / 2f + 3f) idx++
+            while (idx > 0 && theta < (art.dirs[idx - 1] + art.dirs[idx]) / 2f - 3f) idx--
+            while (idx < ANGLE_COUNT - 1 && theta > (art.dirs[idx] + art.dirs[idx + 1]) / 2f + 3f) idx++
             state[3] = idx.toFloat()
             // שורה לפי גובה הכוונת במסך (מבט למעלה / ישר / למטה), עם היסטרזיס
             var row = state[4].toInt().coerceIn(0, ANGLE_ROWS - 1)
@@ -281,7 +304,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             state[4] = row.toFloat()
             val cell = row * ANGLE_COUNT + idx
             // הפער שנשאר בין זווית הציור לכיוון הכוונת מתוקן בסיבוב רציף סביב הידיים
-            val residual = (theta - ANGLE_DIR[idx]).coerceIn(-28f, 28f)
+            val residual = (theta - art.dirs[idx]).coerceIn(-28f, 28f)
             val reloading = weapon.reloading
             val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
             val equip = weapon.sinceEquip
@@ -291,8 +314,8 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val totalRot = residual + dip * -14f
             // מיקום הלוע אחרי הסיבוב והתזוזה
             val rad = Math.toRadians(totalRot.toDouble())
-            val mxp = left + w * ANGLE_MUZZLE_X[cell]
-            val myp = top + h * ANGLE_MUZZLE_Y[cell]
+            val mxp = left + w * art.muzzleX[cell]
+            val myp = top + h * art.muzzleY[cell]
             val rx = mxp - pivot.x
             val ry = myp - pivot.y
             val muzzle = Offset(
