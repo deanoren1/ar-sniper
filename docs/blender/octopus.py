@@ -485,13 +485,15 @@ def body_band(name, parent, z_bottom, z_top, material):
     """Rounded, wider collar that wraps visibly around the mantle."""
     sides = 128
     verts, faces = [], []
-    radius = shell_radius_at(z_top) + 0.16
+    # Follow the lower mantle more closely; the former oversized offset made a flat,
+    # projecting shelf that covered the mouth in the front hero.
+    radius = shell_radius_at(z_top) + 0.08
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
-            # A deeper front arc gives the collar the wrapped, rounded silhouette of the reference.
-            z = z_base - 0.15 * max(0.0, -math.sin(a))
-            verts.append((radius * math.cos(a), radius * 0.90 * math.sin(a) - 0.24, z))
+            # A shallow front drop keeps the band wrapped without hiding the lower lip.
+            z = z_base - 0.08 * max(0.0, -math.sin(a))
+            verts.append((radius * math.cos(a), radius * 0.90 * math.sin(a) - 0.14, z))
     for j in range(sides):
         nxt = (j + 1) % sides
         faces.append((j, nxt, sides + nxt, sides + j))
@@ -504,10 +506,10 @@ def body_band(name, parent, z_bottom, z_top, material):
     obj.data.materials.append(material)
     smooth(obj)
     solid = obj.modifiers.new("BandThickness", "SOLIDIFY")
-    solid.thickness = 0.13
+    solid.thickness = 0.11
     solid.offset = 0.0
     bevel = obj.modifiers.new("BandSoftEdges", "BEVEL")
-    bevel.width = 0.070
+    bevel.width = 0.050
     bevel.segments = 4
     main_parts.append(obj)
     return obj
@@ -624,37 +626,38 @@ def make_upper_eyelid(parent):
 
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
-mouth = empty("Mouth", pivot, loc=(0, -1.36, -0.34))
-mouth.scale = (1.0, 1.0, 0.90)
-# A compact, softly curved opening keeps the fangs readable without dominating the lower face.
+mouth = empty("Mouth", pivot, loc=(0, -1.28, -0.16))
+mouth.scale = (1.0, 1.0, 0.82)
+# Keep the opening compact and lift it clear of the collar, with a visible soft-pink lip.
 mouth_parts = [
-    sphere("MouthLip", 0.50, (0, 0.035, 0), MOUTH_LIP, mouth,
-           scale=(1.86, 0.56, 0.62), seg=64),
-    sphere("MouthCavity", 0.50, (0, -0.018, 0), MOUTH, mouth,
-           scale=(1.82, 0.52, 0.59), seg=64),
+    sphere("MouthLip", 0.50, (0, -0.045, 0), MOUTH_LIP, mouth,
+           scale=(1.62, 0.56, 0.68), seg=64),
+    # The cavity is slightly smaller and recessed so the pink lip remains visible around it.
+    sphere("MouthCavity", 0.50, (0, -0.015, 0), MOUTH, mouth,
+           scale=(1.46, 0.52, 0.62), seg=64),
 ]
-# Two prominent upper fangs and two shorter lower teeth keep the expression clean.
-for i, x in enumerate((-0.58, 0.58)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.140, 0.0, 0.28,
-                            (x, -0.30, 0.16), TEETH, mouth,
+# Two upper fangs and two shorter lower teeth, scaled to the narrower smile.
+for i, x in enumerate((-0.48, 0.48)):
+    mouth_parts.append(cone(f"ToothU{i}", 0.120, 0.0, 0.24,
+                            (x, -0.30, 0.15), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.50, 0.50)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.105, 0.0, 0.20,
-                            (x, -0.30, -0.18), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.22, (0, -0.36, -0.19), TONGUE, mouth,
-                          scale=(1.20, 0.50, 0.24), seg=40))
+for i, x in enumerate((-0.40, 0.40)):
+    mouth_parts.append(cone(f"ToothL{i}", 0.090, 0.0, 0.17,
+                            (x, -0.30, -0.16), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.22, (0, -0.34, -0.13), TONGUE, mouth,
+                          scale=(1.08, 0.50, 0.22), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.26, -0.66, COLLAR)
-collar_radius = shell_radius_at(-0.66) + 0.16  # seat the trim on the band instead of leaving a floating crossbar
-torus("CollarUpperPinkTrim", collar_radius, 0.026, (0, -0.24, -0.66), COLLAR, pivot)
-# A slimmer curved band reveals more of the mantle and the eight arm roots.
-torus("CollarLowerPinkTrim", collar_radius, 0.022, (0, -0.24, -1.26), COLLAR, pivot)
+body_band("LowerPinkBand", pivot, -1.28, -0.78, COLLAR)
+collar_radius = shell_radius_at(-0.78) + 0.08  # keep trim seated on the narrower, lower band
+torus("CollarUpperPinkTrim", collar_radius, 0.026, (0, -0.14, -0.78), COLLAR, pivot)
+# The lower edge follows the body and leaves the mouth and arm roots visible.
+torus("CollarLowerPinkTrim", collar_radius, 0.022, (0, -0.14, -1.28), COLLAR, pivot)
 for i in range(18):
     a = i * (2 * math.pi / 18)
-    z = -0.96 + 0.012 * abs(math.cos(a))
+    z = -1.03 + 0.012 * abs(math.cos(a))
     r = collar_radius + 0.055
-    sphere(f"BandRivet{i}", 0.070, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.24 - 0.090, z),
+    sphere(f"BandRivet{i}", 0.070, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.14 - 0.070, z),
            COPPER, pivot, scale=(1.0, 0.92, 1.0), seg=24)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
@@ -858,14 +861,14 @@ def arm_center(t, style="outer", mirror=False):
         # Side arms make the prominent upward C-curls seen in the reference.
         p0, p1, p2, p3 = (0.0, 0.0), (0.78, -0.02), (2.10, -1.62), (1.45, -0.12)
     elif style == "front":
-        # Front pair hangs lower and stays shorter, leaving the collar visible.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.58, -0.02), (1.62, -1.62), (1.08, -0.50)
+        # Front pair hangs lower, but turns back inward so the tips read as curled tentacles.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.54, -0.02), (1.48, -1.52), (0.96, -0.42)
     elif style == "inner":
-        # Inner pair drops beneath the belly without crossing the outer curls.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.36, -0.04), (1.08, -1.45), (0.62, -0.72)
+        # Inner pair is shorter and more separated, leaving a visible gap between front arms.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.32, -0.03), (0.92, -1.30), (0.50, -0.62)
     else:
-        # Rear pair remains tucked back and peeks out as smaller dark supports.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.04), (1.18, -1.35), (0.86, -0.48)
+        # Rear pair emerges from either side of the lower mantle as two smaller visible supports.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.02), (0.88, -1.05), (0.64, -0.48)
     u = 1.0 - t
     x = (u ** 3 * p0[0] + 3.0 * u * u * t * p1[0]
          + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
@@ -939,8 +942,8 @@ ARM_LAYOUT = (
     ((1.25, -0.34, -1.50), 0.0, "outer"),
     ((-0.43, -0.88, -1.70), 0.0, "inner"),
     ((0.43, -0.88, -1.70), 0.0, "inner"),
-    ((-1.32, -0.42, -1.55), 0.0, "rear"),
-    ((1.32, -0.42, -1.55), 0.0, "rear"),
+    ((-1.55, -0.62, -1.42), 0.0, "rear"),
+    ((1.55, -0.62, -1.42), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
@@ -955,7 +958,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.34, 0.60, 0.82)): 
+    for q, t in enumerate((0.28, 0.50, 0.72, 0.88)): 
         center = arm_center(t, style, mirror)
         before = arm_center(max(0.0, t - 0.002), style, mirror)
         after = arm_center(min(1.0, t + 0.002), style, mirror)
@@ -968,9 +971,9 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 0.920
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.38, rr * 0.38, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.45, rr * 0.45, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
         rim_pos = center + cup_normal * rr * 0.955
-        torus(f"SuckerRim{i}_{q}", rr * 0.38, rr * 0.016, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.45, rr * 0.018, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.42, 0.78)):
