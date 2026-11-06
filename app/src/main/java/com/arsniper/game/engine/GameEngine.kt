@@ -448,7 +448,9 @@ class GameEngine(
             // עצם גדול שסומן "קיר" הוא בדרך כלל פתח או חדר ברקע (למשל מבט דרך דלת), לא עצם להסתתר מאחוריו
             .filter { !(it.kind == SpotKind.COVER && it.classIndex == 0 && it.cellCount.toFloat() / (it.gridWidth * it.gridHeight) >= 0.04f) }
             // עדיפות למחבואים גדולים, עם מעט אקראיות
-            .sortedByDescending { random.nextFloat() * sqrt(it.cellCount.toFloat()) }
+            .map { it to random.nextFloat() * sqrt(it.cellCount.toFloat()) }
+            .sortedByDescending { it.second }
+            .map { it.first }
         for (spot in candidates.take(12)) {
             val enemy = spawnAtSpot(spot) ?: continue
             // מחבואים יכולים להיות קרובים זה לזה (שני משטחים זה ליד זה), לכן מרווח קטן יותר
@@ -922,7 +924,9 @@ class GameEngine(
         val usedIds = existing.mapNotNull { it.spot?.id }.toSet()
         val candidates = ctx.spots
             .filter { it.kind != SpotKind.WINDOW && it.id !in usedIds }
-            .sortedByDescending { random.nextFloat() * sqrt(it.cellCount.toFloat()) }
+            .map { it to random.nextFloat() * sqrt(it.cellCount.toFloat()) }
+            .sortedByDescending { it.second }
+            .map { it.first }
         for (spot in candidates.take(12)) {
             val enemy = emergeFrom(spot, ctx) ?: continue
             if (!tooClose(enemy.position, enemy.radius, existing, ctx.mapper.screenAspect, 0.15f)) {
