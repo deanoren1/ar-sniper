@@ -357,6 +357,7 @@ export class Quota implements DurableObject {
       await this.ctx.storage.put(key, used + 1);
       return new Response("ok");
     }
+    if (url.pathname === "/peek") return Response.json({ used });
     if (url.pathname === "/refund") {
       await this.ctx.storage.put(key, Math.max(0, used - 1));
       return new Response("ok");
@@ -579,6 +580,14 @@ export default {
 
     if (url.pathname === "/restyle") return restyle(request, env);
     if (url.pathname.startsWith("/worlds/")) return worldsApi(request, env, url);
+    if (url.pathname === "/quota") {
+      const device = request.headers.get("x-device") ?? "";
+      if (!/^[A-Za-z0-9_-]{8,64}$/.test(device)) return Response.json({ error: "bad-device" }, { status: 400 });
+      const limit = Number(env.DAILY_PER_DEVICE ?? "20");
+      const stub = env.QUOTA.get(env.QUOTA.idFromName(`dev:${device}`));
+      const { used } = await (await stub.fetch(`https://quota/peek?day=${today()}`)).json<{ used: number }>();
+      return Response.json({ limit, left: Math.max(0, limit - used) }, { headers: { "cache-control": "no-store" } });
+    }
     if (url.pathname === "/lab") return new Response(LAB_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 
     const match = url.pathname.match(/^\/room\/([A-Za-z0-9]{4,8})$/);

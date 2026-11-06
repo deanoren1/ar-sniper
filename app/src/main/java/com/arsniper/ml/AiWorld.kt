@@ -40,6 +40,20 @@ object AiWorld {
         }
     }
 
+    /** כמה יצירות AI נשארו היום למכשיר הזה: זוג (נשאר, מכסה), או null אם אי אפשר לדעת. חוסם: מחוץ לתהליך הראשי */
+    fun quotaLeft(context: Context): Pair<Int, Int>? {
+        val server = CoopClient.savedServer(context).trim().removePrefix("https://").removePrefix("http://").trimEnd('/')
+        if (server.isEmpty()) return null
+        return try {
+            val request = Request.Builder().url("https://$server/quota").header("x-device", deviceId(context)).build()
+            http.newCall(request).execute().use { r ->
+                if (!r.isSuccessful) return null
+                val o = JSONObject(r.body?.string().orEmpty())
+                Pair(o.getInt("left"), o.getInt("limit"))
+            }
+        } catch (_: Exception) { null }
+    }
+
     /** חוסם: להריץ מחוץ לתהליך הראשי. style: למשל "tundra". provider: null = ברירת המחדל של השרת */
     fun generate(context: Context, style: String, source: Bitmap, provider: String? = null, quality: String? = null, model: String? = null, sandbox: Boolean = false): Result {
         val server = CoopClient.savedServer(context).trim()

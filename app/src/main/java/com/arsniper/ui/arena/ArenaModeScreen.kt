@@ -140,6 +140,8 @@ fun ArenaModeScreen(
     var message by remember { mutableStateOf<String?>(null) }
     var showWorlds by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var aiLeft by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(Unit) { aiLeft = withContext(Dispatchers.IO) { AiWorld.quotaLeft(context) } }
     var confirmShare by remember { mutableStateOf<SavedWorld?>(null) }
     var communityRevision by remember { mutableStateOf(0) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -180,7 +182,10 @@ fun ArenaModeScreen(
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) {
                 OutlinedText(style.title, fontSize = 20.sp, color = Color.White, outlineWidth = 10f)
-                OutlinedText("Choose how to play", fontSize = 14.sp, color = GameColors.Ice, outline = null)
+                OutlinedText(
+                    aiLeft?.let { "Choose how to play  ·  AI worlds left today: ${it.first}/${it.second}" } ?: "Choose how to play",
+                    fontSize = 13.sp, color = GameColors.Ice, outline = null
+                )
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
