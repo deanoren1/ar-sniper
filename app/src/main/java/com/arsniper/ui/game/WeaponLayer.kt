@@ -183,7 +183,7 @@ fun WeaponLayer(
     aimY: Float = 0.5f
 ) {
     // הכוונה המוחלקת: הרובה "רודף" אחרי הכוונת בהאטה, כדי שהסיבוב יהיה זורם ולא קופץ
-    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat(), 1f) }
+    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat(), 1f, 7f, -10f, 7f) }
     Canvas(modifier = modifier.fillMaxSize()) {
         val now = nowNanos / 1e9f
         val dt = if (smooth[2] == 0f) 0f else (now - smooth[2]).coerceIn(0f, 0.1f)
@@ -304,14 +304,24 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             state[4] = row.toFloat()
             val cell = row * ANGLE_COUNT + idx
             // הפער שנשאר בין זווית הציור לכיוון הכוונת מתוקן בסיבוב רציף סביב הידיים
-            val residual = (theta - art.dirs[idx]).coerceIn(-28f, 28f)
+            val residual = (theta - art.dirs[idx]).coerceIn(-16f, 16f)
             val reloading = weapon.reloading
             val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
             val equip = weapon.sinceEquip
             val rise = if (equip < 0.3f) (1f - equip / 0.3f) * (1f - equip / 0.3f) else 0f
+            // מורידים את הידיים והרובה כשהם מסתובבים או מביטים למטה, כך שקצה התמונה אף פעם לא נראה
+            val rotDrop = (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
+            val rowDrop = if (row == 2) h * 0.06f else 0f
+            val baseDrop = h * 0.08f
             val ox = dx + dip * size.width * 0.03f
-            val oy = dy + dip * size.height * 0.42f + rise * size.height * 0.5f
+            val oy = dy + baseDrop + rotDrop + rowDrop + dip * size.height * 0.42f + rise * size.height * 0.5f
             val totalRot = residual + dip * -14f
+            // החלפת תא: מעבר רך קצר מהתא הקודם, כדי שלא יהיו קפיצות
+            if (cell != state[5].toInt()) {
+                state[7] = state[5]; state[5] = cell.toFloat(); state[6] = timeSeconds
+            }
+            val fade = ((timeSeconds - state[6]) / 0.09f).coerceIn(0f, 1f)
+            val fromCell = state[7].toInt().coerceIn(0, ANGLE_COUNT * ANGLE_ROWS - 1)
             // מיקום הלוע אחרי הסיבוב והתזוזה
             val rad = Math.toRadians(totalRot.toDouble())
             val mxp = left + w * art.muzzleX[cell]
@@ -325,12 +335,22 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             if (tracerTarget != null) drawTracer(muzzle, tracerTarget, since)
             rotate(totalRot, pivot) {
                 translate(ox, oy) {
+                    if (fade < 1f) {
+                        drawImage(
+                            image = art.sheet,
+                            srcOffset = IntOffset((fromCell % ANGLE_COUNT) * art.cw, (fromCell / ANGLE_COUNT) * art.ch),
+                            srcSize = IntSize(art.cw, art.ch),
+                            dstOffset = IntOffset(left.toInt(), top.toInt()),
+                            dstSize = IntSize(w.toInt(), h.toInt())
+                        )
+                    }
                     drawImage(
                         image = art.sheet,
                         srcOffset = IntOffset(idx * art.cw, row * art.ch),
                         srcSize = IntSize(art.cw, art.ch),
                         dstOffset = IntOffset(left.toInt(), top.toInt()),
-                        dstSize = IntSize(w.toInt(), h.toInt())
+                        dstSize = IntSize(w.toInt(), h.toInt()),
+                        alpha = fade
                     )
                 }
             }
