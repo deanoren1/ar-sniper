@@ -60,7 +60,19 @@ sealed class WeaponArt {
     }
 
     class Still(val idle: ImageBitmap, val fire: ImageBitmap, val muzzleX: Float, val muzzleY: Float) : WeaponArt()
+
+    /** Blaster Mk1 ברזולוציה גבוהה: 5 זוויות עמידה בשורה אחת (תאים שווים) + תמונת הבזק נפרדת שמצוירת על הלוע */
+    class Angles(val sheet: ImageBitmap, val flash: ImageBitmap) : WeaponArt() {
+        val cw: Int = sheet.width / ANGLE_COUNT
+        val ch: Int = sheet.height
+    }
 }
+
+const val ANGLE_COUNT = 5
+
+/** מיקום הלוע (קצה הקנה הרחוק) בכל זווית: שבר מרוחב ומגובה התא */
+private val ANGLE_MUZZLE_X = floatArrayOf(0.327f, 0.495f, 0.502f, 0.515f, 0.668f)
+private const val ANGLE_MUZZLE_Y = 0.07f
 
 private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
     val options = BitmapFactory.Options().apply {
@@ -77,7 +89,12 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
     val context = LocalContext.current
     return remember(weapon) {
         when (weapon) {
-            WeaponId.Plasma -> decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
+            WeaponId.Plasma -> {
+                val sheet = decode(context, R.drawable.weapon_angles)
+                val flash = decode(context, R.drawable.weapon_flash)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash)
+                else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
+            }
             WeaponId.Auto -> still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
             WeaponId.Spread -> still(context, R.drawable.weapon_spread_idle, R.drawable.weapon_spread_fire, 0.42f, 0.37f)
             WeaponId.Sniper -> still(context, R.drawable.weapon_sniper_idle, R.drawable.weapon_sniper_fire, 0.39f, 0.35f)
@@ -227,6 +244,68 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             }
         }
 
+        is WeaponArt.Angles -> {
+            // העמודה לפי מיקום הכוונת, עם מעבר חלק בין שתי זוויות סמוכות
+            val last = ANGLE_COUNT - 1
+            val pos = (last / 2f + ((aimX - 0.62f) / 0.45f).coerceIn(-1f, 1f) * (last / 2f)).coerceIn(0f, last.toFloat())
+            val col0 = pos.toInt().coerceIn(0, last - 1)
+            val col1 = col0 + 1
+            val blend = (pos - col0).coerceIn(0f, 1f)
+            val scale = size.height * 0.74f / art.ch
+            val w = art.cw * scale
+            val h = art.ch * scale
+            val aimDy = ((aimY - 0.5f).coerceIn(-0.5f, 0.5f)) * size.height * 0.10f
+            // טעינה: הרובה יורד ומוטה וחוזר. שליפה: עולה מלמטה
+            val reloading = weapon.reloading
+            val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
+            val equip = weapon.sinceEquip
+            val rise = if (equip < 0.3f) (1f - equip / 0.3f) * (1f - equip / 0.3f) else 0f
+            val ox = dx + dip * size.width * 0.03f
+            val oy = dy + dip * size.height * 0.42f + rise * size.height * 0.5f
+            val left = size.width * 0.62f - w / 2f
+            val top = bottom - h + aimDy
+            val mx = ANGLE_MUZZLE_X[col0] + (ANGLE_MUZZLE_X[col1] - ANGLE_MUZZLE_X[col0]) * blend
+            val muzzle = Offset(left + w * mx + ox, top + h * ANGLE_MUZZLE_Y + oy)
+            if (tracerTarget != null) drawTracer(muzzle, tracerTarget, since)
+            val pivot = Offset(left + w * 0.5f, bottom)
+            rotate(dip * -14f, pivot) {
+                translate(ox, oy) {
+                    drawImage(
+                        image = art.sheet,
+                        srcOffset = IntOffset(col0 * art.cw, 0),
+                        srcSize = IntSize(art.cw, art.ch),
+                        dstOffset = IntOffset(left.toInt(), top.toInt()),
+                        dstSize = IntSize(w.toInt(), h.toInt())
+                    )
+                    if (blend > 0.02f) {
+                        drawImage(
+                            image = art.sheet,
+                            srcOffset = IntOffset(col1 * art.cw, 0),
+                            srcSize = IntSize(art.cw, art.ch),
+                            dstOffset = IntOffset(left.toInt(), top.toInt()),
+                            dstSize = IntSize(w.toInt(), h.toInt()),
+                            alpha = blend
+                        )
+                    }
+                }
+            }
+            // הבזק ירי מעל הלוע (חיבור אור), דועך תוך 90ms
+            if (!reloading && since < 0.09f) {
+                val a = (1f - since / 0.09f).coerceIn(0f, 1f)
+                val fw = w * 0.9f
+                val fh = fw * art.flash.height / art.flash.width
+                drawImage(
+                    image = art.flash,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(art.flash.width, art.flash.height),
+                    dstOffset = IntOffset((muzzle.x - fw / 2f).toInt(), (muzzle.y - fh * 0.80f).toInt()),
+                    dstSize = IntSize(fw.toInt(), fh.toInt()),
+                    alpha = a,
+                    blendMode = androidx.compose.ui.graphics.BlendMode.Plus
+                )
+            }
+        }
+
         is WeaponArt.Sheet -> {
             val (row, column) = frameOf(weapon, timeSeconds)
             // גובה התא הוא 55% מגובה המסך. הרובה מיושר לתחתית, וקצת יוצא מהמסך
@@ -292,6 +371,17 @@ fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
                 drawImage(
                     image = art.sheet,
                     srcOffset = IntOffset(3 * art.cw, 0),
+                    srcSize = IntSize(art.cw, art.ch),
+                    dstOffset = IntOffset(((size.width - art.cw * s) / 2f).toInt(), (size.height - art.ch * s).toInt()),
+                    dstSize = IntSize((art.cw * s).toInt(), (art.ch * s).toInt())
+                )
+            }
+
+            is WeaponArt.Angles -> {
+                val s = minOf(size.width / art.cw, size.height / art.ch)
+                drawImage(
+                    image = art.sheet,
+                    srcOffset = IntOffset((ANGLE_COUNT / 2) * art.cw, 0),
                     srcSize = IntSize(art.cw, art.ch),
                     dstOffset = IntOffset(((size.width - art.cw * s) / 2f).toInt(), (size.height - art.ch * s).toInt()),
                     dstSize = IntSize((art.cw * s).toInt(), (art.ch * s).toInt())
