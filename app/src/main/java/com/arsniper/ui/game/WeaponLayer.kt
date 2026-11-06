@@ -76,6 +76,9 @@ sealed class WeaponArt {
     }
 }
 
+/** נקודת המוצא של הרובה לרוחב המסך (0.5 = אמצע). ממנה נמשך הקו הבלתי נראה אל הכוונת */
+private const val ANGLE_BASE_X = 0.5f
+
 const val ANGLE_COUNT = 5   // עמודות: שמאל רחוק ... ימין רחוק
 const val ANGLE_ROWS = 3    // שורות: מבט למעלה / ישר / למטה
 
@@ -277,13 +280,12 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val h = art.ch * scale
             val tx = aimX * size.width
             val ty = aimY * size.height
-            // הידיים והרובה עוקבים אחרי הכוונת לצדדים (70%), כך שבאמצע המסך כמעט אין הטיה
-            val baseX = (size.width * 0.62f + (aimX - 0.62f) * size.width * 0.70f)
-                .coerceIn(size.width * 0.40f, size.width * 0.78f)
+            // "לייזר בלתי נראה": קו מנקודת המוצא הקבועה של הרובה (אמצע המסך למטה) אל הכוונת. הכיוון שלו קובע איך הרובה מוטה
+            val baseX = size.width * ANGLE_BASE_X
             val left = baseX - w / 2f
             val top = bottom - h
             val pivot = Offset(baseX, bottom - h * 0.06f)
-            // הזווית מבסיס הידיים אל הכוונת (0 = ישר למעלה, שלילי = שמאלה)
+            // זווית הקו הבלתי נראה (0 = ישר למעלה, שלילי = שמאלה)
             val up = (pivot.y - ty).coerceAtLeast(size.height * 0.25f)
             val theta = (Math.toDegrees(kotlin.math.atan2(tx - pivot.x, up).toDouble()).toFloat()).coerceIn(-80f, 80f)
             // שורה לפי גובה הכוונת במסך (מבט למעלה / ישר / למטה), עם היסטרזיס
