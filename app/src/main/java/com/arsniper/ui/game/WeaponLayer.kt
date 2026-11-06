@@ -69,9 +69,11 @@ sealed class WeaponArt {
         val muzzleY: FloatArray,
         val dirs: FloatArray,
         val originX: FloatArray,
-        val originY: FloatArray
+        val originY: FloatArray,
+        val cols: Int = ANGLE_COUNT
     ) : WeaponArt() {
-        val cw: Int = sheet.width / ANGLE_COUNT
+        val maxResidual: Float = if (cols > 5) 24f else 14f
+        val cw: Int = sheet.width / cols
         val ch: Int = sheet.height / ANGLE_ROWS
     }
 }
@@ -87,11 +89,11 @@ const val ANGLE_ROWS = 3    // שורות: מבט למעלה / ישר / למטה
  * MX/MY = קצה הקנה (הלוע), OX/OY = מרכז הגב של הרובה (מהן נמשך הקו אל הלוע), DIR = כיוון הקנה במעלות מהאנך (שלילי = שמאלה).
  * כל הערכים כשבר מרוחב ומגובה התא.
  */
-private val MK1_MUZZLE_X = floatArrayOf(0.435f, 0.446f, 0.503f, 0.559f, 0.657f, 0.329f, 0.383f, 0.506f, 0.611f, 0.788f, 0.259f, 0.346f, 0.508f, 0.657f, 0.834f)
-private val MK1_MUZZLE_Y = floatArrayOf(0.108f, 0.109f, 0.087f, 0.112f, 0.104f, 0.123f, 0.121f, 0.101f, 0.124f, 0.124f, 0.167f, 0.129f, 0.108f, 0.166f, 0.132f)
-private val MK1_ORIGIN_X = floatArrayOf(0.763f, 0.739f, 0.566f, 0.336f, 0.290f, 0.804f, 0.757f, 0.552f, 0.300f, 0.236f, 0.720f, 0.725f, 0.546f, 0.294f, 0.298f)
-private val MK1_ORIGIN_Y = floatArrayOf(0.625f, 0.600f, 0.566f, 0.585f, 0.576f, 0.483f, 0.480f, 0.479f, 0.488f, 0.466f, 0.500f, 0.564f, 0.636f, 0.603f, 0.567f)
-private val MK1_DIR = floatArrayOf(-32.400f, -30.800f, -7.500f, 25.200f, 37.900f, -52.800f, -46.200f, -6.900f, 40.500f, 58.200f, -54.200f, -41.100f, -4.200f, 39.600f, 50.900f)
+private val MK1_MUZZLE_X = floatArrayOf(0.065f, 0.076f, 0.160f, 0.270f, 0.500f, 0.807f, 0.853f, 0.942f, 0.939f, 0.058f, 0.077f, 0.151f, 0.267f, 0.500f, 0.804f, 0.848f, 0.927f, 0.941f, 0.068f, 0.089f, 0.162f, 0.270f, 0.498f, 0.785f, 0.831f, 0.928f, 0.936f)
+private val MK1_MUZZLE_Y = floatArrayOf(0.319f, 0.226f, 0.189f, 0.176f, 0.136f, 0.185f, 0.193f, 0.233f, 0.348f, 0.466f, 0.400f, 0.367f, 0.350f, 0.290f, 0.352f, 0.364f, 0.405f, 0.480f, 0.467f, 0.399f, 0.380f, 0.368f, 0.324f, 0.366f, 0.380f, 0.413f, 0.485f)
+private val MK1_ORIGIN_X = floatArrayOf(0.931f, 0.848f, 0.772f, 0.716f, 0.500f, 0.316f, 0.257f, 0.174f, 0.090f, 0.931f, 0.851f, 0.782f, 0.708f, 0.499f, 0.310f, 0.231f, 0.150f, 0.080f, 0.954f, 0.838f, 0.792f, 0.717f, 0.500f, 0.298f, 0.240f, 0.193f, 0.057f)
+private val MK1_ORIGIN_Y = floatArrayOf(0.562f, 0.548f, 0.557f, 0.539f, 0.523f, 0.525f, 0.558f, 0.560f, 0.578f, 0.668f, 0.668f, 0.675f, 0.656f, 0.422f, 0.648f, 0.676f, 0.682f, 0.686f, 0.737f, 0.808f, 0.819f, 0.818f, 0.572f, 0.812f, 0.818f, 0.810f, 0.767f)
+private val MK1_DIR = floatArrayOf(-70.138f, -61.761f, -52.280f, -43.633f, 0.009f, 48.206f, 51.756f, 61.214f, 70.757f, -74.000f, -65.942f, -57.875f, -48.250f, 0.499f, 52.304f, 56.942f, 65.355f, 72.945f, -68.593f, -54.936f, -48.105f, -37.659f, -0.203f, 40.280f, 46.304f, 55.210f, 67.580f)
 
 private val AUTO_MUZZLE_X = floatArrayOf(0.124f, 0.147f, 0.497f, 0.861f, 0.891f, 0.098f, 0.121f, 0.497f, 0.903f, 0.928f, 0.074f, 0.082f, 0.494f, 0.898f, 0.936f)
 private val AUTO_MUZZLE_Y = floatArrayOf(0.200f, 0.202f, 0.132f, 0.203f, 0.199f, 0.262f, 0.245f, 0.135f, 0.258f, 0.273f, 0.383f, 0.394f, 0.297f, 0.394f, 0.399f)
@@ -117,7 +119,7 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
             WeaponId.Plasma -> {
                 val sheet = decode(context, R.drawable.weapon_angles)
                 val flash = decode(context, R.drawable.weapon_flash)
-                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR, MK1_ORIGIN_X, MK1_ORIGIN_Y)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR, MK1_ORIGIN_X, MK1_ORIGIN_Y, 9)
                 else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
             }
             WeaponId.Auto -> {
@@ -295,14 +297,14 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             else if (row == 0 && ay > 0.42f) row = 1 else if (row == 2 && ay < 0.58f) row = 1
             state[4] = row.toFloat()
             // עמודה: התמונה שכיוון הקנה בה הכי קרוב לכיוון הכוונת, עם היסטרזיס נגד הבהוב
-            var idx = state[3].toInt().coerceIn(0, ANGLE_COUNT - 1)
+            var idx = state[3].toInt().coerceIn(0, art.cols - 1)
             var best = idx
-            for (c in 0 until ANGLE_COUNT) {
-                if (kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + c]) < kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + best])) best = c
+            for (c in 0 until art.cols) {
+                if (kotlin.math.abs(theta - art.dirs[row * art.cols + c]) < kotlin.math.abs(theta - art.dirs[row * art.cols + best])) best = c
             }
-            if (best != idx && kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + best]) + 5f < kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + idx])) idx = best
+            if (best != idx && kotlin.math.abs(theta - art.dirs[row * art.cols + best]) + 5f < kotlin.math.abs(theta - art.dirs[row * art.cols + idx])) idx = best
             state[3] = idx.toFloat()
-            val cell = row * ANGLE_COUNT + idx
+            val cell = row * art.cols + idx
             val axis = art.dirs[cell]
             val reloading = weapon.reloading
             val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
@@ -326,7 +328,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                 val mxr = pivot.x + mrx * cs - mry * sn
                 val myr = pivot.y + mrx * sn + mry * cs + drop
                 val want = Math.toDegrees(kotlin.math.atan2((tx - mxr).toDouble(), (myr - ty).toDouble())).toFloat()
-                residual = (want - axis).coerceIn(-14f, 14f)
+                residual = (want - axis).coerceIn(-art.maxResidual, art.maxResidual)
             }
             val rotDrop = (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
             val ox = dx + dip * size.width * 0.03f
@@ -342,7 +344,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                 state[7] = state[5]; state[5] = cell.toFloat(); state[6] = timeSeconds
             }
             val fade = ((timeSeconds - state[6]) / 0.09f).coerceIn(0f, 1f)
-            val fromCell = state[7].toInt().coerceIn(0, ANGLE_COUNT * ANGLE_ROWS - 1)
+            val fromCell = state[7].toInt().coerceIn(0, art.cols * ANGLE_ROWS - 1)
 
             // הקו נמשך בישר מגב הרובה דרך הלוע אל הכוונת. מצויר מתחת לרובה, אז נראה יוצא מהקצה
             if (tracerTarget != null) drawTracer(origin, tracerTarget, since)
@@ -351,7 +353,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                     if (fade < 1f) {
                         drawImage(
                             image = art.sheet,
-                            srcOffset = IntOffset((fromCell % ANGLE_COUNT) * art.cw, (fromCell / ANGLE_COUNT) * art.ch),
+                            srcOffset = IntOffset((fromCell % art.cols) * art.cw, (fromCell / art.cols) * art.ch),
                             srcSize = IntSize(art.cw, art.ch),
                             dstOffset = IntOffset(left.toInt(), top.toInt()),
                             dstSize = IntSize(w.toInt(), h.toInt())
@@ -462,7 +464,7 @@ fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
                 val s = minOf(size.width / art.cw, size.height / art.ch)
                 drawImage(
                     image = art.sheet,
-                    srcOffset = IntOffset((ANGLE_COUNT / 2) * art.cw, art.ch),
+                    srcOffset = IntOffset((art.cols / 2) * art.cw, art.ch),
                     srcSize = IntSize(art.cw, art.ch),
                     dstOffset = IntOffset(((size.width - art.cw * s) / 2f).toInt(), (size.height - art.ch * s).toInt()),
                     dstSize = IntSize((art.cw * s).toInt(), (art.ch * s).toInt())
