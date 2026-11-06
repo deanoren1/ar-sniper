@@ -423,6 +423,7 @@ const IMG_TTL_MS = 60 * 24 * 3600 * 1000;
 
 const WORLD_STYLES = new Set(["tundra_mid", "jungle_mid", "rockforest_mid"]);
 const MAX_WORLD_BYTES = 1_800_000;
+const MAX_ANALYSIS_BYTES = 2_500_000;
 const SHARES_PER_DEVICE_PER_DAY = 10;
 const REPORTS_TO_HIDE = 3;
 
@@ -438,13 +439,14 @@ async function worldsApi(request: Request, env: Env, url: URL): Promise<Response
   const index = env.WORLDS_INDEX.get(env.WORLDS_INDEX.idFromName("main"));
   const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "cache-control": "no-store" } });
 
-  const imgMatch = url.pathname.match(/^\/worlds\/img\/([a-f0-9]{16,64})$/);
+  const imgMatch = url.pathname.match(/^\/worlds\/(img|analysis)\/([a-f0-9]{16,64})$/);
   if (imgMatch && request.method === "GET") {
-    const meta = await (await index.fetch(`https://idx/status?id=${imgMatch[1]}`)).json<{ ok: boolean }>();
+    const isImg = imgMatch[1] === "img";
+    const meta = await (await index.fetch(`https://idx/status?id=${imgMatch[2]}`)).json<{ ok: boolean }>();
     if (!meta.ok) return json({ error: "not-found" }, 404);
-    const obj = await env.WORLDS.get(`worlds/${imgMatch[1]}.jpg`);
+    const obj = await env.WORLDS.get(isImg ? `worlds/${imgMatch[2]}.jpg` : `worlds/${imgMatch[2]}.bin.gz`);
     if (!obj) return json({ error: "not-found" }, 404);
-    return new Response(obj.body, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" } });
+    return new Response(obj.body, { headers: { "content-type": isImg ? "image/jpeg" : "application/gzip", "cache-control": "public, max-age=86400" } });
   }
 
   const device = validDevice(request);
@@ -453,15 +455,25 @@ async function worldsApi(request: Request, env: Env, url: URL): Promise<Response
   if (url.pathname === "/worlds/share" && request.method === "POST") {
     const style = url.searchParams.get("style") ?? "";
     if (!WORLD_STYLES.has(style)) return json({ error: "bad-style" }, 400);
-    const body = new Uint8Array(await request.arrayBuffer());
-    if (body.length < 20_000 || body.length > MAX_WORLD_BYTES) return json({ error: "bad-size" }, 413);
-    if (!(body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff)) return json({ error: "not-jpeg" }, 415);
+    // גוף: [אורך העולם: 4 בתים, big-endian][JPEG של העולם][ניתוח הסצנה בדחיסת gzip]
+    const all = new Uint8Array(await request.arrayBuffer());
+    if (all.length < 24_000 || all.length > MAX_WORLD_BYTES + MAX_ANALYSIS_BYTES + 4) return json({ error: "bad-size" }, 413);
+    const worldLen = ((all[0] << 24) | (all[1] << 16) | (all[2] << 8) | all[3]) >>> 0;
+    const world = all.subarray(4, 4 + worldLen);
+    const analysis = all.subarray(4 + worldLen);
+    if (worldLen < 20_000 || worldLen > MAX_WORLD_BYTES) return json({ error: "bad-size" }, 413);
+    if (analysis.length < 200 || analysis.length > MAX_ANALYSIS_BYTES) return json({ error: "bad-analysis" }, 413);
+    if (!(world[0] === 0xff && world[1] === 0xd8 && world[2] === 0xff)) return json({ error: "not-jpeg" }, 415);
+    if (!(analysis[0] === 0x1f && analysis[1] === 0x8b)) return json({ error: "bad-analysis" }, 415);
     if (!(await takeQuota(env, `share:${device}`, SHARES_PER_DEVICE_PER_DAY))) return json({ error: "share-limit" }, 429);
-    const id = (await sha256Hex(body)).slice(0, 32);
+    const id = (await sha256Hex(world)).slice(0, 32);
     const res = await index.fetch(`https://idx/add?id=${id}&style=${style}&device=${device}`, { method: "POST" });
     const info = await res.json<{ status: string }>();
     if (info.status === "banned") { await refundQuota(env, `share:${device}`); return json({ error: "hidden" }, 403); }
-    if (info.status === "new") await env.WORLDS.put(`worlds/${id}.jpg`, body, { httpMetadata: { contentType: "image/jpeg" } });
+    if (info.status === "new") {
+      await env.WORLDS.put(`worlds/${id}.jpg`, world, { httpMetadata: { contentType: "image/jpeg" } });
+      await env.WORLDS.put(`worlds/${id}.bin.gz`, analysis, { httpMetadata: { contentType: "application/gzip" } });
+    }
     return json({ id, status: info.status });
   }
 
@@ -479,7 +491,7 @@ async function worldsApi(request: Request, env: Env, url: URL): Promise<Response
     const op = url.pathname === "/worlds/report" ? "report" : "unshare";
     const res = await index.fetch(`https://idx/${op}?id=${id}&device=${device}`, { method: "POST" });
     const info = await res.json<{ status: string }>();
-    if (op === "unshare" && info.status === "deleted") await env.WORLDS.delete(`worlds/${id}.jpg`);
+    if (op === "unshare" && info.status === "deleted") { await env.WORLDS.delete(`worlds/${id}.jpg`); await env.WORLDS.delete(`worlds/${id}.bin.gz`); }
     return json(info, res.status);
   }
   return json({ error: "not-found" }, 404);
