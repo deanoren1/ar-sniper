@@ -114,24 +114,24 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.24, 0.56, 1.0, 1.0)
+    shell.inputs["Base Color"].default_value = (0.10, 0.38, 0.96, 1.0)
     shell.inputs["Roughness"].default_value = 0.065
     shell.inputs["Metallic"].default_value = 0.0
     shell.inputs["Coat Weight"].default_value = 0.72
     shell.inputs["Coat Roughness"].default_value = 0.055
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.66
-        shell.inputs["Alpha"].default_value = 0.45
-        shell.inputs["Emission Color"].default_value = (0.12, 0.36, 0.88, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.030
+        shell.inputs["Transmission Weight"].default_value = 0.78
+        shell.inputs["Alpha"].default_value = 0.32
+        shell.inputs["Emission Color"].default_value = (0.06, 0.24, 0.78, 1.0)
+        shell.inputs["Emission Strength"].default_value = 0.050
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
     layer.inputs["Blend"].default_value = 0.18
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.58
-    edge_tint.inputs[2].default_value = 0.16
+    edge_tint.inputs[1].default_value = 0.72
+    edge_tint.inputs[2].default_value = 0.10
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -207,7 +207,7 @@ SUCKER_RIM = mat("SuckerRim", (0.14, 0.008, 0.26), rough=0.58, coat=0.08)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.76, 0.015, 0.91), rough=0.19, coat=0.82,
                 emit=(0.055, 0.002, 0.055), strength=0.030)
-REAR_TENTACLE = mat("RearTentacle", (0.82, 0.020, 0.96), rough=0.19, coat=0.78, emit=(0.035, 0.001, 0.045), strength=0.025)
+REAR_TENTACLE = mat("RearTentacle", (0.30, 0.006, 0.50), rough=0.23, coat=0.62, emit=(0.012, 0.0, 0.020), strength=0.018)
 TANK = mat("Tank", (0.62, 0.008, 0.88), rough=0.20, metal=0.14, coat=0.78)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -362,12 +362,12 @@ TORSO_Z = 1.55
 monster = empty("Monster")
 torso = empty("Torso", monster, loc=(0, 0, TORSO_Z))
 pivot = empty("BodyPivot", torso)   # נושם: מתכווץ ומתנפח, ובתוכו הגוף, העין והפה
-BODY_BASE_SCALE = (1.64, 1.10, 1.72)  # fuller round mantle, with more purple margin around the eye
+BODY_BASE_SCALE = (1.76, 1.10, 1.78)  # fuller round mantle, with more purple margin around the eye
 pivot.scale = BODY_BASE_SCALE
 
 # גוף: סילואטה עגולה וחלקה, עם כתמים ורודים גדולים בסגנון צעצוע
 BODY_R = 1.0
-BODY_SCALE = (1.64, 1.12, 1.72)
+BODY_SCALE = (1.76, 1.12, 1.78)
 
 # Shared profile keeps the shell and raised spots aligned to the same surface.
 BODY_PROFILE = [
@@ -558,16 +558,16 @@ for i, (x, base_z, height) in enumerate((
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.92, 0.34  # Recess and lower the eye slightly into the spotted mantle.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.04, 1.00, 1.02)  # leave a broader spotted mantle around the cyclops eye.
+eye.scale = (0.90, 1.00, 0.96)  # leave a broader spotted mantle around the cyclops eye.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
-    sphere("EyeWhite", 0.90, (0, 0, 0), EYE_WHITE, eye, scale=(1.10, 0.86, 1.00), seg=64),
+    sphere("EyeWhite", 0.86, (0, 0, 0), EYE_WHITE, eye, scale=(1.06, 0.86, 0.94), seg=64),
     # Pull the iris and pupil forward so the orange iris is not buried inside the sclera.
-    sphere("Iris", 0.52, (0, -0.82, 0.0), IRIS, eye, scale=(1.00, 0.36, 0.94), seg=64),
-    sphere("Pupil", 0.30, (0, -1.02, -0.015), PUPIL, eye, scale=(0.94, 0.66, 0.90), seg=64),
+    sphere("Iris", 0.48, (0, -0.82, 0.0), IRIS, eye, scale=(1.00, 0.36, 0.94), seg=64),
+    sphere("Pupil", 0.29, (0, -1.02, -0.015), PUPIL, eye, scale=(0.94, 0.66, 0.90), seg=64),
     sphere("Shine", 0.095, (0.13, -1.20, 0.18), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_parts.append(torus("EyeMagentaRim", 1.01, 0.045, (0, -0.70, 0), LID, eye,
+eye_parts.append(torus("EyeMagentaRim", 0.91, 0.028, (0, -0.45, 0), LID, eye,
                        rot=(math.pi / 2, 0, 0)))
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 
@@ -624,8 +624,8 @@ def make_upper_eyelid(parent):
 
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
-mouth = empty("Mouth", pivot, loc=(0, -1.22, -0.30))
-mouth.scale = (0.94, 1.0, 0.90)
+mouth = empty("Mouth", pivot, loc=(0, -1.12, -0.42))
+mouth.scale = (0.92, 1.0, 0.82)
 # A compact, softly curved opening keeps the fangs readable without dominating the lower face.
 mouth_parts = [
     sphere("MouthLip", 0.50, (0, 0.035, 0), MOUTH_LIP, mouth,
@@ -645,16 +645,16 @@ mouth_parts.append(sphere("Tongue", 0.22, (0, -0.36, -0.19), TONGUE, mouth,
                           scale=(1.20, 0.50, 0.24), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.15, -0.58, COLLAR)
-collar_radius = shell_radius_at(-0.58) + 0.13  # seat the trim on the band instead of leaving a floating crossbar
-torus("CollarUpperPinkTrim", collar_radius, 0.035, (0, -0.24, -0.58), COLLAR, pivot)
+body_band("LowerPinkBand", pivot, -1.18, -0.42, COLLAR)
+collar_radius = shell_radius_at(-0.42) + 0.10  # seat the trim on the band instead of leaving a floating crossbar
+torus("CollarUpperPinkTrim", collar_radius, 0.022, (0, -0.24, -0.42), COLLAR, pivot)
 # A slimmer curved band reveals more of the mantle and the eight arm roots.
-torus("CollarLowerPinkTrim", collar_radius, 0.024, (0, -0.24, -1.15), COLLAR, pivot)
+torus("CollarLowerPinkTrim", collar_radius, 0.018, (0, -0.24, -1.18), COLLAR, pivot)
 for i in range(18):
     a = i * (2 * math.pi / 18)
-    z = -0.865 + 0.012 * abs(math.cos(a))
-    r = collar_radius + 0.070
-    sphere(f"BandRivet{i}", 0.065, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.24 - 0.090, z),
+    z = -0.80 + 0.012 * abs(math.cos(a))
+    r = collar_radius + 0.055
+    sphere(f"BandRivet{i}", 0.070, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.24 - 0.090, z),
            COPPER, pivot, scale=(1.0, 0.92, 1.0), seg=24)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
@@ -691,13 +691,13 @@ for side, sx in (("L", -1), ("R", 1)):
     cylinder(f"Connector{side}", 0.085, 0.30, (1.94 * sx, ty - 0.005, 0.20),
              COPPER, tank_rig, rot=(0, math.pi / 2, 0))
     badge_y = ty - 0.88  # keep the large flame plate centered on the taller enamel tank
-    cylinder(f"Badge{side}", 0.58, 0.070, (tx, badge_y, 0.015),
+    cylinder(f"Badge{side}", 0.40, 0.070, (tx, badge_y, 0.015),
              BADGE_YELLOW, tank_rig, rot=(math.pi / 2, 0, 0))
-    torus(f"BadgeRim{side}", 0.58, 0.038, (tx, badge_y - 0.050, 0.015), METAL, tank_rig,
+    torus(f"BadgeRim{side}", 0.40, 0.030, (tx, badge_y - 0.050, 0.015), METAL, tank_rig,
           rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.084, 0.015, tank_rig, scale=2.90)
-    for j, (bx, bz) in enumerate(((-0.25, 0.14), (0.25, 0.14),
-                                  (-0.25, -0.14), (0.25, -0.14))):
+    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.084, 0.015, tank_rig, scale=2.30)
+    for j, (bx, bz) in enumerate(((-0.18, 0.14), (0.18, 0.14),
+                                  (-0.18, -0.14), (0.18, -0.14))):
         sphere(f"TankBolt{side}{j}", 0.040, (tx + bx, badge_y - 0.066, bz),
                COPPER, tank_rig, scale=(1, 0.35, 1), seg=16)
     pipe_y = ty - 0.54  # bring the elbow forward so it reads clearly in the hero render
@@ -816,7 +816,7 @@ add_dome_reflection("DomeReflectionR", 1.34, 2.70, 0.46, 0.62, DOME_HIGHLIGHT_WH
 # Eight plush arms: one strong outer curl on each side, four shorter hanging arms,
 # and two rear supports that peek around the mantle.
 ARM_LEN = [0.34, 0.30, 0.26, 0.22]
-ARM_RAD = [0.23, 0.21, 0.20, 0.18, 0.44]
+ARM_RAD = [0.19, 0.18, 0.17, 0.16, 0.38]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
@@ -830,7 +830,7 @@ def arm_curve_x(t):
 
 def arm_curve_y(t, style="outer"):
     # Keep every visible arm on the camera-facing side; rear supports remain slightly tucked back.
-    depth = {"outer": -0.92, "front": -1.08, "inner": -0.86, "rear": -1.00}.get(style, -0.80)
+    depth = {"outer": -0.98, "front": -1.12, "inner": -0.92, "rear": -0.48}.get(style, -0.80)
     return depth * math.sin(math.pi * t)
 
 
@@ -844,28 +844,28 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Plush roots taper through the middle, then swell into a rounded octopus-like tip.
     if t < 0.18:
-        return 0.46 + 0.018 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.38 + 0.015 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.41 - 0.035 * u
+        return 0.34 - 0.025 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
-    return 0.37 + 0.12 * (u * u)
+    return 0.31 + 0.10 * (u * u)
 
 
 def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
         # Side arms make the prominent upward C-curls seen in the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.68, -0.02), (2.18, -1.52), (0.70, 1.34)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.68, -0.02), (2.10, -1.72), (0.62, 1.85)
     elif style == "front":
         # Front pair hangs lower and stays shorter, leaving the collar visible.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.52, -0.02), (1.68, -1.62), (1.25, -0.92)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.52, -0.02), (1.55, -1.75), (0.88, -0.78)
     elif style == "inner":
         # Inner pair drops beneath the belly without crossing the outer curls.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.04), (1.14, -1.65), (0.62, -1.02)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.04), (1.05, -1.70), (0.52, -0.95)
     else:
         # Rear pair remains tucked back and peeks out as smaller dark supports.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.04), (1.30, -1.50), (1.12, -1.04)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.04), (1.20, -1.25), (0.95, -0.72)
     u = 1.0 - t
     x = (u ** 3 * p0[0] + 3.0 * u * u * t * p1[0]
          + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
@@ -933,14 +933,14 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 # Explicit roots prevent overlapping front pairs and keep the tentacle silhouette readable.
 ARM_LAYOUT = (
-    ((-1.25, -0.34, -1.50), 0.0, "outer"),
-    ((-0.92, -1.00, -1.60), 0.0, "front"),
-    ((0.92, -1.00, -1.60), 0.0, "front"),
+    ((-1.24, -0.28, -1.62), 0.0, "outer"),
+    ((-0.95, -1.02, -1.68), 0.0, "front"),
+    ((0.95, -1.02, -1.68), 0.0, "front"),
     ((1.25, -0.34, -1.50), 0.0, "outer"),
-    ((-0.44, -0.90, -1.64), 0.0, "inner"),
-    ((0.44, -0.90, -1.64), 0.0, "inner"),
-    ((-1.38, -0.92, -1.64), 0.0, "rear"),
-    ((1.38, -0.92, -1.64), 0.0, "rear"),
+    ((-0.43, -0.88, -1.70), 0.0, "inner"),
+    ((0.43, -0.88, -1.70), 0.0, "inner"),
+    ((-1.32, 0.08, -1.55), 0.0, "rear"),
+    ((1.32, 0.08, -1.55), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
@@ -989,7 +989,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.38, rr * 0.30, rr * 0.010), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style, mirror))
-    sphere(f"ArmRoundedTip{i}", 0.40, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.06, 1.0, 0.94), seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.34, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.06, 1.0, 0.94), seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
