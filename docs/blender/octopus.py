@@ -205,9 +205,9 @@ XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.075, 0.006, 0.16), rough=0.62, coat=0.05)
 SUCKER_RIM = mat("SuckerRim", (0.14, 0.008, 0.26), rough=0.58, coat=0.08)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.76, 0.015, 0.91), rough=0.19, coat=0.82,
+TENTACLE = mat("Tentacle", (0.84, 0.014, 0.82), rough=0.18, coat=0.84,
                 emit=(0.055, 0.002, 0.055), strength=0.030)
-REAR_TENTACLE = mat("RearTentacle", (0.58, 0.014, 0.78), rough=0.21, coat=0.72, emit=(0.028, 0.0, 0.040), strength=0.026)
+REAR_TENTACLE = mat("RearTentacle", (0.72, 0.018, 0.84), rough=0.20, coat=0.76, emit=(0.045, 0.0, 0.055), strength=0.032)
 TANK = mat("Tank", (0.62, 0.008, 0.88), rough=0.20, metal=0.14, coat=0.78)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -569,7 +569,7 @@ eye_parts = [
     sphere("Pupil", 0.31, (0, -1.02, -0.015), PUPIL, eye, scale=(0.94, 0.66, 0.90), seg=64),
     sphere("Shine", 0.095, (0.13, -1.20, 0.18), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_parts.append(torus("EyeMagentaRim", 0.98, 0.055, (0, -0.45, 0), LID, eye,
+eye_parts.append(torus("EyeMagentaRim", 0.97, 0.048, (0, -0.45, 0), PURPLE, eye,
                        rot=(math.pi / 2, 0, 0)))
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 
@@ -627,13 +627,13 @@ def make_upper_eyelid(parent):
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
 mouth = empty("Mouth", pivot, loc=(0, -1.30, -0.28))
-mouth.scale = (1.0, 1.0, 0.82)
+mouth.scale = (1.0, 1.0, 0.92)
 # Keep a broad, genuinely open smile: the dark cavity sits in front of the soft pink lip.
 mouth_parts = [
     sphere("MouthLip", 0.50, (0, 0.005, 0), MOUTH_LIP, mouth,
-           scale=(1.92, 0.40, 0.58), seg=64),
+           scale=(1.92, 0.40, 0.64), seg=64),
     sphere("MouthCavity", 0.50, (0, -0.12, 0.02), MOUTH, mouth,
-           scale=(1.78, 0.34, 0.49), seg=64),
+           scale=(1.78, 0.34, 0.56), seg=64),
 ]
 # Two upper fangs and two lower teeth sit inside the opening, not outside the lip.
 for i, x in enumerate((-0.58, 0.58)):
@@ -647,16 +647,16 @@ mouth_parts.append(sphere("Tongue", 0.22, (0, -0.24, -0.13), TONGUE, mouth,
                           scale=(1.08, 0.42, 0.20), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.34, -0.72, COLLAR)
-collar_radius = shell_radius_at(-0.72) + 0.14
-torus("CollarUpperPinkTrim", collar_radius, 0.034, (0, -0.22, -0.72), COLLAR, pivot)
+body_band("LowerPinkBand", pivot, -1.48, -0.66, COLLAR)
+collar_radius = shell_radius_at(-0.66) + 0.16
+torus("CollarUpperPinkTrim", collar_radius, 0.040, (0, -0.22, -0.66), COLLAR, pivot)
 # The lower edge follows the body and leaves the mouth and arm roots visible.
-torus("CollarLowerPinkTrim", collar_radius, 0.030, (0, -0.22, -1.34), COLLAR, pivot)
+torus("CollarLowerPinkTrim", collar_radius, 0.036, (0, -0.22, -1.48), COLLAR, pivot)
 for i in range(18):
     a = i * (2 * math.pi / 18)
-    z = -1.03 + 0.012 * abs(math.cos(a))
+    z = -1.07 + 0.012 * abs(math.cos(a))
     r = collar_radius + 0.070
-    sphere(f"BandRivet{i}", 0.070, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.22 - 0.070, z),
+    sphere(f"BandRivet{i}", 0.082, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.22 - 0.070, z),
            COPPER, pivot, scale=(1.0, 0.92, 1.0), seg=24)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
@@ -858,7 +858,7 @@ def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
         # Side arms make the prominent upward C-curls seen in the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.68, 0.12), (2.25, -1.62), (1.05, 0.22)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.72, 0.16), (2.28, -1.48), (1.08, 0.88)
     elif style == "front":
         # Front pair hangs lower, but turns back inward so the tips read as curled tentacles.
         p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.04), (1.42, -1.58), (0.56, -0.60)
@@ -867,7 +867,7 @@ def arm_center(t, style="outer", mirror=False):
         p0, p1, p2, p3 = (0.0, 0.0), (0.25, -0.05), (0.82, -1.34), (0.28, -0.54)
     else:
         # Rear pair emerges from either side of the lower mantle as two smaller visible supports.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.02), (0.88, -1.05), (0.64, -0.48)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.24, 0.04), (0.96, -0.88), (0.78, -0.12)
     u = 1.0 - t
     x = (u ** 3 * p0[0] + 3.0 * u * u * t * p1[0]
          + 3.0 * u * t * t * p2[0] + t ** 3 * p3[0])
@@ -941,8 +941,8 @@ ARM_LAYOUT = (
     ((1.25, -0.34, -1.50), 0.0, "outer"),
     ((-0.43, -0.88, -1.70), 0.0, "inner"),
     ((0.43, -0.88, -1.70), 0.0, "inner"),
-    ((-1.48, -0.86, -1.48), 0.0, "rear"),
-    ((1.48, -0.86, -1.48), 0.0, "rear"),
+    ((-1.58, -1.08, -1.44), 0.0, "rear"),
+    ((1.58, -1.08, -1.44), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
@@ -970,9 +970,9 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 0.920
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.45, rr * 0.45, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
+               scale=(rr * 0.50, rr * 0.50, rr * 0.055), rot=normal_rot(cup_normal), seg=24)
         rim_pos = center + cup_normal * rr * 0.955
-        torus(f"SuckerRim{i}_{q}", rr * 0.45, rr * 0.018, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.50, rr * 0.020, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.42, 0.78)):
