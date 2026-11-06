@@ -18,9 +18,10 @@ from mathutils import Euler, Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = argv[0] if argv else "out"
 ANGLES = (argv[1] if len(argv) > 1 else "side").split(",")
-# Keep the full 24-frame CI render comfortably inside the 40-minute job limit.
-CELL = min(int(argv[2]) if len(argv) > 2 else 256, 256)
-SAMPLES = min(int(argv[3]) if len(argv) > 3 else 8, 8)
+# Keep the 24-frame CI render comfortably below the 40-minute job limit.
+# The previous 256px/8-sample pass reached the timeout before the sheet finished.
+CELL = min(int(argv[2]) if len(argv) > 2 else 192, 192)
+SAMPLES = min(int(argv[3]) if len(argv) > 3 else 4, 4)
 FRAMES_DIR = os.path.join(OUT, "frames")
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
@@ -113,24 +114,24 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.54, 0.76, 1.0, 1.0)
-    shell.inputs["Roughness"].default_value = 0.055
+    shell.inputs["Base Color"].default_value = (0.34, 0.62, 0.96, 1.0)
+    shell.inputs["Roughness"].default_value = 0.065
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.66
-    shell.inputs["Coat Roughness"].default_value = 0.035
+    shell.inputs["Coat Weight"].default_value = 0.38
+    shell.inputs["Coat Roughness"].default_value = 0.045
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.78
-        shell.inputs["Alpha"].default_value = 0.42
-        shell.inputs["Emission Color"].default_value = (0.14, 0.36, 0.78, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.035
+        shell.inputs["Transmission Weight"].default_value = 0.92
+        shell.inputs["Alpha"].default_value = 0.24
+        shell.inputs["Emission Color"].default_value = (0.10, 0.28, 0.62, 1.0)
+        shell.inputs["Emission Strength"].default_value = 0.008
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
-    layer.inputs["Blend"].default_value = 0.22
+    layer.inputs["Blend"].default_value = 0.15
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.62
-    edge_tint.inputs[2].default_value = 0.10
+    edge_tint.inputs[1].default_value = 0.42
+    edge_tint.inputs[2].default_value = 0.025
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -484,12 +485,12 @@ def body_band(name, parent, z_bottom, z_top, material):
     """Rounded, wider collar that wraps visibly around the mantle."""
     sides = 128
     verts, faces = [], []
-    radius = shell_radius_at(z_top) + 0.36
+    radius = shell_radius_at(z_top) + 0.18
     for z_base in (z_bottom, z_top):
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
             # A deeper front arc gives the collar the wrapped, rounded silhouette of the reference.
-            z = z_base - 0.30 * max(0.0, -math.sin(a))
+            z = z_base - 0.17 * max(0.0, -math.sin(a))
             verts.append((radius * math.cos(a), radius * 0.90 * math.sin(a) - 0.24, z))
     for j in range(sides):
         nxt = (j + 1) % sides
@@ -503,10 +504,10 @@ def body_band(name, parent, z_bottom, z_top, material):
     obj.data.materials.append(material)
     smooth(obj)
     solid = obj.modifiers.new("BandThickness", "SOLIDIFY")
-    solid.thickness = 0.22
+    solid.thickness = 0.14
     solid.offset = 0.0
     bevel = obj.modifiers.new("BandSoftEdges", "BEVEL")
-    bevel.width = 0.090
+    bevel.width = 0.060
     bevel.segments = 4
     main_parts.append(obj)
     return obj
@@ -565,7 +566,7 @@ eye_parts = [
     sphere("Pupil", 0.31, (0, -0.82, -0.015), PUPIL, eye, scale=(0.94, 0.66, 0.90), seg=64),
     sphere("Shine", 0.095, (0.13, -1.00, 0.18), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_parts.append(torus("EyeMagentaRim", 0.94, 0.055, (0, -0.18, 0), LID, eye,
+eye_parts.append(torus("EyeMagentaRim", 0.91, 0.035, (0, -0.18, 0), PURPLE_DARK, eye,
                        rot=(math.pi / 2, 0, 0)))
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 
@@ -622,35 +623,35 @@ def make_upper_eyelid(parent):
 
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
-mouth = empty("Mouth", pivot, loc=(0, -1.72, -0.22))
-mouth.scale = (0.94, 1.0, 0.92)
+mouth = empty("Mouth", pivot, loc=(0, -1.72, -0.34))
+mouth.scale = (1.02, 1.0, 0.78)
 # A compact, softly curved opening keeps the fangs readable without dominating the lower face.
 mouth_parts = [
     sphere("MouthLip", 0.50, (0, 0.035, 0), MOUTH_LIP, mouth,
-           scale=(1.52, 0.56, 0.88), seg=64),
+           scale=(1.72, 0.56, 0.70), seg=64),
     sphere("MouthCavity", 0.50, (0, -0.018, 0), MOUTH, mouth,
-           scale=(1.46, 0.48, 0.82), seg=64),
+           scale=(1.64, 0.50, 0.66), seg=64),
 ]
 # Two prominent upper fangs and two shorter lower teeth keep the expression clean.
-for i, x in enumerate((-0.36, 0.36)):
+for i, x in enumerate((-0.60, 0.60)):
     mouth_parts.append(cone(f"ToothU{i}", 0.120, 0.0, 0.26,
                             (x, -0.30, 0.14), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.32, 0.32)):
+for i, x in enumerate((-0.52, 0.52)):
     mouth_parts.append(cone(f"ToothL{i}", 0.092, 0.0, 0.20,
                             (x, -0.30, -0.16), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.21, (0, -0.36, -0.17), TONGUE, mouth,
-                          scale=(0.96, 0.46, 0.22), seg=40))
+                          scale=(1.22, 0.46, 0.20), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.34, -0.62, COLLAR)
-collar_radius = shell_radius_at(-0.62) + 0.38
-torus("CollarUpperPinkTrim", collar_radius, 0.028, (0, -0.24, -0.62), METAL, pivot)
-# A wider curved band echoes the substantial wraparound collar in the reference.
-torus("CollarLowerPinkTrim", collar_radius, 0.025, (0, -0.24, -1.34), COLLAR, pivot)
+body_band("LowerPinkBand", pivot, -1.25, -0.80, COLLAR)
+collar_radius = shell_radius_at(-0.80) + 0.18
+torus("CollarUpperPinkTrim", collar_radius, 0.028, (0, -0.24, -0.80), METAL, pivot)
+# A slimmer curved band reveals more of the mantle and the eight arm roots.
+torus("CollarLowerPinkTrim", collar_radius, 0.025, (0, -0.24, -1.25), COLLAR, pivot)
 for i in range(18):
     a = i * (2 * math.pi / 18)
-    z = -0.92 + 0.010 * abs(math.cos(a))
+    z = -1.02 + 0.010 * abs(math.cos(a))
     r = collar_radius + 0.055
     sphere(f"BandRivet{i}", 0.065, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.24 - 0.080, z),
            COPPER, pivot, scale=(1.0, 0.92, 1.0), seg=24)
@@ -658,9 +659,9 @@ for i in range(18):
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.12, 0.17, 0.25), rough=0.22, metal=0.84, coat=0.42)
 tank_rig = empty("TankRig", torso)
-tank_rig.scale = (0.94, 0.94, 0.96)  # keep the canisters substantial without letting them overpower the mantle.
+tank_rig.scale = (0.86, 0.90, 0.86)  # compact canisters closer to the reference proportions.
 for side, sx in (("L", -1), ("R", 1)):
-    tx, ty = 2.62 * sx, 0.24  # keep the slightly slimmer canisters just outside the enlarged mantle
+    tx, ty = 2.95 * sx, 0.24  # offset the smaller canisters outward so they remain visible beside the mantle
     tank_body = cylinder(f"Tank{side}", 0.70, 2.88, (tx, ty, 0.015), TANK, tank_rig)
     tank_bevel = tank_body.modifiers.new("TankBodySoftEdges", "BEVEL")
     tank_bevel.width = 0.070
@@ -689,11 +690,11 @@ for side, sx in (("L", -1), ("R", 1)):
     cylinder(f"Connector{side}", 0.085, 0.30, (1.94 * sx, ty - 0.005, 0.20),
              COPPER, tank_rig, rot=(0, math.pi / 2, 0))
     badge_y = ty - 0.88  # keep the large flame plate centered on the taller enamel tank
-    cylinder(f"Badge{side}", 0.60, 0.060, (tx, badge_y, 0.015),
+    cylinder(f"Badge{side}", 0.48, 0.060, (tx, badge_y, 0.015),
              BADGE_YELLOW, tank_rig, rot=(math.pi / 2, 0, 0))
-    torus(f"BadgeRim{side}", 0.60, 0.034, (tx, badge_y - 0.050, 0.015), METAL, tank_rig,
+    torus(f"BadgeRim{side}", 0.48, 0.034, (tx, badge_y - 0.050, 0.015), METAL, tank_rig,
           rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.074, 0.015, tank_rig, scale=2.55)
+    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.074, 0.015, tank_rig, scale=2.10)
     for j, (bx, bz) in enumerate(((-0.25, 0.14), (0.25, 0.14),
                                   (-0.25, -0.14), (0.25, -0.14))):
         sphere(f"TankBolt{side}{j}", 0.040, (tx + bx, badge_y - 0.066, bz),
@@ -759,7 +760,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -0.30
-DOME_RADII = (2.90, 2.55, 4.05)  # broad, rounded bubble with its open lower edge meeting the collar.
+DOME_RADII = (2.90, 2.55, 3.65)  # lower, rounder bubble with its open edge meeting the slimmer collar.
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A bright blue arch sits on the front-facing glass surface, not behind the head.
 dome_arch = []
@@ -814,7 +815,7 @@ add_dome_reflection("DomeReflectionR", 1.20, 2.82, 0.35, 0.46, DOME_HIGHLIGHT_WH
 # Eight plush arms: one strong outer curl on each side, four shorter hanging arms,
 # and two rear supports that peek around the mantle.
 ARM_LEN = [0.34, 0.30, 0.26, 0.22]
-ARM_RAD = [0.22, 0.20, 0.18, 0.16, 0.38]
+ARM_RAD = [0.24, 0.22, 0.20, 0.18, 0.46]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
@@ -842,25 +843,25 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Plush roots taper through the middle, then swell into a rounded octopus-like tip.
     if t < 0.18:
-        return 0.36 + 0.012 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.42 + 0.015 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.33 - 0.045 * u
+        return 0.39 - 0.035 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
-    return 0.285 + 0.065 * (u * u)
+    return 0.35 + 0.075 * (u * u)
 
 
 def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
         # Side arms make the prominent upward C-curls seen in the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.70, -0.08), (2.34, -1.48), (1.78, 0.40)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.76, -0.08), (2.48, -1.56), (1.95, 0.48)
     elif style == "front":
         # Front pair hangs lower and stays shorter, leaving the collar visible.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.48, -0.08), (1.50, -1.86), (1.16, -1.48)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.56, -0.08), (1.62, -2.00), (1.28, -1.62)
     elif style == "inner":
         # Inner pair drops beneath the belly without crossing the outer curls.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.28, -0.10), (0.92, -1.62), (0.62, -1.34)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.10), (1.08, -1.85), (0.78, -1.60)
     else:
         # Rear pair remains tucked back and peeks out as smaller dark supports.
         p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.08), (1.20, -1.32), (0.92, -0.88)
@@ -871,7 +872,7 @@ def arm_center(t, style="outer", mirror=False):
          + 3.0 * u * t * t * p2[1] + t ** 3 * p3[1])
     if mirror:
         x = -x
-    scale = 1.02 if style == "outer" else (0.94 if style == "front" else (0.86 if style == "inner" else 0.80))
+    scale = 1.04 if style == "outer" else (1.00 if style == "front" else (0.92 if style == "inner" else 0.84))
     return scale * Vector((x, arm_curve_y(t, style), z))
 
 
@@ -931,14 +932,14 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 # Explicit roots prevent overlapping front pairs and keep the tentacle silhouette readable.
 ARM_LAYOUT = (
-    ((-1.22, -0.34, -1.50), 0.0, "outer"),
-    ((-0.72, -1.02, -1.62), 0.0, "front"),
-    ((0.72, -1.02, -1.62), 0.0, "front"),
-    ((1.22, -0.34, -1.50), 0.0, "outer"),
-    ((-0.24, -0.84, -1.68), 0.0, "inner"),
-    ((0.24, -0.84, -1.68), 0.0, "inner"),
-    ((-1.55, 0.08, -1.42), 0.0, "rear"),
-    ((1.55, 0.08, -1.42), 0.0, "rear"),
+    ((-1.28, -0.32, -1.42), 0.0, "outer"),
+    ((-0.88, -1.00, -1.48), 0.0, "front"),
+    ((0.88, -1.00, -1.48), 0.0, "front"),
+    ((1.28, -0.32, -1.42), 0.0, "outer"),
+    ((-0.42, -0.88, -1.52), 0.0, "inner"),
+    ((0.42, -0.88, -1.52), 0.0, "inner"),
+    ((-1.58, 0.10, -1.35), 0.0, "rear"),
+    ((1.58, 0.10, -1.35), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
@@ -987,7 +988,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.48, rr * 0.36, rr * 0.010), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style, mirror))
-    sphere(f"ArmRoundedTip{i}", 0.26, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.08, 1.0, 0.94), seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.32, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.08, 1.0, 0.94), seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
@@ -1110,7 +1111,7 @@ sun = add_light("Sun", "SUN", 2.8, (0, 0, 8), rot=(math.radians(50), 0, math.rad
 sun.data.angle = 0.18
 add_light("Fill", "AREA", 165, (3.5, -6, 3.5), target=(0, 0, HEIGHT * 0.5), size=6, color=(0.7, 0.8, 1.0))
 add_light("TentacleFill", "AREA", 140, (0, -4.5, 0.55), target=(0, -0.1, 0.35), size=4.5, color=(0.52, 0.40, 0.96))
-add_light("Rim", "AREA", 300, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.95, 0.3, 1.0))
+add_light("Rim", "AREA", 210, (-3.5, 5, 4.5), target=(0, 0, HEIGHT * 0.5), size=5, color=(0.42, 0.62, 1.0))
 
 world = bpy.data.worlds.new("World")
 scene.world = world
@@ -1216,7 +1217,7 @@ def pose(clip, i, n):
         torso.location.z += 0.05 * k
         pivot.scale = (BODY_BASE_SCALE[0] * (1 + 0.04 * k), BODY_BASE_SCALE[1] * (1 + 0.04 * k), BODY_BASE_SCALE[2] * (1 - 0.03 * k))
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.18 * k)
-        mouth.scale = (0.98, 1.0, 1.0 * (1.0 + 0.55 * k))
+        mouth.scale = (1.02, 1.0, 0.78 * (1.0 + 0.55 * k))
         flame_bsdf.inputs["Emission Strength"].default_value = 0.18 + 6.0 * k
         show(orb_parts, True)
         r = 0.12 + 0.2 * k
@@ -1228,7 +1229,7 @@ def pose(clip, i, n):
         recoil = (1.0, 0.55, 0.0)[i]
         torso.rotation_euler.x = -0.22 * recoil + 0.1
         torso.location.y += 0.1 * recoil
-        mouth.scale = (0.98, 1.0, 1.0 * (1.65 - 0.25 * i))
+        mouth.scale = (1.02, 1.0, 0.78 * (1.65 - 0.25 * i))
         flame_bsdf.inputs["Emission Strength"].default_value = 7.0 - 2.0 * i
         arms_wave(0.0, 0.0, 0.0, extra_y=-0.1)
         show(orb_parts, True)
@@ -1244,7 +1245,7 @@ def pose(clip, i, n):
             torso.location.z -= 0.08
             pivot.scale = (BODY_BASE_SCALE[0] * 1.12, BODY_BASE_SCALE[1] * 1.1, BODY_BASE_SCALE[2] * 0.86)
             eye.scale.z = 0.3
-            mouth.scale = (0.98, 1.0, 1.55)
+            mouth.scale = (1.02, 1.0, 1.20)
             tint(0.4, (0.9, 0.05, 0.02))
             arms_wave(0.0, 0.0, 0.0, extra_y=-0.25)
         else:
@@ -1257,7 +1258,7 @@ def pose(clip, i, n):
     elif clip == "Death":
         show(eye_parts, False)
         show(x_marks, True)
-        mouth.scale = (0.98, 1.0, 1.35)
+        mouth.scale = (1.02, 1.0, 1.05)
         if i == 0:
             torso.rotation_euler.x = -0.4
             torso.location.z -= 0.1
@@ -1305,10 +1306,10 @@ def render(path, res):
 # Render hero previews with more temporal samples than the compact sprite-sheet pass.
 pose("Idle", 0, 6)
 fit_character_camera()
-scene.eevee.taa_render_samples = max(48, SAMPLES)
+scene.eevee.taa_render_samples = max(24, SAMPLES)
 for name, deg in (("hero_34", 35.0), ("hero_front", 0.0)):
     monster.rotation_euler[2] = math.radians(deg)
-    render(os.path.join(OUT, name + ".png"), 768)
+    render(os.path.join(OUT, name + ".png"), 640)
 
 # Keep run-specific hero copies on the renders branch so a later main-branch
 # render cannot overwrite the images needed to inspect this work-branch result.
