@@ -68,14 +68,14 @@ sealed class WeaponArt {
     }
 }
 
-const val ANGLE_COUNT = 5
+const val ANGLE_COUNT = 9
 
 /** מיקום הלוע (קצה הקנה הרחוק) בכל זווית: שבר מרוחב ומגובה התא */
-private val ANGLE_MUZZLE_X = floatArrayOf(0.327f, 0.495f, 0.502f, 0.515f, 0.668f)
-private const val ANGLE_MUZZLE_Y = 0.07f
+private val ANGLE_MUZZLE_X = floatArrayOf(0.327f, 0.312f, 0.495f, 0.346f, 0.502f, 0.535f, 0.515f, 0.720f, 0.668f)
+private val ANGLE_MUZZLE_Y = floatArrayOf(0.062f, 0.074f, 0.057f, 0.094f, 0.053f, 0.058f, 0.058f, 0.060f, 0.060f)
 
 /** כיוון הקנה בציור (מעלות מהאנך, שלילי = שמאלה) בכל אחת מהזוויות */
-private val ANGLE_DIR = floatArrayOf(-55f, -40f, 0f, 40f, 55f)
+private val ANGLE_DIR = floatArrayOf(-55f, -50f, -40f, -22f, 0f, 22f, 40f, 50f, 55f)
 
 private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
     val options = BitmapFactory.Options().apply {
@@ -276,7 +276,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             // מיקום הלוע אחרי הסיבוב והתזוזה
             val rad = Math.toRadians(totalRot.toDouble())
             val mxp = left + w * ANGLE_MUZZLE_X[idx]
-            val myp = top + h * ANGLE_MUZZLE_Y
+            val myp = top + h * ANGLE_MUZZLE_Y[idx]
             val rx = mxp - pivot.x
             val ry = myp - pivot.y
             val muzzle = Offset(
