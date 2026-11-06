@@ -5,11 +5,16 @@
   "durable_objects": {
     "bindings": [
       { "name": "ROOMS", "class_name": "Room" },
-      { "name": "QUOTA", "class_name": "Quota" }
+      { "name": "QUOTA", "class_name": "Quota" },
+      { "name": "WORLDS_INDEX", "class_name": "WorldsIndex" }
     ]
   },
+  "r2_buckets": [
+    { "binding": "WORLDS", "bucket_name": "snapboo-worlds" }
+  ],
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Room"] },
-    { "tag": "v2", "new_sqlite_classes": ["Quota"] }
+    { "tag": "v2", "new_sqlite_classes": ["Quota"] },
+    { "tag": "v3", "new_sqlite_classes": ["WorldsIndex"] }
   ]
 }

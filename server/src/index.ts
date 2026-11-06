@@ -21,6 +21,9 @@ import { LAB_HTML } from "./lab";
 export interface Env {
   ROOMS: DurableObjectNamespace;
   QUOTA: DurableObjectNamespace;
+  /** עולמות קהילה: תמונות ב-R2 ואינדקס (SQLite) ב-Durable Object אחד */
+  WORLDS: R2Bucket;
+  WORLDS_INDEX: DurableObjectNamespace;
   /** מפתח Gemini (סוד בשרת בלבד, לא באפליקציה) */
   GEMINI_API_KEY?: string;
   /** מפתח OpenAI (סוד בשרת בלבד). אם קיים הוא ברירת המחדל לעיבוד */
@@ -415,6 +418,132 @@ export class Quota implements DurableObject {
 const IMG_CHUNK = 1_000_000;
 const IMG_TTL_MS = 60 * 24 * 3600 * 1000;
 
+
+// ───────────── עולמות קהילה ─────────────
+
+const WORLD_STYLES = new Set(["tundra_mid", "jungle_mid", "rockforest_mid"]);
+const MAX_WORLD_BYTES = 1_800_000;
+const SHARES_PER_DEVICE_PER_DAY = 10;
+const REPORTS_TO_HIDE = 3;
+
+function validDevice(request: Request): string | null {
+  const device = request.headers.get("x-device") ?? "";
+  return /^[A-Za-z0-9_-]{8,64}$/.test(device) ? device : null;
+}
+
+/** POST /worlds/share?style=  (גוף: JPEG של העולם)   GET /worlds/random?style=&exclude=id,id
+ *  GET /worlds/img/<id>   POST /worlds/report?id=   POST /worlds/unshare?id=   כולם עם x-device */
+async function worldsApi(request: Request, env: Env, url: URL): Promise<Response> {
+  if (!env.WORLDS) return Response.json({ error: "not-configured" }, { status: 503 });
+  const index = env.WORLDS_INDEX.get(env.WORLDS_INDEX.idFromName("main"));
+  const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "cache-control": "no-store" } });
+
+  const imgMatch = url.pathname.match(/^\/worlds\/img\/([a-f0-9]{16,64})$/);
+  if (imgMatch && request.method === "GET") {
+    const meta = await (await index.fetch(`https://idx/status?id=${imgMatch[1]}`)).json<{ ok: boolean }>();
+    if (!meta.ok) return json({ error: "not-found" }, 404);
+    const obj = await env.WORLDS.get(`worlds/${imgMatch[1]}.jpg`);
+    if (!obj) return json({ error: "not-found" }, 404);
+    return new Response(obj.body, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" } });
+  }
+
+  const device = validDevice(request);
+  if (!device) return json({ error: "bad-device" }, 400);
+
+  if (url.pathname === "/worlds/share" && request.method === "POST") {
+    const style = url.searchParams.get("style") ?? "";
+    if (!WORLD_STYLES.has(style)) return json({ error: "bad-style" }, 400);
+    const body = new Uint8Array(await request.arrayBuffer());
+    if (body.length < 20_000 || body.length > MAX_WORLD_BYTES) return json({ error: "bad-size" }, 413);
+    if (!(body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff)) return json({ error: "not-jpeg" }, 415);
+    if (!(await takeQuota(env, `share:${device}`, SHARES_PER_DEVICE_PER_DAY))) return json({ error: "share-limit" }, 429);
+    const id = (await sha256Hex(body)).slice(0, 32);
+    const res = await index.fetch(`https://idx/add?id=${id}&style=${style}&device=${device}`, { method: "POST" });
+    const info = await res.json<{ status: string }>();
+    if (info.status === "banned") { await refundQuota(env, `share:${device}`); return json({ error: "hidden" }, 403); }
+    if (info.status === "new") await env.WORLDS.put(`worlds/${id}.jpg`, body, { httpMetadata: { contentType: "image/jpeg" } });
+    return json({ id, status: info.status });
+  }
+
+  if (url.pathname === "/worlds/random" && request.method === "GET") {
+    const style = url.searchParams.get("style") ?? "";
+    if (!WORLD_STYLES.has(style)) return json({ error: "bad-style" }, 400);
+    const exclude = (url.searchParams.get("exclude") ?? "").split(",").filter((x) => /^[a-f0-9]{16,64}$/.test(x)).slice(0, 50).join(",");
+    const res = await index.fetch(`https://idx/random?style=${style}&exclude=${exclude}&device=${device}`);
+    return new Response(res.body, { status: res.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+  }
+
+  if ((url.pathname === "/worlds/report" || url.pathname === "/worlds/unshare") && request.method === "POST") {
+    const id = url.searchParams.get("id") ?? "";
+    if (!/^[a-f0-9]{16,64}$/.test(id)) return json({ error: "bad-id" }, 400);
+    const op = url.pathname === "/worlds/report" ? "report" : "unshare";
+    const res = await index.fetch(`https://idx/${op}?id=${id}&device=${device}`, { method: "POST" });
+    const info = await res.json<{ status: string }>();
+    if (op === "unshare" && info.status === "deleted") await env.WORLDS.delete(`worlds/${id}.jpg`);
+    return json(info, res.status);
+  }
+  return json({ error: "not-found" }, 404);
+}
+
+/** אינדקס העולמות המשותפים. SQLite: worlds + reports (דיווח אחד לכל מכשיר לכל עולם; 3 דיווחים מסתירים) */
+export class WorldsIndex implements DurableObject {
+  private sql: SqlStorage;
+  constructor(ctx: DurableObjectState) {
+    this.sql = ctx.storage.sql;
+    this.sql.exec("CREATE TABLE IF NOT EXISTS worlds (id TEXT PRIMARY KEY, style TEXT NOT NULL, device TEXT NOT NULL, at INTEGER NOT NULL, hidden INTEGER NOT NULL DEFAULT 0)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS reports (id TEXT NOT NULL, device TEXT NOT NULL, PRIMARY KEY (id, device))");
+    this.sql.exec("CREATE INDEX IF NOT EXISTS worlds_style ON worlds (style, hidden)");
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const q = url.searchParams;
+    const id = q.get("id") ?? "";
+    const device = q.get("device") ?? "";
+    const reply = (body: unknown, status = 200) => Response.json(body, { status });
+
+    if (url.pathname === "/status") {
+      const row = this.sql.exec("SELECT hidden FROM worlds WHERE id = ?", id).toArray()[0];
+      return reply({ ok: !!row && Number(row.hidden) === 0 });
+    }
+    if (url.pathname === "/add") {
+      const row = this.sql.exec("SELECT hidden FROM worlds WHERE id = ?", id).toArray()[0];
+      if (row) return reply({ status: Number(row.hidden) ? "banned" : "exists" });
+      this.sql.exec("INSERT INTO worlds (id, style, device, at) VALUES (?, ?, ?, ?)", id, q.get("style") ?? "", device, Date.now());
+      return reply({ status: "new" });
+    }
+    if (url.pathname === "/random") {
+      const style = q.get("style") ?? "";
+      const exclude = (q.get("exclude") ?? "").split(",").filter(Boolean);
+      const marks = exclude.map(() => "?").join(",");
+      const rows = this.sql.exec(
+        `SELECT id FROM worlds WHERE style = ? AND hidden = 0 AND device != ?${exclude.length ? ` AND id NOT IN (${marks})` : ""} ORDER BY RANDOM() LIMIT 1`,
+        style, device, ...exclude
+      ).toArray();
+      if (!rows.length) return reply({ error: "none" }, 404);
+      return reply({ id: rows[0].id });
+    }
+    if (url.pathname === "/report") {
+      const row = this.sql.exec("SELECT device FROM worlds WHERE id = ?", id).toArray()[0];
+      if (!row) return reply({ status: "not-found" }, 404);
+      this.sql.exec("INSERT OR IGNORE INTO reports (id, device) VALUES (?, ?)", id, device);
+      const count = Number(this.sql.exec("SELECT COUNT(*) AS n FROM reports WHERE id = ?", id).toArray()[0].n);
+      if (count >= REPORTS_TO_HIDE) this.sql.exec("UPDATE worlds SET hidden = 1 WHERE id = ?", id);
+      return reply({ status: count >= REPORTS_TO_HIDE ? "hidden" : "reported" });
+    }
+    if (url.pathname === "/unshare") {
+      const row = this.sql.exec("SELECT device, hidden FROM worlds WHERE id = ?", id).toArray()[0];
+      if (!row) return reply({ status: "not-found" }, 404);
+      if (row.device !== device) return reply({ status: "forbidden" }, 403);
+      // עולם שהוסתר בדיווחים נשאר ברשומה (כדי שלא יועלה שוב); רק עולם תקין נמחק
+      if (Number(row.hidden)) return reply({ status: "hidden" });
+      this.sql.exec("DELETE FROM worlds WHERE id = ?", id);
+      return reply({ status: "deleted" });
+    }
+    return reply({ error: "not-found" }, 404);
+  }
+}
+
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // בלי O,0,I,1,L שמתבלבלים
 const CODE_LENGTH = 5;
 const MAX_PEERS = 4;
@@ -437,6 +566,7 @@ export default {
     }
 
     if (url.pathname === "/restyle") return restyle(request, env);
+    if (url.pathname.startsWith("/worlds/")) return worldsApi(request, env, url);
     if (url.pathname === "/lab") return new Response(LAB_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 
     const match = url.pathname.match(/^\/room\/([A-Za-z0-9]{4,8})$/);
