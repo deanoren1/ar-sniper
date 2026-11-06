@@ -101,6 +101,40 @@ private val AUTO_ORIGIN_X = floatArrayOf(0.745f, 0.708f, 0.516f, 0.352f, 0.288f,
 private val AUTO_ORIGIN_Y = floatArrayOf(0.643f, 0.582f, 0.535f, 0.568f, 0.627f, 0.557f, 0.538f, 0.516f, 0.542f, 0.565f, 0.676f, 0.655f, 0.625f, 0.657f, 0.657f)
 private val AUTO_DIR = floatArrayOf(-54.542f, -55.865f, -2.659f, 54.333f, 54.648f, -64.817f, -63.995f, -2.689f, 63.220f, 65.565f, -64.584f, -66.855f, -2.825f, 64.775f, 66.853f)
 
+/** סיבוב (מעלות) סביב הציר, כך שקו הקנה היוצא מהלוע עובר דרך הכוונת. null אם אין פתרון (הכוונת מתחת ללוע) */
+private fun aimResidual(
+    mrx: Float, mry: Float, axis: Float, pivot: Offset, tx: Float, ty: Float, w: Float, drop0: Float, maxRes: Float
+): Float? {
+    fun f(r: Float): Float {
+        val rr = Math.toRadians(r.toDouble())
+        val cs = kotlin.math.cos(rr).toFloat(); val sn = kotlin.math.sin(rr).toFloat()
+        val drop = drop0 + (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(r).toDouble())).toFloat()
+        val mx = pivot.x + mrx * cs - mry * sn
+        val my = pivot.y + mrx * sn + mry * cs + drop
+        if (my - ty < 4f) return Float.NaN
+        return Math.toDegrees(kotlin.math.atan2((tx - mx).toDouble(), (my - ty).toDouble())).toFloat() - axis - r
+    }
+    var best: Float? = null
+    var prevR = -maxRes
+    var prevF = f(prevR)
+    var r = -maxRes
+    while (r < maxRes - 0.01f) {
+        val nr = (r + 1f).coerceAtMost(maxRes)
+        val nf = f(nr)
+        if (!prevF.isNaN() && !nf.isNaN() && prevF * nf <= 0f) {
+            var lo = prevR; var hi = nr; val flo = prevF
+            repeat(24) {
+                val mid = (lo + hi) / 2f
+                if (flo * f(mid) <= 0f) hi = mid else lo = mid
+            }
+            val sol = (lo + hi) / 2f
+            if (best == null || kotlin.math.abs(sol) < kotlin.math.abs(best!!)) best = sol
+        }
+        prevR = nr; prevF = nf; r = nr
+    }
+    return best
+}
+
 private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
     val options = BitmapFactory.Options().apply {
         inScaled = false
@@ -296,40 +330,40 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             if (row == 1 && ay < 0.36f) row = 0 else if (row == 1 && ay > 0.64f) row = 2
             else if (row == 0 && ay > 0.42f) row = 1 else if (row == 2 && ay < 0.58f) row = 1
             state[4] = row.toFloat()
-            // עמודה: התמונה שכיוון הקנה בה הכי קרוב לכיוון הכוונת, עם היסטרזיס נגד הבהוב
-            var idx = state[3].toInt().coerceIn(0, art.cols - 1)
-            var best = idx
-            for (c in 0 until art.cols) {
-                if (kotlin.math.abs(theta - art.dirs[row * art.cols + c]) < kotlin.math.abs(theta - art.dirs[row * art.cols + best])) best = c
-            }
-            if (best != idx && kotlin.math.abs(theta - art.dirs[row * art.cols + best]) + 5f < kotlin.math.abs(theta - art.dirs[row * art.cols + idx])) idx = best
-            state[3] = idx.toFloat()
-            val cell = row * art.cols + idx
-            val axis = art.dirs[cell]
-            val reloading = weapon.reloading
-            val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
-            val equip = weapon.sinceEquip
-            val rise = if (equip < 0.3f) (1f - equip / 0.3f) * (1f - equip / 0.3f) else 0f
             val rowDrop = if (row == 2) h * 0.06f else 0f
             val baseDrop = h * 0.08f
-
-            // הלוע ומרכז הגב בתא, ביחס לנקודת הציר
+            // לכל עמודה: הסיבוב הקטן שבו קו הקנה (מהלוע של אותה תמונה) עובר בדיוק דרך הכוונת. בוחרים את הקטן ביותר, עם היסטרזיס
+            fun resFor(c: Int): Float? {
+                val k = row * art.cols + c
+                return aimResidual(
+                    left + w * art.muzzleX[k] - pivot.x, top + h * art.muzzleY[k] - pivot.y,
+                    art.dirs[k], pivot, tx, ty, w, baseDrop + rowDrop, art.maxResidual
+                )
+            }
+            var idx = state[3].toInt().coerceIn(0, art.cols - 1)
+            var bestC = -1
+            var bestR = 0f
+            for (c in 0 until art.cols) {
+                val r = resFor(c) ?: continue
+                if (bestC < 0 || kotlin.math.abs(r) < kotlin.math.abs(bestR)) { bestC = c; bestR = r }
+            }
+            var residual = 0f
+            if (bestC < 0) {
+                idx = art.cols / 2 // הכוונת מתחת ללוע: הרובה ישר
+            } else {
+                val cur = resFor(idx)
+                if (cur != null && kotlin.math.abs(cur) <= kotlin.math.abs(bestR) + 4f) { residual = cur } else { idx = bestC; residual = bestR }
+            }
+            state[3] = idx.toFloat()
+            val cell = row * art.cols + idx
             val mrx = left + w * art.muzzleX[cell] - pivot.x
             val mry = top + h * art.muzzleY[cell] - pivot.y
             val orx = left + w * art.originX[cell] - pivot.x
             val ory = top + h * art.originY[cell] - pivot.y
-
-            // סיבוב קטן סביב הידיים שבו קו הקנה עובר בדיוק דרך הכוונת: הלוע על הישר בין הגב לכוונת
-            var residual = 0f
-            for (i in 0 until 6) {
-                val rr = Math.toRadians(residual.toDouble())
-                val cs = kotlin.math.cos(rr).toFloat(); val sn = kotlin.math.sin(rr).toFloat()
-                val drop = baseDrop + rowDrop + (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
-                val mxr = pivot.x + mrx * cs - mry * sn
-                val myr = pivot.y + mrx * sn + mry * cs + drop
-                val want = Math.toDegrees(kotlin.math.atan2((tx - mxr).toDouble(), (myr - ty).toDouble())).toFloat()
-                residual = (want - axis).coerceIn(-art.maxResidual, art.maxResidual)
-            }
+            val reloading = weapon.reloading
+            val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
+            val equip = weapon.sinceEquip
+            val rise = if (equip < 0.3f) (1f - equip / 0.3f) * (1f - equip / 0.3f) else 0f
             val rotDrop = (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
             val ox = dx + dip * size.width * 0.03f
             val oy = dy + baseDrop + rotDrop + rowDrop + dip * size.height * 0.42f + rise * size.height * 0.5f
