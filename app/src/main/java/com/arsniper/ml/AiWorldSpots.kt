@@ -17,6 +17,9 @@ object AiWorldSpots {
     private const val REFINE_SCALE = 3
     private val PLANT_NAMES = listOf("plant", "flower", "palm", "tree")
 
+    /** מה ה-AI מוסיף כמחבוא בארנות שאינן ג'ונגל/יער: ארגזים, חביות, סלים, שקים, עמודים קטנים (ועציצים) */
+    val PROP_NAMES = listOf("box", "barrel", "ashcan", "basket", "bag", "column", "plant")
+
     /** על אילו אזורים במקור מותר "לצייר" צמח: רק רקע, לא עצם קיים (שולחן עם אזוב נשאר שולחן) */
     private val BACKGROUND_NAMES = listOf("wall", "floor", "ceiling", "building", "sky", "earth", "road", "sidewalk", "grass", "rug", "windowpane")
 
@@ -27,7 +30,7 @@ object AiWorldSpots {
      * מוסיף ל-SceneSession מחבואי צמחים מתמונת ה-AI. חוסם (כמה שניות): להריץ מחוץ לתהליך הראשי.
      * מחזיר כמה מחבואים נוספו (0 = אין שינוי).
      */
-    fun addPlantSpots(context: Context, aiWorld: Bitmap): Int {
+    fun addPlantSpots(context: Context, aiWorld: Bitmap, hideNames: List<String> = PLANT_NAMES): Int {
         val original = SceneSession.analysis ?: return 0
         val model = ModelStore.tipsModelFile(context)
         if (!model.exists()) return 0
@@ -43,14 +46,14 @@ object AiWorldSpots {
         } catch (_: Throwable) {
             return 0
         }
-        val merged = merge(original, ai) ?: return 0
+        val merged = merge(original, ai, hideNames) ?: return 0
         val guide = buildGuide(aiWorld, merged.width, merged.height)
-        return SceneSession.addExtraSpots(merged, indices(PLANT_NAMES), guide)
+        return SceneSession.addExtraSpots(merged, indices(hideNames), guide)
     }
 
     /** ניתוח מקורי + צמחים מניתוח ה-AI (רק מעל אזורי רקע). עומק הצמח לא רחוק יותר מהעומק במקור באותה נקודה */
-    private fun merge(original: SceneAnalysis, ai: SceneAnalysis): SceneAnalysis? {
-        val plants = indices(PLANT_NAMES)
+    private fun merge(original: SceneAnalysis, ai: SceneAnalysis, hideNames: List<String>): SceneAnalysis? {
+        val plants = indices(hideNames)
         val background = indices(BACKGROUND_NAMES)
         val w = original.width
         val h = original.height
