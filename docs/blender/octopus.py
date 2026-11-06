@@ -114,24 +114,24 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.20, 0.48, 0.92, 1.0)
-    shell.inputs["Roughness"].default_value = 0.065
+    shell.inputs["Base Color"].default_value = (0.24, 0.54, 0.98, 1.0)
+    shell.inputs["Roughness"].default_value = 0.055
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.58
+    shell.inputs["Coat Weight"].default_value = 0.62
     shell.inputs["Coat Roughness"].default_value = 0.055
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.78
-        shell.inputs["Alpha"].default_value = 0.28
-        shell.inputs["Emission Color"].default_value = (0.10, 0.28, 0.62, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.010
+        shell.inputs["Transmission Weight"].default_value = 0.72
+        shell.inputs["Alpha"].default_value = 0.40
+        shell.inputs["Emission Color"].default_value = (0.12, 0.34, 0.78, 1.0)
+        shell.inputs["Emission Strength"].default_value = 0.014
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
     layer.inputs["Blend"].default_value = 0.18
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.30
-    edge_tint.inputs[2].default_value = 0.045
+    edge_tint.inputs[1].default_value = 0.42
+    edge_tint.inputs[2].default_value = 0.105
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -141,8 +141,8 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.62, 0.008, 0.90), rough=0.17, coat=0.90,
-             emit=(0.085, 0.0, 0.070), strength=0.070)
+PURPLE = mat("Purple", (0.56, 0.008, 0.94), rough=0.17, coat=0.90,
+             emit=(0.045, 0.0, 0.075), strength=0.045)
 add_skin(PURPLE, scale=18.0, strength=0.012)  # richer magenta-violet closer to the reference
 PURPLE_DARK = mat("PurpleDark", (0.19, 0.006, 0.31), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.62, 0.012, 0.52), rough=0.22, coat=0.72)
@@ -526,7 +526,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.025
     spot_material = SPOT_DARK if i in (1, 3, 5, 7) else SPOT
-    skin_patch(f"BodySpot{i}", x, z, rx * 1.58, rz * 1.54, spot_material, pivot, angle=angle)
+    skin_patch(f"BodySpot{i}", x, z, rx * 1.38, rz * 1.36, spot_material, pivot, angle=angle)
 
 # A few smaller cheek flecks preserve the scattered organic markings from the reference.
 for i, (sx, sz, rx, rz) in enumerate((
@@ -566,7 +566,7 @@ eye_parts = [
     sphere("Pupil", 0.31, (0, -0.82, -0.015), PUPIL, eye, scale=(0.94, 0.66, 0.90), seg=64),
     sphere("Shine", 0.095, (0.13, -1.00, 0.18), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_parts.append(torus("EyeMagentaRim", 0.98, 0.075, (0, -0.58, 0), LID, eye,
+eye_parts.append(torus("EyeMagentaRim", 0.96, 0.052, (0, -0.58, 0), LID, eye,
                        rot=(math.pi / 2, 0, 0)))
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 
@@ -623,14 +623,14 @@ def make_upper_eyelid(parent):
 
 
 # Compact open mouth with separated fangs; no floating torus around the lips.
-mouth = empty("Mouth", pivot, loc=(0, -1.48, -0.34))
-mouth.scale = (0.98, 1.0, 0.90)
+mouth = empty("Mouth", pivot, loc=(0, -1.36, -0.30))
+mouth.scale = (0.98, 1.0, 0.82)
 # A compact, softly curved opening keeps the fangs readable without dominating the lower face.
 mouth_parts = [
     sphere("MouthLip", 0.50, (0, 0.035, 0), MOUTH_LIP, mouth,
-           scale=(1.72, 0.50, 0.62), seg=64),
+           scale=(1.72, 0.48, 0.52), seg=64),
     sphere("MouthCavity", 0.50, (0, -0.018, 0), MOUTH, mouth,
-           scale=(1.68, 0.46, 0.58), seg=64),
+           scale=(1.68, 0.44, 0.48), seg=64),
 ]
 # Two prominent upper fangs and two shorter lower teeth keep the expression clean.
 for i, x in enumerate((-0.60, 0.60)):
@@ -641,17 +641,17 @@ for i, x in enumerate((-0.52, 0.52)):
     mouth_parts.append(cone(f"ToothL{i}", 0.092, 0.0, 0.20,
                             (x, -0.30, -0.16), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.21, (0, -0.36, -0.17), TONGUE, mouth,
-                          scale=(1.22, 0.46, 0.24), seg=40))
+                          scale=(1.22, 0.46, 0.20), seg=40))
 
 # Metallic pink collar with steel edge rails and larger brass fasteners.
-body_band("LowerPinkBand", pivot, -1.18, -0.78, COLLAR)
-collar_radius = shell_radius_at(-0.78) + 0.12
-torus("CollarUpperPinkTrim", collar_radius, 0.028, (0, -0.24, -0.78), METAL, pivot)
+body_band("LowerPinkBand", pivot, -1.08, -0.68, COLLAR)
+collar_radius = shell_radius_at(-0.68) + 0.12
+torus("CollarUpperPinkTrim", collar_radius, 0.028, (0, -0.24, -0.68), METAL, pivot)
 # A slimmer curved band reveals more of the mantle and the eight arm roots.
-torus("CollarLowerPinkTrim", collar_radius, 0.025, (0, -0.24, -1.18), COLLAR, pivot)
+torus("CollarLowerPinkTrim", collar_radius, 0.025, (0, -0.24, -1.08), COLLAR, pivot)
 for i in range(18):
     a = i * (2 * math.pi / 18)
-    z = -0.98 + 0.010 * abs(math.cos(a))
+    z = -0.88 + 0.010 * abs(math.cos(a))
     r = collar_radius + 0.055
     sphere(f"BandRivet{i}", 0.065, (r * math.cos(a), r * 0.90 * math.sin(a) - 0.24 - 0.080, z),
            COPPER, pivot, scale=(1.0, 0.92, 1.0), seg=24)
@@ -690,11 +690,11 @@ for side, sx in (("L", -1), ("R", 1)):
     cylinder(f"Connector{side}", 0.085, 0.30, (1.94 * sx, ty - 0.005, 0.20),
              COPPER, tank_rig, rot=(0, math.pi / 2, 0))
     badge_y = ty - 0.88  # keep the large flame plate centered on the taller enamel tank
-    cylinder(f"Badge{side}", 0.48, 0.060, (tx, badge_y, 0.015),
+    cylinder(f"Badge{side}", 0.52, 0.060, (tx, badge_y, 0.015),
              BADGE_YELLOW, tank_rig, rot=(math.pi / 2, 0, 0))
-    torus(f"BadgeRim{side}", 0.48, 0.034, (tx, badge_y - 0.050, 0.015), METAL, tank_rig,
+    torus(f"BadgeRim{side}", 0.52, 0.034, (tx, badge_y - 0.050, 0.015), METAL, tank_rig,
           rot=(math.pi / 2, 0, 0))
-    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.074, 0.015, tank_rig, scale=2.30)
+    flame_icon(f"FlameIcon{side}", tx, badge_y - 0.074, 0.015, tank_rig, scale=2.45)
     for j, (bx, bz) in enumerate(((-0.25, 0.14), (0.25, 0.14),
                                   (-0.25, -0.14), (0.25, -0.14))):
         sphere(f"TankBolt{side}{j}", 0.040, (tx + bx, badge_y - 0.066, bz),
@@ -815,7 +815,7 @@ add_dome_reflection("DomeReflectionR", 1.20, 2.82, 0.35, 0.46, DOME_HIGHLIGHT_WH
 # Eight plush arms: one strong outer curl on each side, four shorter hanging arms,
 # and two rear supports that peek around the mantle.
 ARM_LEN = [0.34, 0.30, 0.26, 0.22]
-ARM_RAD = [0.25, 0.23, 0.21, 0.19, 0.50]
+ARM_RAD = [0.23, 0.21, 0.20, 0.18, 0.44]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
@@ -843,19 +843,19 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Plush roots taper through the middle, then swell into a rounded octopus-like tip.
     if t < 0.18:
-        return 0.49 + 0.015 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.44 + 0.010 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.46 - 0.025 * u
+        return 0.41 - 0.020 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
-    return 0.435 + 0.065 * (u * u)
+    return 0.39 + 0.055 * (u * u)
 
 
 def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
         # Side arms make the prominent upward C-curls seen in the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.66, -0.04), (2.18, -1.48), (0.98, 0.78)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.66, -0.04), (2.22, -1.48), (0.88, 0.98)
     elif style == "front":
         # Front pair hangs lower and stays shorter, leaving the collar visible.
         p0, p1, p2, p3 = (0.0, 0.0), (0.50, -0.05), (1.55, -1.82), (1.22, -1.42)
@@ -894,7 +894,7 @@ def make_arm_tube(name, parent, style, mirror=False):
             normal = reference - tangent * reference.dot(tangent)
         normal.normalize()
         binormal = tangent.cross(normal).normalized()
-        radius = arm_radius(t) * {"outer": 0.98, "front": 0.94, "inner": 0.90, "rear": 0.86}[style]
+        radius = arm_radius(t) * {"outer": 0.96, "front": 0.92, "inner": 0.88, "rear": 0.84}[style]
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
             p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
@@ -988,7 +988,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
                scale=(rr * 0.48, rr * 0.36, rr * 0.010), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style, mirror))
-    sphere(f"ArmRoundedTip{i}", 0.36, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.06, 1.0, 0.94), seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.33, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.06, 1.0, 0.94), seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
