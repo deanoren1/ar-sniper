@@ -74,6 +74,9 @@ const val ANGLE_COUNT = 5
 private val ANGLE_MUZZLE_X = floatArrayOf(0.327f, 0.495f, 0.502f, 0.515f, 0.668f)
 private const val ANGLE_MUZZLE_Y = 0.07f
 
+/** כיוון הקנה בציור (מעלות מהאנך, שלילי = שמאלה) בכל אחת מהזוויות */
+private val ANGLE_DIR = floatArrayOf(-55f, -40f, 0f, 40f, 55f)
+
 private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
     val options = BitmapFactory.Options().apply {
         inScaled = false
@@ -148,7 +151,7 @@ fun WeaponLayer(
     aimY: Float = 0.5f
 ) {
     // הכוונה המוחלקת: הרובה "רודף" אחרי הכוונת בהאטה, כדי שהסיבוב יהיה זורם ולא קופץ
-    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f) }
+    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, 2f) }
     Canvas(modifier = modifier.fillMaxSize()) {
         val now = nowNanos / 1e9f
         val dt = if (smooth[2] == 0f) 0f else (now - smooth[2]).coerceIn(0f, 0.1f)
@@ -156,7 +159,7 @@ fun WeaponLayer(
         smooth[0] = if (smooth[0].isNaN()) aimX else smooth[0] + (aimX - smooth[0]) * k
         smooth[1] = if (smooth[1].isNaN()) aimY else smooth[1] + (aimY - smooth[1]) * k
         smooth[2] = now
-        drawWeapon(art, weapon, tracerTarget, now, smooth[0], smooth[1])
+        drawWeapon(art, weapon, tracerTarget, now, smooth[0], smooth[1], smooth)
     }
 }
 
@@ -180,7 +183,7 @@ private fun DrawScope.drawTracer(muzzle: Offset, target: Offset, since: Float) {
     drawCircle(Color(0xFF40C4FF).copy(alpha = a * 0.5f), 44f * density * (1.5f - a * 0.5f), target)
 }
 
-private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float, aimX: Float, aimY: Float) {
+private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float, aimX: Float, aimY: Float, state: FloatArray) {
     // היעד נשמר כשבר מהמסך (0..1), כמו מיקום הכוונת. ממירים לפיקסלים
     val tracerTarget = tracerNormalized?.let { Offset(it.x * size.width, it.y * size.height) }
     val since = weapon.sinceShot
@@ -245,64 +248,69 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
         }
 
         is WeaponArt.Angles -> {
-            // העמודה לפי מיקום הכוונת, עם מעבר חלק בין שתי זוויות סמוכות
-            val last = ANGLE_COUNT - 1
-            val pos = (last / 2f + ((aimX - 0.62f) / 0.45f).coerceIn(-1f, 1f) * (last / 2f)).coerceIn(0f, last.toFloat())
-            val col0 = pos.toInt().coerceIn(0, last - 1)
-            val col1 = col0 + 1
-            val blend = (pos - col0).coerceIn(0f, 1f)
             val scale = size.height * 0.74f / art.ch
             val w = art.cw * scale
             val h = art.ch * scale
-            val aimDy = ((aimY - 0.5f).coerceIn(-0.5f, 0.5f)) * size.height * 0.10f
-            // טעינה: הרובה יורד ומוטה וחוזר. שליפה: עולה מלמטה
+            val left = size.width * 0.62f - w / 2f
+            val top = bottom - h
+            val pivot = Offset(left + w * 0.5f, bottom - h * 0.06f)
+            // הזווית האמיתית מבסיס הרובה אל הכוונת (0 = ישר למעלה, שלילי = שמאלה)
+            val tx = aimX * size.width
+            val ty = aimY * size.height
+            val up = (pivot.y - ty).coerceAtLeast(size.height * 0.25f)
+            val theta = (Math.toDegrees(kotlin.math.atan2(tx - pivot.x, up).toDouble()).toFloat()).coerceIn(-62f, 62f)
+            // בחירת הזווית הקרובה ביותר, עם היסטרזיס כדי שלא תהבהב על הגבול
+            var idx = state[3].toInt().coerceIn(0, ANGLE_COUNT - 1)
+            while (idx > 0 && theta < (ANGLE_DIR[idx - 1] + ANGLE_DIR[idx]) / 2f - 3f) idx--
+            while (idx < ANGLE_COUNT - 1 && theta > (ANGLE_DIR[idx] + ANGLE_DIR[idx + 1]) / 2f + 3f) idx++
+            state[3] = idx.toFloat()
+            // הפער שנשאר בין זווית הציור לכיוון הכוונת מתוקן בסיבוב רציף סביב הידיים
+            val residual = (theta - ANGLE_DIR[idx]).coerceIn(-28f, 28f)
             val reloading = weapon.reloading
             val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
             val equip = weapon.sinceEquip
             val rise = if (equip < 0.3f) (1f - equip / 0.3f) * (1f - equip / 0.3f) else 0f
             val ox = dx + dip * size.width * 0.03f
             val oy = dy + dip * size.height * 0.42f + rise * size.height * 0.5f
-            val left = size.width * 0.62f - w / 2f
-            val top = bottom - h + aimDy
-            val mx = ANGLE_MUZZLE_X[col0] + (ANGLE_MUZZLE_X[col1] - ANGLE_MUZZLE_X[col0]) * blend
-            val muzzle = Offset(left + w * mx + ox, top + h * ANGLE_MUZZLE_Y + oy)
+            val totalRot = residual + dip * -14f
+            // מיקום הלוע אחרי הסיבוב והתזוזה
+            val rad = Math.toRadians(totalRot.toDouble())
+            val mxp = left + w * ANGLE_MUZZLE_X[idx]
+            val myp = top + h * ANGLE_MUZZLE_Y
+            val rx = mxp - pivot.x
+            val ry = myp - pivot.y
+            val muzzle = Offset(
+                pivot.x + (rx * kotlin.math.cos(rad) - ry * kotlin.math.sin(rad)).toFloat() + ox,
+                pivot.y + (rx * kotlin.math.sin(rad) + ry * kotlin.math.cos(rad)).toFloat() + oy
+            )
             if (tracerTarget != null) drawTracer(muzzle, tracerTarget, since)
-            val pivot = Offset(left + w * 0.5f, bottom)
-            rotate(dip * -14f, pivot) {
+            rotate(totalRot, pivot) {
                 translate(ox, oy) {
                     drawImage(
                         image = art.sheet,
-                        srcOffset = IntOffset(col0 * art.cw, 0),
+                        srcOffset = IntOffset(idx * art.cw, 0),
                         srcSize = IntSize(art.cw, art.ch),
                         dstOffset = IntOffset(left.toInt(), top.toInt()),
                         dstSize = IntSize(w.toInt(), h.toInt())
                     )
-                    if (blend > 0.02f) {
-                        drawImage(
-                            image = art.sheet,
-                            srcOffset = IntOffset(col1 * art.cw, 0),
-                            srcSize = IntSize(art.cw, art.ch),
-                            dstOffset = IntOffset(left.toInt(), top.toInt()),
-                            dstSize = IntSize(w.toInt(), h.toInt()),
-                            alpha = blend
-                        )
-                    }
                 }
             }
-            // הבזק ירי מעל הלוע (חיבור אור), דועך תוך 90ms
+            // הבזק ירי מעל הלוע (חיבור אור), דועך תוך 90ms, מסובב עם הרובה
             if (!reloading && since < 0.09f) {
                 val a = (1f - since / 0.09f).coerceIn(0f, 1f)
                 val fw = w * 0.9f
                 val fh = fw * art.flash.height / art.flash.width
-                drawImage(
-                    image = art.flash,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(art.flash.width, art.flash.height),
-                    dstOffset = IntOffset((muzzle.x - fw / 2f).toInt(), (muzzle.y - fh * 0.80f).toInt()),
-                    dstSize = IntSize(fw.toInt(), fh.toInt()),
-                    alpha = a,
-                    blendMode = androidx.compose.ui.graphics.BlendMode.Plus
-                )
+                rotate(totalRot, muzzle) {
+                    drawImage(
+                        image = art.flash,
+                        srcOffset = IntOffset.Zero,
+                        srcSize = IntSize(art.flash.width, art.flash.height),
+                        dstOffset = IntOffset((muzzle.x - fw / 2f).toInt(), (muzzle.y - fh * 0.80f).toInt()),
+                        dstSize = IntSize(fw.toInt(), fh.toInt()),
+                        alpha = a,
+                        blendMode = androidx.compose.ui.graphics.BlendMode.Plus
+                    )
+                }
             }
         }
 
