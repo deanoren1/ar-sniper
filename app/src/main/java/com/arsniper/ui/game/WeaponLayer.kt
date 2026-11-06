@@ -127,12 +127,24 @@ fun WeaponLayer(
     nowNanos: Long,
     tracerTarget: Offset?,
     aimX: Float = 0.5f,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    aimY: Float = 0.5f
 ) {
+    // הכוונה המוחלקת: הרובה "רודף" אחרי הכוונת בהאטה, כדי שהסיבוב יהיה זורם ולא קופץ
+    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f) }
     Canvas(modifier = modifier.fillMaxSize()) {
-        drawWeapon(art, weapon, tracerTarget, nowNanos / 1e9f, aimX)
+        val now = nowNanos / 1e9f
+        val dt = if (smooth[2] == 0f) 0f else (now - smooth[2]).coerceIn(0f, 0.1f)
+        val k = 1f - kotlin.math.exp(-dt * AIM_FOLLOW_SPEED)
+        smooth[0] = if (smooth[0].isNaN()) aimX else smooth[0] + (aimX - smooth[0]) * k
+        smooth[1] = if (smooth[1].isNaN()) aimY else smooth[1] + (aimY - smooth[1]) * k
+        smooth[2] = now
+        drawWeapon(art, weapon, tracerTarget, now, smooth[0], smooth[1])
     }
 }
+
+/** כמה מהר הרובה מגיע לכיוון הכוונת (גדול = מהיר). 14 = כ-70ms לרוב הדרך */
+private const val AIM_FOLLOW_SPEED = 14f
 
 private fun DrawScope.drawTracer(muzzle: Offset, target: Offset, since: Float) {
     if (since >= TRACER_SECONDS) return
@@ -151,7 +163,7 @@ private fun DrawScope.drawTracer(muzzle: Offset, target: Offset, since: Float) {
     drawCircle(Color(0xFF40C4FF).copy(alpha = a * 0.5f), 44f * density * (1.5f - a * 0.5f), target)
 }
 
-private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float, aimX: Float) {
+private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalized: Offset?, timeSeconds: Float, aimX: Float, aimY: Float) {
     // היעד נשמר כשבר מהמסך (0..1), כמו מיקום הכוונת. ממירים לפיקסלים
     val tracerTarget = tracerNormalized?.let { Offset(it.x * size.width, it.y * size.height) }
     val since = weapon.sinceShot
@@ -170,8 +182,10 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
     when (art) {
         is WeaponArt.Aim -> {
             // העמודה לפי מיקום הכוונת: הרובה מסתובב אליה, עם מעבר חלק בין שתי זוויות סמוכות
-            val pos = 3f + ((aimX - 0.62f) / 0.45f).coerceIn(-1f, 1f) * 3f
-            val col0 = pos.toInt().let { (if (pos - it > 0.62f) it + 1 else it) }.coerceIn(0, 6)
+            val pos = (3f + ((aimX - 0.62f) / 0.45f).coerceIn(-1f, 1f) * 3f).coerceIn(0f, 6f)
+            val col0 = pos.toInt().coerceIn(0, 5)
+            val col1 = col0 + 1
+            val blend = (pos - col0).coerceIn(0f, 1f)
             val row = when {
                 weapon.reloading -> 1 + (weapon.reloadProgress * 2f).toInt().coerceIn(0, 1)
                 since < 0.15f -> 4
@@ -180,15 +194,19 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val scale = size.height * 0.68f / art.ch
             val w = art.cw * scale
             val h = art.ch * scale
+            // גובה הכוונת מזיז את הרובה מעט למעלה/למטה, כאילו הלוע עוקב אחריה
+            val aimDy = ((aimY - 0.5f).coerceIn(-0.5f, 0.5f)) * size.height * 0.10f
             val left = size.width * 0.62f - w / 2f
-            val top = bottom - h
+            val top = bottom - h + aimDy
+            val muzzleX = AIM_MUZZLE_X[col0] + (AIM_MUZZLE_X[col1] - AIM_MUZZLE_X[col0]) * blend
             if (tracerTarget != null) {
                 drawTracer(
-                    Offset(left + w * AIM_MUZZLE_X[col0] + dx, top + h * 0.16f + dy),
+                    Offset(left + w * muzzleX + dx, top + h * 0.16f + dy),
                     tracerTarget, since
                 )
             }
             translate(dx, dy) {
+                // זווית ראשונה בכל עוצמה, והסמוכה מעליה בשקיפות לפי הקרבה: מעבר רך במקום קפיצה
                 drawImage(
                     image = art.sheet,
                     srcOffset = IntOffset(col0 * art.cw, row * art.ch),
@@ -196,6 +214,16 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                     dstOffset = IntOffset(left.toInt(), top.toInt()),
                     dstSize = IntSize(w.toInt(), h.toInt())
                 )
+                if (blend > 0.02f) {
+                    drawImage(
+                        image = art.sheet,
+                        srcOffset = IntOffset(col1 * art.cw, row * art.ch),
+                        srcSize = IntSize(art.cw, art.ch),
+                        dstOffset = IntOffset(left.toInt(), top.toInt()),
+                        dstSize = IntSize(w.toInt(), h.toInt()),
+                        alpha = blend
+                    )
+                }
             }
         }
 
