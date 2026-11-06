@@ -70,13 +70,35 @@ fun ShopScreen(onBack: () -> Unit, modifier: Modifier = Modifier, title: String 
 
     ResponsiveBox(modifier = modifier.background(GameColors.Navy900)) { ui ->
         com.arsniper.ui.components.MenuBackdrop()
+        // קישוטי החנות (שכבות נפרדות): אוהל ושלט למעלה, מנורה, ותמנון בפינה
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.shop_awning),
+            contentDescription = null,
+            modifier = Modifier.align(Alignment.TopCenter).height(ui.dp(62f))
+        )
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.shop_lamp),
+            contentDescription = null,
+            modifier = Modifier.align(Alignment.TopStart).padding(start = ui.dp(70f)).height(ui.dp(40f))
+        )
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.shop_mascot),
+            contentDescription = null,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = ui.dp(4f)).height(ui.dp(210f))
+        )
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(com.arsniper.R.drawable.shop_title),
+            contentDescription = title,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = ui.dp(2f)).height(ui.dp(50f))
+        )
         Column(modifier = Modifier.fillMaxSize().padding(ui.dp(12f))) {
-            ScreenHeader(title = title, onBack = onBack) {
+            ScreenHeader(title = "", onBack = onBack) {
                 CurrencyBar(coins, diamonds)
             }
             Spacer(Modifier.height(ui.dp(8f)))
             Row(modifier = Modifier.fillMaxSize()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.width(120.dp)) {
+                Spacer(Modifier.width(ui.dp(84f)))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.width(110.dp)) {
                     for (t in ArmoryTab.values()) {
                         GameButton(
                             text = t.label,
