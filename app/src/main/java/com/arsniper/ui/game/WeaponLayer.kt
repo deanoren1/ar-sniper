@@ -67,7 +67,7 @@ sealed class WeaponArt {
         val flash: ImageBitmap,
         val muzzleX: FloatArray,
         val muzzleY: FloatArray,
-        val dirs: FloatArray = ANGLE_DIR
+        val dirs: FloatArray
     ) : WeaponArt() {
         val cw: Int = sheet.width / ANGLE_COUNT
         val ch: Int = sheet.height / ANGLE_ROWS
@@ -90,7 +90,18 @@ private val MK1_MUZZLE_Y = floatArrayOf(
 )
 
 /** כיוון הקנה בציור בכל עמודה (מעלות מהאנך, שלילי = שמאלה) */
-private val ANGLE_DIR = floatArrayOf(-38f, -30f, 0f, 30f, 38f)
+private val MK1_DIR = floatArrayOf(
+    -31f, -30f, -2f, 25f, 38f,
+    -54f, -48f, -4f, 46f, 62f,
+    -54f, -43f, -2f, 39f, 52f
+)
+
+/** כיוון הקנה בציור של רובה הפלזמה הלבן, בכל תא */
+private val AUTO_DIR = floatArrayOf(
+    -54.5f, -55.8f, -3f, 54.2f, 54.6f,
+    -64.8f, -64.1f, -3.5f, 63.2f, 65.7f,
+    -64.4f, -66.9f, -3.4f, 64.8f, 66.8f
+)
 
 /** רובה הפלזמה הלבן (AUTO GUN): מיקום הלוע בכל תא */
 private val AUTO_MUZZLE_X = floatArrayOf(
@@ -122,13 +133,13 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
             WeaponId.Plasma -> {
                 val sheet = decode(context, R.drawable.weapon_angles)
                 val flash = decode(context, R.drawable.weapon_flash)
-                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR)
                 else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
             }
             WeaponId.Auto -> {
                 val sheet = decode(context, R.drawable.weapon_auto_angles)
                 val flash = decode(context, R.drawable.weapon_flash_blue)
-                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, AUTO_MUZZLE_X, AUTO_MUZZLE_Y)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, AUTO_MUZZLE_X, AUTO_MUZZLE_Y, AUTO_DIR)
                 else still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
             }
             WeaponId.Spread -> still(context, R.drawable.weapon_spread_idle, R.drawable.weapon_spread_fire, 0.42f, 0.37f)
@@ -290,21 +301,37 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val tx = aimX * size.width
             val ty = aimY * size.height
             val up = (pivot.y - ty).coerceAtLeast(size.height * 0.25f)
-            val theta = (Math.toDegrees(kotlin.math.atan2(tx - pivot.x, up).toDouble()).toFloat()).coerceIn(-62f, 62f)
-            // בחירת הזווית הקרובה ביותר, עם היסטרזיס כדי שלא תהבהב על הגבול
-            var idx = state[3].toInt().coerceIn(0, ANGLE_COUNT - 1)
-            while (idx > 0 && theta < (art.dirs[idx - 1] + art.dirs[idx]) / 2f - 3f) idx--
-            while (idx < ANGLE_COUNT - 1 && theta > (art.dirs[idx] + art.dirs[idx + 1]) / 2f + 3f) idx++
-            state[3] = idx.toFloat()
+            val theta = (Math.toDegrees(kotlin.math.atan2(tx - pivot.x, up).toDouble()).toFloat()).coerceIn(-80f, 80f)
             // שורה לפי גובה הכוונת במסך (מבט למעלה / ישר / למטה), עם היסטרזיס
             var row = state[4].toInt().coerceIn(0, ANGLE_ROWS - 1)
             val ay = aimY
             if (row == 1 && ay < 0.36f) row = 0 else if (row == 1 && ay > 0.64f) row = 2
             else if (row == 0 && ay > 0.42f) row = 1 else if (row == 2 && ay < 0.58f) row = 1
             state[4] = row.toFloat()
+            // עמודה: התמונה שכיוון הקנה בה הכי קרוב לכיוון הכוונת, עם היסטרזיס נגד הבהוב
+            var idx = state[3].toInt().coerceIn(0, ANGLE_COUNT - 1)
+            var best = idx
+            for (c in 0 until ANGLE_COUNT) {
+                if (kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + c]) < kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + best])) best = c
+            }
+            if (best != idx && kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + best]) + 5f < kotlin.math.abs(theta - art.dirs[row * ANGLE_COUNT + idx])) idx = best
+            state[3] = idx.toFloat()
             val cell = row * ANGLE_COUNT + idx
-            // הפער שנשאר בין זווית הציור לכיוון הכוונת מתוקן בסיבוב רציף סביב הידיים
-            val residual = (theta - art.dirs[idx]).coerceIn(-16f, 16f)
+            val axis = art.dirs[cell]
+            // מוצאים את הסיבוב שבו הקנה מצביע בדיוק על הכוונת: מחשבים את מיקום הלוע אחרי הסיבוב ואת הכיוון ממנו אל הכוונת
+            val mxp = left + w * art.muzzleX[cell]
+            val myp = top + h * art.muzzleY[cell]
+            val rx = mxp - pivot.x
+            val ry = myp - pivot.y
+            var residual = 0f
+            for (i in 0 until 5) {
+                val rr = Math.toRadians(residual.toDouble())
+                val mxr = pivot.x + (rx * kotlin.math.cos(rr) - ry * kotlin.math.sin(rr)).toFloat()
+                val dropNow = h * 0.08f + (if (row == 2) h * 0.06f else 0f) + (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
+                val myr = pivot.y + (rx * kotlin.math.sin(rr) + ry * kotlin.math.cos(rr)).toFloat() + dropNow
+                val want = Math.toDegrees(kotlin.math.atan2((tx - mxr).toDouble(), (myr - ty).toDouble())).toFloat()
+                residual = (want - axis).coerceIn(-22f, 22f)
+            }
             val reloading = weapon.reloading
             val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
             val equip = weapon.sinceEquip
@@ -324,10 +351,6 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val fromCell = state[7].toInt().coerceIn(0, ANGLE_COUNT * ANGLE_ROWS - 1)
             // מיקום הלוע אחרי הסיבוב והתזוזה
             val rad = Math.toRadians(totalRot.toDouble())
-            val mxp = left + w * art.muzzleX[cell]
-            val myp = top + h * art.muzzleY[cell]
-            val rx = mxp - pivot.x
-            val ry = myp - pivot.y
             val muzzle = Offset(
                 pivot.x + (rx * kotlin.math.cos(rad) - ry * kotlin.math.sin(rad)).toFloat() + ox,
                 pivot.y + (rx * kotlin.math.sin(rad) + ry * kotlin.math.cos(rad)).toFloat() + oy
