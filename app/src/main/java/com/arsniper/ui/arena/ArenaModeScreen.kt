@@ -41,6 +41,10 @@ import com.arsniper.data.PlayerProfile
 import com.arsniper.game.progress.ArenaStyle
 import com.arsniper.ml.AiWorld
 import com.arsniper.ml.AiWorldWorker
+import com.arsniper.ml.CommunityWorlds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.arsniper.ui.components.CurrencyBar
 import com.arsniper.ui.components.GameIcon
 import com.arsniper.ui.components.GameIconButton
@@ -53,6 +57,20 @@ import java.io.File
 
 /** עולם AI שמור בארנה: תמונת המקור שלו, ותמונת העולם */
 private class SavedWorld(val source: File, val world: File, val style: ArenaStyle, val key: String)
+
+/** מעקב אחרי עולמות קהילה: מה שיתפתי (מפתח -> מזהה), מה הורדתי (מפתח -> מזהה), ומה כבר ראיתי ב-RANDOM */
+private object CommunityState {
+    private fun prefs(context: android.content.Context) = context.getSharedPreferences("community_worlds", android.content.Context.MODE_PRIVATE)
+    fun sharedId(context: android.content.Context, key: String): String? = prefs(context).getString("shared_$key", null)
+    fun setShared(context: android.content.Context, key: String, id: String?) { prefs(context).edit().apply { if (id == null) remove("shared_$key") else putString("shared_$key", id) }.apply() }
+    fun originId(context: android.content.Context, key: String): String? = prefs(context).getString("origin_$key", null)
+    fun setOrigin(context: android.content.Context, key: String, id: String) { prefs(context).edit().putString("origin_$key", id).apply() }
+    fun seen(context: android.content.Context): Set<String> = prefs(context).getStringSet("seen", emptySet()) ?: emptySet()
+    fun addSeen(context: android.content.Context, id: String) {
+        val set = seen(context).toMutableSet().apply { add(id) }
+        prefs(context).edit().putStringSet("seen", set.toList().takeLast(200).toSet()).apply()
+    }
+}
 
 /** מועדפים: מפתחות התמונות שסומנו בכוכב */
 private object WorldFavorites {
@@ -121,6 +139,10 @@ fun ArenaModeScreen(
     val worldThumbs = remember(worlds) { worlds.take(4).map { PhotoLibrary.thumbnail(it.world, 240) } }
     var message by remember { mutableStateOf<String?>(null) }
     var showWorlds by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var confirmShare by remember { mutableStateOf<SavedWorld?>(null) }
+    var communityRevision by remember { mutableStateOf(0) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val picker = rememberGalleryPicker { uri -> PickImport.start(context, uri) }
     val importState = PickImport.state
@@ -182,9 +204,30 @@ fun ArenaModeScreen(
             ModeCard(
                 title = "RANDOM",
                 color = Color(0xFFFF8A2B),
-                caption = "Play a community world (soon)",
+                caption = if (busy) "Looking for a world..." else "Play a community world",
                 modifier = Modifier.weight(1f),
-                onClick = { message = "Community worlds are coming soon" }
+                onClick = {
+                    val serverStyle = AiWorld.serverStyle(style)
+                    if (busy) return@ModeCard
+                    if (serverStyle == null) { message = "No community worlds for this arena"; return@ModeCard }
+                    busy = true
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            CommunityWorlds.downloadRandom(context, serverStyle, CommunityState.seen(context))
+                        }
+                        busy = false
+                        when (result) {
+                            is CommunityWorlds.Result.Ok -> {
+                                val (file, id) = result.value
+                                CommunityState.setOrigin(context, file.nameWithoutExtension, id)
+                                CommunityState.addSeen(context, id)
+                                onPlayWorld(file, style)
+                            }
+                            is CommunityWorlds.Result.Error ->
+                                message = if (result.message == "none") "No community worlds here yet. Share one!" else "Could not load a world (${result.message})"
+                        }
+                    }
+                }
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     OutlinedText("?", fontSize = 64.sp, color = Color.White, outlineWidth = 12f)
@@ -305,6 +348,35 @@ fun ArenaModeScreen(
                                                 WorldFavorites.toggle(context, w.key)
                                                 favorites = WorldFavorites.all(context)
                                             })
+                                    val origin = remember(w, communityRevision) { CommunityState.originId(context, w.key) }
+                                    val sharedId = remember(w, communityRevision) { CommunityState.sharedId(context, w.key) }
+                                    val canShare = w.world.name == "${w.key}_${AiWorld.serverStyle(w.style)}.jpg"
+                                    val label = when {
+                                        origin != null -> "REPORT"
+                                        sharedId != null -> "UNSHARE"
+                                        canShare -> "SHARE"
+                                        else -> null
+                                    }
+                                    if (label != null) {
+                                        OutlinedText(label, fontSize = 11.sp, color = Color.White, outline = null,
+                                            modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                                                .background(Color(0xCC1A2550), RoundedCornerShape(10.dp))
+                                                .clickable {
+                                                    when {
+                                                        origin != null -> scope.launch {
+                                                            val ok = withContext(Dispatchers.IO) { CommunityWorlds.report(context, origin) }
+                                                            message = if (ok) "Thanks, the world was reported" else "Could not report, try again"
+                                                        }
+                                                        sharedId != null -> scope.launch {
+                                                            val ok = withContext(Dispatchers.IO) { CommunityWorlds.unshare(context, sharedId) }
+                                                            if (ok) { CommunityState.setShared(context, w.key, null); communityRevision++ }
+                                                            message = if (ok) "World removed from the community" else "Could not remove, try again"
+                                                        }
+                                                        else -> confirmShare = w
+                                                    }
+                                                }
+                                                .padding(horizontal = 8.dp, vertical = 3.dp))
+                                    }
                                     OutlinedText("PLAY", fontSize = 14.sp, color = Color.White, outline = null,
                                         modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
                                             .background(Color(0xFF1E9E45), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 2.dp))
@@ -315,6 +387,27 @@ fun ArenaModeScreen(
                     OutlinedText("Tap outside to close", fontSize = 12.sp, color = GameColors.Ice, outline = null)
                 }
             }
+        }
+        confirmShare?.let { w ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmShare = null },
+                title = { androidx.compose.material3.Text("Share this world?") },
+                text = { androidx.compose.material3.Text("The AI world image and its scene layout (objects and depth) will be uploaded so other players can play it. Your original photo is not uploaded. You can remove it later with UNSHARE.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmShare = null
+                        val serverStyle = AiWorld.serverStyle(w.style)
+                        if (serverStyle != null) scope.launch {
+                            val result = withContext(Dispatchers.IO) { CommunityWorlds.share(context, w.key, serverStyle, w.world) }
+                            when (result) {
+                                is CommunityWorlds.Result.Ok -> { CommunityState.setShared(context, w.key, result.value); communityRevision++; message = "Shared with the community" }
+                                is CommunityWorlds.Result.Error -> message = "Could not share (${result.message})"
+                            }
+                        }
+                    }) { androidx.compose.material3.Text("SHARE") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmShare = null }) { androidx.compose.material3.Text("CANCEL") } }
+            )
         }
         message?.let {
             OutlinedText(
