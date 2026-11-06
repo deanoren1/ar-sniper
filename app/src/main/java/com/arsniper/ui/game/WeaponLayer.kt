@@ -67,7 +67,9 @@ sealed class WeaponArt {
         val flash: ImageBitmap,
         val muzzleX: FloatArray,
         val muzzleY: FloatArray,
-        val dirs: FloatArray
+        val dirs: FloatArray,
+        val originX: FloatArray,
+        val originY: FloatArray
     ) : WeaponArt() {
         val cw: Int = sheet.width / ANGLE_COUNT
         val ch: Int = sheet.height / ANGLE_ROWS
@@ -77,43 +79,22 @@ sealed class WeaponArt {
 const val ANGLE_COUNT = 5   // עמודות: שמאל רחוק ... ימין רחוק
 const val ANGLE_ROWS = 3    // שורות: מבט למעלה / ישר / למטה
 
-/** מיקום הלוע (קצה הקנה הרחוק) בכל תא, אינדקס = שורה*5 + עמודה: שבר מרוחב ומגובה התא */
-private val MK1_MUZZLE_X = floatArrayOf(
-    0.435f, 0.446f, 0.503f, 0.559f, 0.657f,
-    0.329f, 0.383f, 0.506f, 0.611f, 0.788f,
-    0.259f, 0.346f, 0.508f, 0.657f, 0.834f
-)
-private val MK1_MUZZLE_Y = floatArrayOf(
-    0.100f, 0.100f, 0.080f, 0.104f, 0.096f,
-    0.115f, 0.113f, 0.096f, 0.117f, 0.115f,
-    0.158f, 0.121f, 0.102f, 0.158f, 0.123f
-)
+/**
+ * טבלאות הרובים, לפי תא (אינדקס = שורה*5 + עמודה), נמדדו מהתמונות:
+ * MX/MY = קצה הקנה (הלוע), OX/OY = מרכז הגב של הרובה (מהן נמשך הקו אל הלוע), DIR = כיוון הקנה במעלות מהאנך (שלילי = שמאלה).
+ * כל הערכים כשבר מרוחב ומגובה התא.
+ */
+private val MK1_MUZZLE_X = floatArrayOf(0.435f, 0.446f, 0.503f, 0.559f, 0.657f, 0.329f, 0.383f, 0.506f, 0.611f, 0.788f, 0.259f, 0.346f, 0.508f, 0.657f, 0.834f)
+private val MK1_MUZZLE_Y = floatArrayOf(0.108f, 0.109f, 0.087f, 0.112f, 0.104f, 0.123f, 0.121f, 0.101f, 0.124f, 0.124f, 0.167f, 0.129f, 0.108f, 0.166f, 0.132f)
+private val MK1_ORIGIN_X = floatArrayOf(0.763f, 0.739f, 0.566f, 0.336f, 0.290f, 0.804f, 0.757f, 0.552f, 0.300f, 0.236f, 0.720f, 0.725f, 0.546f, 0.294f, 0.298f)
+private val MK1_ORIGIN_Y = floatArrayOf(0.625f, 0.600f, 0.566f, 0.585f, 0.576f, 0.483f, 0.480f, 0.479f, 0.488f, 0.466f, 0.500f, 0.564f, 0.636f, 0.603f, 0.567f)
+private val MK1_DIR = floatArrayOf(-32.400f, -30.800f, -7.500f, 25.200f, 37.900f, -52.800f, -46.200f, -6.900f, 40.500f, 58.200f, -54.200f, -41.100f, -4.200f, 39.600f, 50.900f)
 
-/** כיוון הקנה בציור בכל עמודה (מעלות מהאנך, שלילי = שמאלה) */
-private val MK1_DIR = floatArrayOf(
-    -31f, -30f, -2f, 25f, 38f,
-    -54f, -48f, -4f, 46f, 62f,
-    -54f, -43f, -2f, 39f, 52f
-)
-
-/** כיוון הקנה בציור של רובה הפלזמה הלבן, בכל תא */
-private val AUTO_DIR = floatArrayOf(
-    -54.5f, -55.8f, -3f, 54.2f, 54.6f,
-    -64.8f, -64.1f, -3.5f, 63.2f, 65.7f,
-    -64.4f, -66.9f, -3.4f, 64.8f, 66.8f
-)
-
-/** רובה הפלזמה הלבן (AUTO GUN): מיקום הלוע בכל תא */
-private val AUTO_MUZZLE_X = floatArrayOf(
-    0.271f, 0.328f, 0.503f, 0.665f, 0.726f,
-    0.330f, 0.356f, 0.503f, 0.684f, 0.688f,
-    0.285f, 0.298f, 0.499f, 0.693f, 0.721f
-)
-private val AUTO_MUZZLE_Y = floatArrayOf(
-    0.166f, 0.159f, 0.131f, 0.153f, 0.162f,
-    0.188f, 0.175f, 0.134f, 0.181f, 0.197f,
-    0.322f, 0.328f, 0.297f, 0.328f, 0.328f
-)
+private val AUTO_MUZZLE_X = floatArrayOf(0.124f, 0.147f, 0.497f, 0.861f, 0.891f, 0.098f, 0.121f, 0.497f, 0.903f, 0.928f, 0.074f, 0.082f, 0.494f, 0.898f, 0.936f)
+private val AUTO_MUZZLE_Y = floatArrayOf(0.200f, 0.202f, 0.132f, 0.203f, 0.199f, 0.262f, 0.245f, 0.135f, 0.258f, 0.273f, 0.383f, 0.394f, 0.297f, 0.394f, 0.399f)
+private val AUTO_ORIGIN_X = floatArrayOf(0.745f, 0.708f, 0.516f, 0.352f, 0.288f, 0.726f, 0.723f, 0.515f, 0.340f, 0.285f, 0.691f, 0.694f, 0.510f, 0.340f, 0.331f)
+private val AUTO_ORIGIN_Y = floatArrayOf(0.643f, 0.582f, 0.535f, 0.568f, 0.627f, 0.557f, 0.538f, 0.516f, 0.542f, 0.565f, 0.676f, 0.655f, 0.625f, 0.657f, 0.657f)
+private val AUTO_DIR = floatArrayOf(-54.542f, -55.865f, -2.659f, 54.333f, 54.648f, -64.817f, -63.995f, -2.689f, 63.220f, 65.565f, -64.584f, -66.855f, -2.825f, 64.775f, 66.853f)
 
 private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
     val options = BitmapFactory.Options().apply {
@@ -133,13 +114,13 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
             WeaponId.Plasma -> {
                 val sheet = decode(context, R.drawable.weapon_angles)
                 val flash = decode(context, R.drawable.weapon_flash)
-                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR, MK1_ORIGIN_X, MK1_ORIGIN_Y)
                 else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
             }
             WeaponId.Auto -> {
                 val sheet = decode(context, R.drawable.weapon_auto_angles)
                 val flash = decode(context, R.drawable.weapon_flash_blue)
-                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, AUTO_MUZZLE_X, AUTO_MUZZLE_Y, AUTO_DIR)
+                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, AUTO_MUZZLE_X, AUTO_MUZZLE_Y, AUTO_DIR, AUTO_ORIGIN_X, AUTO_ORIGIN_Y)
                 else still(context, R.drawable.weapon_auto_idle, R.drawable.weapon_auto_fire, 0.21f, 0.31f)
             }
             WeaponId.Spread -> still(context, R.drawable.weapon_spread_idle, R.drawable.weapon_spread_fire, 0.42f, 0.37f)
@@ -294,12 +275,15 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val scale = size.height * 0.74f / art.ch
             val w = art.cw * scale
             val h = art.ch * scale
-            val left = size.width * 0.62f - w / 2f
-            val top = bottom - h
-            val pivot = Offset(left + w * 0.5f, bottom - h * 0.06f)
-            // הזווית האמיתית מבסיס הרובה אל הכוונת (0 = ישר למעלה, שלילי = שמאלה)
             val tx = aimX * size.width
             val ty = aimY * size.height
+            // הידיים והרובה עוקבים אחרי הכוונת לצדדים (70%), כך שבאמצע המסך כמעט אין הטיה
+            val baseX = (size.width * 0.62f + (aimX - 0.62f) * size.width * 0.70f)
+                .coerceIn(size.width * 0.40f, size.width * 0.78f)
+            val left = baseX - w / 2f
+            val top = bottom - h
+            val pivot = Offset(baseX, bottom - h * 0.06f)
+            // הזווית מבסיס הידיים אל הכוונת (0 = ישר למעלה, שלילי = שמאלה)
             val up = (pivot.y - ty).coerceAtLeast(size.height * 0.25f)
             val theta = (Math.toDegrees(kotlin.math.atan2(tx - pivot.x, up).toDouble()).toFloat()).coerceIn(-80f, 80f)
             // שורה לפי גובה הכוונת במסך (מבט למעלה / ישר / למטה), עם היסטרזיס
@@ -318,44 +302,48 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             state[3] = idx.toFloat()
             val cell = row * ANGLE_COUNT + idx
             val axis = art.dirs[cell]
-            // מוצאים את הסיבוב שבו הקנה מצביע בדיוק על הכוונת: מחשבים את מיקום הלוע אחרי הסיבוב ואת הכיוון ממנו אל הכוונת
-            val mxp = left + w * art.muzzleX[cell]
-            val myp = top + h * art.muzzleY[cell]
-            val rx = mxp - pivot.x
-            val ry = myp - pivot.y
-            var residual = 0f
-            for (i in 0 until 5) {
-                val rr = Math.toRadians(residual.toDouble())
-                val mxr = pivot.x + (rx * kotlin.math.cos(rr) - ry * kotlin.math.sin(rr)).toFloat()
-                val dropNow = h * 0.08f + (if (row == 2) h * 0.06f else 0f) + (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
-                val myr = pivot.y + (rx * kotlin.math.sin(rr) + ry * kotlin.math.cos(rr)).toFloat() + dropNow
-                val want = Math.toDegrees(kotlin.math.atan2((tx - mxr).toDouble(), (myr - ty).toDouble())).toFloat()
-                residual = (want - axis).coerceIn(-22f, 22f)
-            }
             val reloading = weapon.reloading
             val dip = if (reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
             val equip = weapon.sinceEquip
             val rise = if (equip < 0.3f) (1f - equip / 0.3f) * (1f - equip / 0.3f) else 0f
-            // מורידים את הידיים והרובה כשהם מסתובבים או מביטים למטה, כך שקצה התמונה אף פעם לא נראה
-            val rotDrop = (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
             val rowDrop = if (row == 2) h * 0.06f else 0f
             val baseDrop = h * 0.08f
+
+            // הלוע ומרכז הגב בתא, ביחס לנקודת הציר
+            val mrx = left + w * art.muzzleX[cell] - pivot.x
+            val mry = top + h * art.muzzleY[cell] - pivot.y
+            val orx = left + w * art.originX[cell] - pivot.x
+            val ory = top + h * art.originY[cell] - pivot.y
+
+            // סיבוב קטן סביב הידיים שבו קו הקנה עובר בדיוק דרך הכוונת: הלוע על הישר בין הגב לכוונת
+            var residual = 0f
+            for (i in 0 until 6) {
+                val rr = Math.toRadians(residual.toDouble())
+                val cs = kotlin.math.cos(rr).toFloat(); val sn = kotlin.math.sin(rr).toFloat()
+                val drop = baseDrop + rowDrop + (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
+                val mxr = pivot.x + mrx * cs - mry * sn
+                val myr = pivot.y + mrx * sn + mry * cs + drop
+                val want = Math.toDegrees(kotlin.math.atan2((tx - mxr).toDouble(), (myr - ty).toDouble())).toFloat()
+                residual = (want - axis).coerceIn(-14f, 14f)
+            }
+            val rotDrop = (w / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
             val ox = dx + dip * size.width * 0.03f
             val oy = dy + baseDrop + rotDrop + rowDrop + dip * size.height * 0.42f + rise * size.height * 0.5f
             val totalRot = residual + dip * -14f
+            val rad = Math.toRadians(totalRot.toDouble())
+            val cosr = kotlin.math.cos(rad).toFloat(); val sinr = kotlin.math.sin(rad).toFloat()
+            val muzzle = Offset(pivot.x + mrx * cosr - mry * sinr + ox, pivot.y + mrx * sinr + mry * cosr + oy)
+            val origin = Offset(pivot.x + orx * cosr - ory * sinr + ox, pivot.y + orx * sinr + ory * cosr + oy)
+
             // החלפת תא: מעבר רך קצר מהתא הקודם, כדי שלא יהיו קפיצות
             if (cell != state[5].toInt()) {
                 state[7] = state[5]; state[5] = cell.toFloat(); state[6] = timeSeconds
             }
             val fade = ((timeSeconds - state[6]) / 0.09f).coerceIn(0f, 1f)
             val fromCell = state[7].toInt().coerceIn(0, ANGLE_COUNT * ANGLE_ROWS - 1)
-            // מיקום הלוע אחרי הסיבוב והתזוזה
-            val rad = Math.toRadians(totalRot.toDouble())
-            val muzzle = Offset(
-                pivot.x + (rx * kotlin.math.cos(rad) - ry * kotlin.math.sin(rad)).toFloat() + ox,
-                pivot.y + (rx * kotlin.math.sin(rad) + ry * kotlin.math.cos(rad)).toFloat() + oy
-            )
-            if (tracerTarget != null) drawTracer(muzzle, tracerTarget, since)
+
+            // הקו נמשך בישר מגב הרובה דרך הלוע אל הכוונת. מצויר מתחת לרובה, אז נראה יוצא מהקצה
+            if (tracerTarget != null) drawTracer(origin, tracerTarget, since)
             rotate(totalRot, pivot) {
                 translate(ox, oy) {
                     if (fade < 1f) {
@@ -377,12 +365,12 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                     )
                 }
             }
-            // הבזק ירי מעל הלוע (חיבור אור), דועך תוך 90ms, מסובב עם הרובה
+            // הבזק ירי מעל הלוע (חיבור אור), דועך תוך 90ms, מכוון אל הכוונת
             if (!reloading && since < 0.09f) {
                 val a = (1f - since / 0.09f).coerceIn(0f, 1f)
                 val fw = w * 0.9f
                 val fh = fw * art.flash.height / art.flash.width
-                val flashRot = Math.toDegrees(kotlin.math.atan2((tx - muzzle.x).toDouble(), (muzzle.y - ty).toDouble())).toFloat().coerceIn(-70f, 70f)
+                val flashRot = Math.toDegrees(kotlin.math.atan2((tx - muzzle.x).toDouble(), (muzzle.y - ty).toDouble())).toFloat().coerceIn(-85f, 85f)
                 rotate(flashRot, muzzle) {
                     drawImage(
                         image = art.flash,
