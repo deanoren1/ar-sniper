@@ -151,7 +151,7 @@ fun WeaponLayer(
     aimY: Float = 0.5f
 ) {
     // הכוונה המוחלקת: הרובה "רודף" אחרי הכוונת בהאטה, כדי שהסיבוב יהיה זורם ולא קופץ
-    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, 2f) }
+    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat()) }
     Canvas(modifier = modifier.fillMaxSize()) {
         val now = nowNanos / 1e9f
         val dt = if (smooth[2] == 0f) 0f else (now - smooth[2]).coerceIn(0f, 0.1f)
