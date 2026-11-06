@@ -418,7 +418,7 @@ fun GameScreen(
     // מוסיף מחבואי צמחים מתמונת העולם (ג'ונגל), ומעדכן את המשחק בלי להפסיק אותו
     suspend fun addWorldPlantSpots(world: android.graphics.Bitmap) {
         // בטונדרה אין צמחים: ניתוח מלא של תמונת ה-AI היה רק גורם ללג בכל כניסה
-        if (style == ArenaStyle.Tundra) return
+        if (style != ArenaStyle.Jungle && style != ArenaStyle.Forest) return
         val added = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             try { com.arsniper.ml.AiWorldSpots.addPlantSpots(context, world) } catch (_: Throwable) { 0 }
         }

@@ -112,6 +112,11 @@ object AiWorld {
         com.arsniper.game.progress.ArenaStyle.Tundra -> "tundra_mid"
         com.arsniper.game.progress.ArenaStyle.Jungle -> "jungle_mid"
         com.arsniper.game.progress.ArenaStyle.Forest -> "rockforest_mid"
+        com.arsniper.game.progress.ArenaStyle.Cyber -> "cyber_mid"
+        com.arsniper.game.progress.ArenaStyle.Military -> "military_mid"
+        com.arsniper.game.progress.ArenaStyle.Ruins -> "ruins_mid"
+        com.arsniper.game.progress.ArenaStyle.Market -> "market_mid"
+        com.arsniper.game.progress.ArenaStyle.Industrial -> "industrial_mid"
         else -> null
     }
 
