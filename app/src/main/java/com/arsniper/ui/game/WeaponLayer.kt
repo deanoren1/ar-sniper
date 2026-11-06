@@ -64,18 +64,27 @@ sealed class WeaponArt {
     /** Blaster Mk1 ברזולוציה גבוהה: 5 זוויות עמידה בשורה אחת (תאים שווים) + תמונת הבזק נפרדת שמצוירת על הלוע */
     class Angles(val sheet: ImageBitmap, val flash: ImageBitmap) : WeaponArt() {
         val cw: Int = sheet.width / ANGLE_COUNT
-        val ch: Int = sheet.height
+        val ch: Int = sheet.height / ANGLE_ROWS
     }
 }
 
-const val ANGLE_COUNT = 9
+const val ANGLE_COUNT = 5   // עמודות: שמאל רחוק ... ימין רחוק
+const val ANGLE_ROWS = 3    // שורות: מבט למעלה / ישר / למטה
 
-/** מיקום הלוע (קצה הקנה הרחוק) בכל זווית: שבר מרוחב ומגובה התא */
-private val ANGLE_MUZZLE_X = floatArrayOf(0.327f, 0.312f, 0.495f, 0.346f, 0.502f, 0.535f, 0.515f, 0.720f, 0.668f)
-private val ANGLE_MUZZLE_Y = floatArrayOf(0.062f, 0.074f, 0.057f, 0.094f, 0.053f, 0.058f, 0.058f, 0.060f, 0.060f)
+/** מיקום הלוע (קצה הקנה הרחוק) בכל תא, אינדקס = שורה*5 + עמודה: שבר מרוחב ומגובה התא */
+private val ANGLE_MUZZLE_X = floatArrayOf(
+    0.435f, 0.446f, 0.503f, 0.559f, 0.657f,
+    0.329f, 0.383f, 0.506f, 0.611f, 0.788f,
+    0.259f, 0.346f, 0.508f, 0.657f, 0.834f
+)
+private val ANGLE_MUZZLE_Y = floatArrayOf(
+    0.100f, 0.100f, 0.080f, 0.104f, 0.096f,
+    0.115f, 0.113f, 0.096f, 0.117f, 0.115f,
+    0.158f, 0.121f, 0.102f, 0.158f, 0.123f
+)
 
-/** כיוון הקנה בציור (מעלות מהאנך, שלילי = שמאלה) בכל אחת מהזוויות */
-private val ANGLE_DIR = floatArrayOf(-55f, -50f, -40f, -22f, 0f, 22f, 40f, 50f, 55f)
+/** כיוון הקנה בציור בכל עמודה (מעלות מהאנך, שלילי = שמאלה) */
+private val ANGLE_DIR = floatArrayOf(-38f, -30f, 0f, 30f, 38f)
 
 private fun decode(context: android.content.Context, id: Int): ImageBitmap? {
     val options = BitmapFactory.Options().apply {
@@ -151,7 +160,7 @@ fun WeaponLayer(
     aimY: Float = 0.5f
 ) {
     // הכוונה המוחלקת: הרובה "רודף" אחרי הכוונת בהאטה, כדי שהסיבוב יהיה זורם ולא קופץ
-    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat()) }
+    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat(), 1f) }
     Canvas(modifier = modifier.fillMaxSize()) {
         val now = nowNanos / 1e9f
         val dt = if (smooth[2] == 0f) 0f else (now - smooth[2]).coerceIn(0f, 0.1f)
@@ -264,6 +273,13 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             while (idx > 0 && theta < (ANGLE_DIR[idx - 1] + ANGLE_DIR[idx]) / 2f - 3f) idx--
             while (idx < ANGLE_COUNT - 1 && theta > (ANGLE_DIR[idx] + ANGLE_DIR[idx + 1]) / 2f + 3f) idx++
             state[3] = idx.toFloat()
+            // שורה לפי גובה הכוונת במסך (מבט למעלה / ישר / למטה), עם היסטרזיס
+            var row = state[4].toInt().coerceIn(0, ANGLE_ROWS - 1)
+            val ay = aimY
+            if (row == 1 && ay < 0.36f) row = 0 else if (row == 1 && ay > 0.64f) row = 2
+            else if (row == 0 && ay > 0.42f) row = 1 else if (row == 2 && ay < 0.58f) row = 1
+            state[4] = row.toFloat()
+            val cell = row * ANGLE_COUNT + idx
             // הפער שנשאר בין זווית הציור לכיוון הכוונת מתוקן בסיבוב רציף סביב הידיים
             val residual = (theta - ANGLE_DIR[idx]).coerceIn(-28f, 28f)
             val reloading = weapon.reloading
@@ -275,8 +291,8 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             val totalRot = residual + dip * -14f
             // מיקום הלוע אחרי הסיבוב והתזוזה
             val rad = Math.toRadians(totalRot.toDouble())
-            val mxp = left + w * ANGLE_MUZZLE_X[idx]
-            val myp = top + h * ANGLE_MUZZLE_Y[idx]
+            val mxp = left + w * ANGLE_MUZZLE_X[cell]
+            val myp = top + h * ANGLE_MUZZLE_Y[cell]
             val rx = mxp - pivot.x
             val ry = myp - pivot.y
             val muzzle = Offset(
@@ -288,7 +304,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                 translate(ox, oy) {
                     drawImage(
                         image = art.sheet,
-                        srcOffset = IntOffset(idx * art.cw, 0),
+                        srcOffset = IntOffset(idx * art.cw, row * art.ch),
                         srcSize = IntSize(art.cw, art.ch),
                         dstOffset = IntOffset(left.toInt(), top.toInt()),
                         dstSize = IntSize(w.toInt(), h.toInt())
@@ -300,7 +316,8 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                 val a = (1f - since / 0.09f).coerceIn(0f, 1f)
                 val fw = w * 0.9f
                 val fh = fw * art.flash.height / art.flash.width
-                rotate(totalRot, muzzle) {
+                val flashRot = Math.toDegrees(kotlin.math.atan2((tx - muzzle.x).toDouble(), (muzzle.y - ty).toDouble())).toFloat().coerceIn(-70f, 70f)
+                rotate(flashRot, muzzle) {
                     drawImage(
                         image = art.flash,
                         srcOffset = IntOffset.Zero,
@@ -389,7 +406,7 @@ fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
                 val s = minOf(size.width / art.cw, size.height / art.ch)
                 drawImage(
                     image = art.sheet,
-                    srcOffset = IntOffset((ANGLE_COUNT / 2) * art.cw, 0),
+                    srcOffset = IntOffset((ANGLE_COUNT / 2) * art.cw, art.ch),
                     srcSize = IntSize(art.cw, art.ch),
                     dstOffset = IntOffset(((size.width - art.cw * s) / 2f).toInt(), (size.height - art.ch * s).toInt()),
                     dstSize = IntSize((art.cw * s).toInt(), (art.ch * s).toInt())
