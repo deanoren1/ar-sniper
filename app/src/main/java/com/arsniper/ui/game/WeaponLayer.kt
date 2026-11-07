@@ -349,7 +349,13 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             }
             var residual = 0f
             if (bestC < 0) {
-                idx = art.cols / 2 // הכוונת מתחת ללוע: הרובה ישר
+                // הכוונת נמוכה מהלוע: אי אפשר לכוון בדיוק, אז הרובה פונה לכיוון הכוונת (התמונה הקרובה ביותר לזווית מהציר + סיבוב)
+                var nc = idx
+                for (c in 0 until art.cols) {
+                    if (kotlin.math.abs(theta - art.dirs[row * art.cols + c]) < kotlin.math.abs(theta - art.dirs[row * art.cols + nc])) nc = c
+                }
+                if (kotlin.math.abs(theta - art.dirs[row * art.cols + nc]) + 6f < kotlin.math.abs(theta - art.dirs[row * art.cols + idx])) idx = nc
+                residual = (theta - art.dirs[row * art.cols + idx]).coerceIn(-art.maxResidual, art.maxResidual)
             } else {
                 val cur = resFor(idx)
                 if (cur != null && kotlin.math.abs(cur) <= kotlin.math.abs(bestR) + 4f) { residual = cur } else { idx = bestC; residual = bestR }
