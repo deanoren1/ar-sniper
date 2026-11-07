@@ -143,7 +143,7 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.43, 0.012, 0.78), rough=0.17, coat=0.90,
+PURPLE = mat("Purple", (0.52, 0.016, 0.86), rough=0.17, coat=0.90,
              emit=(0.020, 0.0, 0.045), strength=0.035)
 add_skin(PURPLE, scale=18.0, strength=0.012)  # richer magenta-violet closer to the reference
 PURPLE_DARK = mat("PurpleDark", (0.19, 0.006, 0.31), rough=0.28, coat=0.55)
@@ -207,9 +207,9 @@ XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.095, 0.006, 0.19), rough=0.62, coat=0.05)
 SUCKER_RIM = mat("SuckerRim", (0.19, 0.012, 0.34), rough=0.58, coat=0.08)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.50, 0.014, 0.80), rough=0.18, coat=0.84,
+TENTACLE = mat("Tentacle", (0.56, 0.018, 0.88), rough=0.18, coat=0.84,
                 emit=(0.025, 0.0, 0.035), strength=0.025)
-REAR_TENTACLE = mat("RearTentacle", (0.32, 0.008, 0.62), rough=0.22, coat=0.70, emit=(0.012, 0.0, 0.028), strength=0.018)
+REAR_TENTACLE = mat("RearTentacle", (0.42, 0.012, 0.72), rough=0.22, coat=0.70, emit=(0.016, 0.0, 0.032), strength=0.020)
 TANK = mat("Tank", (0.62, 0.008, 0.88), rough=0.20, metal=0.14, coat=0.78)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -578,7 +578,7 @@ eye_parts = [
     sphere("Pupil", 0.31, (0, -1.06, -0.015), PUPIL, eye, scale=(0.98, 0.66, 0.94), seg=64),
     sphere("Shine", 0.11, (0.14, -1.23, 0.18), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_rim = torus("EyeMagentaRim", 1.06, 0.040, (0, -0.58, 0), PURPLE, eye,
+eye_rim = torus("EyeMagentaRim", 1.06, 0.050, (0, -0.58, 0), LID, eye,
                 rot=(math.pi / 2, 0, 0))
 eye_rim.scale = (1.02, 1.0, 0.98)
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
@@ -637,25 +637,25 @@ def make_upper_eyelid(parent):
 
 # Open smile with a visible soft lip rim and a recessed dark cavity.
 mouth = empty("Mouth", pivot, loc=(0, -1.34, -0.24))
-mouth.scale = (0.98, 1.0, 0.93)
-mouth_lip = torus("MouthLipRing", 0.55, 0.060, (0, -0.13, 0), MOUTH_LIP, mouth,
+mouth.scale = (0.94, 1.0, 0.70)
+mouth_lip = torus("MouthLipRing", 0.55, 0.052, (0, -0.13, 0), MOUTH_LIP, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.12, 1.0, 0.64)
+mouth_lip.scale = (1.10, 1.0, 0.46)
 mouth_parts = [
     mouth_lip,
     sphere("MouthCavity", 0.52, (0, -0.24, 0.02), MOUTH, mouth,
-           scale=(1.12, 0.30, 0.62), seg=64),
+           scale=(1.10, 0.30, 0.46), seg=64),
 ]
 # Four clear ivory teeth frame a broader open smile, matching the reference expression.
 for i, x in enumerate((-0.34, 0.34)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.10, 0.0, 0.17,
+    mouth_parts.append(cone(f"ToothU{i}", 0.080, 0.0, 0.13,
                             (x * 1.06, -0.41, 0.11), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
 for i, x in enumerate((-0.31, 0.31)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.085, 0.0, 0.14,
+    mouth_parts.append(cone(f"ToothL{i}", 0.070, 0.0, 0.11,
                             (x * 1.06, -0.41, -0.13), TEETH, mouth))
 mouth_parts.append(sphere("Tongue", 0.18, (0, -0.44, -0.11), TONGUE, mouth,
-                          scale=(1.10, 0.44, 0.19), seg=40))
+                          scale=(1.08, 0.44, 0.15), seg=40))
 
 # A shorter curved pink collar with brass rivets, leaving the smile and arm roots visible.
 COLLAR_TOP_Z = -0.56
@@ -677,14 +677,14 @@ def collar_trim(name, radius, z_base, bevel):
 
 collar_trim("CollarUpperPinkTrim", collar_top_radius, COLLAR_TOP_Z, 0.045)
 collar_trim("CollarLowerPinkTrim", collar_bottom_radius, COLLAR_BOTTOM_Z, 0.042)
-for i in range(15):
-    # Pull the brass studs slightly forward so the full front row reads above the tentacle roots.
-    a = math.radians(198.0 + i * 10.0)
+for i in range(9):
+    # Small brass fasteners sit on the collar surface instead of floating as a bead necklace.
+    a = math.radians(216.0 + i * 15.0)
     z = (COLLAR_TOP_Z + COLLAR_BOTTOM_Z) * 0.5 - COLLAR_FRONT_DROP * max(0.0, -math.sin(a))
     r = (collar_bottom_radius + collar_top_radius) * 0.5
-    y = r * 0.90 * math.sin(a) - 0.22 - 0.40
-    sphere(f"BandRivet{i}", 0.155, (r * math.cos(a), y, z),
-           BADGE_YELLOW, pivot, scale=(1.0, 0.90, 1.0), seg=28)
+    y = r * 0.90 * math.sin(a) - 0.22 - 0.085
+    sphere(f"BandRivet{i}", 0.092, (r * math.cos(a), y, z),
+           COPPER, pivot, scale=(1.0, 0.62, 1.0), seg=28)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.12, 0.17, 0.25), rough=0.22, metal=0.84, coat=0.42)
@@ -859,7 +859,7 @@ def arm_curve_x(t):
 
 def arm_curve_y(t, style="outer"):
     # Keep every visible arm on the camera-facing side; rear supports remain slightly tucked back.
-    depth = {"outer": -1.42, "front": -1.42, "inner": -1.28, "rear": -1.48}.get(style, -0.90)
+    depth = {"outer": -1.22, "front": -1.10, "inner": -0.82, "rear": -0.58}.get(style, -0.90)
     return depth * math.sin(math.pi * t)
 
 
@@ -873,28 +873,28 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Plush roots taper through the middle, then swell into a rounded octopus-like tip.
     if t < 0.18:
-        return 0.43 + 0.018 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.35 + 0.015 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.39 - 0.025 * u
+        return 0.32 - 0.018 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
-    return 0.34 + 0.15 * (u * u)
+    return 0.30 + 0.18 * (u * u)
 
 
 def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
         # Side arms sweep outward, then curl sharply back toward the mantle like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.86, -0.10), (2.20, -1.42), (1.28, 0.55)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.90, -0.10), (2.35, -1.25), (1.18, 0.70)
     elif style == "front":
         # Front arms fan outward before dropping into separate rounded tips.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.50, -0.15), (0.98, -1.55), (0.72, -2.05)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.55, -0.08), (1.20, -1.30), (0.92, -1.70)
     elif style == "inner":
         # Inner arms remain shorter and lower, leaving a visible gap between the front pair.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.20, -0.12), (0.42, -1.30), (0.26, -1.72)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.08), (0.55, -1.05), (0.36, -1.42)
     else:
         # Rear supports descend below the front arms and peek through the gaps.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.18), (0.78, -1.40), (0.58, -1.95)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.15, -0.10), (0.60, -0.95), (0.48, -1.45)
 
 
     u = 1.0 - t
@@ -926,7 +926,7 @@ def make_arm_tube(name, parent, style, mirror=False):
             normal = reference - tangent * reference.dot(tangent)
         normal.normalize()
         binormal = tangent.cross(normal).normalized()
-        radius = arm_radius(t) * {"outer": 1.00, "front": 0.98, "inner": 0.96, "rear": 0.98}[style]
+        radius = arm_radius(t) * {"outer": 1.04, "front": 0.92, "inner": 0.88, "rear": 0.86}[style]
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
             p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
@@ -964,14 +964,14 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 # Explicit roots prevent overlapping front pairs and keep the tentacle silhouette readable.
 ARM_LAYOUT = (
-    ((-1.34, -0.46, -1.92), 0.0, "outer"),
-    ((-0.96, -0.62, -1.98), 0.0, "front"),
-    ((0.96, -0.62, -1.98), 0.0, "front"),
-    ((1.34, -0.46, -1.92), 0.0, "outer"),
-    ((-0.34, -0.54, -2.00), 0.0, "inner"),
-    ((0.34, -0.54, -2.00), 0.0, "inner"),
-    ((-0.62, -0.40, -1.90), 0.0, "rear"),
-    ((0.62, -0.40, -1.90), 0.0, "rear"),
+    ((-1.42, -0.40, -1.82), 0.0, "outer"),
+    ((-1.00, -0.66, -1.88), 0.0, "front"),
+    ((1.00, -0.66, -1.88), 0.0, "front"),
+    ((1.42, -0.40, -1.82), 0.0, "outer"),
+    ((-0.34, -0.36, -1.90), 0.0, "inner"),
+    ((0.34, -0.36, -1.90), 0.0, "inner"),
+    ((-0.66, 0.08, -1.74), 0.0, "rear"),
+    ((0.66, 0.08, -1.74), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
@@ -986,7 +986,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.24, 0.40, 0.56, 0.72, 0.88)):
+    for q, t in enumerate((0.30, 0.54, 0.78)):
         center = arm_center(t, style, mirror)
         before = arm_center(max(0.0, t - 0.002), style, mirror)
         after = arm_center(min(1.0, t + 0.002), style, mirror)
@@ -1004,7 +1004,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         torus(f"SuckerRim{i}_{q}", rr * 0.34, rr * 0.038, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
-    for q, t in enumerate((0.28, 0.48, 0.68, 0.86)):
+    for q, t in enumerate((0.30, 0.64, 0.86)):
         center = arm_center(t, style, mirror)
         before = arm_center(max(0.0, t - 0.002), style, mirror)
         after = arm_center(min(1.0, t + 0.002), style, mirror)
@@ -1018,7 +1018,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         spot_pos = center + spot_normal * rr * 1.002
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.52, rr * 0.38, rr * 0.022), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.42, rr * 0.30, rr * 0.022), rot=normal_rot(spot_normal), seg=20)
     tip_loc = tuple(arm_center(1.0, style, mirror))
     sphere(f"ArmRoundedTip{i}", 0.45, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.04, 1.0, 0.94), seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
