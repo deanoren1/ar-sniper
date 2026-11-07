@@ -114,26 +114,26 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    # Pale cyan-blue shell: keep the dome translucent over gameplay backgrounds,
-    # but lift its tint so it does not collapse to navy against transparent pixels.
-    shell.inputs["Base Color"].default_value = (0.16, 0.42, 0.88, 1.0)
-    shell.inputs["Roughness"].default_value = 0.085
+    # Visible blue glass body with a clear center and a saturated Fresnel edge,
+    # matching the reference bubble without washing out the monster beneath it.
+    shell.inputs["Base Color"].default_value = (0.075, 0.27, 0.72, 1.0)
+    shell.inputs["Roughness"].default_value = 0.055
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.46
-    shell.inputs["Coat Roughness"].default_value = 0.055
+    shell.inputs["Coat Weight"].default_value = 0.72
+    shell.inputs["Coat Roughness"].default_value = 0.032
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.82
-        shell.inputs["Alpha"].default_value = 0.48
-        shell.inputs["Emission Color"].default_value = (0.14, 0.36, 0.78, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.18
+        shell.inputs["Transmission Weight"].default_value = 0.58
+        shell.inputs["Alpha"].default_value = 0.58
+        shell.inputs["Emission Color"].default_value = (0.07, 0.25, 0.72, 1.0)
+        shell.inputs["Emission Strength"].default_value = 0.22
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
-    layer.inputs["Blend"].default_value = 0.16
+    layer.inputs["Blend"].default_value = 0.10
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.62
-    edge_tint.inputs[2].default_value = 0.07
+    edge_tint.inputs[1].default_value = 0.78
+    edge_tint.inputs[2].default_value = 0.18
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -154,8 +154,8 @@ SPOT = mat("Spot", (0.96, 0.045, 0.68), rough=0.30, coat=0.42,
             emit=(0.018, 0.0, 0.010), strength=0.025)
 SPOT_DARK = mat("SpotDark", (0.22, 0.008, 0.34), rough=0.40, coat=0.18)
 add_skin(SPOT, scale=22.0, strength=0.005)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.97, 0.76), rough=0.18, coat=0.64,
-                 emit=(0.22, 0.15, 0.035), strength=0.085)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.985, 0.82), rough=0.16, coat=0.72,
+                 emit=(0.30, 0.21, 0.055), strength=0.13)
 # Radial warm sclera gradient: creamy center fading to a golden-orange edge.
 eye_white_nodes = EYE_WHITE.node_tree
 eye_white_bsdf = bsdf_of(EYE_WHITE)
@@ -174,7 +174,7 @@ eye_white_mid.color = (1.0, 0.58, 0.025, 1.0)
 eye_white_nodes.links.new(eye_white_dist.outputs["Value"], eye_white_ramp.inputs["Fac"])
 eye_white_nodes.links.new(eye_white_ramp.outputs["Color"], eye_white_bsdf.inputs["Base Color"])
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.34, 0.004), rough=0.12, coat=0.88, emit=(0.38, 0.070, 0.0), strength=0.095)
+IRIS = mat("Iris", (1.0, 0.20, 0.002), rough=0.10, coat=0.92, emit=(0.48, 0.045, 0.0), strength=0.12)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.10, coat=0.95, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -486,7 +486,7 @@ def skin_patch(name, x, z, rx, rz, material, parent, angle=0.0, segments=40):
 def body_band(name, parent, z_bottom, z_top, material):
     """Rounded tapered collar with a lower front edge, following the mantle."""
     sides = 128
-    front_drop = 0.28
+    front_drop = 0.22
     # Four rings create a broad softly crowned strap instead of a thin chest stripe.
     levels = (
         (z_top, 0.18),
@@ -575,9 +575,9 @@ for i, (x, base_z, height) in enumerate((
 # Keep spikes only on the crown; random body thorns made the silhouette too spiky.
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -0.82, 0.34  # Keep the large eye centered and prominent within the mantle.
+EYE_Y, EYE_Z = -0.86, 0.38  # Lift and slightly round the eye so the mouth has its own clear space.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.86, 1.00, 0.82)  # expose the broad purple mantle around a reference-sized cyclops eye.
+eye.scale = (0.88, 1.00, 0.90)  # near-circular eye, closer to the reference proportions.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 1.12, (0, 0, 0), EYE_WHITE, eye, scale=(1.05, 0.92, 0.90), seg=64),
@@ -586,7 +586,7 @@ eye_parts = [
     sphere("Pupil", 0.34, (0, -1.08, -0.015), PUPIL, eye, scale=(0.98, 0.66, 0.94), seg=64),
     sphere("Shine", 0.13, (0.18, -1.25, 0.22), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_rim = torus("EyeMagentaRim", 1.16, 0.085, (0, -0.90, 0), LID, eye,
+eye_rim = torus("EyeMagentaRim", 1.13, 0.052, (0, -0.94, 0), LID, eye,
                 rot=(math.pi / 2, 0, 0))
 eye_rim.scale = (1.02, 1.0, 0.98)
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
@@ -644,31 +644,31 @@ def make_upper_eyelid(parent):
 
 
 # Open smile with a visible soft lip rim and a recessed dark cavity.
-mouth = empty("Mouth", pivot, loc=(0, -1.34, -0.55))
-mouth.scale = (0.88, 1.0, 0.92)
-mouth_lip = torus("MouthLipRing", 0.72, 0.045, (0, -0.13, 0), MOUTH_LIP, mouth,
+mouth = empty("Mouth", pivot, loc=(0, -1.46, -0.40))
+mouth.scale = (0.94, 1.0, 1.08)
+mouth_lip = torus("MouthLipRing", 0.74, 0.042, (0, -0.15, 0), MOUTH_LIP, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.18, 1.0, 0.58)
+mouth_lip.scale = (1.18, 1.0, 0.68)
 mouth_parts = [
     mouth_lip,
-    sphere("MouthCavity", 0.64, (0, -0.24, 0.02), MOUTH, mouth,
-           scale=(1.30, 0.34, 0.62), seg=64),
+    sphere("MouthCavity", 0.66, (0, -0.27, 0.025), MOUTH, mouth,
+           scale=(1.30, 0.36, 0.72), seg=64),
 ]
-# Four separated ivory teeth frame a broad, clearly open mouth like the reference.
+# Four distinct ivory teeth and a visible tongue sit above the collar line.
 for i, x in enumerate((-0.50, 0.50)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.105, 0.0, 0.17,
-                            (x, -0.45, 0.20), TEETH, mouth,
+    mouth_parts.append(cone(f"ToothU{i}", 0.115, 0.0, 0.19,
+                            (x, -0.50, 0.22), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
 for i, x in enumerate((-0.48, 0.48)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.092, 0.0, 0.15,
-                            (x, -0.45, -0.20), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.20, (0, -0.47, -0.18), TONGUE, mouth,
-                          scale=(1.30, 0.50, 0.40), seg=40))
+    mouth_parts.append(cone(f"ToothL{i}", 0.105, 0.0, 0.17,
+                            (x, -0.55, -0.18), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.21, (0, -0.54, -0.13), TONGUE, mouth,
+                          scale=(1.30, 0.50, 0.42), seg=40))
 
 # A shorter curved pink collar with brass rivets, leaving the smile and arm roots visible.
-COLLAR_TOP_Z = -0.74
-COLLAR_BOTTOM_Z = -1.08
-COLLAR_FRONT_DROP = 0.16
+COLLAR_TOP_Z = -0.82
+COLLAR_BOTTOM_Z = -1.18
+COLLAR_FRONT_DROP = 0.12
 body_band("LowerPinkBand", pivot, COLLAR_BOTTOM_Z, COLLAR_TOP_Z, COLLAR)
 collar_top_radius = shell_radius_at(COLLAR_TOP_Z) + 0.16
 collar_bottom_radius = max(shell_radius_at(COLLAR_BOTTOM_Z) + 0.16, 0.95)
@@ -721,6 +721,11 @@ for side, sx in (("L", -1), ("R", 1)):
         wide_bevel = wide_band.modifiers.new("TankWideBandSoftEdge", "BEVEL")
         wide_bevel.width = 0.035
         wide_bevel.segments = 3
+        # Small brass fasteners across the camera-facing band make the tanks read as built hardware.
+        for bolt_index, bolt_x in enumerate((-0.48, 0.0, 0.48)):
+            sphere(f"TankBandBolt{side}{band_index}_{bolt_index}", 0.052,
+                   (tx + bolt_x, ty - 0.84, band_z), COPPER, tank_rig,
+                   scale=(1.0, 0.42, 1.0), seg=18)
     torus(f"TankGoldRing{side}", 0.82, 0.065, (tx, ty, 1.30), BADGE_YELLOW, tank_rig)
     torus(f"TankGoldRingLow{side}", 0.82, 0.062, (tx, ty, -1.30), BADGE_YELLOW, tank_rig)
     cylinder(f"TankNozzle{side}", 0.095, 0.14, (tx, ty, 1.68), METAL, tank_rig)
@@ -866,43 +871,43 @@ def arm_curve_x(t):
 
 
 def arm_curve_y(t, style="outer"):
-    # Keep every visible arm on the camera-facing side; rear supports remain slightly tucked back.
-    depth = {"outer": -1.58, "front": -1.78, "inner": -1.88, "rear": -2.05}.get(style, -0.90)
+    # Keep the front arms close enough to the body to expose the mouth and collar;
+    # the rear pair sits behind the mantle and only peeks through the lower gaps.
+    depth = {"outer": -1.22, "front": -1.34, "inner": -1.18, "rear": 0.28}.get(style, -0.90)
     return depth * math.sin(math.pi * t)
 
 
 def arm_curve_z(t):
-    u = max(0.0, min(1.0, (t - 0.28) / 0.72))
+    u = max(0.0, min(1.0, (t - 0.30) / 0.70))
     hook = u * u * (3.0 - 2.0 * u)
-    # A deeper drop followed by a clear upward return forms a broad C-hook.
-    return -1.45 * t + 1.70 * hook
+    return -1.34 * t + 1.58 * hook
 
 
 def arm_radius(t):
-    # Plush roots taper through the middle, then swell into a rounded octopus-like tip.
+    # Organic taper with a rounded terminal bulb, avoiding the repeated sausage-finger look.
     if t < 0.18:
-        return 0.40 + 0.018 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.36 + 0.015 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.39 - 0.018 * u
+        return 0.345 - 0.025 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
-    return 0.36 + 0.20 * (u * u)
+    return 0.32 + 0.16 * (u * u)
 
 
 def arm_center(t, style="outer", mirror=False):
-    """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
+    """Eight distinct paths: two lifted side hooks, four hanging arms and two rear supports."""
     if style == "outer":
-        # Side arms sweep outward, then curl sharply back toward the mantle like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.88, -0.18), (2.10, -1.75), (1.48, -0.92)
+        # The outer pair travels wide, then curls upward and inward into a readable C silhouette.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.78, -0.06), (2.12, -1.12), (1.48, -0.28)
     elif style == "front":
-        # Front arms fan outward before dropping into separate rounded tips.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.58, -0.18), (1.28, -1.72), (1.02, -2.10)
+        # The front pair fans outward and ends lower, with space between the rounded tips.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.48, -0.10), (1.18, -1.28), (0.98, -1.72)
     elif style == "inner":
-        # Inner arms remain shorter and lower, leaving a visible gap between the front pair.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.30, -0.18), (0.78, -1.58), (0.58, -1.98)
+        # The inner pair is shorter and slightly tucked, so the front silhouette is not a row of fingers.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.22, -0.08), (0.56, -1.00), (0.40, -1.42)
     else:
-        # Rear supports descend below the front arms and peek through the gaps.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.20), (1.08, -1.55), (0.86, -1.92)
+        # Rear supports remain behind the front arms and peek through as two darker lobes.
+        p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.10), (0.88, -1.16), (0.72, -1.55)
 
 
     u = 1.0 - t
@@ -934,7 +939,7 @@ def make_arm_tube(name, parent, style, mirror=False):
             normal = reference - tangent * reference.dot(tangent)
         normal.normalize()
         binormal = tangent.cross(normal).normalized()
-        radius = arm_radius(t) * {"outer": 1.12, "front": 1.10, "inner": 1.04, "rear": 0.98}[style]
+        radius = arm_radius(t) * {"outer": 1.12, "front": 0.98, "inner": 0.92, "rear": 0.88}[style]
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
             p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
@@ -972,19 +977,19 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 # Explicit roots prevent overlapping front pairs and keep the tentacle silhouette readable.
 ARM_LAYOUT = (
-    ((-1.42, -0.40, -1.18), 0.0, "outer"),
-    ((-1.02, -0.66, -1.18), 0.0, "front"),
-    ((1.02, -0.66, -1.18), 0.0, "front"),
-    ((1.42, -0.40, -1.18), 0.0, "outer"),
-    ((-0.48, -0.52, -1.22), 0.0, "inner"),
-    ((0.48, -0.52, -1.22), 0.0, "inner"),
-    ((-0.72, -0.94, -1.22), 0.0, "rear"),
-    ((0.72, -0.94, -1.22), 0.0, "rear"),
+    ((-1.38, -0.32, -1.18), 0.0, "outer"),
+    ((-0.96, -0.60, -1.18), 0.0, "front"),
+    ((0.96, -0.60, -1.18), 0.0, "front"),
+    ((1.38, -0.32, -1.18), 0.0, "outer"),
+    ((-0.40, -0.50, -1.22), 0.0, "inner"),
+    ((0.40, -0.50, -1.22), 0.0, "inner"),
+    ((-0.72, 0.12, -1.20), 0.0, "rear"),
+    ((0.72, 0.12, -1.20), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
     tilt = (0.12 if root_loc[0] > 0.0 else -0.12) + rng.uniform(-0.015, 0.015)
-    azimuth = (0.34 if root_loc[0] > 0.0 else -0.34) if style == "outer" else ((0.22 if root_loc[0] > 0.0 else -0.22) if style == "front" else ((0.08 if root_loc[0] > 0.0 else -0.08) if style == "inner" else (0.30 if root_loc[0] > 0.0 else -0.30)))
+    azimuth = (0.44 if root_loc[0] > 0.0 else -0.44) if style == "outer" else ((0.18 if root_loc[0] > 0.0 else -0.18) if style == "front" else ((0.04 if root_loc[0] > 0.0 else -0.04) if style == "inner" else (0.24 if root_loc[0] > 0.0 else -0.24)))
     root = empty(f"ArmRoot{i}", torso, loc=root_loc, rot=(0, tilt, azimuth))
     joints = [root]
     for k in range(1, 4):
@@ -994,7 +999,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     # in one local direction. Their shallow inset keeps them from reading as beads.
     root_rotation = root.rotation_euler.to_matrix()
     front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
-    for q, t in enumerate((0.20, 0.38, 0.56, 0.74, 0.90)):
+    for q, t in enumerate((0.30, 0.58, 0.84)):
         center = arm_center(t, style, mirror)
         before = arm_center(max(0.0, t - 0.002), style, mirror)
         after = arm_center(min(1.0, t + 0.002), style, mirror)
@@ -1006,11 +1011,11 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         cup_normal = (cup_normal * 0.38 + front_local * 0.62).normalized()
         rr = arm_radius(t) * (0.86 if style == "rear" else 0.94)
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
-        hole_pos = center + cup_normal * rr * 0.990
+        hole_pos = center + cup_normal * rr * 0.992
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.72, rr * 0.72, rr * 0.12), rot=normal_rot(cup_normal), seg=24)
-        rim_pos = center + cup_normal * rr * 1.002
-        torus(f"SuckerRim{i}_{q}", rr * 0.64, rr * 0.085, tuple(rim_pos),
+               scale=(rr * 0.48, rr * 0.48, rr * 0.075), rot=normal_rot(cup_normal), seg=24)
+        rim_pos = center + cup_normal * rr * 1.004
+        torus(f"SuckerRim{i}_{q}", rr * 0.43, rr * 0.045, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.20, 0.38, 0.56, 0.74, 0.90)):
@@ -1023,13 +1028,13 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
             spot_normal = Vector((0.0, 1.0, 0.0))
         spot_normal.normalize()
         side_normal = tangent.cross(spot_normal).normalized()
-        spot_normal = (spot_normal * 0.48 + side_normal * (0.88 if i % 2 else -0.88)).normalized()
+        spot_normal = (front_local * 0.82 + side_normal * (0.42 if i % 2 else -0.42)).normalized()
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
-        spot_pos = center + spot_normal * rr * 1.002
+        spot_pos = center + spot_normal * rr * 1.012
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.38, rr * 0.27, rr * 0.018), rot=normal_rot(spot_normal), seg=20)
+               scale=(rr * 0.46, rr * 0.31, rr * 0.028), rot=normal_rot(spot_normal), seg=24)
     tip_loc = tuple(arm_center(1.0, style, mirror))
-    sphere(f"ArmRoundedTip{i}", 0.54, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.04, 1.0, 0.94), seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.46, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.06, 1.0, 0.98), seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
