@@ -569,7 +569,7 @@ for i, (x, base_z, height) in enumerate((
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.82, 0.34  # Keep the large eye centered and prominent within the mantle.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.86, 1.00, 0.95)  # restore the reference eye-to-mantle proportion.
+eye.scale = (1.00, 1.00, 0.95)  # restore the reference eye-to-mantle proportion.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 0.94, (0, 0, 0), EYE_WHITE, eye, scale=(1.18, 0.92, 1.02), seg=64),
@@ -578,9 +578,9 @@ eye_parts = [
     sphere("Pupil", 0.31, (0, -1.06, -0.015), PUPIL, eye, scale=(0.98, 0.66, 0.94), seg=64),
     sphere("Shine", 0.11, (0.14, -1.23, 0.18), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_rim = torus("EyeMagentaRim", 1.02, 0.072, (0, -0.58, 0), LID, eye,
+eye_rim = torus("EyeMagentaRim", 1.06, 0.058, (0, -0.58, 0), LID, eye,
                 rot=(math.pi / 2, 0, 0))
-eye_rim.scale = (1.04, 1.0, 0.98)
+eye_rim.scale = (1.02, 1.0, 0.98)
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 
 
@@ -637,25 +637,25 @@ def make_upper_eyelid(parent):
 
 # Open smile with a visible soft lip rim and a recessed dark cavity.
 mouth = empty("Mouth", pivot, loc=(0, -1.34, -0.24))
-mouth.scale = (1.18, 1.0, 1.02)
-mouth_lip = torus("MouthLipRing", 0.57, 0.066, (0, -0.13, 0), MOUTH_LIP, mouth,
+mouth.scale = (0.88, 1.0, 0.84)
+mouth_lip = torus("MouthLipRing", 0.52, 0.055, (0, -0.13, 0), MOUTH_LIP, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.20, 1.0, 0.64)
+mouth_lip.scale = (1.08, 1.0, 0.60)
 mouth_parts = [
     mouth_lip,
-    sphere("MouthCavity", 0.55, (0, -0.24, 0.02), MOUTH, mouth,
-           scale=(1.20, 0.30, 0.64), seg=64),
+    sphere("MouthCavity", 0.50, (0, -0.24, 0.02), MOUTH, mouth,
+           scale=(1.10, 0.30, 0.58), seg=64),
 ]
 # Four clear ivory teeth frame a broader open smile, matching the reference expression.
-for i, x in enumerate((-0.37, 0.37)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.12, 0.0, 0.19,
-                            (x * 1.10, -0.41, 0.11), TEETH, mouth,
+for i, x in enumerate((-0.32, 0.32)):
+    mouth_parts.append(cone(f"ToothU{i}", 0.085, 0.0, 0.14,
+                            (x * 1.06, -0.41, 0.11), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.33, 0.33)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.095, 0.0, 0.14,
-                            (x * 1.10, -0.41, -0.13), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.20, (0, -0.44, -0.11), TONGUE, mouth,
-                          scale=(1.18, 0.44, 0.20), seg=40))
+for i, x in enumerate((-0.29, 0.29)):
+    mouth_parts.append(cone(f"ToothL{i}", 0.072, 0.0, 0.11,
+                            (x * 1.06, -0.41, -0.13), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.16, (0, -0.44, -0.11), TONGUE, mouth,
+                          scale=(1.08, 0.44, 0.17), seg=40))
 
 # A shorter curved pink collar with brass rivets, leaving the smile and arm roots visible.
 COLLAR_TOP_Z = -0.56
@@ -677,9 +677,9 @@ def collar_trim(name, radius, z_base, bevel):
 
 collar_trim("CollarUpperPinkTrim", collar_top_radius, COLLAR_TOP_Z, 0.045)
 collar_trim("CollarLowerPinkTrim", collar_bottom_radius, COLLAR_BOTTOM_Z, 0.042)
-for i in range(11):
+for i in range(13):
     # Keep a broad, evenly spaced row of brass studs visible between the lowered arm roots.
-    a = math.radians(198.0 + i * 14.4)
+    a = math.radians(198.0 + i * 12.0)
     z = (COLLAR_TOP_Z + COLLAR_BOTTOM_Z) * 0.5 - COLLAR_FRONT_DROP * max(0.0, -math.sin(a))
     r = (collar_bottom_radius + collar_top_radius) * 0.5
     y = r * 0.90 * math.sin(a) - 0.22 - 0.24
@@ -790,7 +790,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     return obj
 
 DOME_CENTER_Z = -0.30
-DOME_RADII = (3.00, 2.65, 3.80)  # lower, rounder bubble with its open edge meeting the slimmer collar.
+DOME_RADII = (2.72, 2.65, 3.80)  # lower, rounder bubble with its open edge meeting the slimmer collar.
 make_dome_hemisphere("GlassDome", torso, DOME_CENTER_Z, DOME_RADII, GLASS)
 # A bright blue arch sits on the front-facing glass surface, not behind the head.
 dome_arch = []
@@ -845,7 +845,7 @@ add_dome_reflection("DomeReflectionR", 1.34, 2.70, 0.46, 0.62, DOME_HIGHLIGHT_WH
 # Eight plush arms: one strong outer curl on each side, four shorter hanging arms,
 # and two rear supports that peek around the mantle.
 ARM_LEN = [0.34, 0.30, 0.26, 0.22]
-ARM_RAD = [0.19, 0.18, 0.17, 0.16, 0.42]
+ARM_RAD = [0.19, 0.18, 0.17, 0.16, 0.46]
 ARM_CURLS = [0.22, 0.35, -0.72]   # retained for the pose controls
 ARM_TOTAL = sum(ARM_LEN)
 
@@ -859,7 +859,7 @@ def arm_curve_x(t):
 
 def arm_curve_y(t, style="outer"):
     # Keep every visible arm on the camera-facing side; rear supports remain slightly tucked back.
-    depth = {"outer": -1.42, "front": -1.42, "inner": -1.28, "rear": -1.12}.get(style, -0.90)
+    depth = {"outer": -1.42, "front": -1.42, "inner": -1.28, "rear": -1.48}.get(style, -0.90)
     return depth * math.sin(math.pi * t)
 
 
@@ -873,28 +873,28 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Plush roots taper through the middle, then swell into a rounded octopus-like tip.
     if t < 0.18:
-        return 0.40 + 0.014 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.43 + 0.018 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.34 - 0.022 * u
+        return 0.39 - 0.025 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
-    return 0.30 + 0.15 * (u * u)
+    return 0.34 + 0.15 * (u * u)
 
 
 def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
         # Side arms sweep outward, then curl sharply back toward the mantle like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.88, -0.10), (2.25, -1.30), (0.68, 0.95)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.86, -0.10), (2.20, -1.42), (1.28, 0.55)
     elif style == "front":
         # Front arms fan outward before dropping into separate rounded tips.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.42, -0.12), (0.82, -1.72), (0.48, -2.25)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.50, -0.15), (0.98, -1.55), (0.72, -2.05)
     elif style == "inner":
         # Inner arms remain shorter and lower, leaving a visible gap between the front pair.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.12), (0.42, -1.42), (0.14, -1.90)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.20, -0.12), (0.42, -1.30), (0.26, -1.72)
     else:
         # Rear supports descend below the front arms and peek through the gaps.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.10, -0.10), (0.30, -1.48), (0.06, -1.82)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.18, -0.18), (0.78, -1.40), (0.58, -1.95)
 
 
     u = 1.0 - t
@@ -904,7 +904,7 @@ def arm_center(t, style="outer", mirror=False):
          + 3.0 * u * t * t * p2[1] + t ** 3 * p3[1])
     if mirror:
         x = -x
-    scale = 1.04 if style == "outer" else (1.04 if style == "front" else (0.98 if style == "inner" else 1.00))
+    scale = 1.04 if style == "outer" else (1.02 if style == "front" else (0.98 if style == "inner" else 0.94))
     return scale * Vector((x, arm_curve_y(t, style), z))
 
 
@@ -964,14 +964,14 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 # Explicit roots prevent overlapping front pairs and keep the tentacle silhouette readable.
 ARM_LAYOUT = (
-    ((-1.28, -0.46, -1.70), 0.0, "outer"),
-    ((-0.90, -0.62, -1.78), 0.0, "front"),
-    ((0.90, -0.62, -1.78), 0.0, "front"),
-    ((1.28, -0.46, -1.70), 0.0, "outer"),
-    ((-0.28, -0.54, -1.84), 0.0, "inner"),
-    ((0.28, -0.54, -1.84), 0.0, "inner"),
-    ((-0.58, -0.42, -1.72), 0.0, "rear"),
-    ((0.58, -0.42, -1.72), 0.0, "rear"),
+    ((-1.34, -0.46, -1.92), 0.0, "outer"),
+    ((-0.96, -0.62, -1.98), 0.0, "front"),
+    ((0.96, -0.62, -1.98), 0.0, "front"),
+    ((1.34, -0.46, -1.92), 0.0, "outer"),
+    ((-0.34, -0.54, -2.00), 0.0, "inner"),
+    ((0.34, -0.54, -2.00), 0.0, "inner"),
+    ((-0.62, -0.40, -1.90), 0.0, "rear"),
+    ((0.62, -0.40, -1.90), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
