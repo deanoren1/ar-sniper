@@ -359,7 +359,7 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                 residual = (theta - art.dirs[row * art.cols + idx]).coerceIn(-art.maxResidual, art.maxResidual)
             } else {
                 val cur = resFor(idx)
-                if (cur != null && kotlin.math.abs(cur) <= kotlin.math.abs(bestR) + 4f) { residual = cur } else { idx = bestC; residual = bestR }
+                if (cur != null && kotlin.math.abs(cur) <= kotlin.math.abs(bestR) + 10f) { residual = cur } else { idx = bestC; residual = bestR }
             }
             state[3] = idx.toFloat()
             val cell = row * art.cols + idx
