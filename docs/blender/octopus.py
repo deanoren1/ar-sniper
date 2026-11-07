@@ -209,7 +209,7 @@ SUCKER_RIM = mat("SuckerRim", (0.19, 0.012, 0.34), rough=0.58, coat=0.08)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.39, 0.008, 0.76), rough=0.18, coat=0.84,
                 emit=(0.025, 0.0, 0.035), strength=0.025)
-REAR_TENTACLE = mat("RearTentacle", (0.42, 0.010, 0.78), rough=0.20, coat=0.76, emit=(0.018, 0.0, 0.040), strength=0.025)
+REAR_TENTACLE = mat("RearTentacle", (0.27, 0.006, 0.56), rough=0.22, coat=0.70, emit=(0.012, 0.0, 0.028), strength=0.018)
 TANK = mat("Tank", (0.62, 0.008, 0.88), rough=0.20, metal=0.14, coat=0.78)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
 # Smooth enamel tanks, matching the bright magenta body.
@@ -567,18 +567,18 @@ for i, (x, base_z, height) in enumerate((
 # Keep spikes only on the crown; random body thorns made the silhouette too spiky.
 # Large horizontal cyclopean eye with a warm almond-shaped opening and a heavy slanted lid.
 # The iris remains exposed below the lid, as in the supplied reference.
-EYE_Y, EYE_Z = -0.82, 0.34  # Recess the smaller eye so more spotted purple mantle frames it.
+EYE_Y, EYE_Z = -0.82, 0.34  # Keep the large eye centered and prominent within the mantle.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.91, 1.00, 0.96)  # expose more organic purple skin around the eye.
+eye.scale = (0.99, 1.00, 1.00)  # restore the reference eye-to-mantle proportion.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
-    sphere("EyeWhite", 0.94, (0, 0, 0), EYE_WHITE, eye, scale=(1.22, 0.90, 1.00), seg=64),
+    sphere("EyeWhite", 0.94, (0, 0, 0), EYE_WHITE, eye, scale=(1.28, 0.92, 1.04), seg=64),
     # Pull the iris and pupil forward so the orange iris is not buried inside the sclera.
-    sphere("Iris", 0.43, (0, -0.82, 0.0), IRIS, eye, scale=(1.00, 0.36, 0.94), seg=64),
-    sphere("Pupil", 0.25, (0, -1.02, -0.015), PUPIL, eye, scale=(0.95, 0.66, 0.92), seg=64),
-    sphere("Shine", 0.11, (0.12, -1.19, 0.15), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
+    sphere("Iris", 0.51, (0, -0.84, 0.0), IRIS, eye, scale=(1.00, 0.38, 0.96), seg=64),
+    sphere("Pupil", 0.34, (0, -1.06, -0.015), PUPIL, eye, scale=(0.98, 0.66, 0.94), seg=64),
+    sphere("Shine", 0.12, (0.14, -1.23, 0.18), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_rim = torus("EyeMagentaRim", 0.96, 0.028, (0, -0.56, 0), LID, eye,
+eye_rim = torus("EyeMagentaRim", 1.02, 0.046, (0, -0.58, 0), LID, eye,
                 rot=(math.pi / 2, 0, 0))
 eye_rim.scale = (1.08, 1.0, 0.96)
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
@@ -636,31 +636,31 @@ def make_upper_eyelid(parent):
 
 
 # Open smile with a visible soft lip rim and a recessed dark cavity.
-mouth = empty("Mouth", pivot, loc=(0, -1.30, -0.22))
-mouth.scale = (1.02, 1.0, 0.90)
-mouth_lip = torus("MouthLipRing", 0.52, 0.060, (0, -0.13, 0), MOUTH_LIP, mouth,
+mouth = empty("Mouth", pivot, loc=(0, -1.34, -0.24))
+mouth.scale = (1.18, 1.0, 1.02)
+mouth_lip = torus("MouthLipRing", 0.57, 0.066, (0, -0.13, 0), MOUTH_LIP, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.16, 1.0, 0.48)
+mouth_lip.scale = (1.20, 1.0, 0.54)
 mouth_parts = [
     mouth_lip,
-    sphere("MouthCavity", 0.50, (0, -0.24, 0.02), MOUTH, mouth,
-           scale=(1.16, 0.24, 0.45), seg=64),
+    sphere("MouthCavity", 0.55, (0, -0.24, 0.02), MOUTH, mouth,
+           scale=(1.20, 0.25, 0.52), seg=64),
 ]
-# Two upper fangs and two lower teeth sit clearly inside the opening.
-for i, x in enumerate((-0.32, 0.32)):
-    mouth_parts.append(cone(f"ToothU{i}", 0.11, 0.0, 0.18,
-                            (x * 1.10, -0.40, 0.10), TEETH, mouth,
+# Four clear ivory teeth frame a broader open smile, matching the reference expression.
+for i, x in enumerate((-0.37, 0.37)):
+    mouth_parts.append(cone(f"ToothU{i}", 0.12, 0.0, 0.19,
+                            (x * 1.10, -0.41, 0.11), TEETH, mouth,
                             rot=(math.pi, 0, 0)))
-for i, x in enumerate((-0.28, 0.28)):
-    mouth_parts.append(cone(f"ToothL{i}", 0.085, 0.0, 0.13,
-                            (x * 1.10, -0.40, -0.12), TEETH, mouth))
-mouth_parts.append(sphere("Tongue", 0.18, (0, -0.43, -0.10), TONGUE, mouth,
-                          scale=(1.15, 0.44, 0.18), seg=40))
+for i, x in enumerate((-0.33, 0.33)):
+    mouth_parts.append(cone(f"ToothL{i}", 0.095, 0.0, 0.14,
+                            (x * 1.10, -0.41, -0.13), TEETH, mouth))
+mouth_parts.append(sphere("Tongue", 0.20, (0, -0.44, -0.11), TONGUE, mouth,
+                          scale=(1.18, 0.44, 0.20), seg=40))
 
 # A shorter curved pink collar with brass rivets, leaving the smile and arm roots visible.
-COLLAR_TOP_Z = -0.70
-COLLAR_BOTTOM_Z = -1.20
-COLLAR_FRONT_DROP = 0.22
+COLLAR_TOP_Z = -0.62
+COLLAR_BOTTOM_Z = -1.18
+COLLAR_FRONT_DROP = 0.34
 body_band("LowerPinkBand", pivot, COLLAR_BOTTOM_Z, COLLAR_TOP_Z, COLLAR)
 collar_top_radius = shell_radius_at(COLLAR_TOP_Z) + 0.16
 collar_bottom_radius = max(shell_radius_at(COLLAR_BOTTOM_Z) + 0.16, 0.95)
@@ -677,13 +677,14 @@ def collar_trim(name, radius, z_base, bevel):
 
 collar_trim("CollarUpperPinkTrim", collar_top_radius, COLLAR_TOP_Z, 0.045)
 collar_trim("CollarLowerPinkTrim", collar_bottom_radius, COLLAR_BOTTOM_Z, 0.042)
-for i in range(24):
-    a = i * (2 * math.pi / 24)
+for i in range(9):
+    # Put the brass studs on the camera-facing half of the band so they remain readable.
+    a = math.radians(190.0 + i * 20.0)
     z = (COLLAR_TOP_Z + COLLAR_BOTTOM_Z) * 0.5 - COLLAR_FRONT_DROP * max(0.0, -math.sin(a))
     r = (collar_bottom_radius + collar_top_radius) * 0.5
-    y = r * 0.90 * math.sin(a) - 0.22 - 0.20
-    sphere(f"BandRivet{i}", 0.115, (r * math.cos(a), y, z),
-           COPPER, pivot, scale=(1.0, 0.90, 1.0), seg=24)
+    y = r * 0.90 * math.sin(a) - 0.22 - 0.24
+    sphere(f"BandRivet{i}", 0.135, (r * math.cos(a), y, z),
+           COPPER, pivot, scale=(1.0, 0.90, 1.0), seg=28)
 
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.12, 0.17, 0.25), rough=0.22, metal=0.84, coat=0.42)
@@ -858,7 +859,7 @@ def arm_curve_x(t):
 
 def arm_curve_y(t, style="outer"):
     # Keep every visible arm on the camera-facing side; rear supports remain slightly tucked back.
-    depth = {"outer": -1.40, "front": -1.48, "inner": -1.30, "rear": -1.18}.get(style, -0.90)
+    depth = {"outer": -1.40, "front": -1.48, "inner": -1.30, "rear": -1.48}.get(style, -0.90)
     return depth * math.sin(math.pi * t)
 
 
@@ -884,7 +885,7 @@ def arm_center(t, style="outer", mirror=False):
     """Paired camera-facing paths: outer C-hooks, curled front arms, and tucked rear supports."""
     if style == "outer":
         # Side arms sweep outward, then curl sharply back toward the mantle like the reference.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.82, -0.04), (2.25, -1.55), (0.56, 0.28)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.82, -0.04), (2.20, -1.65), (0.48, 0.68)
     elif style == "front":
         # Front arms fan outward before dropping into separate rounded tips.
         p0, p1, p2, p3 = (0.0, 0.0), (0.70, -0.02), (1.68, -1.88), (0.62, -1.70)
@@ -893,7 +894,7 @@ def arm_center(t, style="outer", mirror=False):
         p0, p1, p2, p3 = (0.0, 0.0), (0.32, -0.04), (0.98, -1.54), (0.18, -1.42)
     else:
         # Rear supports descend below the front arms and peek through the gaps.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.26, -0.04), (0.96, -1.30), (0.62, -1.10)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.12, -0.04), (0.34, -1.48), (0.08, -1.62)
 
 
     u = 1.0 - t
@@ -969,8 +970,8 @@ ARM_LAYOUT = (
     ((1.28, -0.58, -1.54), 0.0, "outer"),
     ((-0.30, -0.68, -1.64), 0.0, "inner"),
     ((0.30, -0.68, -1.64), 0.0, "inner"),
-    ((-0.66, -0.44, -1.58), 0.0, "rear"),
-    ((0.66, -0.44, -1.58), 0.0, "rear"),
+    ((-0.66, -0.98, -1.60), 0.0, "rear"),
+    ((0.66, -0.98, -1.60), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
