@@ -215,7 +215,7 @@ fun WeaponLayer(
     aimY: Float = 0.5f
 ) {
     // הכוונה המוחלקת: הרובה "רודף" אחרי הכוונת בהאטה, כדי שהסיבוב יהיה זורם ולא קופץ
-    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat(), 1f, 7f, -10f, 7f) }
+    val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat(), 1f, 7f, -10f, 7f, Float.NaN, 0f, 0f, 0f, 0f, 0f) }
     Canvas(modifier = modifier.fillMaxSize()) {
         val now = nowNanos / 1e9f
         val dt = if (smooth[2] == 0f) 0f else (now - smooth[2]).coerceIn(0f, 0.1f)
@@ -383,13 +383,26 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             // החלפת תא: מעבר רך קצר מהתא הקודם, כדי שלא יהיו קפיצות
             if (cell != state[5].toInt()) {
                 state[7] = state[5]; state[5] = cell.toFloat(); state[6] = timeSeconds
+                if (!state[8].isNaN()) {
+                    // רציפות: הלוע והזווית מתחילים במקום שבו היו לפני ההחלפה ומתכנסים בהדרגה
+                    state[11] = (state[8] - muzzle.x).coerceIn(-220f, 220f)
+                    state[12] = (state[9] - muzzle.y).coerceIn(-220f, 220f)
+                    state[13] = (state[10] - totalRot).coerceIn(-25f, 25f)
+                }
             }
+            val ck = (1f - (timeSeconds - state[6]) / 0.14f).coerceIn(0f, 1f).let { it * it }
+            val cex = state[11] * ck; val cey = state[12] * ck; val cer = state[13] * ck
+            val crr = Math.toRadians(cer.toDouble()); val ccs = kotlin.math.cos(crr).toFloat(); val csn = kotlin.math.sin(crr).toFloat()
+            val ovx = origin.x - muzzle.x; val ovy = origin.y - muzzle.y
+            val originV = Offset(muzzle.x + ovx * ccs - ovy * csn + cex, muzzle.y + ovx * csn + ovy * ccs + cey)
+            val muzzleV = Offset(muzzle.x + cex, muzzle.y + cey)
+            state[8] = muzzleV.x; state[9] = muzzleV.y; state[10] = totalRot + cer
             val fade = ((timeSeconds - state[6]) / 0.09f).coerceIn(0f, 1f)
             val fromCell = state[7].toInt().coerceIn(0, art.cols * ANGLE_ROWS - 1)
 
             // הקו נמשך בישר מגב הרובה דרך הלוע אל הכוונת. מצויר מתחת לרובה, אז נראה יוצא מהקצה
-            if (tracerTarget != null) drawTracer(origin, tracerTarget, since)
-            rotate(totalRot, pivot) {
+            if (tracerTarget != null) drawTracer(originV, tracerTarget, since)
+            translate(cex, cey) { rotate(cer, muzzle) { rotate(totalRot, pivot) {
                 translate(ox, oy) {
                     if (fade < 1f) {
                         drawImage(
@@ -409,19 +422,19 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
                         alpha = fade
                     )
                 }
-            }
+            } } }
             // הבזק ירי מעל הלוע (חיבור אור), דועך תוך 90ms, מכוון אל הכוונת
             if (!reloading && since < 0.09f) {
                 val a = (1f - since / 0.09f).coerceIn(0f, 1f)
                 val fw = w * 0.9f
                 val fh = fw * art.flash.height / art.flash.width
-                val flashRot = Math.toDegrees(kotlin.math.atan2((tx - muzzle.x).toDouble(), (muzzle.y - ty).toDouble())).toFloat().coerceIn(-85f, 85f)
-                rotate(flashRot, muzzle) {
+                val flashRot = Math.toDegrees(kotlin.math.atan2((tx - muzzleV.x).toDouble(), (muzzleV.y - ty).toDouble())).toFloat().coerceIn(-85f, 85f)
+                rotate(flashRot, muzzleV) {
                     drawImage(
                         image = art.flash,
                         srcOffset = IntOffset.Zero,
                         srcSize = IntSize(art.flash.width, art.flash.height),
-                        dstOffset = IntOffset((muzzle.x - fw / 2f).toInt(), (muzzle.y - fh * 0.80f).toInt()),
+                        dstOffset = IntOffset((muzzleV.x - fw / 2f).toInt(), (muzzleV.y - fh * 0.80f).toInt()),
                         dstSize = IntSize(fw.toInt(), fh.toInt()),
                         alpha = a,
                         blendMode = androidx.compose.ui.graphics.BlendMode.Plus
