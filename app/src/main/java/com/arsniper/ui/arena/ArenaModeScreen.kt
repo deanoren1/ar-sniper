@@ -327,6 +327,11 @@ fun ArenaModeScreen(
                 modifier = Modifier.fillMaxSize().background(Color(0xF0050B1C)).clickable { showWorlds = false },
                 contentAlignment = Alignment.Center
             ) {
+                androidx.activity.compose.BackHandler { showWorlds = false }
+                GameIconButton(
+                    icon = GameIcon.Back, onClick = { showWorlds = false }, style = GameButtonStyle.Primary, size = 36.dp,
+                    modifier = Modifier.align(Alignment.TopStart).padding(10.dp)
+                )
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
