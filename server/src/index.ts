@@ -262,9 +262,9 @@ const SHORT_PROMPTS: Record<string, string> = {
   tundra:
     "Transform this exact photo into a frozen tundra winter scene, photorealistic, AAA game look. " +
     "Heavy snow on every upward-facing surface, frost on walls and objects, long icicles hanging from every overhead edge, glossy icy floor with snow patches. " +
-    "Cold cinematic light, blue shadows, cyan highlights, warm lights stay recognizable. Far end clearly visible, no fog wall. Sharp, high contrast. " +
-    "Keep the exact camera, framing and the position and shape of every wall, pillar, object and opening; do not move or remove anything. " +
-    "Add only these: 2 large jagged ice rock masses on the floor, as tall as a standing person, far apart, and 1 thick ice column reaching from floor to ceiling, none in the center; no crates or boxes. " +
+    "Cold cinematic light, blue shadows, cyan highlights. Far end clearly visible. " +
+    "Keep the exact camera, framing and the position and shape of every wall, pillar, object and opening; every existing object (cabinets, bicycles) stays visible where it is. " +
+    "Add only these: 2 large jagged ice rock masses on empty floor only, as tall as a standing person, far apart, and 1 thick ice column reaching from floor to ceiling, none in the center; no crates or boxes. " +
     "No people, no text. Keep exact dimensions; no crop.",
   tundra_mid:
     "Transform this exact photo into a frozen tundra winter scene, painterly game concept art, stylized realism, soft brushwork, slightly saturated colors, gentle glow. " +
