@@ -128,9 +128,17 @@ object AiWorld {
     private fun worldFile(context: Context, photoKey: String, serverStyle: String) =
         java.io.File(java.io.File(context.filesDir, "ai_world").apply { mkdirs() }, "${photoKey}_$serverStyle.jpg")
 
+    /** עולם שנוצר בעבר לאותה תמונה ובאותה משפחת ארנה בסגנון ישן (למשל tundra במקום tundra_mid): משתמשים בו במקום ליצור מחדש */
+    private fun olderWorldFile(context: Context, photoKey: String, serverStyle: String): java.io.File? {
+        val family = serverStyle.substringBefore("_")
+        val pattern = Regex("^" + Regex.escape(photoKey) + "_" + Regex.escape(family) + "(_[a-z]+)?\\.jpg$")
+        val dir = java.io.File(context.filesDir, "ai_world")
+        return (dir.listFiles() ?: emptyArray()).filter { pattern.matches(it.name) }.maxByOrNull { it.lastModified() }
+    }
+
     /** עולם AI שכבר נוצר לתמונה הזאת (מטמון בדיסק), או null */
     fun cachedWorld(context: Context, photoKey: String, serverStyle: String): Bitmap? =
-        worldFile(context, photoKey, serverStyle).takeIf { it.exists() }?.let { f ->
+        (worldFile(context, photoKey, serverStyle).takeIf { it.exists() } ?: olderWorldFile(context, photoKey, serverStyle))?.let { f ->
             // תמונת AI גדולה מאוד מכבידה על ה-GPU בכל פריים: מקטינים בפענוח לצלע ארוכה של עד ~2200
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(f.absolutePath, bounds)
