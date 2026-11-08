@@ -17,6 +17,7 @@
  */
 
 import { LAB_HTML } from "./lab";
+import { PRIVACY_HTML, CONTACT_EMAIL } from "./privacy";
 
 export interface Env {
   ROOMS: DurableObjectNamespace;
@@ -592,6 +593,7 @@ export default {
       const { used } = await (await stub.fetch(`https://quota/peek?day=${today()}`)).json<{ used: number }>();
       return Response.json({ limit, left: Math.max(0, limit - used) }, { headers: { "cache-control": "no-store" } });
     }
+    if (url.pathname === "/privacy") return CONTACT_EMAIL.startsWith("__") ? new Response("Not found", { status: 404 }) : new Response(PRIVACY_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } });
     if (url.pathname === "/lab") return new Response(LAB_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 
     const match = url.pathname.match(/^\/room\/([A-Za-z0-9]{4,8})$/);
