@@ -116,7 +116,7 @@ def glass_mat():
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
     # Keep the dome almost invisible across the face, then build a blue Fresnel
     # rim at grazing angles. The previous center mix tinted the whole eye blue.
-    shell.inputs["Base Color"].default_value = (0.30, 0.49, 0.86, 1.0)
+    shell.inputs["Base Color"].default_value = (0.34, 0.54, 0.89, 1.0)
     shell.inputs["Roughness"].default_value = 0.065
     shell.inputs["Metallic"].default_value = 0.0
     shell.inputs["Coat Weight"].default_value = 0.92
@@ -132,8 +132,8 @@ def glass_mat():
     layer.inputs["Blend"].default_value = 0.16
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.62
-    edge_tint.inputs[2].default_value = 0.15
+    edge_tint.inputs[1].default_value = 0.58
+    edge_tint.inputs[2].default_value = 0.20
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -205,7 +205,7 @@ ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.028, 0.001, 0.075), rough=0.58, coat=0.08)
-SUCKER_RIM = mat("SuckerRim", (0.30, 0.012, 0.48), rough=0.42, coat=0.22)
+SUCKER_RIM = mat("SuckerRim", (0.11, 0.006, 0.20), rough=0.56, coat=0.08)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.90, 0.028, 0.86), rough=0.14, coat=0.94,
                 emit=(0.035, 0.0, 0.055), strength=0.035)
@@ -537,7 +537,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.025
     spot_material = SPOT
-    skin_patch(f"BodySpot{i}", x, z, rx * 1.50, rz * 1.50, spot_material, pivot, angle=angle)
+    skin_patch(f"BodySpot{i}", x, z, rx * 1.62, rz * 1.62, spot_material, pivot, angle=angle)
 
 # A few smaller cheek flecks preserve the scattered organic markings from the reference.
 for i, (sx, sz, rx, rz) in enumerate((
@@ -547,7 +547,7 @@ for i, (sx, sz, rx, rz) in enumerate((
     (-1.14, -0.48, 0.078, 0.056), (1.14, -0.48, 0.078, 0.056),
     (-1.12, 0.62, 0.072, 0.052), (1.12, 0.62, 0.072, 0.052),
 )):
-    skin_patch(f"SmallBodySpot{i}", sx, sz, rx * 1.28, rz * 1.28, SPOT, pivot, segments=36)
+    skin_patch(f"SmallBodySpot{i}", sx, sz, rx * 1.18, rz * 1.18, SPOT, pivot, segments=36)
 
 # Additional small side flecks break up the broad bare panels without turning into camouflage.
 for i, (sx, sz, rx, rz, angle) in enumerate((
@@ -577,7 +577,7 @@ for i, (x, base_z, height) in enumerate((
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.86, 0.18  # Lift and slightly round the eye so the mouth has its own clear space.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.84, 1.00, 0.84)  # reveal the broad magenta mantle around the cyclopean eye.
+eye.scale = (0.90, 1.00, 0.90)  # reveal the broad magenta mantle around the cyclopean eye.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 1.10, (0, 0, 0), EYE_WHITE, eye, scale=(1.05, 0.92, 0.90), seg=64),
@@ -597,7 +597,7 @@ for j in range(97):
     inside = max(0.015, 1.0 - (x / eye_white_rx) ** 2 - (z / eye_white_rz) ** 2)
     y = -eye_white_ry * math.sqrt(inside) - 0.018
     eye_rim_points.append((x, y, z))
-eye_rim = pipe_curve("EyeMagentaRim", eye_rim_points, LID, eye, bevel=0.072)
+eye_rim = pipe_curve("EyeMagentaRim", eye_rim_points, LID, eye, bevel=0.078)
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
 
 
@@ -777,7 +777,7 @@ def make_dome_hemisphere(name, parent, center_z, radii, material):
     verts = [(0.0, 0.0, center_z + radii[2])]
     faces = []
     for ri in range(1, rings + 1):
-        theta = 2.08 * ri / rings
+        theta = 1.82 * ri / rings
         radial = math.sin(theta)
         z = center_z + radii[2] * math.cos(theta)
         for j in range(sides):
@@ -829,7 +829,7 @@ pipe_curve("DomeBlueArch", dome_arch, DOME_RIM, torso, bevel=0.070)
 for side in (-1, 1):
     side_points = []
     for i in range(25):
-        theta = 0.52 + 1.50 * i / 24.0
+        theta = 0.52 + 1.30 * i / 24.0
         radial = math.sin(theta)
         x = side * DOME_RADII[0] * radial * 0.975
         z = DOME_CENTER_Z + DOME_RADII[2] * math.cos(theta)
@@ -1029,12 +1029,12 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 0.985
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.54, rr * 0.54, rr * 0.050), rot=normal_rot(cup_normal), seg=28)
+               scale=(rr * 0.49, rr * 0.49, rr * 0.045), rot=normal_rot(cup_normal), seg=28)
         rim_pos = center + cup_normal * rr * 1.002
-        torus(f"SuckerRim{i}_{q}", rr * 0.48, rr * 0.050, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.40, rr * 0.035, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
-    for q, t in enumerate((0.24, 0.52, 0.78)):
+    for q, t in enumerate((0.30, 0.74)):
         center = arm_center(t, style, mirror)
         before = arm_center(max(0.0, t - 0.002), style, mirror)
         after = arm_center(min(1.0, t + 0.002), style, mirror)
@@ -1048,7 +1048,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         spot_pos = center + spot_normal * rr * 1.012
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.84, rr * 0.58, rr * 0.055), rot=normal_rot(spot_normal), seg=24)
+               scale=(rr * 0.70, rr * 0.48, rr * 0.050), rot=normal_rot(spot_normal), seg=24)
     tip_loc = tuple(arm_center(1.0, style, mirror))
     sphere(f"ArmRoundedTip{i}", 0.44, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.03, 1.0, 0.96), seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
