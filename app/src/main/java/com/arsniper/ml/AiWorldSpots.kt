@@ -30,6 +30,9 @@ object AiWorldSpots {
      * מוסיף ל-SceneSession מחבואי צמחים מתמונת ה-AI. חוסם (כמה שניות): להריץ מחוץ לתהליך הראשי.
      * מחזיר כמה מחבואים נוספו (0 = אין שינוי).
      */
+    /** מידע אבחון על הריצה האחרונה (לאיתור למה אין מחסים בעולם AI) */
+    @Volatile var lastDebug: String = ""
+
     fun addPlantSpots(context: Context, aiWorld: Bitmap, hideNames: List<String> = PLANT_NAMES): Int {
         val original = SceneSession.analysis ?: return 0
         val model = ModelStore.tipsModelFile(context)
@@ -60,13 +63,15 @@ object AiWorldSpots {
         val labels = original.labelBytes().copyOf()
         val depth = original.depth.copyOf()
         var painted = 0
+        val counts = IntArray(150)
         for (y in 0 until h) {
             val ay = (y * ai.height / h).coerceIn(0, ai.height - 1)
             for (x in 0 until w) {
                 val ax = (x * ai.width / w).coerceIn(0, ai.width - 1)
                 val aiLabel = ai.labelIndex(ay * ai.width + ax)
-                if (aiLabel !in plants) continue
                 val i = y * w + x
+                if (aiLabel in 0..149 && original.labelIndex(i) in background) counts[aiLabel]++
+                if (aiLabel !in plants) continue
                 if (original.labelIndex(i) !in background) continue
                 labels[i] = aiLabel.toByte()
                 val aiDepth = ai.depth[ay * ai.width + ax]
@@ -74,6 +79,9 @@ object AiWorldSpots {
                 painted++
             }
         }
+        val top = counts.withIndex().filter { it.index !in background }.sortedByDescending { it.value }.take(5)
+            .joinToString(" ") { Ade20kClasses.name(it.index) + ":" + it.value * 1000 / (w * h) }
+        lastDebug = "painted=${painted * 1000 / (w * h)}/1000 need=${1000 / 400 + 0}/1000 top(per mille over floor/wall): $top"
         if (painted < w * h / 400) return null
         return SceneAnalysis(w, h, labels, depth, original.tileCount)
     }
