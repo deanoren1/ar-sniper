@@ -115,7 +115,8 @@ async function restyle(request: Request, env: Env): Promise<Response> {
   const dedupe = reqUrl.searchParams.get("sandbox") !== "1" && reqUrl.searchParams.get("nocache") !== "1";
   let cacheStub: DurableObjectStub | null = null;
   if (dedupe) {
-    const keyText = `${await sha256Hex(body)}:${await sha256Hex(new TextEncoder().encode(reqUrl.search))}`;
+    const promptHash = (await sha256Hex(new TextEncoder().encode((SHORT_PROMPTS[style] ?? "") + prompt))).slice(0, 12);
+    const keyText = `${await sha256Hex(body)}:${await sha256Hex(new TextEncoder().encode(reqUrl.search))}:${promptHash}`;
     cacheStub = env.QUOTA.get(env.QUOTA.idFromName(`img:${keyText}`));
     for (let wait = 0; wait < 45; wait++) {
       const begin = await (await cacheStub.fetch("https://quota/img-begin", { method: "POST" })).text();
