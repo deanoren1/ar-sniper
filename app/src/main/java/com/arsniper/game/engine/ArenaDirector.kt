@@ -246,6 +246,25 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         loadWave(waveIndex)
     }
 
+    /** עולם הקרח: הבוס מתנהל מחוץ למנהל. המנהל רק עובר לקרב כדי שלבבות ופגיעות ימשיכו לעבוד כרגיל */
+    fun enterRealm() {
+        if (phase == ArenaPhase.Intro) {
+            phase = ArenaPhase.Fighting
+            bossAlive = false
+        }
+    }
+
+    /** עולם הקרח: המנהל לא רץ בזמן הבוס, אז זמן החסינות אחרי פגיעה מתקדם כאן */
+    fun realmTick(dt: Float) { invulnerableLeft = max(0f, invulnerableLeft - dt) }
+
+    /** עולם הקרח: הבוס נוצח, הארנה נוצחת */
+    fun realmWon() {
+        if (phase == ArenaPhase.Fighting) {
+            pendingBonus += BOSS_BONUS
+            phase = ArenaPhase.Won
+        }
+    }
+
     /** פרס לב: מחזיר לב אחד. true אם הוסיף (כלומר חסר לב) */
     fun heal(): Boolean {
         if (phase != ArenaPhase.Fighting || hearts >= MAX_HEARTS) return false

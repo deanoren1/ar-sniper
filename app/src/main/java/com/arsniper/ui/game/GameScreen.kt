@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalDensity
 import com.arsniper.pano.HeadingTracker
 import com.arsniper.pano.PanoramaStore
 import com.arsniper.pano.wrapAngle
+import com.arsniper.game.engine.IceRealm
 import com.arsniper.game.engine.Shot
 import com.arsniper.game.engine.ShotKind
 import com.arsniper.game.engine.TelegraphView
@@ -231,6 +232,8 @@ fun GameScreen(
     var tracerTarget by remember { mutableStateOf<Offset?>(null) }
     val difficulty = remember { PlayerProfile.difficulty }
     val director = remember { ArenaDirector(difficulty.apply(ArenaDirector.DEFAULT_WAVES)) }
+    // ארנת הקרח: גל הבוס מתנהל בעולם הקרח (בוס ענק ויהלומים), לא בדרקון
+    val realm = remember { IceRealm() }
     // התגמול בהתאם לקושי; כל מקום שמצטבר בו ניקוד עובר דרך זה, כדי שהמספרים יהיו עקביים
     fun scaled(points: Int): Int = (points * difficulty.rewardScale).roundToInt()
     val context0 = LocalContext.current
@@ -538,6 +541,7 @@ fun GameScreen(
                     waited += 1
                 }
             }
+            realm.reset()
             director.restart()
             started = true
         }
@@ -562,7 +566,32 @@ fun GameScreen(
                         if (wx > 1f - ext) wx -= ring else if (wx < ext) wx += ring
                         if (wx != crosshair.x) crosshair = Vec2(wx, crosshair.y)
                     }
-                    if (!isGuest && started && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
+                    if (!isGuest && coop == null && style == ArenaStyle.Tundra && started && director.isBossWave &&
+                        director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost && !realm.active && !realm.finished
+                    ) {
+                        realm.begin()
+                        director.enterRealm()
+                        enemies = emptyList()
+                        fire.reset()
+                        soundPlayer.play(Sfx.BossRoar)
+                    }
+                    if (realm.active) {
+                        director.realmTick(dt)
+                        realm.update(
+                            dt,
+                            onPlayerHit = {
+                                if (director.hitPlayer()) {
+                                    soundPlayer.play(Sfx.PlayerHit)
+                                    sfxMemo.damagedThisWave = true
+                                    shake = max(shake, 0.7f)
+                                    combo.reset()
+                                    flash = FLASH_START
+                                }
+                            },
+                            onWin = { director.realmWon() }
+                        )
+                    }
+                    if (!isGuest && started && !realm.active && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
                         enemies = withHp(engine.update(enemies, dt))
                         // מפלצת שמתה (חוץ מהבוס ומהמפלצות שמתפוצצות איתו): אולי נופל פרס
                         for (e in enemies) {
@@ -1282,6 +1311,27 @@ fun GameScreen(
 
     // לחיצה על ירי: פרס בכוונת, מחסנית/טעינה, ואז כל הכדורים של הנשק (פיזור = כמה כדורים)
     fun fireNow() {
+        if (realm.active) {
+            if (!realm.fighting) return
+            when (weapon.tryFire()) {
+                ShotResult.Fired -> {
+                    soundPlayer.playShot(equippedId)
+                    tracerTarget = Offset(crosshairOnScreen.x, crosshairOnScreen.y)
+                }
+                else -> {
+                    soundPlayer.play(Sfx.Empty)
+                    return
+                }
+            }
+            when (realm.shoot(crosshairOnScreen.x, crosshairOnScreen.y, viewAspect, realmBob(realm.time))) {
+                IceRealm.Hit.Deflect -> soundPlayer.play(Sfx.Deflect)
+                IceRealm.Hit.Hit, IceRealm.Hit.Cancel -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.2f) }
+                IceRealm.Hit.Broke -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.45f) }
+                IceRealm.Hit.Killed -> { soundPlayer.play(Sfx.BossRoar); shake = max(shake, 0.8f) }
+                IceRealm.Hit.None -> Unit
+            }
+            return
+        }
         if (director.phase != ArenaPhase.Fighting) {
             soundPlayer.playShot(equippedId)
             return
@@ -1368,6 +1418,7 @@ fun GameScreen(
         slimeSplats = emptyList()
         sfxMemo.phase = null
         sfxMemo.damagedThisWave = true
+        realm.reset()
         director.revive()
     }
 
@@ -1401,6 +1452,7 @@ fun GameScreen(
         AttackPose.sinceLaunch = emptyMap()
         AttackPose.bossStunned = false
         AttackPose.bossEnraged = false
+        realm.reset()
         director.restart()
     }
 
@@ -1569,6 +1621,9 @@ fun GameScreen(
         }
 
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
+
+        // עולם הקרח (בוס ארנת הקרח): שכבה קבועה למסך מעל הארנה ומתחת לכוונת, לנשק ולממשק
+        IceRealmLayer(realm = realm, nowNanos = frameNanos)
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
         SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)
