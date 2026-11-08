@@ -132,8 +132,8 @@ def glass_mat():
     layer.inputs["Blend"].default_value = 0.16
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.64
-    edge_tint.inputs[2].default_value = 0.22
+    edge_tint.inputs[1].default_value = 0.82
+    edge_tint.inputs[2].default_value = 0.035
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -143,8 +143,8 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.86, 0.03, 0.96), rough=0.19, coat=0.84,
-             emit=(0.055, 0.0, 0.085), strength=0.055)
+PURPLE = mat("Purple", (0.90, 0.035, 0.99), rough=0.19, coat=0.84,
+             emit=(0.075, 0.0, 0.105), strength=0.075)
 add_skin(PURPLE, scale=18.0, strength=0.012)  # richer magenta-violet closer to the reference
 PURPLE_DARK = mat("PurpleDark", (0.19, 0.006, 0.31), rough=0.28, coat=0.55)
 LID = mat("Lid", (0.88, 0.025, 0.66), rough=0.23, coat=0.72)
@@ -204,8 +204,8 @@ ORB = mat("Orb", (0.6, 0.15, 1.0), emit=(0.6, 0.15, 1.0), strength=1.3)
 ORB_CORE = mat("OrbCore", (1, 1, 1), emit=(0.9, 0.7, 1.0), strength=3.5)
 STAR = mat("Star", (1.0, 0.85, 0.1), emit=(1.0, 0.8, 0.1), strength=5.0)
 XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
-SUCKER = mat("Sucker", (0.055, 0.002, 0.12), rough=0.52, coat=0.12)
-SUCKER_RIM = mat("SuckerRim", (0.55, 0.035, 0.74), rough=0.38, coat=0.30)
+SUCKER = mat("Sucker", (0.028, 0.001, 0.075), rough=0.58, coat=0.08)
+SUCKER_RIM = mat("SuckerRim", (0.30, 0.012, 0.48), rough=0.42, coat=0.22)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
 TENTACLE = mat("Tentacle", (0.90, 0.028, 0.86), rough=0.17, coat=0.88,
                 emit=(0.035, 0.0, 0.055), strength=0.035)
@@ -577,7 +577,7 @@ for i, (x, base_z, height) in enumerate((
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.86, 0.18  # Lift and slightly round the eye so the mouth has its own clear space.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (1.05, 1.00, 0.98)  # restore the broad cyclopean eye-to-mantle ratio from the reference.
+eye.scale = (0.84, 1.00, 0.84)  # reveal the broad magenta mantle around the cyclopean eye.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 1.10, (0, 0, 0), EYE_WHITE, eye, scale=(1.05, 0.92, 0.90), seg=64),
@@ -654,11 +654,11 @@ def make_upper_eyelid(parent):
 
 # Open smile with a visible soft lip rim and a recessed dark cavity.
 # Compact horizontal smile, separated from the eye and collar like the reference.
-mouth = empty("Mouth", pivot, loc=(0, -1.46, -0.56))
-mouth.scale = (0.98, 1.0, 0.82)  # narrower, flatter smile like the supplied character.
+mouth = empty("Mouth", pivot, loc=(0, -1.46, -0.48))
+mouth.scale = (0.90, 1.0, 0.82)  # keep the grin proportional after reducing the eye.
 mouth_lip = torus("MouthLipRing", 0.84, 0.060, (0, -0.56, 0), MOUTH_LIP, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.08, 0.34, 1.0)  # compact horizontal smile, smaller than the eye.
+mouth_lip.scale = (1.04, 0.34, 1.0)  # compact horizontal smile, smaller than the eye.
 mouth_parts = [
     mouth_lip,
     sphere("MouthCavity", 0.72, (0, -0.30, 0.025), MOUTH, mouth,
@@ -707,7 +707,7 @@ for i in range(11):
 # Heavier industrial side canisters: broader gunmetal collars, larger flame plates and brass fittings.
 PIPE_DARK = mat("PipeDark", (0.12, 0.17, 0.25), rough=0.22, metal=0.84, coat=0.42)
 tank_rig = empty("TankRig", torso)
-tank_rig.scale = (0.92, 0.94, 1.24)  # bring the canisters closer and reduce their visual dominance.
+tank_rig.scale = (0.92, 0.94, 0.88)  # shorter side canisters, matching the reference body-to-tank ratio.
 for side, sx in (("L", -1), ("R", 1)):
     tx, ty = 2.95 * sx, 0.24  # attach the smaller canisters closer to the mantle, like the reference.
     tank_body = cylinder(f"Tank{side}", 0.82, 2.82, (tx, ty, 0.015), TANK, tank_rig)
@@ -883,10 +883,10 @@ def arm_curve_x(t):
 def arm_curve_y(t, style="outer"):
     # Keep the front arms close enough to the body to expose the mouth and collar;
     # the rear pair sits behind the mantle and only peeks through the lower gaps.
-    depth = {"outer": -0.92, "front": -1.02, "inner": -0.94, "rear": -0.36}.get(style, -0.90)
+    depth = {"outer": -1.00, "front": -1.10, "inner": -1.00, "rear": -0.54}.get(style, -0.90)
     if style == "outer":
         # Keep the curled tip on the front hemisphere; returning to y=0 hid it behind the mantle.
-        return -0.58 * t + depth * math.sin(math.pi * t)
+        return -0.62 * t + depth * math.sin(math.pi * t)
     if style == "rear":
         # Rear supports start behind the mantle, then sweep forward through the lower gaps.
         return -0.28 * t + depth * math.sin(math.pi * t)
@@ -902,28 +902,28 @@ def arm_curve_z(t):
 def arm_radius(t):
     # Taper the plush tubes so the eight separate arms read as tentacles, not fingers.
     if t < 0.18:
-        return 0.315 + 0.008 * math.sin((t / 0.18) * math.pi * 0.5)
+        return 0.360 + 0.010 * math.sin((t / 0.18) * math.pi * 0.5)
     if t < 0.66:
         u = (t - 0.18) / 0.48
-        return 0.340 - 0.035 * u
+        return 0.390 - 0.040 * u
     u = min(1.0, max(0.0, (t - 0.66) / 0.34))
-    return 0.305 + 0.050 * (u * u)
+    return 0.350 + 0.055 * (u * u)
 
 
 def arm_center(t, style="outer", mirror=False):
     """Eight distinct paths: two lifted side hooks, four hanging arms and two rear supports."""
     if style == "outer":
         # Wide sweep followed by a tighter return: a visible C-shaped hook at each side.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.58, -0.05), (1.36, 0.12), (0.70, 0.72)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.62, -0.08), (1.58, 0.38), (0.92, 1.02)
     elif style == "front":
         # The front pair fans outward and ends lower, with space between the rounded tips.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.72, -0.10), (1.92, -1.36), (1.42, -2.22)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.70, -0.08), (1.82, -1.42), (1.48, -2.16)
     elif style == "inner":
         # The inner pair is shorter and slightly tucked, so the front silhouette is not a row of fingers.
         p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.06), (0.96, -1.22), (0.58, -1.98)
     else:
         # Rear supports sit just behind the front pair but emerge beyond the mantle silhouette.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.06), (1.10, -1.12), (1.12, -1.82)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.03), (1.20, -1.08), (1.32, -1.76)
 
 
     u = 1.0 - t
@@ -993,14 +993,14 @@ arms = []   # לכל זרוע: (שורש, [מפרקים 0..3], הטיית שור
 tips = []
 # Explicit roots prevent overlapping front pairs and keep the tentacle silhouette readable.
 ARM_LAYOUT = (
-    ((-1.38, -0.48, -1.42), 0.0, "outer"),
-    ((-1.08, -0.20, -1.82), 0.0, "front"),
-    ((1.08, -0.20, -1.82), 0.0, "front"),
-    ((1.38, -0.48, -1.42), 0.0, "outer"),
-    ((-0.38, -0.12, -1.86), 0.0, "inner"),
-    ((0.38, -0.12, -1.86), 0.0, "inner"),
-    ((-0.82, 0.00, -1.58), 0.0, "rear"),
-    ((0.82, 0.00, -1.58), 0.0, "rear"),
+    ((-1.92, -0.58, -1.35), 0.0, "outer"),
+    ((-1.38, -0.24, -1.82), 0.0, "front"),
+    ((1.38, -0.24, -1.82), 0.0, "front"),
+    ((1.92, -0.58, -1.35), 0.0, "outer"),
+    ((-0.46, -0.10, -1.86), 0.0, "inner"),
+    ((0.46, -0.10, -1.86), 0.0, "inner"),
+    ((-1.10, 0.10, -1.60), 0.0, "rear"),
+    ((1.10, 0.10, -1.60), 0.0, "rear"),
 )
 for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     mirror = root_loc[0] < 0.0
@@ -1029,9 +1029,9 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Dark centers sit just below the skin surface; a subtle raised lip sells a real cup.
         hole_pos = center + cup_normal * rr * 0.985
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.50, rr * 0.50, rr * 0.055), rot=normal_rot(cup_normal), seg=28)
+               scale=(rr * 0.62, rr * 0.62, rr * 0.060), rot=normal_rot(cup_normal), seg=28)
         rim_pos = center + cup_normal * rr * 1.002
-        torus(f"SuckerRim{i}_{q}", rr * 0.46, rr * 0.075, tuple(rim_pos),
+        torus(f"SuckerRim{i}_{q}", rr * 0.56, rr * 0.095, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         # The dark inset and low-contrast lip read as suction cups rather than flat stickers.
     for q, t in enumerate((0.24, 0.52, 0.78)):
@@ -1048,9 +1048,9 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         rr = arm_radius(t) * (0.82 if style == "rear" else 1.0)
         spot_pos = center + spot_normal * rr * 1.012
         sphere(f"ArmSpot{i}_{q}", 1.0, tuple(spot_pos), SPOT, root,
-               scale=(rr * 0.58, rr * 0.40, rr * 0.032), rot=normal_rot(spot_normal), seg=24)
+               scale=(rr * 0.64, rr * 0.44, rr * 0.040), rot=normal_rot(spot_normal), seg=24)
     tip_loc = tuple(arm_center(1.0, style, mirror))
-    sphere(f"ArmRoundedTip{i}", 0.36, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.03, 1.0, 0.96), seg=32)
+    sphere(f"ArmRoundedTip{i}", 0.40, tuple(arm_center(0.985, style, mirror)), TENTACLE if style != "rear" else REAR_TENTACLE, root, scale=(1.03, 1.0, 0.96), seg=32)
     tips.append(empty(f"Tip{i}", root, loc=tip_loc))
     arms.append((root, joints, tilt))
 
@@ -1147,7 +1147,7 @@ def fit_character_camera():
     monster.rotation_euler[2] = original_angle
     bpy.context.view_layer.update()
     # Ortho scale must exceed the character bounds; 1.10 leaves a safe margin around the dome and arm tips.
-    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.00
+    cam_data.ortho_scale = max(max(widths), max(heights)) * 1.08
     cam.location.x = sum(centers_x) / len(centers_x)
     cam.location.z = sum(centers_z) / len(centers_z)
     bpy.context.view_layer.update()
@@ -1187,7 +1187,7 @@ HERO_BACKDROP = bpy.data.materials.new("HeroBackdrop")
 HERO_BACKDROP.use_nodes = True
 HERO_BACKDROP.node_tree.nodes.clear()
 hero_bg_emission = HERO_BACKDROP.node_tree.nodes.new("ShaderNodeEmission")
-hero_bg_emission.inputs["Color"].default_value = (0.56, 0.56, 0.58, 1.0)
+hero_bg_emission.inputs["Color"].default_value = (0.37, 0.37, 0.37, 1.0)
 hero_bg_emission.inputs["Strength"].default_value = 1.0
 hero_bg_output = HERO_BACKDROP.node_tree.nodes.new("ShaderNodeOutputMaterial")
 HERO_BACKDROP.node_tree.links.new(hero_bg_emission.outputs["Emission"], hero_bg_output.inputs["Surface"])
