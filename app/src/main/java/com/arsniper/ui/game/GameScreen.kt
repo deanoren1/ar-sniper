@@ -423,6 +423,7 @@ fun GameScreen(
         // ארנה בלי עולם AI (קלאסי): אין מה לנתח
         if (com.arsniper.ml.AiWorld.serverStyle(style) == null) return
         val hideNames = if (style == ArenaStyle.Jungle || style == ArenaStyle.Forest) listOf("plant", "flower", "palm", "tree")
+            else if (style == ArenaStyle.Tundra) com.arsniper.ml.AiWorldSpots.PROP_NAMES + "rock"
             else com.arsniper.ml.AiWorldSpots.PROP_NAMES
         val added = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             try { com.arsniper.ml.AiWorldSpots.addPlantSpots(context, world, hideNames) } catch (_: Throwable) { 0 }

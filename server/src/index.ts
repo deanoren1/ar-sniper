@@ -260,12 +260,12 @@ const MUAPI_MODELS = [
 /** גרסה קצרה של הפרומפט (ל-Muapi יש תקרה של 800 תווים לפרומפט) */
 const SHORT_PROMPTS: Record<string, string> = {
   tundra:
-    "Transform this exact photo into a dramatic frozen tundra winter scene, photorealistic, AAA game look. " +
-    "Heavy fresh snow on every upward-facing surface, frost and ice crystals on walls and objects, glossy icy reflective floor with snow patches. " +
-    "Cold cinematic light, deep blue shadows, soft cyan highlights, but keep natural color variety: warm lights and colored objects stay recognizable. " +
-    "Keep the far end of the scene clearly visible and detailed, only a light haze, no white fog wall. Sharp, high contrast, not monochrome. " +
-    "Keep the exact same camera, framing and composition, and the exact position, size and shape of every wall, pillar, object and opening. " +
-    "Do not add, remove or move anything. No people, no text. Keep exact image dimensions and aspect ratio; no crop, zoom or rotate.",
+    "Transform this exact photo into a frozen tundra winter scene, photorealistic, AAA game look. " +
+    "Heavy snow on every upward-facing surface, frost on walls and objects, glossy icy floor with snow patches. " +
+    "Cold cinematic light, blue shadows, cyan highlights, warm lights stay recognizable. Far end clearly visible, no fog wall. Sharp, high contrast. " +
+    "Keep the exact camera, framing and the position and shape of every wall, pillar, object and opening; do not move or remove anything. " +
+    "Add only 2 or 3 large natural ice formations on the floor (tall ice pillars or jagged ice boulders, as tall as a standing person), far apart, not in the center; no crates or boxes. " +
+    "No people, no text. Keep exact dimensions; no crop.",
   tundra_mid:
     "Transform this exact photo into a frozen tundra winter scene, painterly game concept art, stylized realism, soft brushwork, slightly saturated colors, gentle glow. " +
     "Heavy fresh snow on every upward-facing surface, frost and ice crystals on walls and objects, glossy icy floor with snow patches. " +
@@ -427,7 +427,7 @@ const IMG_TTL_MS = 60 * 24 * 3600 * 1000;
 
 // ───────────── עולמות קהילה ─────────────
 
-const WORLD_STYLES = new Set(["tundra_mid", "jungle_mid", "rockforest_mid", "cyber_mid", "military_mid", "ruins_mid", "market_mid", "industrial_mid"]);
+const WORLD_STYLES = new Set(["tundra", "tundra_mid", "jungle_mid", "rockforest_mid", "cyber_mid", "military_mid", "ruins_mid", "market_mid", "industrial_mid"]);
 const MAX_WORLD_BYTES = 1_800_000;
 const MAX_ANALYSIS_BYTES = 2_500_000;
 const SHARES_PER_DEVICE_PER_DAY = 10;
