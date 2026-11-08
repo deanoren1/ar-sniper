@@ -155,6 +155,7 @@ fun ArenaModeScreen(
     val context = LocalContext.current
     val lastFile = remember { PhotoLibrary.list(context).firstOrNull { PhotoLibrary.isReviewed(it) } }
     val lastThumb = remember(lastFile) { lastFile?.let { PhotoLibrary.thumbnail(it, 480) } }
+    var worldsRevision by remember { mutableStateOf(0) }
     val worlds = remember(style, worldsRevision) { allSavedWorlds(context) }
     val thisArenaWorlds = remember(worlds) { worlds.filter { it.style == style } }
     var favorites by remember { mutableStateOf(WorldFavorites.all(context)) }
@@ -168,7 +169,6 @@ fun ArenaModeScreen(
     var confirmShare by remember { mutableStateOf<SavedWorld?>(null) }
     var communityRevision by remember { mutableStateOf(0) }
     var confirmDelete by remember { mutableStateOf<SavedWorld?>(null) }
-    var worldsRevision by remember { mutableStateOf(0) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val picker = rememberGalleryPicker { uri -> PickImport.start(context, uri) }
