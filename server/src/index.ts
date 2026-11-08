@@ -261,7 +261,7 @@ const MUAPI_MODELS = [
 const SHORT_PROMPTS: Record<string, string> = {
   tundra:
     "Transform this exact photo into a frozen tundra winter scene, photorealistic, AAA game look. " +
-    "Heavy snow on every upward-facing surface, frost on walls and objects, glossy icy floor with snow patches. " +
+    "Heavy snow on every upward-facing surface, frost on walls and objects, long icicles hanging from every overhead edge, glossy icy floor with snow patches. " +
     "Cold cinematic light, blue shadows, cyan highlights, warm lights stay recognizable. Far end clearly visible, no fog wall. Sharp, high contrast. " +
     "Keep the exact camera, framing and the position and shape of every wall, pillar, object and opening; do not move or remove anything. " +
     "Add only 2 or 3 large natural ice formations on the floor (tall ice pillars or jagged ice boulders, as tall as a standing person), far apart, not in the center; no crates or boxes. " +
