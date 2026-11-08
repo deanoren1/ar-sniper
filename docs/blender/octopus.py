@@ -116,24 +116,24 @@ def glass_mat():
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
     # Keep the dome almost invisible across the face, then build a blue Fresnel
     # rim at grazing angles. The previous center mix tinted the whole eye blue.
-    shell.inputs["Base Color"].default_value = (0.30, 0.54, 0.98, 1.0)
+    shell.inputs["Base Color"].default_value = (0.22, 0.44, 0.92, 1.0)
     shell.inputs["Roughness"].default_value = 0.085
     shell.inputs["Metallic"].default_value = 0.0
     shell.inputs["Coat Weight"].default_value = 0.68
     shell.inputs["Coat Roughness"].default_value = 0.035
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.42
-        shell.inputs["Alpha"].default_value = 0.58
-        shell.inputs["Emission Color"].default_value = (0.06, 0.18, 0.50, 1.0)
-        shell.inputs["Emission Strength"].default_value = 0.10
+        shell.inputs["Transmission Weight"].default_value = 0.72
+        shell.inputs["Alpha"].default_value = 0.42
+        shell.inputs["Emission Color"].default_value = (0.035, 0.11, 0.34, 1.0)
+        shell.inputs["Emission Strength"].default_value = 0.055
     except Exception:
         pass
     layer = nt.nodes.new("ShaderNodeLayerWeight")
     layer.inputs["Blend"].default_value = 0.16
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.62
-    edge_tint.inputs[2].default_value = 0.30
+    edge_tint.inputs[1].default_value = 0.70
+    edge_tint.inputs[2].default_value = 0.035
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -154,8 +154,8 @@ SPOT = mat("Spot", (0.94, 0.045, 0.58), rough=0.27, coat=0.48,
             emit=(0.18, 0.0, 0.055), strength=0.075)
 SPOT_DARK = mat("SpotDark", (0.22, 0.008, 0.34), rough=0.40, coat=0.18)
 add_skin(SPOT, scale=22.0, strength=0.005)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.96, 0.76), rough=0.16, coat=0.70,
-                 emit=(0.34, 0.25, 0.08), strength=0.28)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.985, 0.84), rough=0.16, coat=0.70,
+                 emit=(0.42, 0.32, 0.12), strength=0.42)
 # Radial warm sclera gradient: creamy center fading to a golden-orange edge.
 eye_white_nodes = EYE_WHITE.node_tree
 eye_white_bsdf = bsdf_of(EYE_WHITE)
@@ -166,7 +166,7 @@ eye_white_dist.inputs[1].default_value = (0.5, 0.5, 0.5)
 eye_white_nodes.links.new(eye_white_tex.outputs["Generated"], eye_white_dist.inputs[0])
 eye_white_ramp = eye_white_nodes.nodes.new("ShaderNodeValToRGB")
 eye_white_ramp.color_ramp.elements[0].position = 0.38
-eye_white_ramp.color_ramp.elements[0].color = (1.0, 0.96, 0.70, 1.0)
+eye_white_ramp.color_ramp.elements[0].color = (1.0, 0.99, 0.82, 1.0)
 eye_white_ramp.color_ramp.elements[1].position = 0.86
 eye_white_ramp.color_ramp.elements[1].color = (1.0, 0.34, 0.008, 1.0)
 eye_white_mid = eye_white_ramp.color_ramp.elements.new(0.68)
@@ -174,7 +174,7 @@ eye_white_mid.color = (1.0, 0.60, 0.025, 1.0)
 eye_white_nodes.links.new(eye_white_dist.outputs["Value"], eye_white_ramp.inputs["Fac"])
 eye_white_nodes.links.new(eye_white_ramp.outputs["Color"], eye_white_bsdf.inputs["Base Color"])
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.34, 0.008), rough=0.14, coat=0.82, emit=(0.28, 0.07, 0.002), strength=0.10)
+IRIS = mat("Iris", (1.0, 0.22, 0.002), rough=0.20, coat=0.55, emit=(1.0, 0.16, 0.002), strength=0.28)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.10, coat=0.95, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -187,8 +187,8 @@ try:
 except Exception:
     pass
 SHINE = mat("Shine", (1.0, 1.0, 1.0), emit=(1.0, 1.0, 1.0), strength=6.0)
-MOUTH = mat("Mouth", (0.0002, 0.00005, 0.0002), rough=0.96)
-MOUTH_LIP = mat("MouthLip", (0.38, 0.008, 0.48), rough=0.34, coat=0.42)
+MOUTH = mat("Mouth", (0.00001, 0.00001, 0.00001), rough=0.98)
+MOUTH_LIP = mat("MouthLip", (0.82, 0.018, 0.46), rough=0.30, coat=0.50)
 TEETH = mat("Teeth", (0.95, 0.89, 0.72), rough=0.32)
 TONGUE = mat("Tongue", (1.0, 0.08, 0.34), rough=0.28, coat=0.35)
 METAL = mat("Metal", (0.30, 0.39, 0.52), rough=0.24, metal=0.78, coat=0.34)
@@ -577,7 +577,7 @@ for i, (x, base_z, height) in enumerate((
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.86, 0.38  # Lift and slightly round the eye so the mouth has its own clear space.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.82, 1.00, 0.86)  # enlarge the cyclops eye to the reference proportions.
+eye.scale = (0.98, 1.00, 0.98)  # restore the dominant eye-to-mantle ratio of the reference.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 1.10, (0, 0, 0), EYE_WHITE, eye, scale=(1.05, 0.92, 0.90), seg=64),
@@ -586,7 +586,7 @@ eye_parts = [
     sphere("Pupil", 0.36, (0, -1.18, -0.015), PUPIL, eye, scale=(0.98, 0.66, 0.94), seg=64),
     sphere("Shine", 0.13, (0.19, -1.30, 0.23), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_rim = torus("EyeMagentaRim", 1.10, 0.078, (0, -0.94, 0), LID, eye,
+eye_rim = torus("EyeMagentaRim", 1.10, 0.060, (0, -0.94, 0), LID, eye,
                 rot=(math.pi / 2, 0, 0))
 eye_rim.scale = (1.02, 1.0, 0.98)
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
@@ -874,7 +874,10 @@ def arm_curve_x(t):
 def arm_curve_y(t, style="outer"):
     # Keep the front arms close enough to the body to expose the mouth and collar;
     # the rear pair sits behind the mantle and only peeks through the lower gaps.
-    depth = {"outer": -1.22, "front": -1.34, "inner": -1.18, "rear": -0.92}.get(style, -0.90)
+    depth = {"outer": -1.05, "front": -1.34, "inner": -1.18, "rear": -0.92}.get(style, -0.90)
+    if style == "outer":
+        # Keep the curled tip on the front hemisphere; returning to y=0 hid it behind the mantle.
+        return -0.58 * t + depth * math.sin(math.pi * t)
     return depth * math.sin(math.pi * t)
 
 
@@ -899,7 +902,7 @@ def arm_center(t, style="outer", mirror=False):
     """Eight distinct paths: two lifted side hooks, four hanging arms and two rear supports."""
     if style == "outer":
         # Wide sweep followed by a tighter return: a visible C-shaped hook at each side.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.62, -0.10), (2.12, -1.08), (1.10, 1.02)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.58, -0.12), (1.88, -0.88), (1.08, 0.30)
     elif style == "front":
         # The front pair fans outward and ends lower, with space between the rounded tips.
         p0, p1, p2, p3 = (0.0, 0.0), (0.54, -0.10), (1.22, -1.12), (1.18, -1.58)
@@ -940,7 +943,7 @@ def make_arm_tube(name, parent, style, mirror=False):
             normal = reference - tangent * reference.dot(tangent)
         normal.normalize()
         binormal = tangent.cross(normal).normalized()
-        radius = arm_radius(t) * {"outer": 1.16, "front": 1.08, "inner": 1.00, "rear": 0.96}[style]
+        radius = arm_radius(t) * {"outer": 1.08, "front": 1.08, "inner": 1.00, "rear": 0.96}[style]
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
             p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
