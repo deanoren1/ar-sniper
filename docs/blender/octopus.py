@@ -122,8 +122,8 @@ def glass_mat():
     shell.inputs["Coat Weight"].default_value = 0.68
     shell.inputs["Coat Roughness"].default_value = 0.035
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.78
-        shell.inputs["Alpha"].default_value = 0.48
+        shell.inputs["Transmission Weight"].default_value = 0.72
+        shell.inputs["Alpha"].default_value = 0.56
         shell.inputs["Emission Color"].default_value = (0.045, 0.14, 0.42, 1.0)
         shell.inputs["Emission Strength"].default_value = 0.035
     except Exception:
@@ -132,8 +132,8 @@ def glass_mat():
     layer.inputs["Blend"].default_value = 0.16
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.52
-    edge_tint.inputs[2].default_value = 0.10
+    edge_tint.inputs[1].default_value = 0.58
+    edge_tint.inputs[2].default_value = 0.16
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(edge_tint.outputs[0], mix.inputs[0])
@@ -486,7 +486,7 @@ def skin_patch(name, x, z, rx, rz, material, parent, angle=0.0, segments=40):
 def body_band(name, parent, z_bottom, z_top, material):
     """Rounded tapered collar with a lower front edge, following the mantle."""
     sides = 128
-    front_drop = 0.30
+    front_drop = 0.20
     # Four rings create a broad softly crowned strap instead of a thin chest stripe.
     levels = (
         (z_top, 0.22),
@@ -577,7 +577,7 @@ for i, (x, base_z, height) in enumerate((
 # The iris remains exposed below the lid, as in the supplied reference.
 EYE_Y, EYE_Z = -0.86, 0.38  # Lift and slightly round the eye so the mouth has its own clear space.
 eye = empty("Eye", pivot, loc=(0, EYE_Y, EYE_Z))
-eye.scale = (0.90, 1.00, 0.90)  # reveal a wider organic mantle border around the eye.
+eye.scale = (0.78, 1.00, 0.78)  # restore the broad purple mantle visible around the reference eye.
 eye_parts = [
     # Circular warm sclera, a restrained orange iris and a glossy black pupil.
     sphere("EyeWhite", 1.10, (0, 0, 0), EYE_WHITE, eye, scale=(1.05, 0.92, 0.90), seg=64),
@@ -586,7 +586,10 @@ eye_parts = [
     sphere("Pupil", 0.36, (0, -1.18, -0.015), PUPIL, eye, scale=(0.98, 0.66, 0.94), seg=64),
     sphere("Shine", 0.13, (0.19, -1.30, 0.23), SHINE, eye, scale=(1.0, 0.22, 1.0), seg=32),
 ]
-eye_rim = torus("EyeMagentaRim", 1.18, 0.070, (0, -0.98, 0), LID, eye,
+eye_socket = torus("EyePurpleSocket", 1.34, 0.13, (0, -0.88, 0), PURPLE, eye,
+                    rot=(math.pi / 2, 0, 0))
+eye_parts.append(eye_socket)
+eye_rim = torus("EyeMagentaRim", 1.18, 0.055, (0, -0.98, 0), LID, eye,
                 rot=(math.pi / 2, 0, 0))
 eye_rim.scale = (1.00, 1.0, 0.96)
 look_parts = eye_parts[1:4]  # iris, pupil and highlight move together
@@ -668,8 +671,8 @@ mouth_parts.append(sphere("Tongue", 0.20, (0, -0.66, -0.16), TONGUE, mouth,
 
 # A shorter curved pink collar with brass rivets, leaving the smile and arm roots visible.
 COLLAR_TOP_Z = -0.88
-COLLAR_BOTTOM_Z = -1.42
-COLLAR_FRONT_DROP = 0.30
+COLLAR_BOTTOM_Z = -1.28
+COLLAR_FRONT_DROP = 0.20
 body_band("LowerPinkBand", pivot, COLLAR_BOTTOM_Z, COLLAR_TOP_Z, COLLAR)
 collar_top_radius = shell_radius_at(COLLAR_TOP_Z) + 0.22
 collar_bottom_radius = max(shell_radius_at(COLLAR_BOTTOM_Z) + 0.22, 0.95)
@@ -874,7 +877,7 @@ def arm_curve_x(t):
 def arm_curve_y(t, style="outer"):
     # Keep the front arms close enough to the body to expose the mouth and collar;
     # the rear pair sits behind the mantle and only peeks through the lower gaps.
-    depth = {"outer": -1.05, "front": -1.34, "inner": -1.18, "rear": -0.72}.get(style, -0.90)
+    depth = {"outer": -1.05, "front": -1.02, "inner": -0.92, "rear": -0.72}.get(style, -0.90)
     if style == "outer":
         # Keep the curled tip on the front hemisphere; returning to y=0 hid it behind the mantle.
         return -0.58 * t + depth * math.sin(math.pi * t)
@@ -905,7 +908,7 @@ def arm_center(t, style="outer", mirror=False):
     """Eight distinct paths: two lifted side hooks, four hanging arms and two rear supports."""
     if style == "outer":
         # Wide sweep followed by a tighter return: a visible C-shaped hook at each side.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.72, -0.12), (2.22, -0.72), (1.48, 0.92)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.72, -0.10), (2.18, -0.50), (1.30, 1.20)
     elif style == "front":
         # The front pair fans outward and ends lower, with space between the rounded tips.
         p0, p1, p2, p3 = (0.0, 0.0), (0.66, -0.12), (1.48, -1.32), (1.42, -1.86)
@@ -985,11 +988,11 @@ tips = []
 # Explicit roots prevent overlapping front pairs and keep the tentacle silhouette readable.
 ARM_LAYOUT = (
     ((-1.38, -0.32, -1.36), 0.0, "outer"),
-    ((-0.98, -0.60, -1.54), 0.0, "front"),
-    ((0.98, -0.60, -1.54), 0.0, "front"),
+    ((-0.98, -0.42, -1.70), 0.0, "front"),
+    ((0.98, -0.42, -1.70), 0.0, "front"),
     ((1.38, -0.32, -1.36), 0.0, "outer"),
-    ((-0.42, -0.48, -1.56), 0.0, "inner"),
-    ((0.42, -0.48, -1.56), 0.0, "inner"),
+    ((-0.42, -0.30, -1.72), 0.0, "inner"),
+    ((0.42, -0.30, -1.72), 0.0, "inner"),
     ((-0.72, 0.08, -1.48), 0.0, "rear"),
     ((0.72, 0.08, -1.48), 0.0, "rear"),
 )
