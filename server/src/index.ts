@@ -264,7 +264,7 @@ const SHORT_PROMPTS: Record<string, string> = {
     "Heavy snow on every upward-facing surface, frost on walls and objects, long icicles hanging from every overhead edge, glossy icy floor with snow patches. " +
     "Cold cinematic light, blue shadows, cyan highlights. Far end clearly visible. " +
     "Keep the exact camera, framing and the position and shape of every wall, pillar, object and opening; every existing object (cabinets, bicycles) stays visible where it is. " +
-    "Add only these on empty floor, far apart, none in the center: 1 jagged ice rock, 1 slim ice shard, both about chest height, and 1 small low snow mound; no crates or boxes. " +
+    "Add only these on empty floor, far apart, none in the center: exactly 1 jagged ice rock about chest height and exactly 1 small low snow mound; no crates or boxes. " +
     "No people, no text. Keep exact dimensions; no crop.",
   tundra_mid:
     "Transform this exact photo into a frozen tundra winter scene, painterly game concept art, stylized realism, soft brushwork, slightly saturated colors, gentle glow. " +
