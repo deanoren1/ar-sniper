@@ -212,10 +212,43 @@ object HidingSpotFinder {
             )
         }
 
-        return found
+        // מחסה חייב לעמוד על הרצפה: עצם שיושב על עצם אחר (ארגז על ארון, חפץ על מדף) הוא לא מחסה שאפשר להסתתר מאחוריו.
+        // אם הסינון משאיר פחות מ-3 מחסים (תמונה שהרצפה בה לא זוהתה היטב), לא מסננים כדי לא לרוקן את הסצנה.
+        val grounded = found.filter { it.kind != SpotKind.COVER || standsOnFloor(analysis, it) }
+        val kept = if (grounded.count { it.kind == SpotKind.COVER } >= 3) grounded else found
+
+        return kept
             .sortedByDescending { it.cellCount }
             .take(MAX_SPOTS)
             .mapIndexed { index, spot -> spot.copy(id = index) }
+    }
+
+    private val FLOOR_NAMES = listOf("floor", "earth", "road", "sidewalk", "path", "rug", "grass", "sand", "dirt track", "land", "runway", "field", "stairs", "stairway", "step", "water")
+
+    /** האם לפחות 30% מהקצה התחתון של המחסה נוגע ברצפה (או שהוא מגיע לתחתית התמונה) */
+    private fun standsOnFloor(analysis: SceneAnalysis, spot: HidingSpot): Boolean {
+        val floors = BooleanArray(256)
+        for (n in FLOOR_NAMES) { val i = Ade20kClasses.NAMES.indexOf(n); if (i >= 0) floors[i] = true }
+        var columns = 0
+        var onFloor = 0
+        for (lx in 0 until spot.maskWidth) {
+            var bottom = -1
+            for (ly in spot.maskHeight - 1 downTo 0) if (spot.mask[ly * spot.maskWidth + lx]) { bottom = ly; break }
+            if (bottom < 0) continue
+            columns++
+            val gx = spot.cellX + lx
+            val gy = spot.cellY + bottom
+            if (gy >= analysis.height - 2) { onFloor++; continue }
+            // מסתכלים עד 4 תאים מתחת לקצה: צל או פער קטן לא פוסלים
+            var touches = false
+            for (d in 1..4) {
+                val y = gy + d
+                if (y >= analysis.height) { touches = true; break }
+                if (floors[analysis.labelIndex(y * analysis.width + gx)]) { touches = true; break }
+            }
+            if (touches) onFloor++
+        }
+        return columns > 0 && onFloor * 10 >= columns * 3
     }
 
     /** האם תא עם קטגוריה מסוימת שייך לאותו עצם: אותו סוג, ואותה קבוצה (משפחה) */
