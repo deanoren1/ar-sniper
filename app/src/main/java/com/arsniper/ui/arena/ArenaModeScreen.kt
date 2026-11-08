@@ -65,6 +65,7 @@ private object CommunityState {
     fun setShared(context: android.content.Context, key: String, id: String?) { prefs(context).edit().apply { if (id == null) remove("shared_$key") else putString("shared_$key", id) }.apply() }
     fun originId(context: android.content.Context, key: String): String? = prefs(context).getString("origin_$key", null)
     fun setOrigin(context: android.content.Context, key: String, id: String) { prefs(context).edit().putString("origin_$key", id).apply() }
+    fun clear(context: android.content.Context, key: String) { prefs(context).edit().remove("shared_$key").remove("origin_$key").apply() }
     fun seen(context: android.content.Context): Set<String> = prefs(context).getStringSet("seen", emptySet()) ?: emptySet()
     fun addSeen(context: android.content.Context, id: String) {
         val set = seen(context).toMutableSet().apply { add(id) }
@@ -80,6 +81,28 @@ private object WorldFavorites {
         val set = all(context).toMutableSet()
         if (!set.add(key)) set.remove(key)
         prefs(context).edit().putStringSet("keys", set).apply()
+    }
+    fun remove(context: android.content.Context, key: String) {
+        prefs(context).edit().putStringSet("keys", all(context).toMutableSet().apply { remove(key) }).apply()
+    }
+}
+
+/**
+ * מוחק עולם שמור מהמכשיר: כל קבצי העולם של התמונה בארנה הזאת (גם בסגנונות ישנים) וקובץ המקור של ה-AI.
+ * התמונה המקורית בספרייה נשארת, ועולמות של ארנות אחרות מאותה תמונה לא נמחקים.
+ */
+private fun deleteSavedWorld(context: android.content.Context, w: SavedWorld) {
+    try {
+        val dir = File(context.filesDir, "ai_world")
+        val family = (AiWorld.serverStyle(w.style) ?: return).substringBefore("_")
+        val pattern = Regex("^" + Regex.escape(w.key) + "_" + Regex.escape(family) + "(_[a-z]+)?\\.jpg$")
+        (dir.listFiles() ?: emptyArray()).filter { pattern.matches(it.name) }.forEach { it.delete() }
+        // קובץ המקור של ה-AI נמחק רק אם לא נשארו לתמונה עולמות בארנות אחרות
+        val others = (dir.listFiles() ?: emptyArray()).any { !it.name.startsWith("src_") && it.name.startsWith(w.key + "_") }
+        if (!others) AiWorldWorker.sourceFile(context, w.key).delete()
+        WorldFavorites.remove(context, w.key)
+        CommunityState.clear(context, w.key)
+    } catch (_: Exception) {
     }
 }
 
@@ -132,7 +155,7 @@ fun ArenaModeScreen(
     val context = LocalContext.current
     val lastFile = remember { PhotoLibrary.list(context).firstOrNull { PhotoLibrary.isReviewed(it) } }
     val lastThumb = remember(lastFile) { lastFile?.let { PhotoLibrary.thumbnail(it, 480) } }
-    val worlds = remember(style) { allSavedWorlds(context) }
+    val worlds = remember(style, worldsRevision) { allSavedWorlds(context) }
     val thisArenaWorlds = remember(worlds) { worlds.filter { it.style == style } }
     var favorites by remember { mutableStateOf(WorldFavorites.all(context)) }
     var filter by remember { mutableStateOf<Any>(style) } // ArenaStyle, או "fav", או "all"
@@ -144,6 +167,8 @@ fun ArenaModeScreen(
     LaunchedEffect(Unit) { aiLeft = withContext(Dispatchers.IO) { AiWorld.quotaLeft(context) } }
     var confirmShare by remember { mutableStateOf<SavedWorld?>(null) }
     var communityRevision by remember { mutableStateOf(0) }
+    var confirmDelete by remember { mutableStateOf<SavedWorld?>(null) }
+    var worldsRevision by remember { mutableStateOf(0) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val picker = rememberGalleryPicker { uri -> PickImport.start(context, uri) }
@@ -382,6 +407,11 @@ fun ArenaModeScreen(
                                                 }
                                                 .padding(horizontal = 8.dp, vertical = 3.dp))
                                     }
+                                    OutlinedText("DELETE", fontSize = 11.sp, color = Color.White, outline = null,
+                                        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 76.dp, bottom = 6.dp)
+                                            .background(Color(0xCC8A1F2B), RoundedCornerShape(10.dp))
+                                            .clickable { confirmDelete = w }
+                                            .padding(horizontal = 8.dp, vertical = 3.dp))
                                     OutlinedText("PLAY", fontSize = 14.sp, color = Color.White, outline = null,
                                         modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
                                             .background(Color(0xFF1E9E45), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 2.dp))
@@ -392,6 +422,37 @@ fun ArenaModeScreen(
                     OutlinedText("Tap outside to close", fontSize = 12.sp, color = GameColors.Ice, outline = null)
                 }
             }
+        }
+        confirmDelete?.let { w ->
+            val sharedId = CommunityState.sharedId(context, w.key)
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmDelete = null },
+                title = { androidx.compose.material3.Text("Delete this world?") },
+                text = {
+                    androidx.compose.material3.Text(
+                        "The AI world will be deleted from this device and cannot be recovered." +
+                            (if (sharedId != null) " It will also be removed from the community." else "") +
+                            " Your original photo stays in your library."
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmDelete = null
+                        scope.launch {
+                            if (sharedId != null) {
+                                val ok = withContext(Dispatchers.IO) { CommunityWorlds.unshare(context, sharedId) }
+                                if (!ok) { message = "Could not remove it from the community, so nothing was deleted. Try again"; return@launch }
+                            }
+                            withContext(Dispatchers.IO) { deleteSavedWorld(context, w) }
+                            favorites = WorldFavorites.all(context)
+                            communityRevision++
+                            worldsRevision++
+                            message = "World deleted"
+                        }
+                    }) { androidx.compose.material3.Text("DELETE") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { androidx.compose.material3.Text("CANCEL") } }
+            )
         }
         confirmShare?.let { w ->
             androidx.compose.material3.AlertDialog(
