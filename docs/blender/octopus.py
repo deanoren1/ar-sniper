@@ -1036,6 +1036,9 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
     for k in range(1, 4):
         joints.append(empty(f"Joint{i}_{k}", joints[k - 1], loc=(0, 0, -ARM_LEN[k - 1]), rot=(0, ARM_CURLS[k - 1], 0)))
     make_arm_tube(f"ArmTube{i}", root, style, mirror)
+    # Rebuild the camera-facing vector in this arm root local space for spot orientation.
+    root_rotation = root.rotation_euler.to_matrix()
+    front_local = root_rotation.inverted() @ Vector((0.0, -1.0, 0.0))
     # Front-facing recessed suction cups: a dark inset with a small raised rim, repeated
     # along the visible underside of each arm so the tentacles read as octopus limbs.
     for q, t in enumerate((0.16, 0.29, 0.42, 0.55, 0.68, 0.81)):
