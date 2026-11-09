@@ -114,15 +114,15 @@ def glass_mat():
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
     shell = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    shell.inputs["Base Color"].default_value = (0.22, 0.48, 0.94, 1.0)
+    shell.inputs["Base Color"].default_value = (0.48, 0.70, 0.98, 1.0)
     shell.inputs["Roughness"].default_value = 0.085
     shell.inputs["Metallic"].default_value = 0.0
-    shell.inputs["Coat Weight"].default_value = 0.90
+    shell.inputs["Coat Weight"].default_value = 0.78
     shell.inputs["Coat Roughness"].default_value = 0.025
     try:
-        shell.inputs["Transmission Weight"].default_value = 0.22
+        shell.inputs["Transmission Weight"].default_value = 0.30
         shell.inputs["Alpha"].default_value = 1.0
-        shell.inputs["Emission Color"].default_value = (0.045, 0.11, 0.30, 1.0)
+        shell.inputs["Emission Color"].default_value = (0.08, 0.17, 0.38, 1.0)
         shell.inputs["Emission Strength"].default_value = 0.12
     except Exception:
         pass
@@ -133,8 +133,8 @@ def glass_mat():
     layer.inputs["Blend"].default_value = 0.12
     edge_tint = nt.nodes.new("ShaderNodeMath")
     edge_tint.operation = "MULTIPLY_ADD"
-    edge_tint.inputs[1].default_value = 0.68
-    edge_tint.inputs[2].default_value = 0.22
+    edge_tint.inputs[1].default_value = 0.42
+    edge_tint.inputs[2].default_value = 0.08
     nt.links.new(layer.outputs["Fresnel"], edge_tint.inputs[0])
 
     tex = nt.nodes.new("ShaderNodeTexCoord")
@@ -148,7 +148,7 @@ def glass_mat():
     nt.links.new(separate.outputs["Z"], upper_ramp.inputs["Fac"])
     upper_weight = nt.nodes.new("ShaderNodeMath")
     upper_weight.operation = "MULTIPLY"
-    upper_weight.inputs[1].default_value = 0.52
+    upper_weight.inputs[1].default_value = 0.56
     nt.links.new(upper_ramp.outputs["Color"], upper_weight.inputs[0])
     total_weight = nt.nodes.new("ShaderNodeMath")
     total_weight.operation = "ADD"
@@ -164,20 +164,20 @@ def glass_mat():
     return m
 
 
-PURPLE = mat("Purple", (0.56, 0.018, 0.96), rough=0.17, coat=0.90,
-             emit=(0.08, 0.0, 0.20), strength=0.11)
+PURPLE = mat("Purple", (0.72, 0.025, 1.0), rough=0.17, coat=0.90,
+             emit=(0.14, 0.0, 0.24), strength=0.14)
 add_skin(PURPLE, scale=18.0, strength=0.012)  # richer magenta-violet closer to the reference
 PURPLE_DARK = mat("PurpleDark", (0.19, 0.006, 0.31), rough=0.28, coat=0.55)
 LID = mat("Lid", (1.0, 0.035, 0.72), rough=0.20, coat=0.86,
               emit=(0.12, 0.0, 0.065), strength=0.045)
 add_skin(LID, scale=18.0, strength=0.015)
 add_skin(PURPLE_DARK, scale=18.0, strength=0.08)
-SPOT = mat("Spot", (1.0, 0.035, 0.78), rough=0.18, coat=0.72,
-            emit=(0.28, 0.0, 0.16), strength=0.18)
+SPOT = mat("Spot", (1.0, 0.035, 0.82), rough=0.18, coat=0.72,
+            emit=(0.34, 0.0, 0.20), strength=0.22)
 SPOT_DARK = mat("SpotDark", (0.22, 0.008, 0.34), rough=0.40, coat=0.18)
 add_skin(SPOT, scale=22.0, strength=0.005)
-EYE_WHITE = mat("EyeWhite", (1.0, 0.995, 0.92), rough=0.14, coat=0.76,
-                 emit=(0.55, 0.46, 0.24), strength=0.78)
+EYE_WHITE = mat("EyeWhite", (1.0, 0.88, 0.62), rough=0.14, coat=0.76,
+                 emit=(0.45, 0.26, 0.07), strength=0.32)
 # Radial warm sclera gradient: creamy center fading to a golden-orange edge.
 eye_white_nodes = EYE_WHITE.node_tree
 eye_white_bsdf = bsdf_of(EYE_WHITE)
@@ -187,16 +187,16 @@ eye_white_dist.operation = "DISTANCE"
 eye_white_dist.inputs[1].default_value = (0.5, 0.5, 0.5)
 eye_white_nodes.links.new(eye_white_tex.outputs["Generated"], eye_white_dist.inputs[0])
 eye_white_ramp = eye_white_nodes.nodes.new("ShaderNodeValToRGB")
-eye_white_ramp.color_ramp.elements[0].position = 0.38
-eye_white_ramp.color_ramp.elements[0].color = (1.0, 0.995, 0.94, 1.0)
-eye_white_ramp.color_ramp.elements[1].position = 0.86
-eye_white_ramp.color_ramp.elements[1].color = (1.0, 0.46, 0.02, 1.0)
-eye_white_mid = eye_white_ramp.color_ramp.elements.new(0.68)
-eye_white_mid.color = (1.0, 0.88, 0.28, 1.0)
+eye_white_ramp.color_ramp.elements[0].position = 0.06
+eye_white_ramp.color_ramp.elements[0].color = (1.0, 0.88, 0.62, 1.0)
+eye_white_ramp.color_ramp.elements[1].position = 0.48
+eye_white_ramp.color_ramp.elements[1].color = (1.0, 0.34, 0.015, 1.0)
+eye_white_mid = eye_white_ramp.color_ramp.elements.new(0.29)
+eye_white_mid.color = (1.0, 0.64, 0.22, 1.0)
 eye_white_nodes.links.new(eye_white_dist.outputs["Value"], eye_white_ramp.inputs["Fac"])
 eye_white_nodes.links.new(eye_white_ramp.outputs["Color"], eye_white_bsdf.inputs["Base Color"])
 # Warm amber sclera and deep orange iris, matching the reference's saturated eye.
-IRIS = mat("Iris", (1.0, 0.105, 0.001), rough=0.16, coat=0.62, emit=(1.0, 0.085, 0.0), strength=0.58)
+IRIS = mat("Iris", (1.0, 0.20, 0.002), rough=0.12, coat=0.78, emit=(1.0, 0.12, 0.0), strength=0.78)
 PUPIL = mat("Pupil", (0.0, 0.0, 0.0), rough=0.10, coat=0.95, emit=(0.0, 0.0, 0.0), strength=0.0)
 pupil_bsdf = bsdf_of(PUPIL)
 try:
@@ -229,8 +229,8 @@ XMARK = mat("XMark", (0.02, 0.0, 0.02), rough=0.5)
 SUCKER = mat("Sucker", (0.060, 0.004, 0.135), rough=0.66, coat=0.03)
 SUCKER_RIM = mat("SuckerRim", (0.11, 0.006, 0.20), rough=0.56, coat=0.08)
 BONE = mat("Bone", (0.98, 0.24, 0.78), rough=0.3, coat=0.45)
-TENTACLE = mat("Tentacle", (0.60, 0.018, 0.95), rough=0.16, coat=0.92,
-                emit=(0.035, 0.0, 0.11), strength=0.035)
+TENTACLE = mat("Tentacle", (0.72, 0.025, 1.0), rough=0.16, coat=0.92,
+                emit=(0.07, 0.0, 0.15), strength=0.06)
 REAR_TENTACLE = mat("RearTentacle", (0.44, 0.008, 0.78), rough=0.18, coat=0.90, emit=(0.025, 0.0, 0.065), strength=0.025)
 TANK = mat("Tank", (0.78, 0.012, 0.93), rough=0.20, metal=0.14, coat=0.78)
 add_skin(TANK, scale=34.0, strength=0.045)  # subtle worn enamel, not a flat plastic cylinder
@@ -560,7 +560,7 @@ for i, (sx, sz, rx, rz, angle) in enumerate((
     radius = shell_radius_at(z)
     surface = -0.88 * radius * math.sqrt(max(0.025, 1.0 - (x / radius)**2)) - 0.025
     spot_material = SPOT_DARK if i in (2, 5) else SPOT
-    skin_patch(f"BodySpot{i}", x, z, rx * 3.70, rz * 3.55, spot_material, pivot, angle=angle)
+    skin_patch(f"BodySpot{i}", x, z, rx * 4.10, rz * 3.95, spot_material, pivot, angle=angle)
 
 # A few smaller cheek flecks preserve the scattered organic markings from the reference.
 for i, (sx, sz, rx, rz) in enumerate((
@@ -679,14 +679,14 @@ def make_upper_eyelid(parent):
 # Open smile with a visible soft lip rim and a recessed dark cavity.
 # Compact horizontal smile, separated from the eye and collar like the reference.
 mouth = empty("Mouth", pivot, loc=(0, -1.46, -0.48))
-mouth.scale = (1.08, 1.0, 0.92)  # widen and flatten the smile to match the reference.
+mouth.scale = (0.98, 1.0, 1.04)  # slightly narrower and taller, with a rounder reference-like smile.
 mouth_lip = torus("MouthLipRing", 0.76, 0.040, (0, -0.56, 0), MOUTH_LIP, mouth,
                   rot=(math.pi / 2, 0, 0))
-mouth_lip.scale = (1.14, 0.43, 1.0)  # broad, shallow lip like the reference smile.
+mouth_lip.scale = (1.04, 0.50, 1.0)  # softer, taller lip around the smile.
 mouth_parts = [
     mouth_lip,
     sphere("MouthCavity", 0.66, (0, -0.30, 0.025), MOUTH, mouth,
-           scale=(1.22, 0.34, 0.36), seg=64),
+           scale=(1.12, 0.34, 0.43), seg=64),
 ]
 # Four small ivory teeth frame the upper and lower edges without filling the mouth.
 for i, x in enumerate((-0.56, 0.56)):
@@ -942,10 +942,10 @@ def arm_center(t, style="outer", mirror=False):
         p0, p1, p2, p3 = (0.0, 0.0), (0.90, -0.30), (2.25, -0.72), (0.48, 0.98)
     elif style == "front":
         # The front pair fans outward and ends lower, with space between the rounded tips.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.56, -0.32), (1.52, -1.34), (1.55, -1.88)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.58, -0.28), (1.72, -1.18), (1.82, -1.72)
     elif style == "inner":
         # The inner pair is shorter and slightly tucked, so the front silhouette is not a row of fingers.
-        p0, p1, p2, p3 = (0.0, 0.0), (0.26, -0.42), (0.70, -1.32), (0.62, -1.88)
+        p0, p1, p2, p3 = (0.0, 0.0), (0.34, -0.40), (0.92, -1.18), (1.02, -1.78)
     else:
         # Rear supports sit just behind the front pair but emerge beyond the mantle silhouette.
         p0, p1, p2, p3 = (0.0, 0.0), (0.40, -0.22), (1.10, -0.98), (0.95, -1.55)
@@ -980,7 +980,7 @@ def make_arm_tube(name, parent, style, mirror=False):
             normal = reference - tangent * reference.dot(tangent)
         normal.normalize()
         binormal = tangent.cross(normal).normalized()
-        radius = arm_radius(t) * {"outer": 1.00, "front": 1.04, "inner": 0.98, "rear": 0.94}[style]
+        radius = arm_radius(t) * {"outer": 1.08, "front": 1.10, "inner": 1.05, "rear": 0.96}[style]
         for j in range(sides):
             a = 2.0 * math.pi * j / sides
             p = center + radius * (normal * math.cos(a) + binormal * math.sin(a))
@@ -1055,10 +1055,10 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         # Small recessed oval cups read as dark organic suction marks, not C-shaped rings.
         hole_pos = center + cup_normal * rr * 0.992
         rim_pos = hole_pos + cup_normal * rr * 0.010
-        torus(f"SuckerLip{i}_{q}", rr * 0.40, rr * 0.018, tuple(rim_pos),
+        torus(f"SuckerLip{i}_{q}", rr * 0.38, rr * 0.022, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.40, rr * 0.40, rr * 0.12), rot=normal_rot(cup_normal), seg=28)
+               scale=(rr * 0.34, rr * 0.34, rr * 0.22), rot=normal_rot(cup_normal), seg=28)
     for q, t in enumerate((0.30, 0.74)):
         center = arm_center(t, style, mirror)
         before = arm_center(max(0.0, t - 0.002), style, mirror)
