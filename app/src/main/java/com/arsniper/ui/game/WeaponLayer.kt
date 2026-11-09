@@ -59,6 +59,9 @@ sealed class WeaponArt {
         val ch: Int = sheet.height / 5
     }
 
+    /** רובה תלת-ממדי חי (OpenGL). fallback = גיליון התמונות, לתצוגה מקדימה בחנות */
+    class Model3D(val flash: ImageBitmap, val fallback: Angles) : WeaponArt()
+
     class Still(val idle: ImageBitmap, val fire: ImageBitmap, val muzzleX: Float, val muzzleY: Float) : WeaponArt()
 
     /** Blaster Mk1 ברזולוציה גבוהה: 5 זוויות עמידה בשורה אחת (תאים שווים) + תמונת הבזק נפרדת שמצוירת על הלוע */
@@ -154,8 +157,10 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
             WeaponId.Plasma -> {
                 val sheet = decode(context, R.drawable.weapon_angles)
                 val flash = decode(context, R.drawable.weapon_flash)
-                if (sheet != null && flash != null) WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR, MK1_ORIGIN_X, MK1_ORIGIN_Y, 17, 8)
-                else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
+                if (sheet != null && flash != null) {
+                    val angles = WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR, MK1_ORIGIN_X, MK1_ORIGIN_Y, 17, 8)
+                    if (android.os.Build.VERSION.SDK_INT >= 21) WeaponArt.Model3D(flash, angles) else angles
+                } else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
             }
             WeaponId.Auto -> {
                 val sheet = decode(context, R.drawable.weapon_auto_angles)
@@ -214,6 +219,10 @@ fun WeaponLayer(
     modifier: Modifier = Modifier,
     aimY: Float = 0.5f
 ) {
+    if (art is WeaponArt.Model3D) {
+        Weapon3DLayer(art, weapon, nowNanos, tracerTarget, aimX, aimY, modifier)
+        return
+    }
     // הכוונה המוחלקת: הרובה "רודף" אחרי הכוונת בהאטה, כדי שהסיבוב יהיה זורם ולא קופץ
     val smooth = remember { floatArrayOf(Float.NaN, Float.NaN, 0f, (ANGLE_COUNT / 2).toFloat(), 1f, 7f, -10f, 7f, Float.NaN, 0f, 0f, 0f, 0f, 0f) }
     Canvas(modifier = modifier.fillMaxSize()) {
@@ -224,6 +233,65 @@ fun WeaponLayer(
         smooth[1] = if (smooth[1].isNaN()) aimY else smooth[1] + (aimY - smooth[1]) * k
         smooth[2] = now
         drawWeapon(art, weapon, tracerTarget, now, smooth[0], smooth[1], smooth)
+    }
+}
+
+@Composable
+private fun Weapon3DLayer(
+    art: WeaponArt.Model3D, weapon: Weapon, nowNanos: Long, tracerTarget: Offset?,
+    aimX: Float, aimY: Float, modifier: Modifier
+) {
+    val gl = remember { Gun3DState() }
+    // [0]=aimX מוחלק [1]=aimY מוחלק [2]=זמן אחרון [3]=yaw אחרון
+    val sm = remember { floatArrayOf(Float.NaN, Float.NaN, 0f) }
+    Box(modifier.fillMaxSize()) {
+        Gun3DView(gl, Modifier.fillMaxSize())
+        Canvas(Modifier.fillMaxSize()) {
+            val now = nowNanos / 1e9f
+            val dt = if (sm[2] == 0f) 0f else (now - sm[2]).coerceIn(0f, 0.1f)
+            val k = 1f - kotlin.math.exp(-dt * AIM_FOLLOW_SPEED)
+            sm[0] = if (sm[0].isNaN()) aimX else sm[0] + (aimX - sm[0]) * k
+            sm[1] = if (sm[1].isNaN()) aimY else sm[1] + (aimY - sm[1]) * k
+            sm[2] = now
+            val W = size.width; val H = size.height
+            val since = weapon.sinceShot
+            val kick = if (since < 0.2f) { val t = since / 0.2f; (1f - t) * (1f - t) } else 0f
+            val dip = if (weapon.reloading) sin(PI.toFloat() * weapon.reloadProgress) else 0f
+            val equip = weapon.sinceEquip
+            val rise = if (equip < 0.3f) (1f - equip / 0.3f) * (1f - equip / 0.3f) else 0f
+            val cx = W * 0.5f + kick * H * 0.02f + dip * W * 0.03f
+            val cy = H * 0.93f + kick * H * 0.035f + dip * H * 0.42f + rise * H * 0.5f
+            val f = H * 0.26f * Gun3DMath.D
+            val tx = sm[0] * W; val ty = sm[1] * H
+            val theta = Math.toDegrees(kotlin.math.atan2((tx - cx).toDouble(), (cy - ty).coerceAtLeast(H * 0.25f).toDouble())).toFloat().coerceIn(-80f, 80f)
+            val pitch = Math.toRadians((50f - 38f * ((sm[1] - 0.2f) / 0.6f).coerceIn(0f, 1f)).toDouble()).toFloat() + dip * 0.45f
+            val roll = Math.toRadians((dip * -14f).toDouble()).toFloat()
+            val yaw = Gun3DMath.solveYaw(theta, pitch, 0f, cx, cy, f)
+            val m = Gun3DMath.model(yaw, pitch, roll)
+            val cam = Gun3DMath.mul(Gun3DMath.trans(0f, 0f, -Gun3DMath.D), m)
+            val p = Gun3DMath.perspective(W, H, cx, cy, f)
+            gl.matrices = cam + p
+            val mz = FloatArray(2); val og = FloatArray(2)
+            Gun3DMath.proj(m, Gun3DMath.MX, Gun3DMath.MY, Gun3DMath.MZ, cx, cy, f, mz)
+            Gun3DMath.proj(m, Gun3DMath.RX, Gun3DMath.RY, Gun3DMath.RZ, cx, cy, f, og)
+            val tracer = tracerTarget?.let { Offset(it.x * W, it.y * H) }
+            if (tracer != null) drawTracer(Offset(og[0], og[1]), tracer, since)
+            if (!weapon.reloading && since < 0.09f) {
+                val a = (1f - since / 0.09f).coerceIn(0f, 1f)
+                val fw = H * 0.74f * 0.9f * 0.5f
+                val fh = fw * art.flash.height / art.flash.width
+                val muzzle = Offset(mz[0], mz[1])
+                val flashRot = Math.toDegrees(kotlin.math.atan2((tx - muzzle.x).toDouble(), (muzzle.y - ty).toDouble())).toFloat().coerceIn(-85f, 85f)
+                rotate(flashRot, muzzle) {
+                    drawImage(
+                        image = art.flash, srcOffset = IntOffset.Zero, srcSize = IntSize(art.flash.width, art.flash.height),
+                        dstOffset = IntOffset((muzzle.x - fw / 2f).toInt(), (muzzle.y - fh * 0.80f).toInt()),
+                        dstSize = IntSize(fw.toInt(), fh.toInt()), alpha = a,
+                        blendMode = androidx.compose.ui.graphics.BlendMode.Plus
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -443,6 +511,8 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
             }
         }
 
+        is WeaponArt.Model3D -> Unit
+
         is WeaponArt.Sheet -> {
             val (row, column) = frameOf(weapon, timeSeconds)
             // גובה התא הוא 55% מגובה המסך. הרובה מיושר לתחתית, וקצת יוצא מהמסך
@@ -500,9 +570,12 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
 /** תצוגה מקדימה של רובה (עמידה) לחנות: מצייר את ציור העמידה כך שיתאים לתיבה */
 @Composable
 fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
-    val art = rememberWeaponArt(weapon) ?: return
+    val art0 = rememberWeaponArt(weapon) ?: return
+    val art = if (art0 is WeaponArt.Model3D) art0.fallback else art0
     Canvas(modifier = modifier) {
         when (art) {
+            is WeaponArt.Model3D -> Unit
+
             is WeaponArt.Aim -> {
                 val s = minOf(size.width / art.cw, size.height / art.ch)
                 drawImage(
