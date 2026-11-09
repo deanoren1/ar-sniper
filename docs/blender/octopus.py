@@ -1058,7 +1058,7 @@ for i, (root_loc, theta_deg, style) in enumerate(ARM_LAYOUT):
         torus(f"SuckerLip{i}_{q}", rr * 0.35, rr * 0.026, tuple(rim_pos),
               SUCKER_RIM, root, rot=normal_rot(cup_normal))
         sphere(f"SuckerHole{i}_{q}", 1.0, tuple(hole_pos), SUCKER, root,
-               scale=(rr * 0.35, rr * 0.35, rr * 0.12), rot=normal_rot(cup_normal), seg=28
+               scale=(rr * 0.35, rr * 0.35, rr * 0.12), rot=normal_rot(cup_normal), seg=28)
     for q, t in enumerate((0.30, 0.74)):
         center = arm_center(t, style, mirror)
         before = arm_center(max(0.0, t - 0.002), style, mirror)
