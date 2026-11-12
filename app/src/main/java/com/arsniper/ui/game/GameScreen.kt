@@ -428,7 +428,6 @@ fun GameScreen(
         val added = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             try { com.arsniper.ml.AiWorldSpots.addPlantSpots(context, world, hideNames) } catch (_: Throwable) { 0 }
         }
-        if (style == ArenaStyle.Tundra) showToast("cover=$added " + com.arsniper.ml.AiWorldSpots.lastDebug)
         val current = SceneSession.analysis
         if (added > 0 && current != null) {
             val updated = buildSceneContext(current)
