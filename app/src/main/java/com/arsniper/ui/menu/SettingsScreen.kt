@@ -85,6 +85,32 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
                             fontSize = 16.sp,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        var confirmReset by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                        GameButton(
+                            text = "RESET COINS & GEMS (TEST)",
+                            onClick = { confirmReset = true },
+                            style = GameButtonStyle.Secondary,
+                            height = 44.dp,
+                            fontSize = 16.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (confirmReset) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { confirmReset = false },
+                                title = { androidx.compose.material3.Text("Reset coins and gems?") },
+                                text = { androidx.compose.material3.Text("Your coins (${PlayerProfile.coins}) and gems (${PlayerProfile.diamonds}) will be set to 0. Weapons and upgrades you already bought stay. This cannot be undone.") },
+                                confirmButton = {
+                                    androidx.compose.material3.TextButton(onClick = { PlayerProfile.resetCurrency(); confirmReset = false }) {
+                                        androidx.compose.material3.Text("RESET")
+                                    }
+                                },
+                                dismissButton = {
+                                    androidx.compose.material3.TextButton(onClick = { confirmReset = false }) {
+                                        androidx.compose.material3.Text("CANCEL")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }

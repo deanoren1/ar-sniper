@@ -44,6 +44,12 @@ object PlayerProfile {
     val coins: Int get() = getInt("coins").also { revision.hashCode() }
     val diamonds: Int get() = getInt("diamonds").also { revision.hashCode() }
 
+    /** מאפס מטבעות ויהלומים (לבדיקות). נשארים: נשקים ושדרוגים שנקנו, והיסטוריית סטטיסטיקה */
+    fun resetCurrency() {
+        putInt("coins", 0)
+        putInt("diamonds", 0)
+    }
+
     fun addCoins(amount: Int) {
         if (amount > 0) {
             putInt("lifetime_coins", getInt("lifetime_coins") + amount)
