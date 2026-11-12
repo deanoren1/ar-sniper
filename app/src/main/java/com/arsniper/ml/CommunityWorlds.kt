@@ -93,13 +93,14 @@ object CommunityWorlds {
         return http.newCall(request).execute().use { r -> if (r.isSuccessful) r.body?.bytes() else null }
     }
 
-    fun report(context: Context, id: String): Boolean = post(context, "report", id)
+    /** block = true: מדווח וגם חוסם את יוצר העולם (עולמותיו לא יוצגו שוב ב-RANDOM) */
+    fun report(context: Context, id: String, block: Boolean = false): Boolean = post(context, "report", id, if (block) "&block=1" else "")
     fun unshare(context: Context, id: String): Boolean = post(context, "unshare", id)
 
-    private fun post(context: Context, op: String, id: String): Boolean {
+    private fun post(context: Context, op: String, id: String, extra: String = ""): Boolean {
         val server = base(context) ?: return false
         return try {
-            val request = Request.Builder().url("$server/worlds/$op?id=$id").header("x-device", deviceId(context))
+            val request = Request.Builder().url("$server/worlds/$op?id=$id$extra").header("x-device", deviceId(context))
                 .post(ByteArray(0).toRequestBody(null)).build()
             http.newCall(request).execute().use { it.isSuccessful }
         } catch (_: Exception) { false }

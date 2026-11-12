@@ -267,6 +267,16 @@ fun CoopScreen(
                                                 Image(bmp, null, contentScale = ContentScale.Crop,
                                                     modifier = Modifier.size(width = 240.dp, height = 150.dp).clip(RoundedCornerShape(10.dp)).border(3.dp, GameColors.Yellow, RoundedCornerShape(10.dp)))
                                                 OutlinedText("${w.style.title} world", fontSize = 13.sp, color = Color.White, outline = null)
+                                                val originId = remember(w.key) { CommunityState.originId(context, w.key) }
+                                                if (originId != null) {
+                                                    OutlinedText("REPORT & BLOCK CREATOR", fontSize = 11.sp, color = Color(0xFFFFB4B4), outline = null,
+                                                        modifier = Modifier.clickable {
+                                                            scope.launch {
+                                                                val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityWorlds.report(context, originId, block = true) }
+                                                                if (ok) { pickWorld = null; startError = "Reported and blocked. Roll another world" } else startError = "Could not report, try again"
+                                                            }
+                                                        }.padding(6.dp))
+                                                }
                                             }
                                         }
                                     }

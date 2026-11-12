@@ -559,6 +559,7 @@ async function worldsApi(request: Request, env: Env, url: URL): Promise<Response
     const op = url.pathname === "/worlds/report" ? "report" : "unshare";
     const res = await index.fetch(`https://idx/${op}?id=${id}&device=${device}`, { method: "POST" });
     const info = await res.json<{ status: string }>();
+    if (op === "report" && url.searchParams.get("block") === "1") await index.fetch(`https://idx/block?id=${id}&device=${device}`, { method: "POST" });
     if (op === "unshare" && info.status === "deleted") { await env.WORLDS.delete(`worlds/${id}.jpg`); await env.WORLDS.delete(`worlds/${id}.bin.gz`); }
     return json(info, res.status);
   }
@@ -574,6 +575,8 @@ export class WorldsIndex implements DurableObject {
     this.sql.exec("CREATE TABLE IF NOT EXISTS reports (id TEXT NOT NULL, device TEXT NOT NULL, PRIMARY KEY (id, device))");
     this.sql.exec("CREATE INDEX IF NOT EXISTS worlds_style ON worlds (style, hidden)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS banned (device TEXT PRIMARY KEY)");
+    // חסימת יוצר על ידי שחקן: עולמות של היוצר לא יוצגו לו שוב ב-RANDOM
+    this.sql.exec("CREATE TABLE IF NOT EXISTS blocks (device TEXT NOT NULL, creator TEXT NOT NULL, PRIMARY KEY (device, creator))");
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -599,8 +602,8 @@ export class WorldsIndex implements DurableObject {
       const exclude = (q.get("exclude") ?? "").split(",").filter(Boolean);
       const marks = exclude.map(() => "?").join(",");
       const rows = this.sql.exec(
-        `SELECT id FROM worlds WHERE style = ? AND hidden = 0 AND device != ?${exclude.length ? ` AND id NOT IN (${marks})` : ""} ORDER BY RANDOM() LIMIT 1`,
-        style, device, ...exclude
+        `SELECT id FROM worlds WHERE style = ? AND hidden = 0 AND device != ? AND device NOT IN (SELECT creator FROM blocks WHERE device = ?)${exclude.length ? ` AND id NOT IN (${marks})` : ""} ORDER BY RANDOM() LIMIT 1`,
+        style, device, device, ...exclude
       ).toArray();
       if (!rows.length) return reply({ error: "none" }, 404);
       return reply({ id: rows[0].id });
@@ -612,6 +615,12 @@ export class WorldsIndex implements DurableObject {
       const count = Number(this.sql.exec("SELECT COUNT(*) AS n FROM reports WHERE id = ?", id).toArray()[0].n);
       if (count >= REPORTS_TO_HIDE) this.sql.exec("UPDATE worlds SET hidden = 1 WHERE id = ?", id);
       return reply({ status: count >= REPORTS_TO_HIDE ? "hidden" : "reported" });
+    }
+    if (url.pathname === "/block") {
+      const row = this.sql.exec("SELECT device FROM worlds WHERE id = ?", id).toArray()[0];
+      if (!row) return reply({ status: "not-found" }, 404);
+      if (row.device !== device) this.sql.exec("INSERT OR IGNORE INTO blocks (device, creator) VALUES (?, ?)", device, row.device);
+      return reply({ status: "blocked" });
     }
     if (url.pathname === "/reported") {
       const rows = this.sql.exec(

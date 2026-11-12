@@ -167,6 +167,7 @@ fun ArenaModeScreen(
     var aiLeft by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     LaunchedEffect(Unit) { aiLeft = withContext(Dispatchers.IO) { AiWorld.quotaLeft(context) } }
     var confirmShare by remember { mutableStateOf<SavedWorld?>(null) }
+    var confirmReport by remember { mutableStateOf<String?>(null) }
     var communityRevision by remember { mutableStateOf(0) }
     var confirmDelete by remember { mutableStateOf<SavedWorld?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -398,10 +399,7 @@ fun ArenaModeScreen(
                                                 .background(Color(0xCC1A2550), RoundedCornerShape(10.dp))
                                                 .clickable {
                                                     when {
-                                                        origin != null -> scope.launch {
-                                                            val ok = withContext(Dispatchers.IO) { CommunityWorlds.report(context, origin) }
-                                                            message = if (ok) "Thanks, the world was reported" else "Could not report, try again"
-                                                        }
+                                                        origin != null -> confirmReport = origin
                                                         sharedId != null -> scope.launch {
                                                             val ok = withContext(Dispatchers.IO) { CommunityWorlds.unshare(context, sharedId) }
                                                             if (ok) { CommunityState.setShared(context, w.key, null); communityRevision++ }
@@ -459,11 +457,36 @@ fun ArenaModeScreen(
                 dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { androidx.compose.material3.Text("CANCEL") } }
             )
         }
+        confirmReport?.let { id ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmReport = null },
+                title = { androidx.compose.material3.Text("Report this world?") },
+                text = { androidx.compose.material3.Text("Report inappropriate or unsafe content. You can also block its creator so you never see their worlds again.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmReport = null
+                        scope.launch {
+                            val ok = withContext(Dispatchers.IO) { CommunityWorlds.report(context, id, block = true) }
+                            message = if (ok) "Thanks. The world was reported and its creator blocked" else "Could not report, try again"
+                        }
+                    }) { androidx.compose.material3.Text("REPORT & BLOCK CREATOR") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmReport = null
+                        scope.launch {
+                            val ok = withContext(Dispatchers.IO) { CommunityWorlds.report(context, id) }
+                            message = if (ok) "Thanks, the world was reported" else "Could not report, try again"
+                        }
+                    }) { androidx.compose.material3.Text("REPORT ONLY") }
+                }
+            )
+        }
         confirmShare?.let { w ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirmShare = null },
                 title = { androidx.compose.material3.Text("Share this world?") },
-                text = { androidx.compose.material3.Text("The AI world image and its scene layout (objects and depth) will be uploaded so other players can play it. Your original photo is not uploaded. You can remove it later with UNSHARE.") },
+                text = { androidx.compose.material3.Text("This world will be public: any other SnapBoo player can see and play it, and the place in it may be recognizable. The AI world image and its scene layout (objects and depth) will be uploaded. Your original photo is not uploaded. Share only places you are allowed to show. Others can report it, and you can remove it any time with UNSHARE.") },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         confirmShare = null
