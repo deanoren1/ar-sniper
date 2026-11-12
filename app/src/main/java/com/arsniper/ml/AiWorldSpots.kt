@@ -33,11 +33,15 @@ object AiWorldSpots {
     /** מידע אבחון על הריצה האחרונה (לאיתור למה אין מחסים בעולם AI) */
     @Volatile var lastDebug: String = ""
 
-    fun addPlantSpots(context: Context, aiWorld: Bitmap, hideNames: List<String> = PLANT_NAMES): Int {
+    /** האם ניתוח עולם ה-AI כבר שמור בדיסק (אז הוספת המחבואים מהירה ואפשר לחכות לה לפני הגל הראשון) */
+    fun isCached(context: Context, cacheKey: String): Boolean = AnalysisCache.fileFor(context.filesDir, cacheKey).exists()
+
+    fun addPlantSpots(context: Context, aiWorld: Bitmap, hideNames: List<String> = PLANT_NAMES, cacheKey: String? = null): Int {
         val original = SceneSession.analysis ?: return 0
+        val cachedAi = cacheKey?.let { AnalysisCache.load(context.filesDir, it) }
         val model = ModelStore.tipsModelFile(context)
-        if (!model.exists()) return 0
-        val ai = try {
+        if (cachedAi == null && !model.exists()) return 0
+        val ai = cachedAi ?: try {
             // CPU ובעדיפות נמוכה: ניתוח ב-GPU במקביל לציור המשחק גרם לתקיעה של כמה שניות בתחילת הארנה
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             val segmenter = SceneSegmenter(model, useGpu = false)
@@ -49,6 +53,7 @@ object AiWorldSpots {
         } catch (_: Throwable) {
             return 0
         }
+        if (cachedAi == null && cacheKey != null) AnalysisCache.save(context.filesDir, cacheKey, ai)
         val merged = merge(original, ai, hideNames) ?: return 0
         val guide = buildGuide(aiWorld, merged.width, merged.height)
         return SceneSession.addExtraSpots(merged, indices(hideNames), guide)

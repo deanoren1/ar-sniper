@@ -419,14 +419,14 @@ fun GameScreen(
     )
 
     // מוסיף מחבואי צמחים מתמונת העולם (ג'ונגל), ומעדכן את המשחק בלי להפסיק אותו
-    suspend fun addWorldPlantSpots(world: android.graphics.Bitmap) {
+    suspend fun addWorldPlantSpots(world: android.graphics.Bitmap, cacheKey: String? = null) {
         // ארנה בלי עולם AI (קלאסי): אין מה לנתח
         if (com.arsniper.ml.AiWorld.serverStyle(style) == null) return
         val hideNames = if (style == ArenaStyle.Jungle || style == ArenaStyle.Forest) listOf("plant", "flower", "palm", "tree")
             else if (style == ArenaStyle.Tundra) com.arsniper.ml.AiWorldSpots.PROP_NAMES + listOf("rock", "sculpture", "tower", "hill", "mountain", "pole")
             else com.arsniper.ml.AiWorldSpots.PROP_NAMES
         val added = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            try { com.arsniper.ml.AiWorldSpots.addPlantSpots(context, world, hideNames) } catch (_: Throwable) { 0 }
+            try { com.arsniper.ml.AiWorldSpots.addPlantSpots(context, world, hideNames, cacheKey) } catch (_: Throwable) { 0 }
         }
         if (style == ArenaStyle.Tundra) {
             // בדיקה חד-פעמית: כמה מחבואים נוספו מעולם ה-AI (מוצגת פעם אחת בלבד בכל התקנה)
@@ -467,8 +467,11 @@ fun GameScreen(
                     if (cached != null) {
                         themed = cached.asImageBitmap()
                         aiHandled = true
-                        // מחכים לניתוח של עולם ה-AI לפני שהגל הראשון נוצר, כדי שהמחבואים החדשים (קרחונים, סלעים) יהיו מוכנים
-                        addWorldPlantSpots(cached)
+                        // ניתוח העולם שמור בדיסק: מהיר, ואפשר לחכות לו לפני הגל הראשון (המחבואים החדשים מוכנים כשהמפלצות נוצרות).
+                        // עולם שעדיין לא נותח (נוצר לפני העדכון): מנתחים ברקע, כדי שהמשחק לא יחכה בלי שום הודעה
+                        val worldKey = "w-$key-$aiStyle"
+                        if (com.arsniper.ml.AiWorldSpots.isCached(context, worldKey)) addWorldPlantSpots(cached, worldKey)
+                        else launch { addWorldPlantSpots(cached, worldKey) }
                     } else if (isGuest) {
                         // האורח לא יוצר עולמות: משתמש רק במה שהמארח שלח
                         aiHandled = true
@@ -497,7 +500,7 @@ fun GameScreen(
                                 }
                             }
                             // הניתוח של העולם החדש רץ בזמן שהמסך עדיין עוצר, ורק אחריו המשחק ממשיך
-                            if (made != null) addWorldPlantSpots(made)
+                            if (made != null) addWorldPlantSpots(made, "w-$key-$aiStyle")
                             if (aiOverlay) { aiOverlay = false; paused = false }
                             if (made != null) {
                                 themedFresh = true
