@@ -110,7 +110,7 @@ fun MainMenuScreen(
                 .align(Alignment.TopEnd)
                 .padding(
                     top = maxOf(unit * CORNER_MARGIN, insets.calculateTopPadding()),
-                    end = maxOf(unit * CORNER_MARGIN, insets.calculateEndPadding(layoutDirection))
+                    end = maxOf(unit * CORNER_MARGIN, insets.calculateRightPadding(layoutDirection))
                 )
         ) {
             CurrencyCounter(R.drawable.ui_icon_coin, PlayerProfile.coins, "Coins", { onShop(0) }, unit)
