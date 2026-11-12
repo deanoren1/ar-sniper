@@ -428,6 +428,14 @@ fun GameScreen(
         val added = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             try { com.arsniper.ml.AiWorldSpots.addPlantSpots(context, world, hideNames) } catch (_: Throwable) { 0 }
         }
+        if (style == ArenaStyle.Tundra) {
+            // בדיקה חד-פעמית: כמה מחבואים נוספו מעולם ה-AI (מוצגת פעם אחת בלבד בכל התקנה)
+            val prefs = context.getSharedPreferences("snapboo_dbg", android.content.Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("cover_reported", false)) {
+                prefs.edit().putBoolean("cover_reported", true).apply()
+                showToast("cover=$added " + com.arsniper.ml.AiWorldSpots.lastDebug)
+            }
+        }
         val current = SceneSession.analysis
         if (added > 0 && current != null) {
             val updated = buildSceneContext(current)
@@ -458,7 +466,8 @@ fun GameScreen(
                     if (cached != null) {
                         themed = cached.asImageBitmap()
                         aiHandled = true
-                        launch { addWorldPlantSpots(cached) }
+                        // מחכים לניתוח של עולם ה-AI לפני שהגל הראשון נוצר, כדי שהמחבואים החדשים (קרחונים, סלעים) יהיו מוכנים
+                        addWorldPlantSpots(cached)
                     } else {
                         aiHandled = true
                         aiOverlay = true
@@ -483,11 +492,12 @@ fun GameScreen(
                                     break
                                 }
                             }
+                            // הניתוח של העולם החדש רץ בזמן שהמסך עדיין עוצר, ורק אחריו המשחק ממשיך
+                            if (made != null) addWorldPlantSpots(made)
                             if (aiOverlay) { aiOverlay = false; paused = false }
                             if (made != null) {
                                 themedFresh = true
                                 themed = made.asImageBitmap()
-                                addWorldPlantSpots(made)
                             } else if (style == ArenaStyle.Tundra) {
                                 // אין AI (בלי רשת, מכסה או תקלה): העיצוב המקומי של הטונדרה
                                 themed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {

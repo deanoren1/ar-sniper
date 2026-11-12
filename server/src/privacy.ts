@@ -1,5 +1,5 @@
 /** עמוד מדיניות הפרטיות הציבורי (נדרש לגוגל פליי). כתובת הקשר נקבעת כאן. */
-export const CONTACT_EMAIL = "__CONTACT_EMAIL__";
+export const CONTACT_EMAIL = "snapboo.support@gmail.com";
 
 export const PRIVACY_HTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
