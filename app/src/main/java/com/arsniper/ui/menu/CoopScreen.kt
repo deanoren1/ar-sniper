@@ -162,12 +162,12 @@ fun CoopScreen(
                             if (CoopClient.role == "host" && CoopClient.peers >= 2) {
                                 // בחירת הזירה: עולם AI שמור, עולם אקראי מהקהילה, או תמונה סרוקה למשחק קלאסי. העולם קובע את הארנה.
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                    for ((i, label) in listOf("MY WORLDS", "RANDOM", "PHOTOS").withIndex()) {
+                                    for ((i, label) in listOf("\uD83C\uDFB2 RANDOM WORLD", "MY WORLDS", "MY PHOTOS").withIndex()) {
                                         Box(
                                             modifier = Modifier
-                                                .weight(1f)
+                                                .weight(if (i == 0) 1.5f else 1f)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(if (tab == i) Color(0xFF2B5BD7) else Color(0xFF1B2A55))
+                                                .background(if (tab == i) (if (i == 0) Color(0xFFFF8A2B) else Color(0xFF2B5BD7)) else Color(0xFF1B2A55))
                                                 .border(if (tab == i) 2.dp else 1.dp, if (tab == i) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
                                                 .clickable { tab = i }
                                                 .padding(vertical = 8.dp),
@@ -175,7 +175,7 @@ fun CoopScreen(
                                         ) { OutlinedText(label, fontSize = 12.sp) }
                                     }
                                 }
-                                if (tab == 0) {
+                                if (tab == 1) {
                                     if (worlds.isEmpty()) {
                                         OutlinedText("No saved worlds yet. Create one from a photo first, or use RANDOM", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
                                     }
@@ -200,9 +200,9 @@ fun CoopScreen(
                                             }
                                         }
                                     }
-                                } else if (tab == 1) {
+                                } else if (tab == 0) {
                                     GameButton(
-                                        text = if (rolling) "LOOKING..." else if (pickWorld != null && pickPhoto == null) "RANDOM AGAIN" else "ROLL A COMMUNITY WORLD",
+                                        text = if (rolling) "LOOKING..." else if (pickWorld != null && pickPhoto == null) "\uD83C\uDFB2 RANDOM AGAIN" else "\uD83C\uDFB2 RANDOM WORLD",
                                         onClick = {
                                             scope.launch {
                                                 rolling = true
@@ -246,7 +246,8 @@ fun CoopScreen(
                                             val bmp = remember(w.world.path) { PhotoLibrary.thumbnail(w.world, 320)?.asImageBitmap() }
                                             if (bmp != null) {
                                                 Image(bmp, null, contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.size(width = 160.dp, height = 100.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, GameColors.Yellow, RoundedCornerShape(8.dp)))
+                                                    modifier = Modifier.size(width = 240.dp, height = 150.dp).clip(RoundedCornerShape(10.dp)).border(3.dp, GameColors.Yellow, RoundedCornerShape(10.dp)))
+                                                OutlinedText("${w.style.title} world", fontSize = 13.sp, color = Color.White, outline = null)
                                             }
                                         }
                                     }
@@ -272,7 +273,7 @@ fun CoopScreen(
                                             }
                                         }
                                     }
-                                    OutlinedText("Classic arena, no AI world", fontSize = 11.sp, color = Color(0xFFB8C4E0), outline = null)
+                                    OutlinedText("MY PHOTOS - CLASSIC: classic arena, no AI world", fontSize = 11.sp, color = Color(0xFFB8C4E0), outline = null)
                                 }
                                 OutlinedText(
                                     when {
