@@ -147,7 +147,10 @@ object AiWorld {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(f.absolutePath, bounds)
             var sample = 1
-            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 2200) sample *= 2
+            // פנורמה רחבה צריכה יותר פיקסלים לאורך (הגובה הוא גובה המסך); תקרה של 4096 לאורך ובערך 5 מיליון פיקסלים
+            val wide = bounds.outWidth.toFloat() / bounds.outHeight.coerceAtLeast(1) >= 2.6f
+            while (if (wide) (bounds.outWidth / sample > 4096 || bounds.outWidth.toLong() * bounds.outHeight / (sample.toLong() * sample) > 5_000_000L)
+                else maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 2200) sample *= 2
             BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
         }
 
@@ -155,22 +158,131 @@ object AiWorld {
     @Volatile var lastError: String = ""
 
     fun createWorld(context: Context, photoKey: String, serverStyle: String, source: Bitmap): Bitmap? {
+        // פנורמה 180: דגמי התמונה לא תומכים ביחס רחב כל כך, לכן יוצרים בכמה חלקים ומחברים
+        if (source.width.toFloat() / source.height >= 2.6f) return createWorldTiled(context, photoKey, serverStyle, source)
+        val made = restyleBest(context, serverStyle, source) ?: return null
+        try {
+            worldFile(context, photoKey, serverStyle).outputStream().use { made.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        } catch (_: Exception) {
+        }
+        return made
+    }
+
+    /** seedream, ואם נכשל muse. null בכישלון (lastError ו-statusFile מעודכנים) */
+    private fun restyleBest(context: Context, serverStyle: String, source: Bitmap): Bitmap? {
         for (model in listOf(WORLD_MODEL, WORLD_FALLBACK_MODEL)) {
             val result = generate(context, serverStyle, source, provider = "muapi", model = model)
-            if (result is Result.Image) {
-                try {
-                    worldFile(context, photoKey, serverStyle).outputStream().use { result.bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-                } catch (_: Exception) {
-                }
-                return result.bitmap
-            }
+            if (result is Result.Image) return result.bitmap
             // מכסה יומית או תקציב: אין טעם לנסות דגם אחר
             val message = (result as Result.Error).message
             lastError = message
-            statusFile(context).writeText("${java.util.Date()} $model: $message")
+            try { statusFile(context).writeText("${java.util.Date()} $model: $message") } catch (_: Exception) { }
             if (message.contains("limit", true) || message.contains("budget", true) || message.contains("server address", true)) return null
         }
         return null
+    }
+
+    private const val TILE_ASPECT = 16f / 9f
+    private const val TILE_OVERLAP = 0.25f
+    private const val MAX_TILES = 6
+
+    /**
+     * פנורמה רחבה: חותכים לחלקים בחפיפה של 25% (כל חלק כמעט 16:9), יוצרים כל חלק כעולם AI, מתקנים בהירות וצבע
+     * לפי החפיפה ומחברים בדהייה הדרגתית. התוצאה ביחס המדויק של המקור, כדי שהניתוח של המקור יתאים. חלקים שנוצרו נשמרים,
+     * כך שניסיון חוזר לא מחייב שוב על חלקים שכבר הצליחו.
+     */
+    private fun createWorldTiled(context: Context, photoKey: String, serverStyle: String, source: Bitmap): Bitmap? {
+        val aspect = source.width.toFloat() / source.height
+        val o = TILE_OVERLAP
+        val k = (Math.ceil(((aspect - TILE_ASPECT) / (TILE_ASPECT * (1f - o))).toDouble()).toInt() + 1).coerceIn(2, MAX_TILES)
+        val tw = source.width / (k * (1f - o) + o)
+        val step = tw * (1f - o)
+        val dir = java.io.File(java.io.File(context.filesDir, "ai_world"), "tiles").apply { mkdirs() }
+        val files = (0 until k).map { java.io.File(dir, "${photoKey}_${serverStyle}_${k}_$it.jpg") }
+        val results = arrayOfNulls<Bitmap>(k)
+        val threads = (0 until k).map { i ->
+            Thread {
+                val cached = if (files[i].exists()) BitmapFactory.decodeFile(files[i].absolutePath) else null
+                if (cached != null) {
+                    results[i] = cached
+                } else {
+                    val x = Math.round(i * step).coerceIn(0, source.width - 1)
+                    val w = Math.round(tw).coerceAtMost(source.width - x).coerceAtLeast(1)
+                    val made = restyleBest(context, serverStyle, Bitmap.createBitmap(source, x, 0, w, source.height))
+                    if (made != null) {
+                        try { files[i].outputStream().use { made.compress(Bitmap.CompressFormat.JPEG, 92, it) } } catch (_: Exception) { }
+                    }
+                    results[i] = made
+                }
+            }.also { it.start() }
+        }
+        threads.forEach { it.join() }
+        if (results.any { it == null }) return null
+        val tiles = results.map { it!! }
+
+        val outH = tiles.maxOf { it.height }
+        val outW = Math.round(outH * aspect)
+        val twOut = outW / (k * (1f - o) + o)
+        val stepOut = twOut * (1f - o)
+        val out = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        for (i in 0 until k) {
+            val x0 = Math.round(i * stepOut).coerceAtMost(outW - 1)
+            val w = Math.round(twOut).coerceAtMost(outW - x0).coerceAtLeast(1)
+            val ov = Math.round(twOut * o).coerceAtMost(w)
+            val layer = Bitmap.createBitmap(w, outH, Bitmap.Config.ARGB_8888)
+            val lc = android.graphics.Canvas(layer)
+            val dst = android.graphics.Rect(0, 0, w, outH)
+            val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+            lc.drawBitmap(tiles[i], null, dst, paint)
+            if (i > 0 && ov > 4) {
+                // בהירות וצבע החלק החדש מותאמים לקודם לפי אזור החפיפה (בגבולות סבירים)
+                val prev = meanRgb(out, x0, ov)
+                val now = meanRgb(layer, 0, ov)
+                val gains = FloatArray(3) { c -> if (now[c] > 1f) (prev[c] / now[c]).coerceIn(0.8f, 1.25f) else 1f }
+                paint.colorFilter = android.graphics.ColorMatrixColorFilter(
+                    android.graphics.ColorMatrix(floatArrayOf(
+                        gains[0], 0f, 0f, 0f, 0f,
+                        0f, gains[1], 0f, 0f, 0f,
+                        0f, 0f, gains[2], 0f, 0f,
+                        0f, 0f, 0f, 1f, 0f
+                    ))
+                )
+                layer.eraseColor(0)
+                lc.drawBitmap(tiles[i], null, dst, paint)
+                // דהייה הדרגתית בקצה השמאלי של החלק, מעל מה שכבר צויר
+                val fade = android.graphics.Paint().apply {
+                    xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
+                    shader = android.graphics.LinearGradient(0f, 0f, ov.toFloat(), 0f, 0x00000000, 0xFF000000.toInt(), android.graphics.Shader.TileMode.CLAMP)
+                }
+                lc.drawRect(0f, 0f, w.toFloat(), outH.toFloat(), fade)
+            }
+            canvas.drawBitmap(layer, x0.toFloat(), 0f, null)
+            layer.recycle()
+        }
+        try {
+            worldFile(context, photoKey, serverStyle).outputStream().use { out.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            files.forEach { it.delete() }
+        } catch (_: Exception) {
+        }
+        return out
+    }
+
+    /** ממוצע אדום/ירוק/כחול של פס אנכי (x..x+width), בדגימה דלילה */
+    private fun meanRgb(bitmap: Bitmap, x: Int, width: Int): FloatArray {
+        var r = 0L; var g = 0L; var b = 0L; var n = 0L
+        val x1 = (x + width).coerceAtMost(bitmap.width)
+        var py = 0
+        while (py < bitmap.height) {
+            var px = x
+            while (px < x1) {
+                val c = bitmap.getPixel(px, py)
+                r += (c shr 16) and 0xFF; g += (c shr 8) and 0xFF; b += c and 0xFF; n++
+                px += 6
+            }
+            py += 6
+        }
+        return if (n == 0L) floatArrayOf(1f, 1f, 1f) else floatArrayOf(r.toFloat() / n, g.toFloat() / n, b.toFloat() / n)
     }
 
     private fun lastFile(context: Context) = java.io.File(context.filesDir, "ai_last.jpg")

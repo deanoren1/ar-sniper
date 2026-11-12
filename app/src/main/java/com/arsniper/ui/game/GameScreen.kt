@@ -455,7 +455,8 @@ fun GameScreen(
             // (מטמון בדיסק: בפעם הבאה היא מיידית). הניתוח הוא של המקור, לכן התמונה חייבת להישאר ביחס המקורי.
             val aiStyle = com.arsniper.ml.AiWorld.serverStyle(style)
             var aiHandled = false
-            if (analysis != null && photo != null && aiStyle != null && !panoMode) {
+            // פנורמה 180 מקבלת עולם AI (נוצר בחלקים); 360 עדיין לא: החיבור במעגל ידרוש התאמה בתפר
+            if (analysis != null && photo != null && aiStyle != null && !wraps) {
                 val file = PhotoRepository.currentFile(context)
                 if (file != null) {
                     val key = com.arsniper.ml.AnalysisCache.keyFor(file)
