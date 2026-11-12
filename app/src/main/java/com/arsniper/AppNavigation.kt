@@ -42,6 +42,10 @@ fun AppNavigation() {
     var modeArena by rememberSaveable { mutableStateOf(false) }
     // המפה נפתחה ממסך הפתיחה (ולא אחרי בחירת תמונה): בחירת ארנה מובילה למסך אופן המשחק
     var mapFromStart by rememberSaveable { mutableStateOf(false) }
+    // מאיזה כפתור במסך הראשי נפתח מסך ("shop" / "multi" / "armory"), כדי שהחזרה תחזור למסך הראשי. ריק = נפתח ממסך אחר
+    var fromMain by rememberSaveable { mutableStateOf("") }
+    // לשונית פתיחה בחנות המטבעות: 0 מטבעות, 1 יהלומים
+    var shopTab by rememberSaveable { mutableStateOf(0) }
     // ה-CO-OP נפתח מדף המולטיפלייר (ולא מההגדרות): החזרה אליו
     var coopFromMulti by rememberSaveable { mutableStateOf(false) }
     // צילום/גלריה מתוך לובי ה-CO-OP: אותו מסלול סריקה רגיל (סקירה וניתוח), ובסיומו חוזרים ללובי עם התמונה החדשה נבחרת
@@ -80,9 +84,9 @@ fun AppNavigation() {
             Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (coopPick) { coopPick = false; Screen.Coop } else if (modeArena) Screen.ArenaMode else Screen.Play
             Screen.Arena -> if (mapFromStart) Screen.Start else Screen.Play
             Screen.Coop -> if (coopFromMulti) Screen.Multiplayer else Screen.Settings
-            Screen.Multiplayer -> Screen.Arena
-            Screen.Armory -> Screen.Shop
-            Screen.Shop -> if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start
+            Screen.Multiplayer -> if (fromMain == "multi") Screen.Start else Screen.Arena
+            Screen.Armory -> if (fromMain == "armory") Screen.Start else Screen.Shop
+            Screen.Shop -> if (fromMain == "shop") Screen.Start else if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start
             else -> Screen.Start
         }
     }
@@ -90,8 +94,9 @@ fun AppNavigation() {
     when (screen) {
         Screen.Start -> MainMenuScreen(
             onStart = { arenaFirst = false; mapFromStart = true; screen = Screen.Arena },
-            onPhotoPicked = { screen = Screen.Review },
-            onShop = { screen = Screen.Shop },
+            onShop = { tab -> fromMain = "shop"; shopTab = tab; screen = Screen.Shop },
+            onMultiplayer = { fromMain = "multi"; screen = Screen.Multiplayer },
+            onArmory = { fromMain = "armory"; screen = Screen.Armory },
             onSettings = { screen = Screen.Settings },
             onStats = { screen = Screen.Stats }
         )
@@ -170,15 +175,15 @@ fun AppNavigation() {
                 }
             },
             onMyPhotos = { arenaFirst = false; screen = Screen.Play },
-            onShop = { screen = Screen.Shop },
-            onArmory = { screen = Screen.Armory },
-            onMultiplayer = { screen = Screen.Multiplayer },
+            onShop = { fromMain = ""; shopTab = 0; screen = Screen.Shop },
+            onArmory = { fromMain = ""; screen = Screen.Armory },
+            onMultiplayer = { fromMain = ""; screen = Screen.Multiplayer },
             onBack = { if (mapFromStart && !arenaFirst) { screen = Screen.Start } else { arenaFirst = false; screen = Screen.Play } }
         )
         Screen.ArenaMode -> com.arsniper.ui.arena.ArenaModeScreen(
             style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
             onBack = { modeArena = false; screen = Screen.Arena },
-            onShop = { screen = Screen.Shop },
+            onShop = { fromMain = ""; shopTab = 0; screen = Screen.Shop },
             onUseLast = { file ->
                 PhotoLibrary.select(context, file)
                 PhotoLibrary.clearPending(context)
@@ -231,14 +236,15 @@ fun AppNavigation() {
             onNextArena = { quick = false; arenaFirst = false; screen = Screen.Arena }
         )
         Screen.Shop -> com.arsniper.ui.shop.CurrencyShopScreen(
-            onBack = { screen = if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start },
-            onArmory = { screen = Screen.Armory }
+            initialTab = shopTab,
+            onBack = { screen = if (fromMain == "shop") Screen.Start else if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start },
+            onArmory = { fromMain = ""; screen = Screen.Armory }
         )
         Screen.Multiplayer -> com.arsniper.ui.menu.MultiplayerScreen(
-            onBack = { screen = Screen.Arena },
+            onBack = { screen = if (fromMain == "multi") Screen.Start else Screen.Arena },
             onCoop = { coopFromMulti = true; screen = Screen.Coop }
         )
-        Screen.Armory -> ShopScreen(onBack = { screen = Screen.Shop })
+        Screen.Armory -> ShopScreen(onBack = { screen = if (fromMain == "armory") Screen.Start else Screen.Shop })
         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Start }, onArtLab = { screen = Screen.ArtLab }, onScanLab = { screen = Screen.ScanLab }, onSceneDebug = { screen = Screen.SceneDebug }, onCoop = { coopFromMulti = false; screen = Screen.Coop })
         Screen.ScanLab -> ScanLabScreen(onBack = { screen = Screen.Settings })
         Screen.ArtLab -> ArtLabScreen(onBack = { screen = Screen.Settings }, onUsePhoto = { screen = Screen.Review })

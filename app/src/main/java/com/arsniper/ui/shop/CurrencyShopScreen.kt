@@ -52,8 +52,8 @@ private val GEM_PACKS = listOf(100, 550, 1200)
  * מטבעות: קונים ביהלומים. יהלומים: חבילות בכסף אמיתי, "בקרוב".
  */
 @Composable
-fun CurrencyShopScreen(onBack: () -> Unit, onArmory: () -> Unit, modifier: Modifier = Modifier) {
-    var tab by remember { mutableStateOf(0) }
+fun CurrencyShopScreen(onBack: () -> Unit, onArmory: () -> Unit, modifier: Modifier = Modifier, initialTab: Int = 0) {
+    var tab by remember { mutableStateOf(initialTab) }
     var message by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(message) {
         if (message != null) { kotlinx.coroutines.delay(2000); message = null }
