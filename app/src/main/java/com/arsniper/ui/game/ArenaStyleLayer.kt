@@ -59,7 +59,8 @@ fun ArenaStyleLayer(
     val context = LocalContext.current
     val assets = remember(style, props, frameOnly, frameVariant) { if (props) ArenaAssets.load(context, style, frameOnly, frameVariant) else null }
     val fog = remember(style, props, frameOnly, screenOnly) {
-        if (props && !frameOnly && !screenOnly && style.fog > 0f && style != ArenaStyle.Tundra) buildDepthFog(style) else null
+        // ערפל העומק מצויר רק עם תיקון הצבע; כשהוא כבוי (REMOVE_COLOR_MASK) לא בונים אותו בכלל
+        if (!REMOVE_COLOR_MASK && props && !frameOnly && !screenOnly && style.fog > 0f && style != ArenaStyle.Tundra) buildDepthFog(style) else null
     }
     if (frameOnly) {
         val baked = remember(assets, worldViewAspect) {
