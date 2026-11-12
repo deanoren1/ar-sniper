@@ -77,8 +77,8 @@ fun SpriteButton(
 }
 
 /**
- * מונה מטבעות/יהלומים: לוח כחול כהה שקוף, אייקון, מספר, וכפתור + שפותח את החנות.
- * unit = גודל "פיקסל קנבס" (2560 רוחב) ב-dp, כך שהכול מתכוונן לגודל המסך.
+ * מונה מטבעות/יהלומים לפי הרפרנס: פס כחול כהה מעוגל, האייקון בולט מעל קצהו השמאלי, המספר במרכז,
+ * וכפתור + גדול בולט מעל קצהו הימני. unit = גודל "פיקסל קנבס" (2560 רוחב) ב-dp.
  */
 @Composable
 fun CurrencyCounter(
@@ -89,35 +89,36 @@ fun CurrencyCounter(
     unit: Dp,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(unit * 28)
-    val panelHeight = maxOf(unit * 92, 44.dp)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start,
-        modifier = modifier
-            .height(panelHeight)
-            .background(Color(0x990A1E5E), shape)
-            .padding(start = unit * 10)
-    ) {
+    val big = maxOf(unit * 128, 48.dp)      // האייקון והכפתור
+    val barH = big * 0.76f
+    Box(modifier = modifier.height(big), contentAlignment = Alignment.CenterStart) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .padding(horizontal = big * 0.42f)
+                .height(barH)
+                .background(Color(0xEB16285A), RoundedCornerShape(barH / 2))
+                .padding(start = big * 0.62f, end = big * 0.62f)
+        ) {
+            OutlinedText(
+                String.format(java.util.Locale.US, "%,d", value),
+                fontSize = (big.value * 0.46f).sp,
+                color = Color.White,
+                outline = null
+            )
+        }
         Image(
             painter = painterResource(icon),
             contentDescription = label,
-            modifier = Modifier.size(maxOf(unit * 72, 32.dp))
+            modifier = Modifier.align(Alignment.CenterStart).size(big)
         )
-        Spacer(Modifier.width(unit * 12))
-        OutlinedText(
-            String.format(java.util.Locale.US, "%,d", value),
-            fontSize = maxOf(unit.value * 50f, 17f).sp,
-            color = Color.White,
-            outline = null
-        )
-        Spacer(Modifier.width(unit * 6))
         SpriteButton(
             sprite = com.arsniper.R.drawable.ui_btn_plus,
             contentDescription = "Add $label",
             onClick = onPlus,
-            width = maxOf(unit * 68, 34.dp),
-            height = maxOf(unit * 68, 34.dp) * 118f / 120f
+            width = big,
+            height = big * 118f / 120f,
+            modifier = Modifier.align(Alignment.CenterEnd)
         )
     }
 }
