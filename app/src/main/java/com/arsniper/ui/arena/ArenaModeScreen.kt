@@ -155,6 +155,14 @@ fun ArenaModeScreen(
     val context = LocalContext.current
     val lastFile = remember { PhotoLibrary.list(context).firstOrNull { PhotoLibrary.isReviewed(it) } }
     val lastThumb = remember(lastFile) { lastFile?.let { PhotoLibrary.thumbnail(it, 480) } }
+    // האם לתמונה האחרונה כבר יש עולם AI בארנה הזו (אז נטען מיד), או שייווצר עולם חדש
+    val aiStyleName = com.arsniper.ml.AiWorld.serverStyle(style)
+    val lastWorldReady = remember(lastFile, aiStyleName) {
+        if (lastFile == null || aiStyleName == null) false
+        else try {
+            com.arsniper.ml.AiWorld.cachedWorldFile(context, com.arsniper.ml.AnalysisCache.keyFor(lastFile), aiStyleName) != null
+        } catch (_: Exception) { false }
+    }
     var worldsRevision by remember { mutableStateOf(0) }
     val worlds = remember(style, worldsRevision) { allSavedWorlds(context) }
     val thisArenaWorlds = remember(worlds) { worlds.filter { it.style == style } }
@@ -292,12 +300,22 @@ fun ArenaModeScreen(
                 ModeCard(
                     title = "USE LAST PHOTO",
                     color = Color(0xFF2A8CFF),
-                    caption = "Play ${style.title.lowercase().replaceFirstChar { it.uppercase() }} on your last photo",
+                    caption = when {
+                        aiStyleName == null -> "Play ${style.title.lowercase().replaceFirstChar { it.uppercase() }} on your last photo"
+                        lastWorldReady -> "Your AI world is ready"
+                        else -> "Creates a new AI world (about a minute)"
+                    },
                     modifier = Modifier.weight(1f),
                     onClick = { onUseLast(lastFile) }
                 ) {
                     Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Color(0x55000000))) {
                         if (lastThumb != null) Image(lastThumb.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        if (aiStyleName != null) {
+                            OutlinedText(if (lastWorldReady) "AI READY" else "AI NEW", fontSize = 12.sp, color = Color.White, outline = null,
+                                modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
+                                    .background(if (lastWorldReady) Color(0xFF22B83E) else Color(0xFF6A2BD9), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 7.dp, vertical = 2.dp))
+                        }
                     }
                 }
             }
