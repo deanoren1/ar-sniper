@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -79,26 +80,37 @@ fun MainMenuScreen(
     onStats: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // המסך הראשי נפרש גם מאחורי חריץ המצלמה (אחרת נשאר פס שחור בצד); בעזיבה חוזרים להגדרה הקודמת
+    val activity = LocalContext.current as? android.app.Activity
+    androidx.compose.runtime.DisposableEffect(activity) {
+        val window = activity?.window
+        val previous = if (android.os.Build.VERSION.SDK_INT >= 28) window?.attributes?.layoutInDisplayCutoutMode else null
+        if (android.os.Build.VERSION.SDK_INT >= 28 && window != null) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        onDispose {
+            if (android.os.Build.VERSION.SDK_INT >= 28 && window != null && previous != null) {
+                window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = previous }
+            }
+        }
+    }
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
-        // במה: רוחב המסך, ביחס 2560:1180, ממורכזת אנכית. במסך צר מהיחס היא נכנסת כולה (ושוליים ממולאים ברקע),
-        // במסך רחב ממנו היא חותכת מעט למעלה ולמטה, בדיוק כמו הרקע.
-        val stageW = maxWidth
+        // במה: מלבן ביחס 2560:1180 שמכסה את כל המסך (cover): הרקע תמיד ממלא את המסך בלי שוליים, ושאר הרכיבים
+        // נמדדים על אותה במה. במסך צר/רחב מהיחס נחתך קצת מהקצוות, כמו הרקע.
+        val coverW = maxOf(maxWidth, maxHeight * (CANVAS_W / CANVAS_H))
+        val stageW = coverW
         val stageH = stageW * (CANVAS_H / CANVAS_W)
         val unit = stageW / CANVAS_W
+        val stageLeft = (maxWidth - stageW) / 2
         val stageTop = (maxHeight - stageH) / 2
 
-        // שכבת מילוי לשוליים (רק במסך צר מהיחס), ומעליה הרקע במקומו המדויק
-        Image(
-            painter = painterResource(R.drawable.title_art),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
         Image(
             painter = painterResource(R.drawable.title_art),
             contentDescription = null,
             contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(y = stageTop).size(stageW, stageH)
+            modifier = Modifier.offset(x = stageLeft, y = stageTop).requiredSize(stageW, stageH)
         )
 
         // מונים בפינה הימנית העליונה: מטבעות קודם, יהלומים אחריהם. שוליים לפי אזורי המערכת (חריץ, פינות)
@@ -127,7 +139,7 @@ fun MainMenuScreen(
             width = playW,
             height = playH,
             modifier = Modifier.offset(
-                x = unit * PLAY_CENTER_X - maxOf(playW, 48.dp) / 2,
+                x = stageLeft + unit * PLAY_CENTER_X - maxOf(playW, 48.dp) / 2,
                 y = stageTop + unit * PLAY_CENTER_Y - maxOf(playH, 48.dp) / 2
             )
         )
@@ -150,7 +162,7 @@ fun MainMenuScreen(
                 width = iconW,
                 height = iconH,
                 modifier = Modifier.offset(
-                    x = unit * PLAY_CENTER_X - rowW / 2 + (iconW + unit * ICON_GAP) * i - (maxOf(iconW, 48.dp) - iconW) / 2,
+                    x = stageLeft + unit * PLAY_CENTER_X - rowW / 2 + (iconW + unit * ICON_GAP) * i - (maxOf(iconW, 48.dp) - iconW) / 2,
                     y = stageTop + unit * ROW_CENTER_Y - maxOf(iconH, 48.dp) / 2
                 )
             )

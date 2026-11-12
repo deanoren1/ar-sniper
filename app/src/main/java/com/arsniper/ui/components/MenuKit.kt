@@ -3,7 +3,6 @@ package com.arsniper.ui.components
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -97,29 +96,28 @@ fun CurrencyCounter(
         horizontalArrangement = Arrangement.Start,
         modifier = modifier
             .height(panelHeight)
-            .background(Color(0xCC0A1E5E), shape)
-            .border(unit * 3, Color(0xFF3F8EF0), shape)
-            .padding(start = unit * 12)
+            .background(Color(0x990A1E5E), shape)
+            .padding(start = unit * 10)
     ) {
         Image(
             painter = painterResource(icon),
             contentDescription = label,
-            modifier = Modifier.size(unit * 72)
+            modifier = Modifier.size(maxOf(unit * 72, 32.dp))
         )
-        Spacer(Modifier.width(unit * 14))
+        Spacer(Modifier.width(unit * 12))
         OutlinedText(
             String.format(java.util.Locale.US, "%,d", value),
-            fontSize = (unit.value * 46f).sp,
+            fontSize = maxOf(unit.value * 50f, 17f).sp,
             color = Color.White,
             outline = null
         )
-        Spacer(Modifier.width(unit * 14))
+        Spacer(Modifier.width(unit * 6))
         SpriteButton(
             sprite = com.arsniper.R.drawable.ui_btn_plus,
             contentDescription = "Add $label",
             onClick = onPlus,
-            width = unit * 68,
-            height = unit * 68 * 118f / 120f
+            width = maxOf(unit * 68, 34.dp),
+            height = maxOf(unit * 68, 34.dp) * 118f / 120f
         )
     }
 }
