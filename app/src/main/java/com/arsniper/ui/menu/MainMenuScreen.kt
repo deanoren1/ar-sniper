@@ -57,12 +57,12 @@ import kotlinx.coroutines.withContext
 private const val CANVAS_W = 2560f
 private const val CANVAS_H = 1180f
 
-// מיקומים וגדלים בפיקסלי קנבס (2560x1180)
+// מיקומים וגדלים בפיקסלי קנבס (2560x1180). PLAY הוזז מ-Y=790 ל-872 והוקטן מ-850 ל-760: במידות המקוריות הוא כיסה את המפלצת המרכזית
 private const val PLAY_CENTER_X = 1280f
-private const val PLAY_CENTER_Y = 790f
-private const val PLAY_WIDTH = 850f
+private const val PLAY_CENTER_Y = 872f
+private const val PLAY_WIDTH = 760f
 private const val PLAY_SPRITE_RATIO = 235f / 900f
-private const val ROW_CENTER_Y = 1060f
+private const val ROW_CENTER_Y = 1068f
 private const val ICON_HEIGHT = 140f
 private const val ICON_WIDTH = ICON_HEIGHT * 300f / 287f
 private const val ICON_GAP = 24f
