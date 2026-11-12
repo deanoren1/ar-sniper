@@ -77,49 +77,41 @@ fun SpriteButton(
 }
 
 /**
- * מונה מטבעות/יהלומים לפי הרפרנס: פס כחול כהה מעוגל, האייקון בולט מעל קצהו השמאלי, המספר במרכז,
- * וכפתור + גדול בולט מעל קצהו הימני. unit = גודל "פיקסל קנבס" (2560 רוחב) ב-dp.
+ * פריט מטבע/יהלום לפי הרפרנס: אייקון בולט ומספר לבן עבה עם קו מתאר כחול כהה, בלי פס רקע.
+ * unit = גודל "פיקסל קנבס" (2560 רוחב) ב-dp.
  */
 @Composable
-fun CurrencyCounter(
+fun CurrencyItem(
     @DrawableRes icon: Int,
     value: Int,
     label: String,
-    onPlus: () -> Unit,
     unit: Dp,
     modifier: Modifier = Modifier
 ) {
-    val big = maxOf(unit * 86, 32.dp)       // האייקון והכפתור (הוקטן ב-33%)
-    val barH = big * 0.76f
-    // גובה השורה לפחות 48dp כדי ששטח המגע של כפתור ה-+ יישאר נגיש גם כשהציור קטן
-    Box(modifier = modifier.height(maxOf(big, 48.dp)), contentAlignment = Alignment.CenterStart) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .padding(horizontal = big * 0.42f)
-                .height(barH)
-                .background(Color(0xEB16285A), RoundedCornerShape(barH / 2))
-                .padding(start = big * 0.62f, end = big * 0.62f)
-        ) {
-            OutlinedText(
-                String.format(java.util.Locale.US, "%,d", value),
-                fontSize = (big.value * 0.46f).sp,
-                color = Color.White,
-                outline = null
-            )
-        }
-        Image(
-            painter = painterResource(icon),
-            contentDescription = label,
-            modifier = Modifier.align(Alignment.CenterStart).size(big)
-        )
-        SpriteButton(
-            sprite = com.arsniper.R.drawable.ui_btn_plus,
-            contentDescription = "Add $label",
-            onClick = onPlus,
-            width = big,
-            height = big * 118f / 120f,
-            modifier = Modifier.align(Alignment.CenterEnd)
+    val iconSize = maxOf(unit * 90, 32.dp)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.height(maxOf(iconSize, 48.dp))) {
+        Image(painter = painterResource(icon), contentDescription = label, modifier = Modifier.size(iconSize))
+        Spacer(Modifier.width(iconSize * 0.08f))
+        OutlinedText(
+            String.format(java.util.Locale.US, "%,d", value),
+            fontSize = (iconSize.value * 0.66f).sp,
+            color = Color.White,
+            outline = Color(0xFF0B1B52),
+            outlineWidth = 8f
         )
     }
+}
+
+/** כפתור + ירוק גדול שפותח את החנות */
+@Composable
+fun AddCurrencyButton(onClick: () -> Unit, unit: Dp, modifier: Modifier = Modifier) {
+    val size = maxOf(unit * 96, 36.dp)
+    SpriteButton(
+        sprite = com.arsniper.R.drawable.ui_btn_plus_green,
+        contentDescription = "Add coins or gems",
+        onClick = onClick,
+        width = size,
+        height = size * 118f / 120f,
+        modifier = modifier
+    )
 }

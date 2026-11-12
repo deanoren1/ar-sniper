@@ -35,7 +35,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import com.arsniper.R
 import com.arsniper.data.PhotoImport
-import com.arsniper.ui.components.CurrencyCounter
+import com.arsniper.ui.components.AddCurrencyButton
+import com.arsniper.ui.components.CurrencyItem
 import com.arsniper.ui.components.SpriteButton
 import com.arsniper.ui.components.OutlinedText
 import com.arsniper.ui.components.PlayerBadge
@@ -118,6 +119,7 @@ fun MainMenuScreen(
         val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
         Row(
             horizontalArrangement = Arrangement.spacedBy(unit * COUNTER_GAP),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(
@@ -125,8 +127,9 @@ fun MainMenuScreen(
                     end = maxOf(unit * CORNER_MARGIN, insets.calculateRightPadding(layoutDirection))
                 )
         ) {
-            CurrencyCounter(R.drawable.ui_icon_coin, PlayerProfile.coins, "Coins", { onShop(0) }, unit)
-            CurrencyCounter(R.drawable.ui_icon_gem, PlayerProfile.diamonds, "Gems", { onShop(1) }, unit)
+            CurrencyItem(R.drawable.ui_icon_coin, PlayerProfile.coins, "Coins", unit)
+            CurrencyItem(R.drawable.ui_icon_gem, PlayerProfile.diamonds, "Gems", unit)
+            AddCurrencyButton(onClick = { onShop(0) }, unit = unit)
         }
 
         // PLAY: במרכז הקנבס
