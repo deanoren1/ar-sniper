@@ -125,7 +125,7 @@ object AiWorld {
 
     fun statusFile(context: Context) = java.io.File(context.filesDir, "ai_world_status.txt")
 
-    private fun worldFile(context: Context, photoKey: String, serverStyle: String) =
+    fun worldFile(context: Context, photoKey: String, serverStyle: String) =
         java.io.File(java.io.File(context.filesDir, "ai_world").apply { mkdirs() }, "${photoKey}_$serverStyle.jpg")
 
     /** עולם שנוצר בעבר לאותה תמונה ובאותה משפחת ארנה בסגנון ישן (למשל tundra במקום tundra_mid): משתמשים בו במקום ליצור מחדש */
@@ -135,6 +135,10 @@ object AiWorld {
         val dir = java.io.File(context.filesDir, "ai_world")
         return (dir.listFiles() ?: emptyArray()).filter { pattern.matches(it.name) }.maxByOrNull { it.lastModified() }
     }
+
+    /** קובץ העולם השמור לתמונה וסגנון (גם בשם הישן של אותה משפחה), או null */
+    fun cachedWorldFile(context: Context, photoKey: String, serverStyle: String): java.io.File? =
+        worldFile(context, photoKey, serverStyle).takeIf { it.exists() } ?: olderWorldFile(context, photoKey, serverStyle)
 
     /** עולם AI שכבר נוצר לתמונה הזאת (מטמון בדיסק), או null */
     fun cachedWorld(context: Context, photoKey: String, serverStyle: String): Bitmap? =

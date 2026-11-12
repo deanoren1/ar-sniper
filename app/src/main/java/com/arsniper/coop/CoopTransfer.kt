@@ -65,6 +65,7 @@ object CoopTransfer {
         val id: Int,
         val key: String,
         val pano: String?,
+        val wstyle: String?,
         val specs: List<FileSpec>,
         val dir: File
     ) {
@@ -107,7 +108,8 @@ object CoopTransfer {
     // ---------------------------------------------------------------- שליחה
 
     /** שולח את התמונה הנוכחית (האחרונה ששיחקת) לשאר החדר */
-    fun sendCurrent() {
+    /** worldStyle: אם הארנה היא עולם AI, שולחים גם את העולם שנוצר (כדי ששני השחקנים יראו אותה תמונה) */
+    fun sendCurrent(worldStyle: String? = null) {
         val context = appContext ?: return
         if (sending) return
         val photo = PhotoRepository.currentFile(context)
@@ -144,8 +146,14 @@ object CoopTransfer {
                     temps.add(tmp)
                     parts.add(Triple(name, tmp, true))
                 }
+                if (worldStyle != null) {
+                    val wf = com.arsniper.ml.AiWorld.cachedWorldFile(context, key, worldStyle)
+                    if (wf != null) parts.add(Triple("world", wf, false))
+                }
+                val hasWorld = parts.any { it.first == "world" }
                 val offer = JSONObject()
                     .put("t", "offer")
+                    .put("wstyle", if (hasWorld) worldStyle ?: "" else "")
                     .put("id", id)
                     .put("key", key)
                     .put("pano", PhotoLibrary.panoMarkerText(context) ?: "")
@@ -233,7 +241,8 @@ object CoopTransfer {
             }
             val dir = File(context.cacheDir, "coop_in").apply { deleteRecursively(); mkdirs() }
             val pano = json.optString("pano").ifEmpty { null }
-            incoming = Incoming(json.getInt("id"), json.optString("key"), pano, specs, dir)
+            val wstyle = json.optString("wstyle").ifEmpty { null }
+            incoming = Incoming(json.getInt("id"), json.optString("key"), pano, wstyle, specs, dir)
             received = false
             receiving = true
             receiveProgress = 0f
@@ -286,6 +295,7 @@ object CoopTransfer {
                         "analysis" -> AnalysisCache.fileFor(context.filesDir, key)
                         "objects" -> UserObjects.file(context.filesDir, key)
                         "sam" -> UserObjects.file(context.filesDir, key, "sam")
+                        "world" -> inc.wstyle?.let { com.arsniper.ml.AiWorld.worldFile(context, key, it) }
                         else -> null
                     } ?: continue
                     target.parentFile?.mkdirs()

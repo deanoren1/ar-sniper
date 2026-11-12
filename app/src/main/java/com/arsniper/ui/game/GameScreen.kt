@@ -455,7 +455,7 @@ fun GameScreen(
             // (מטמון בדיסק: בפעם הבאה היא מיידית). הניתוח הוא של המקור, לכן התמונה חייבת להישאר ביחס המקורי.
             val aiStyle = com.arsniper.ml.AiWorld.serverStyle(style)
             var aiHandled = false
-            if (analysis != null && photo != null && aiStyle != null && !isGuest && !panoMode) {
+            if (analysis != null && photo != null && aiStyle != null && !panoMode) {
                 val file = PhotoRepository.currentFile(context)
                 if (file != null) {
                     val key = com.arsniper.ml.AnalysisCache.keyFor(file)
@@ -468,6 +468,9 @@ fun GameScreen(
                         aiHandled = true
                         // מחכים לניתוח של עולם ה-AI לפני שהגל הראשון נוצר, כדי שהמחבואים החדשים (קרחונים, סלעים) יהיו מוכנים
                         addWorldPlantSpots(cached)
+                    } else if (isGuest) {
+                        // האורח לא יוצר עולמות: משתמש רק במה שהמארח שלח
+                        aiHandled = true
                     } else {
                         aiHandled = true
                         aiOverlay = true
@@ -545,9 +548,9 @@ fun GameScreen(
             enemies = emptyList()
             fire.reset()
             if (isHost) {
-                // מחכים (עד 10 שניות) שהמסך של האורח יהיה מוכן
+                // מחכים (עד 30 שניות) שהמסך של האורח יהיה מוכן (כולל ניתוח עולם ה-AI)
                 var waited = 0
-                while (!CoopSync.guestReady && waited < 100) {
+                while (!CoopSync.guestReady && waited < 300) {
                     delay(100)
                     waited += 1
                 }
