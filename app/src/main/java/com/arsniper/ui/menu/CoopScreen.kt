@@ -67,6 +67,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun CoopScreen(
     onBack: () -> Unit,
+    /** חזרנו מצילום/גלריה וסריקה: בוחרים את התמונה החדשה */
+    preselectCurrent: Boolean = false,
+    /** צילום חדש (camera) או בחירה מהגלריה: אותו מסלול סקירה וניתוח של המשחק הרגיל */
+    onNewPhoto: (camera: Boolean) -> Unit = {},
     /** מתחילים משחק: מספר ארנה ותפקיד ("host" או "guest") */
     onStart: (style: Int, role: String) -> Unit,
     modifier: Modifier = Modifier
@@ -107,7 +111,22 @@ fun CoopScreen(
     // מה ה-Host בחר: עולם AI שמור (או שהורד מהקהילה), או תמונה סרוקה למשחק קלאסי
     var pickWorld by remember { mutableStateOf<SavedWorld?>(null) }
     var pickPhoto by remember { mutableStateOf<java.io.File?>(null) }
-    var tab by remember { mutableStateOf(0) }
+    var tab by remember { mutableStateOf(if (preselectCurrent) 2 else 0) }
+    val picker = com.arsniper.ui.components.rememberGalleryPicker { uri -> com.arsniper.data.PickImport.start(context, uri) }
+    val importState = com.arsniper.data.PickImport.state
+    LaunchedEffect(importState) {
+        when (importState) {
+            com.arsniper.data.PickImport.OK -> { com.arsniper.data.PickImport.consume(); onNewPhoto(false) }
+            com.arsniper.data.PickImport.FAILED -> { com.arsniper.data.PickImport.consume(); startError = "Could not open that photo" }
+        }
+    }
+    LaunchedEffect(preselectCurrent) {
+        if (!preselectCurrent) return@LaunchedEffect
+        val cur = com.arsniper.data.PhotoRepository.currentFile(context) ?: return@LaunchedEffect
+        val curKey = try { com.arsniper.ml.AnalysisCache.keyFor(cur) } catch (_: Exception) { return@LaunchedEffect }
+        val match = library.firstOrNull { try { com.arsniper.ml.AnalysisCache.keyFor(it) == curKey } catch (_: Exception) { false } }
+        if (match != null) { pickPhoto = match; pickWorld = null }
+    }
     var rolling by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var preparing by remember { mutableStateOf(false) }
@@ -272,6 +291,10 @@ fun CoopScreen(
                                                 if (bmp != null) Image(bmp, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                             }
                                         }
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                        GameButton(text = "CAMERA", onClick = { onNewPhoto(true) }, style = GameButtonStyle.Success, height = 40.dp, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                        GameButton(text = "GALLERY", onClick = { picker.launch() }, style = GameButtonStyle.Success, height = 40.dp, fontSize = 14.sp, modifier = Modifier.weight(1f))
                                     }
                                     OutlinedText("MY PHOTOS - CLASSIC: classic arena, no AI world", fontSize = 11.sp, color = Color(0xFFB8C4E0), outline = null)
                                 }

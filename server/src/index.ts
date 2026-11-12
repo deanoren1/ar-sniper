@@ -18,6 +18,7 @@
 
 import { LAB_HTML } from "./lab";
 import { PRIVACY_HTML, CONTACT_EMAIL } from "./privacy";
+import { ADMIN_HTML } from "./admin";
 
 export interface Env {
   ROOMS: DurableObjectNamespace;
@@ -34,6 +35,8 @@ export interface Env {
   /** מפתח Muapi האמיתי (סוד בשרת בלבד) ומפתח ה-Sandbox שלהם (נתוני דמה, בלי עלות) */
   MUAPI_KEY?: string;
   MUAPI_KEY_TEST?: string;
+  /** מפתח עמוד הבדיקה /admin (סוד בשרת). בלי מפתח העמוד כבוי */
+  ADMIN_KEY?: string;
   /** תקרת עיבודים יומית לכל המשתמשים יחד (ברירת מחדל 100) */
   DAILY_BUDGET?: string;
   /** כמה עיבודים חינם ביום לכל מכשיר (ברירת מחדל 20 בזמן בדיקות) */
@@ -439,6 +442,64 @@ function validDevice(request: Request): string | null {
   return /^[A-Za-z0-9_-]{8,64}$/.test(device) ? device : null;
 }
 
+/** מסיר מקובץ JPEG נתוני EXIF/XMP/הערות (מיקום, מכשיר, זמן). משאיר את התמונה ואת פרופיל הצבע */
+function stripJpegMetadata(src: Uint8Array): Uint8Array {
+  if (!(src[0] === 0xff && src[1] === 0xd8)) return src;
+  const parts: Uint8Array[] = [src.subarray(0, 2)];
+  let i = 2;
+  while (i + 4 <= src.length) {
+    if (src[i] !== 0xff) break;
+    const m = src[i + 1];
+    if (m === 0xff) { i++; continue; }
+    if (m === 0xda || m === 0xd9) break;
+    const len = (src[i + 2] << 8) | src[i + 3];
+    if (len < 2 || i + 2 + len > src.length) return src;
+    const drop = m === 0xe1 || (m >= 0xe3 && m <= 0xed) || m === 0xef || m === 0xfe;
+    if (!drop) parts.push(src.subarray(i, i + 2 + len));
+    i += 2 + len;
+  }
+  parts.push(src.subarray(i));
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+/** עמוד בדיקה ומחיקה לעולמות מדווחים: דורש ADMIN_KEY */
+async function adminApi(request: Request, env: Env, url: URL): Promise<Response> {
+  if (!env.ADMIN_KEY || request.headers.get("x-admin-key") !== env.ADMIN_KEY) return new Response("forbidden", { status: 403 });
+  const index = env.WORLDS_INDEX.get(env.WORLDS_INDEX.idFromName("main"));
+  const idOf = () => { const id = url.searchParams.get("id") ?? ""; return /^[a-f0-9]{16,64}$/.test(id) ? id : null; };
+  const pass = async (path: string) => {
+    const res = await index.fetch(`https://idx/${path}`, { method: "POST" });
+    return new Response(res.body, { status: res.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+  };
+  if (url.pathname === "/admin/api/reported" && request.method === "GET") {
+    const res = await index.fetch("https://idx/reported");
+    return new Response(res.body, { status: res.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+  }
+  const img = url.pathname.match(/^\/admin\/api\/img\/([a-f0-9]{16,64})$/);
+  if (img && request.method === "GET") {
+    const obj = await env.WORLDS.get(`worlds/${img[1]}.jpg`);
+    return obj ? new Response(obj.body, { headers: { "content-type": "image/jpeg", "cache-control": "no-store" } }) : new Response("gone", { status: 404 });
+  }
+  if (request.method !== "POST") return new Response("not found", { status: 404 });
+  if (url.pathname === "/admin/api/restore") { const id = idOf(); return id ? pass(`restore?id=${id}`) : new Response("bad id", { status: 400 }); }
+  if (url.pathname === "/admin/api/remove") {
+    const id = idOf();
+    if (!id) return new Response("bad id", { status: 400 });
+    // הרשומה נשארת מוסתרת (כדי שלא יועלה שוב); הקבצים נמחקים
+    await env.WORLDS.delete(`worlds/${id}.jpg`);
+    await env.WORLDS.delete(`worlds/${id}.bin.gz`);
+    return pass(`remove?id=${id}`);
+  }
+  if (url.pathname === "/admin/api/ban") {
+    const device = url.searchParams.get("device") ?? "";
+    return /^[A-Za-z0-9_-]{8,64}$/.test(device) ? pass(`ban?device=${device}`) : new Response("bad device", { status: 400 });
+  }
+  return new Response("not found", { status: 404 });
+}
+
 /** POST /worlds/share?style=  (גוף: JPEG של העולם)   GET /worlds/random?style=&exclude=id,id
  *  GET /worlds/img/<id>   POST /worlds/report?id=   POST /worlds/unshare?id=   כולם עם x-device */
 async function worldsApi(request: Request, env: Env, url: URL): Promise<Response> {
@@ -466,7 +527,7 @@ async function worldsApi(request: Request, env: Env, url: URL): Promise<Response
     const all = new Uint8Array(await request.arrayBuffer());
     if (all.length < 24_000 || all.length > MAX_WORLD_BYTES + MAX_ANALYSIS_BYTES + 4) return json({ error: "bad-size" }, 413);
     const worldLen = ((all[0] << 24) | (all[1] << 16) | (all[2] << 8) | all[3]) >>> 0;
-    const world = all.subarray(4, 4 + worldLen);
+    const world = stripJpegMetadata(all.subarray(4, 4 + worldLen));
     const analysis = all.subarray(4 + worldLen);
     if (worldLen < 20_000 || worldLen > MAX_WORLD_BYTES) return json({ error: "bad-size" }, 413);
     if (analysis.length < 200 || analysis.length > MAX_ANALYSIS_BYTES) return json({ error: "bad-analysis" }, 413);
@@ -512,6 +573,7 @@ export class WorldsIndex implements DurableObject {
     this.sql.exec("CREATE TABLE IF NOT EXISTS worlds (id TEXT PRIMARY KEY, style TEXT NOT NULL, device TEXT NOT NULL, at INTEGER NOT NULL, hidden INTEGER NOT NULL DEFAULT 0)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS reports (id TEXT NOT NULL, device TEXT NOT NULL, PRIMARY KEY (id, device))");
     this.sql.exec("CREATE INDEX IF NOT EXISTS worlds_style ON worlds (style, hidden)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS banned (device TEXT PRIMARY KEY)");
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -526,6 +588,7 @@ export class WorldsIndex implements DurableObject {
       return reply({ ok: !!row && Number(row.hidden) === 0 });
     }
     if (url.pathname === "/add") {
+      if (this.sql.exec("SELECT 1 FROM banned WHERE device = ?", device).toArray().length) return reply({ status: "banned" });
       const row = this.sql.exec("SELECT hidden FROM worlds WHERE id = ?", id).toArray()[0];
       if (row) return reply({ status: Number(row.hidden) ? "banned" : "exists" });
       this.sql.exec("INSERT INTO worlds (id, style, device, at) VALUES (?, ?, ?, ?)", id, q.get("style") ?? "", device, Date.now());
@@ -549,6 +612,26 @@ export class WorldsIndex implements DurableObject {
       const count = Number(this.sql.exec("SELECT COUNT(*) AS n FROM reports WHERE id = ?", id).toArray()[0].n);
       if (count >= REPORTS_TO_HIDE) this.sql.exec("UPDATE worlds SET hidden = 1 WHERE id = ?", id);
       return reply({ status: count >= REPORTS_TO_HIDE ? "hidden" : "reported" });
+    }
+    if (url.pathname === "/reported") {
+      const rows = this.sql.exec(
+        "SELECT * FROM (SELECT w.id, w.style, w.device, w.hidden, w.at, (SELECT COUNT(*) FROM reports r WHERE r.id = w.id) AS n FROM worlds w) WHERE hidden = 1 OR n > 0 ORDER BY n DESC, at DESC LIMIT 100"
+      ).toArray();
+      return reply(rows);
+    }
+    if (url.pathname === "/restore") {
+      this.sql.exec("UPDATE worlds SET hidden = 0 WHERE id = ?", id);
+      this.sql.exec("DELETE FROM reports WHERE id = ?", id);
+      return reply({ status: "restored" });
+    }
+    if (url.pathname === "/remove") {
+      this.sql.exec("UPDATE worlds SET hidden = 1 WHERE id = ?", id);
+      return reply({ status: "removed" });
+    }
+    if (url.pathname === "/ban") {
+      this.sql.exec("INSERT OR IGNORE INTO banned (device) VALUES (?)", device);
+      this.sql.exec("UPDATE worlds SET hidden = 1 WHERE device = ?", device);
+      return reply({ status: "banned" });
     }
     if (url.pathname === "/unshare") {
       const row = this.sql.exec("SELECT device, hidden FROM worlds WHERE id = ?", id).toArray()[0];
@@ -585,6 +668,8 @@ export default {
     }
 
     if (url.pathname === "/restyle") return restyle(request, env);
+    if (url.pathname === "/admin") return env.ADMIN_KEY ? new Response(ADMIN_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } }) : new Response("Not found", { status: 404 });
+    if (url.pathname.startsWith("/admin/api/")) return adminApi(request, env, url);
     if (url.pathname.startsWith("/worlds/")) return worldsApi(request, env, url);
     if (url.pathname === "/quota") {
       const device = request.headers.get("x-device") ?? "";

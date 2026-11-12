@@ -44,8 +44,12 @@ fun AppNavigation() {
     var mapFromStart by rememberSaveable { mutableStateOf(false) }
     // ה-CO-OP נפתח מדף המולטיפלייר (ולא מההגדרות): החזרה אליו
     var coopFromMulti by rememberSaveable { mutableStateOf(false) }
+    // צילום/גלריה מתוך לובי ה-CO-OP: אותו מסלול סריקה רגיל (סקירה וניתוח), ובסיומו חוזרים ללובי עם התמונה החדשה נבחרת
+    var coopPick by rememberSaveable { mutableStateOf(false) }
+    var coopPreselect by rememberSaveable { mutableStateOf(false) }
     fun goScene() {
         restoreTried = false
+        if (coopPick) { screen = Screen.Scene; return }
         if (coopRole.isNotEmpty()) { screen = Screen.Scene; return }
         if (modeArena) {
             modeArena = false
@@ -73,7 +77,7 @@ fun AppNavigation() {
         screen = when (screen) {
             Screen.Game -> if (coopRole.isNotEmpty()) Screen.Coop else if (quick) Screen.Play else Screen.Arena
             Screen.ArenaMode -> { modeArena = false; Screen.Arena }
-            Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (modeArena) Screen.ArenaMode else Screen.Play
+            Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (coopPick) { coopPick = false; Screen.Coop } else if (modeArena) Screen.ArenaMode else Screen.Play
             Screen.Arena -> if (mapFromStart) Screen.Start else Screen.Play
             Screen.Coop -> if (coopFromMulti) Screen.Multiplayer else Screen.Settings
             Screen.Multiplayer -> Screen.Arena
@@ -117,12 +121,12 @@ fun AppNavigation() {
         )
         Screen.Capture -> CaptureScreen(
             onPhotoCaptured = { com.arsniper.pano.PanoramaStore.clearPendingGame(context); screen = Screen.Review },
-            onBack = { screen = if (modeArena) Screen.ArenaMode else Screen.Play },
+            onBack = { screen = if (coopPick) { coopPick = false; Screen.Coop } else if (modeArena) Screen.ArenaMode else Screen.Play },
             onGalleryPicked = { screen = Screen.Review },
             onPanorama = { screen = Screen.PanoView }
         )
         Screen.PanoView -> com.arsniper.ui.capture.PanoViewScreen(
-            onBack = { screen = if (modeArena) Screen.ArenaMode else Screen.Play },
+            onBack = { screen = if (coopPick) { coopPick = false; Screen.Coop } else if (modeArena) Screen.ArenaMode else Screen.Play },
             onPlay = { quick = false; screen = Screen.Review }
         )
         Screen.Review -> ReviewScreen(
@@ -134,7 +138,12 @@ fun AppNavigation() {
         )
         Screen.Scene -> SceneScreen(
             onContinue = {
-                if (coopRole.isNotEmpty() || arenaFirst) {
+                if (coopPick) {
+                    // הסריקה הסתיימה: חוזרים ללובי עם התמונה החדשה
+                    coopPick = false
+                    coopPreselect = true
+                    screen = Screen.Coop
+                } else if (coopRole.isNotEmpty() || arenaFirst) {
                     arenaFirst = false
                     screen = Screen.Game
                 } else if (quick) {
@@ -235,8 +244,20 @@ fun AppNavigation() {
         Screen.ArtLab -> ArtLabScreen(onBack = { screen = Screen.Settings }, onUsePhoto = { screen = Screen.Review })
         Screen.Stats -> StatsScreen(onBack = { screen = Screen.Start })
         Screen.Coop -> com.arsniper.ui.menu.CoopScreen(
-            onBack = { screen = if (coopFromMulti) Screen.Multiplayer else Screen.Settings },
+            onBack = { coopPreselect = false; screen = if (coopFromMulti) Screen.Multiplayer else Screen.Settings },
+            preselectCurrent = coopPreselect,
+            onNewPhoto = { camera ->
+                // החדר נשאר מחובר בזמן הצילום והסריקה
+                com.arsniper.coop.CoopSync.keepConnection = true
+                PhotoLibrary.clearPending(context)
+                com.arsniper.pano.PanoramaStore.clearPendingGame(context)
+                quick = false
+                coopPick = true
+                coopPreselect = false
+                screen = if (camera) Screen.Capture else Screen.Review
+            },
             onStart = { style, role ->
+                coopPreselect = false
                 // החיבור נשאר פתוח, והמשחק לוקח את ההודעות מהלובי
                 com.arsniper.coop.CoopSync.keepConnection = true
                 com.arsniper.coop.CoopSync.resetGame()

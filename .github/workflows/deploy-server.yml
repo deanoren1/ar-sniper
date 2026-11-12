@@ -97,6 +97,17 @@ jobs:
           else
             echo "::warning::SNAPBOO_TEST secret is not set, Muapi sandbox key disabled"
           fi
+      - name: Admin key
+        if: steps.check.outputs.ready == 'true'
+        working-directory: server
+        env:
+          ADMIN_KEY: ${{ secrets.SNAPBOO_ADMIN }}
+        run: |
+          if [ -n "$ADMIN_KEY" ]; then
+            printf '%s' "$ADMIN_KEY" | npx wrangler secret put ADMIN_KEY
+          else
+            echo "::warning::SNAPBOO_ADMIN secret is not set, the /admin page is disabled"
+          fi
       - name: Show address
         if: steps.check.outputs.ready == 'true'
         run: grep -o 'https://[^ ]*workers.dev' deploy.log | head -1 | sed 's/^/::notice title=Server address::/'
