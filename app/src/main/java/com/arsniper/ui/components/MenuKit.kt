@@ -89,9 +89,10 @@ fun CurrencyCounter(
     unit: Dp,
     modifier: Modifier = Modifier
 ) {
-    val big = maxOf(unit * 128, 48.dp)      // האייקון והכפתור
+    val big = maxOf(unit * 86, 32.dp)       // האייקון והכפתור (הוקטן ב-33%)
     val barH = big * 0.76f
-    Box(modifier = modifier.height(big), contentAlignment = Alignment.CenterStart) {
+    // גובה השורה לפחות 48dp כדי ששטח המגע של כפתור ה-+ יישאר נגיש גם כשהציור קטן
+    Box(modifier = modifier.height(maxOf(big, 48.dp)), contentAlignment = Alignment.CenterStart) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
