@@ -56,10 +56,10 @@ import com.arsniper.ui.theme.GameColors
 import java.io.File
 
 /** עולם AI שמור בארנה: תמונת המקור שלו, ותמונת העולם */
-private class SavedWorld(val source: File, val world: File, val style: ArenaStyle, val key: String)
+internal class SavedWorld(val source: File, val world: File, val style: ArenaStyle, val key: String)
 
 /** מעקב אחרי עולמות קהילה: מה שיתפתי (מפתח -> מזהה), מה הורדתי (מפתח -> מזהה), ומה כבר ראיתי ב-RANDOM */
-private object CommunityState {
+internal object CommunityState {
     private fun prefs(context: android.content.Context) = context.getSharedPreferences("community_worlds", android.content.Context.MODE_PRIVATE)
     fun sharedId(context: android.content.Context, key: String): String? = prefs(context).getString("shared_$key", null)
     fun setShared(context: android.content.Context, key: String, id: String?) { prefs(context).edit().apply { if (id == null) remove("shared_$key") else putString("shared_$key", id) }.apply() }
@@ -107,7 +107,7 @@ private fun deleteSavedWorld(context: android.content.Context, w: SavedWorld) {
 }
 
 /** כל העולמות השמורים בכל הארנות (החדש ראשון). רק כאלה שאפשר להפעיל, כלומר שתמונת המקור שלהם עדיין קיימת */
-private fun allSavedWorlds(context: android.content.Context): List<SavedWorld> {
+internal fun allSavedWorlds(context: android.content.Context): List<SavedWorld> {
     val result = ArrayList<SavedWorld>()
     for (style in ArenaStyle.values()) result += savedWorlds(context, style)
     return result.sortedByDescending { it.world.lastModified() }

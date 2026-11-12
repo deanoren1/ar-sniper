@@ -45,6 +45,11 @@ import com.arsniper.coop.CoopClient
 import com.arsniper.coop.CoopStatus
 import com.arsniper.coop.CoopSync
 import com.arsniper.coop.CoopTransfer
+import com.arsniper.ml.AiWorld
+import com.arsniper.ml.CommunityWorlds
+import com.arsniper.ui.arena.CommunityState
+import com.arsniper.ui.arena.SavedWorld
+import com.arsniper.ui.arena.allSavedWorlds
 import com.arsniper.ui.components.GameButton
 import com.arsniper.ui.components.NavyPanel
 import com.arsniper.ui.components.OutlinedText
@@ -98,8 +103,12 @@ fun CoopScreen(
     var startError by remember { mutableStateOf("") }
     // המארח בוחר תמונה וארנה (null = אקראית מהפתוחות)
     val library = remember { PhotoLibrary.list(context).filter { PhotoLibrary.isReviewed(it) }.take(12) }
-    var chosenName by remember { mutableStateOf<String?>(null) }
-    var chosenStyle by remember { mutableStateOf<ArenaStyle?>(null) }
+    val worlds = remember { allSavedWorlds(context) }
+    // מה ה-Host בחר: עולם AI שמור (או שהורד מהקהילה), או תמונה סרוקה למשחק קלאסי
+    var pickWorld by remember { mutableStateOf<SavedWorld?>(null) }
+    var pickPhoto by remember { mutableStateOf<java.io.File?>(null) }
+    var tab by remember { mutableStateOf(0) }
+    var rolling by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var preparing by remember { mutableStateOf(false) }
     var prepText by remember { mutableStateOf("") }
@@ -151,55 +160,128 @@ fun CoopScreen(
                                 OutlinedText("Ping: ${CoopClient.pingMs} ms", fontSize = 13.sp, color = Color(0xFFB8C4E0), outline = null)
                             }
                             if (CoopClient.role == "host" && CoopClient.peers >= 2) {
-                                OutlinedText("PHOTO", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                                ) {
-                                    if (library.isEmpty()) {
-                                        OutlinedText("No photos yet. Play a photo first", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
-                                    }
-                                    for (file in library) {
-                                        val bmp = remember(file.name) { PhotoLibrary.thumbnail(file, 200)?.asImageBitmap() }
-                                        val selected = chosenName == file.name
+                                // בחירת הזירה: עולם AI שמור, עולם אקראי מהקהילה, או תמונה סרוקה למשחק קלאסי. העולם קובע את הארנה.
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    for ((i, label) in listOf("MY WORLDS", "RANDOM", "PHOTOS").withIndex()) {
                                         Box(
                                             modifier = Modifier
-                                                .size(width = 96.dp, height = 64.dp)
+                                                .weight(1f)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .border(if (selected) 3.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
-                                                .clickable {
-                                                    chosenName = file.name
-                                                    PhotoLibrary.select(context, file)
-                                                    val scanned = try {
-                                                        com.arsniper.ml.AnalysisCache.fileFor(context.filesDir, com.arsniper.ml.AnalysisCache.keyFor(file)).exists()
-                                                    } catch (_: Exception) { false }
-                                                    startError = if (scanned) "" else "This photo has not been scanned yet. Play it once from My Photos, then come back"
+                                                .background(if (tab == i) Color(0xFF2B5BD7) else Color(0xFF1B2A55))
+                                                .border(if (tab == i) 2.dp else 1.dp, if (tab == i) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
+                                                .clickable { tab = i }
+                                                .padding(vertical = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) { OutlinedText(label, fontSize = 12.sp) }
+                                    }
+                                }
+                                if (tab == 0) {
+                                    if (worlds.isEmpty()) {
+                                        OutlinedText("No saved worlds yet. Create one from a photo first, or use RANDOM", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
+                                    }
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                                    ) {
+                                        for (w in worlds) {
+                                            val bmp = remember(w.world.path) { PhotoLibrary.thumbnail(w.world, 200)?.asImageBitmap() }
+                                            val selected = pickWorld?.world?.path == w.world.path
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(width = 96.dp, height = 64.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .border(if (selected) 3.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
+                                                        .clickable { pickWorld = w; pickPhoto = null; startError = "" }
+                                                ) {
+                                                    if (bmp != null) Image(bmp, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                                 }
-                                        ) {
-                                            if (bmp != null) Image(bmp, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                                OutlinedText(w.style.title, fontSize = 9.sp, color = Color(0xFFB8C4E0), outline = null)
+                                            }
                                         }
                                     }
-                                }
-                                OutlinedText("ARENA", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                                ) {
-                                    val styles = listOf<ArenaStyle?>(null) + ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) }
-                                    for (st in styles) {
-                                        val selected = chosenStyle == st
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (selected) Color(0xFF2B5BD7) else Color(0xFF1B2A55))
-                                                .border(if (selected) 2.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
-                                                .clickable { chosenStyle = st }
-                                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                                        ) {
-                                            OutlinedText(st?.title ?: "RANDOM", fontSize = 12.sp)
+                                } else if (tab == 1) {
+                                    GameButton(
+                                        text = if (rolling) "LOOKING..." else if (pickWorld != null && pickPhoto == null) "RANDOM AGAIN" else "ROLL A COMMUNITY WORLD",
+                                        onClick = {
+                                            scope.launch {
+                                                rolling = true
+                                                startError = ""
+                                                try {
+                                                    val styles = ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) && AiWorld.serverStyle(it) != null }.shuffled()
+                                                    var found: SavedWorld? = null
+                                                    var lastMsg = ""
+                                                    for (st in styles) {
+                                                        val server = AiWorld.serverStyle(st) ?: continue
+                                                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                            CommunityWorlds.downloadRandom(context, server, CommunityState.seen(context))
+                                                        }
+                                                        if (result is CommunityWorlds.Result.Ok) {
+                                                            val (file, id) = result.value
+                                                            CommunityState.setOrigin(context, file.nameWithoutExtension, id)
+                                                            CommunityState.addSeen(context, id)
+                                                            val key = com.arsniper.ml.AnalysisCache.keyFor(file)
+                                                            val world = AiWorld.cachedWorldFile(context, key, server)
+                                                            if (world != null) { found = SavedWorld(file, world, st, key); break }
+                                                        } else if (result is CommunityWorlds.Result.Error && result.message != "none") {
+                                                            lastMsg = result.message
+                                                            break
+                                                        }
+                                                    }
+                                                    if (found != null) { pickWorld = found; pickPhoto = null }
+                                                    else startError = if (lastMsg.isEmpty()) "No community worlds yet" else "Could not load a world ($lastMsg)"
+                                                } finally {
+                                                    rolling = false
+                                                }
+                                            }
+                                        },
+                                        enabled = !rolling && !preparing,
+                                        style = GameButtonStyle.Success,
+                                        height = 44.dp,
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    pickWorld?.let { w ->
+                                        if (pickPhoto == null) {
+                                            val bmp = remember(w.world.path) { PhotoLibrary.thumbnail(w.world, 320)?.asImageBitmap() }
+                                            if (bmp != null) {
+                                                Image(bmp, null, contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.size(width = 160.dp, height = 100.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, GameColors.Yellow, RoundedCornerShape(8.dp)))
+                                            }
                                         }
                                     }
+                                } else {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                                    ) {
+                                        if (library.isEmpty()) {
+                                            OutlinedText("No scanned photos yet. Play a photo first", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
+                                        }
+                                        for (file in library) {
+                                            val bmp = remember(file.name) { PhotoLibrary.thumbnail(file, 200)?.asImageBitmap() }
+                                            val selected = pickPhoto?.name == file.name
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(width = 96.dp, height = 64.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(if (selected) 3.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
+                                                    .clickable { pickPhoto = file; pickWorld = null; startError = "" }
+                                            ) {
+                                                if (bmp != null) Image(bmp, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                            }
+                                        }
+                                    }
+                                    OutlinedText("Classic arena, no AI world", fontSize = 11.sp, color = Color(0xFFB8C4E0), outline = null)
                                 }
+                                OutlinedText(
+                                    when {
+                                        pickWorld != null -> "Selected: ${pickWorld!!.style.title} world"
+                                        pickPhoto != null -> "Selected: classic photo"
+                                        else -> "Pick a world or a photo"
+                                    },
+                                    fontSize = 12.sp, color = GameColors.Yellow, outline = null
+                                )
                                 if (CoopTransfer.sendText.isNotEmpty()) {
                                     OutlinedText(CoopTransfer.sendText, fontSize = 13.sp, color = GameColors.Yellow, outline = null)
                                 }
@@ -207,57 +289,54 @@ fun CoopScreen(
                                     OutlinedText(prepText, fontSize = 13.sp, color = GameColors.Yellow, outline = null)
                                 }
                                 GameButton(
-                                    text = if (preparing) "PREPARING..." else "START GAME",
+                                    text = if (preparing) "SENDING..." else "START GAME",
                                     onClick = {
-                                        val file = com.arsniper.data.PhotoRepository.currentFile(context)
-                                        if (file == null) {
-                                            startError = "No photo yet. Pick a photo first"
-                                        } else if (!com.arsniper.ml.AnalysisCache.fileFor(context.filesDir, com.arsniper.ml.AnalysisCache.keyFor(file)).exists()) {
-                                            startError = "This photo has not been scanned yet. Play it once from My Photos, then come back"
+                                        val w = pickWorld
+                                        val photo = if (w != null) w.source else pickPhoto
+                                        if (photo == null) {
+                                            startError = "Pick a world or a photo first"
+                                        } else if (!photo.exists() || !com.arsniper.ml.AnalysisCache.fileFor(context.filesDir, com.arsniper.ml.AnalysisCache.keyFor(photo)).exists()) {
+                                            startError = "This one is not available any more. Pick another"
                                         } else {
-                                            startError = ""
-                                            val key = com.arsniper.ml.AnalysisCache.keyFor(file)
-                                            val open = ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) }
-                                            val arena = chosenStyle ?: open.randomOrNull() ?: ArenaStyle.values()[0]
-                                            scope.launch {
-                                                preparing = true
-                                                try {
-                                                    // 1. עולם AI (אם יש לארנה): נוצר כאן, לפני ההתחלה, כדי שגם האורח יקבל אותו
-                                                    prepText = ""
-                                                    val serverStyle = com.arsniper.ml.AiWorld.serverStyle(arena)
-                                                    var worldStyle: String? = null
-                                                    if (serverStyle != null) {
-                                                        prepText = "Preparing the arena world..."
-                                                        if (prepareWorld(context, file, key, serverStyle)) worldStyle = serverStyle
+                                            val key = com.arsniper.ml.AnalysisCache.keyFor(photo)
+                                            val arena = w?.style ?: ArenaStyle.Classic
+                                            val worldStyle = if (w != null) AiWorld.serverStyle(w.style) else null
+                                            if (worldStyle != null && AiWorld.cachedWorldFile(context, key, worldStyle) == null) {
+                                                startError = "This world is not available any more. Pick another"
+                                            } else {
+                                                startError = ""
+                                                PhotoLibrary.select(context, photo)
+                                                scope.launch {
+                                                    preparing = true
+                                                    try {
+                                                        // שליחה אוטומטית של התמונה, הניתוח, הסימונים והעולם. מתחילים רק אחרי שכל השותפים אישרו שהכול נשמר אצלם
+                                                        prepText = "Sending the arena to your partner..."
+                                                        CoopTransfer.sendCurrent(worldStyle)
+                                                        val needed = (CoopClient.peers - 1).coerceAtLeast(1)
+                                                        var waited = 0
+                                                        var failed = false
+                                                        while (CoopTransfer.sending || CoopTransfer.readyCount < needed) {
+                                                            delay(200)
+                                                            waited++
+                                                            val t = CoopTransfer.sendText
+                                                            if (!CoopTransfer.sending && (t.startsWith("Sending failed") || t.startsWith("No photo"))) { failed = true; break }
+                                                            if (CoopClient.status != CoopStatus.Connected || waited > 900) { failed = true; break }
+                                                        }
+                                                        if (failed) {
+                                                            startError = "Could not send the arena to your partner. Try again"
+                                                        } else {
+                                                            CoopSync.sendStart(arena.ordinal, key)
+                                                            onStart(arena.ordinal, "host")
+                                                        }
+                                                    } finally {
+                                                        preparing = false
+                                                        prepText = ""
                                                     }
-                                                    // 2. שליחה אוטומטית של התמונה, הניתוח, הסימונים והעולם, ומחכים שהשותפים יאשרו
-                                                    prepText = "Sending the arena to your partner..."
-                                                    CoopTransfer.sendCurrent(worldStyle)
-                                                    val needed = (CoopClient.peers - 1).coerceAtLeast(1)
-                                                    var waited = 0
-                                                    var failed = false
-                                                    while (CoopTransfer.sending || CoopTransfer.readyCount < needed) {
-                                                        delay(200)
-                                                        waited++
-                                                        val t = CoopTransfer.sendText
-                                                        if (!CoopTransfer.sending && (t.startsWith("Sending failed") || t.startsWith("No photo"))) { failed = true; break }
-                                                        if (CoopClient.status != CoopStatus.Connected || waited > 900) { failed = true; break }
-                                                    }
-                                                    if (failed) {
-                                                        startError = "Could not send the arena to your partner. Try again"
-                                                    } else {
-                                                        // 3. כל הנכסים אצל השותפים: מתחילים
-                                                        CoopSync.sendStart(arena.ordinal, key)
-                                                        onStart(arena.ordinal, "host")
-                                                    }
-                                                } finally {
-                                                    preparing = false
-                                                    prepText = ""
                                                 }
                                             }
                                         }
                                     },
-                                    enabled = !preparing && !CoopTransfer.sending,
+                                    enabled = !preparing && !rolling && !CoopTransfer.sending,
                                     style = GameButtonStyle.Primary,
                                     height = 48.dp,
                                     fontSize = 18.sp,
@@ -343,24 +422,3 @@ fun CoopScreen(
     }
 }
 
-/**
- * מוודא שיש עולם AI לתמונה ולסגנון: אם אין, מפעיל יצירה ברקע וממתין (עד 4 דקות).
- * מחזיר true רק אם העולם קיים בדיסק. פנורמה רחבה לא מקבלת עולם AI.
- */
-private suspend fun prepareWorld(context: android.content.Context, file: java.io.File, key: String, serverStyle: String): Boolean {
-    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    android.graphics.BitmapFactory.decodeFile(file.absolutePath, opts)
-    if (opts.outHeight > 0 && opts.outWidth.toFloat() / opts.outHeight >= 2.6f) return false
-    val has = { com.arsniper.ml.AiWorld.cachedWorldFile(context, key, serverStyle) != null }
-    if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { has() }) return true
-    val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.arsniper.data.PhotoRepository.load(context) } ?: return false
-    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.arsniper.ml.AiWorldWorker.enqueue(context, key, serverStyle, bmp) }
-    var waited = 0
-    while (waited < 240) {
-        delay(1000)
-        waited++
-        if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { has() }) return true
-        if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.arsniper.ml.AiWorldWorker.isDead(context, key, serverStyle) }) return false
-    }
-    return false
-}
