@@ -58,3 +58,8 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 - Where NEXT WORLD leads after a Classic win.
 - Number of chapters and each gate's star count (after the launch motif list is fixed).
 - XP/levels: not in the first version.
+
+## 9. The 17 motifs (list from Dean, 2026-11-13)
+Industrial Warehouse, Jungle, Military Base, Frozen Tundra, Ruins, Urban Bazaar, Cyberpunk, Rocky Forest, Candy World, Volcano, Desert, Underwater, Space, Haunted World, Toy Factory, Cloud Kingdom, Crystal Cave.
+- Already in code (8): Industrial, Jungle, Military, Tundra, Ruins, Bazaar, Cyber, Forest (code name "Enchanted Forest" vs "Rocky Forest" here: to be decided). Classic is journey world 1 ("Home Base") and is not one of the 17.
+- Not in code yet (9): Candy, Volcano, Desert, Underwater, Space, Haunted, Toy Factory, Cloud Kingdom, Crystal Cave (each needs an ArenaStyle, server AI style, tint/particles, map position).
