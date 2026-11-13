@@ -36,7 +36,9 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 
 ## 5. Panoramas (180 / 360)
 - Panoramas are a capture option of CLASSIC (the real environment): TAKE PHOTO, PANORAMA 180, PANORAMA 360, FROM GALLERY, MY PHOTOS. They are not part of the journey and give rewards only.
-- 180: also available as an AI world (made in tiles; costs 1 card) and in Co-op. 360: Classic only for now (AI world and Co-op later; 360 is harder and fits Co-op).
+- Panoramas exist only in CLASSIC (solo) and CO-OP; never in the journey or PVP.
+- 180: Classic works today, also as an AI world (made in tiles; costs 1 card). 360: Classic only for now (no AI world yet).
+- Co-op with a panorama is built later: it needs a partner view and weapon sync, tested on two phones (not built yet).
 - No PVP.
 
 ## 6. Gyro aiming in the normal arena
