@@ -6,9 +6,9 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 ## 1. Screen flow
 1. **MAIN**: big PLAY, below it four icon buttons with no labels (Multiplayer, Armory, Settings, Stats), top right: coins, gems and a green + that opens the shop.
    - First launch: PLAY opens CHOOSE YOUR GAME.
-   - After a journey was started: PLAY continues the journey; a GAME MODES button below it opens CHOOSE YOUR GAME.
+   - After a journey was started: PLAY continues the journey and shows the current world's name on the button ("CONTINUE JOURNEY - World 3: Ice"); it opens that world's detail screen (section 1.4). A GAME MODES button below it opens CHOOSE YOUR GAME.
 2. **CHOOSE YOUR GAME** (modes): WORLD JOURNEY, CLASSIC, RANDOM WORLD, MY WORLDS.
-3. **WORLD JOURNEY** map (17 motifs; launch with 5-6, the rest "coming soon").
+3. **WORLD JOURNEY** map (17 motifs; launch with 5-6, the rest "coming soon"). World 1 = CLASSIC ("Home Base", the player's real environment), world 2 = ICE (Tundra), then the rest. World 1 uses a ready-made official sample room by default so a new player can start without taking a photo (camera permission, no suitable place); the player can switch to their own photo. Stars rules (section 2) are the same for every world.
 4. **WORLD DETAIL** (a motif): PLAY (ready-made official world, free), CREATE MY <motif> (uses 1 AI card), MY <motif> WORLDS (saved worlds).
 5. **CLASSIC**: TAKE PHOTO / FROM GALLERY / MY PHOTOS, then PLAY on the real environment (no AI). After a Classic win: offer "Play this room as a <motif>?" (uses 1 AI card).
 6. **CREATE AI WORLD**: selected photo, choose theme, CREATE WORLD (1 card). Shows AI NEW / AI READY.
@@ -21,7 +21,7 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 - Stars belong to the motif (best result kept), earned in the journey on the official world, a world the player created, or a saved world.
 - **1 star unlocks the next world.**
 - **Chapter gate**: the journey is divided into chapters; moving to the next chapter also needs a total number of stars (example: 20). Set each gate at about 60% of the maximum stars available before it (3 per world), so it is reachable without replaying everything.
-- RANDOM WORLD: coins/gems only, no stars. Classic: rewards only, no journey stars.
+- RANDOM WORLD: coins/gems only, no stars. Classic is journey world 1 and earns stars like any other world (stars come from hearts left, so the player's room does not change the star rules). Panorama games (section 5) earn rewards only, no journey stars.
 - Replays always pay coins, so replaying for stars is worth it.
 
 ## 3. Resources
@@ -34,12 +34,17 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 - Store audience: 13+.
 - Community worlds: explicit opt-in sharing, EXIF stripped, 3 reports hide a world, report and block creator, creator can unshare, admin page.
 
-## 5. Gyro aiming in the normal arena
+## 5. Panoramas (180 / 360)
+- Panoramas are a capture option of CLASSIC (the real environment): TAKE PHOTO, PANORAMA 180, PANORAMA 360, FROM GALLERY, MY PHOTOS. They are not part of the journey and give rewards only.
+- 180: also available as an AI world (made in tiles; costs 1 card) and in Co-op. 360: Classic only for now (AI world and Co-op later; 360 is harder and fits Co-op).
+- No PVP.
+
+## 6. Gyro aiming in the normal arena
 - Panorama modes (180/360) use the gyro for the view direction (already).
 - Normal arena: optional "Gyro aiming" (default OFF), with sensitivity and a re-center button.
 - Where: Settings (toggle + sensitivity), pause menu (quick toggle), and a one-time tip chip on the Classic "ready to play" screen.
 
-## 6. Build order
+## 7. Build order
 1. Shared world picker (also used by Co-op): returns a world; solo/co-op continue from it.
 2. World detail screen (motif) with its three options.
 3. Journey map and saved progress (stars, unlocks, chapter gates).
@@ -47,8 +52,7 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 5. AI cards: server balance, purchase verification, starter grant, shop screen.
 6. Gyro aiming option.
 
-## 7. Open items
-- What exactly "CONTINUE JOURNEY" opens: the arena directly (official world) or the motif screen. Proposal: directly into the arena.
+## 8. Open items
 - Where NEXT WORLD leads after a Classic win.
 - Number of chapters and each gate's star count (after the launch motif list is fixed).
 - XP/levels: not in the first version.
