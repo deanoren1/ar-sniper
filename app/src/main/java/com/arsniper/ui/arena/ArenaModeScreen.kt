@@ -168,7 +168,7 @@ fun ArenaModeScreen(
     val thisArenaWorlds = remember(worlds) { worlds.filter { it.style == style } }
     var favorites by remember { mutableStateOf(WorldFavorites.all(context)) }
     var filter by remember { mutableStateOf<Any>(style) } // ArenaStyle, או "fav", או "all"
-    val worldThumbs = remember(worlds) { worlds.take(4).map { PhotoLibrary.thumbnail(it.world, 240) } }
+    val worldThumbs = remember(worlds, style) { worlds.filter { it.style == style }.take(4).map { PhotoLibrary.thumbnail(it.world, 240) } }
     var message by remember { mutableStateOf<String?>(null) }
     var showWorlds by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -241,6 +241,17 @@ fun ArenaModeScreen(
                 .padding(start = 16.dp, end = 16.dp, bottom = 18.dp)
         ) {
             ModeCard(
+                title = "PLAY",
+                color = Color(0xFF3A4A8A),
+                caption = "Official ${style.title.lowercase().replaceFirstChar { it.uppercase() }} world: coming soon",
+                modifier = Modifier.weight(1f),
+                onClick = { message = "The official world for this arena is coming soon" }
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    OutlinedText("SOON", fontSize = 28.sp, color = Color(0xFFB8C4E0), outlineWidth = 8f)
+                }
+            }
+            ModeCard(
                 title = "RANDOM",
                 color = Color(0xFFFF8A2B),
                 caption = if (busy) "Looking for a world..." else "Play a community world",
@@ -272,13 +283,13 @@ fun ArenaModeScreen(
                     OutlinedText("?", fontSize = 64.sp, color = Color.White, outlineWidth = 12f)
                 }
             }
-            if (worlds.isNotEmpty()) {
+            if (thisArenaWorlds.isNotEmpty()) {
                 ModeCard(
                     title = "MY WORLDS",
                     color = Color(0xFF8E4DFF),
-                    caption = "PLAY YOUR SAVED AI WORLDS",
+                    caption = "Your saved ${style.title.lowercase().replaceFirstChar { it.uppercase() }} worlds",
                     modifier = Modifier.weight(1f),
-                    onClick = { showWorlds = true }
+                    onClick = { filter = style; showWorlds = true }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxSize()) {
                         for (rowItems in worldThumbs.chunked(2)) {
@@ -292,13 +303,13 @@ fun ArenaModeScreen(
                             }
                         }
                     }
-                    OutlinedText("${worlds.size}", fontSize = 13.sp, color = Color.White, outline = null,
+                    OutlinedText("${thisArenaWorlds.size}", fontSize = 13.sp, color = Color.White, outline = null,
                         modifier = Modifier.align(Alignment.TopEnd).background(Color(0xFF6A2BD9), RoundedCornerShape(10.dp)).padding(horizontal = 7.dp, vertical = 1.dp))
                 }
             }
             if (lastFile != null) {
                 ModeCard(
-                    title = "USE LAST PHOTO",
+                    title = if (aiStyleName == null) "USE LAST PHOTO" else "CREATE MY WORLD",
                     color = Color(0xFF2A8CFF),
                     caption = when {
                         aiStyleName == null -> "Play ${style.title.lowercase().replaceFirstChar { it.uppercase() }} on your last photo"
