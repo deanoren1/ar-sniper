@@ -107,11 +107,8 @@ fun CoopScreen(
     var startError by remember { mutableStateOf("") }
     // המארח בוחר תמונה וארנה (null = אקראית מהפתוחות)
     val library = remember { PhotoLibrary.list(context).filter { PhotoLibrary.isReviewed(it) }.take(12) }
-    val worlds = remember { allSavedWorlds(context) }
-    // מה ה-Host בחר: עולם AI שמור (או שהורד מהקהילה), או תמונה סרוקה למשחק קלאסי
-    var pickWorld by remember { mutableStateOf<SavedWorld?>(null) }
-    var pickPhoto by remember { mutableStateOf<java.io.File?>(null) }
-    var tab by remember { mutableStateOf(if (preselectCurrent) 2 else 0) }
+    // מה ה-Host בחר (בבורר המשותף): עולם AI שמור/מהקהילה, או תמונה סרוקה למשחק קלאסי
+    val pick = remember { WorldPickerState(if (preselectCurrent) 2 else 0) }
     val picker = com.arsniper.ui.components.rememberGalleryPicker { uri -> com.arsniper.data.PickImport.start(context, uri) }
     val importState = com.arsniper.data.PickImport.state
     LaunchedEffect(importState) {
@@ -125,10 +122,10 @@ fun CoopScreen(
         val cur = com.arsniper.data.PhotoRepository.currentFile(context) ?: return@LaunchedEffect
         val curKey = try { com.arsniper.ml.AnalysisCache.keyFor(cur) } catch (_: Exception) { return@LaunchedEffect }
         val match = library.firstOrNull { try { com.arsniper.ml.AnalysisCache.keyFor(it) == curKey } catch (_: Exception) { false } }
-        if (match != null) { pickPhoto = match; pickWorld = null }
+        if (match != null) pick.pickPhoto(match)
     }
-    var rolling by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(pick.world, pick.photo) { startError = "" }
     var preparing by remember { mutableStateOf(false) }
     var prepText by remember { mutableStateOf("") }
     LaunchedEffect(pending) {
@@ -179,142 +176,12 @@ fun CoopScreen(
                                 OutlinedText("Ping: ${CoopClient.pingMs} ms", fontSize = 13.sp, color = Color(0xFFB8C4E0), outline = null)
                             }
                             if (CoopClient.role == "host" && CoopClient.peers >= 2) {
-                                // בחירת הזירה: עולם AI שמור, עולם אקראי מהקהילה, או תמונה סרוקה למשחק קלאסי. העולם קובע את הארנה.
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                    for ((i, label) in listOf("\uD83C\uDFB2 RANDOM WORLD", "MY WORLDS", "MY PHOTOS").withIndex()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(if (i == 0) 1.5f else 1f)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (tab == i) (if (i == 0) Color(0xFFFF8A2B) else Color(0xFF2B5BD7)) else Color(0xFF1B2A55))
-                                                .border(if (tab == i) 2.dp else 1.dp, if (tab == i) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
-                                                .clickable { tab = i }
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) { OutlinedText(label, fontSize = 12.sp) }
-                                    }
-                                }
-                                if (tab == 1) {
-                                    if (worlds.isEmpty()) {
-                                        OutlinedText("No saved worlds yet. Create one from a photo first, or use RANDOM", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
-                                    }
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                                    ) {
-                                        for (w in worlds) {
-                                            val bmp = remember(w.world.path) { PhotoLibrary.thumbnail(w.world, 200)?.asImageBitmap() }
-                                            val selected = pickWorld?.world?.path == w.world.path
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(width = 96.dp, height = 64.dp)
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .border(if (selected) 3.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
-                                                        .clickable { pickWorld = w; pickPhoto = null; startError = "" }
-                                                ) {
-                                                    if (bmp != null) Image(bmp, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                                }
-                                                OutlinedText(w.style.title, fontSize = 9.sp, color = Color(0xFFB8C4E0), outline = null)
-                                            }
-                                        }
-                                    }
-                                } else if (tab == 0) {
-                                    GameButton(
-                                        text = if (rolling) "LOOKING..." else if (pickWorld != null && pickPhoto == null) "\uD83C\uDFB2 RANDOM AGAIN" else "\uD83C\uDFB2 RANDOM WORLD",
-                                        onClick = {
-                                            scope.launch {
-                                                rolling = true
-                                                startError = ""
-                                                try {
-                                                    val styles = ArenaStyle.values().filter { com.arsniper.data.PlayerProfile.isUnlocked(it) && AiWorld.serverStyle(it) != null }.shuffled()
-                                                    var found: SavedWorld? = null
-                                                    var lastMsg = ""
-                                                    for (st in styles) {
-                                                        val server = AiWorld.serverStyle(st) ?: continue
-                                                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                            CommunityWorlds.downloadRandom(context, server, CommunityState.seen(context))
-                                                        }
-                                                        if (result is CommunityWorlds.Result.Ok) {
-                                                            val (file, id) = result.value
-                                                            CommunityState.setOrigin(context, file.nameWithoutExtension, id)
-                                                            CommunityState.addSeen(context, id)
-                                                            val key = com.arsniper.ml.AnalysisCache.keyFor(file)
-                                                            val world = AiWorld.cachedWorldFile(context, key, server)
-                                                            if (world != null) { found = SavedWorld(file, world, st, key); break }
-                                                        } else if (result is CommunityWorlds.Result.Error && result.message != "none") {
-                                                            lastMsg = result.message
-                                                            break
-                                                        }
-                                                    }
-                                                    if (found != null) { pickWorld = found; pickPhoto = null }
-                                                    else startError = if (lastMsg.isEmpty()) "No community worlds yet" else "Could not load a world ($lastMsg)"
-                                                } finally {
-                                                    rolling = false
-                                                }
-                                            }
-                                        },
-                                        enabled = !rolling && !preparing,
-                                        style = GameButtonStyle.Success,
-                                        height = 44.dp,
-                                        fontSize = 16.sp,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    pickWorld?.let { w ->
-                                        if (pickPhoto == null) {
-                                            val bmp = remember(w.world.path) { PhotoLibrary.thumbnail(w.world, 320)?.asImageBitmap() }
-                                            if (bmp != null) {
-                                                Image(bmp, null, contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.size(width = 240.dp, height = 150.dp).clip(RoundedCornerShape(10.dp)).border(3.dp, GameColors.Yellow, RoundedCornerShape(10.dp)))
-                                                OutlinedText("${w.style.title} world", fontSize = 13.sp, color = Color.White, outline = null)
-                                                val originId = remember(w.key) { CommunityState.originId(context, w.key) }
-                                                if (originId != null) {
-                                                    OutlinedText("REPORT & BLOCK CREATOR", fontSize = 11.sp, color = Color(0xFFFFB4B4), outline = null,
-                                                        modifier = Modifier.clickable {
-                                                            scope.launch {
-                                                                val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityWorlds.report(context, originId, block = true) }
-                                                                if (ok) { pickWorld = null; startError = "Reported and blocked. Roll another world" } else startError = "Could not report, try again"
-                                                            }
-                                                        }.padding(6.dp))
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                                    ) {
-                                        if (library.isEmpty()) {
-                                            OutlinedText("No scanned photos yet. Play a photo first", fontSize = 12.sp, color = Color(0xFFB8C4E0), outline = null)
-                                        }
-                                        for (file in library) {
-                                            val bmp = remember(file.name) { PhotoLibrary.thumbnail(file, 200)?.asImageBitmap() }
-                                            val selected = pickPhoto?.name == file.name
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(width = 96.dp, height = 64.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .border(if (selected) 3.dp else 1.dp, if (selected) GameColors.Yellow else Color(0xFF3D4C7A), RoundedCornerShape(8.dp))
-                                                    .clickable { pickPhoto = file; pickWorld = null; startError = "" }
-                                            ) {
-                                                if (bmp != null) Image(bmp, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                            }
-                                        }
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                        GameButton(text = "CAMERA", onClick = { onNewPhoto(true) }, style = GameButtonStyle.Success, height = 40.dp, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                        GameButton(text = "GALLERY", onClick = { picker.launch() }, style = GameButtonStyle.Success, height = 40.dp, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                    }
-                                    OutlinedText("MY PHOTOS - CLASSIC: classic arena, no AI world", fontSize = 11.sp, color = Color(0xFFB8C4E0), outline = null)
-                                }
-                                OutlinedText(
-                                    when {
-                                        pickWorld != null -> "Selected: ${pickWorld!!.style.title} world"
-                                        pickPhoto != null -> "Selected: classic photo"
-                                        else -> "Pick a world or a photo"
-                                    },
-                                    fontSize = 12.sp, color = GameColors.Yellow, outline = null
+                                WorldPicker(
+                                    state = pick,
+                                    library = library,
+                                    onNewPhoto = onNewPhoto,
+                                    onGallery = { picker.launch() },
+                                    enabled = !preparing
                                 )
                                 if (CoopTransfer.sendText.isNotEmpty()) {
                                     OutlinedText(CoopTransfer.sendText, fontSize = 13.sp, color = GameColors.Yellow, outline = null)
@@ -325,8 +192,8 @@ fun CoopScreen(
                                 GameButton(
                                     text = if (preparing) "SENDING..." else "START GAME",
                                     onClick = {
-                                        val w = pickWorld
-                                        val photo = if (w != null) w.source else pickPhoto
+                                        val w = pick.world
+                                        val photo = if (w != null) w.source else pick.photo
                                         if (photo == null) {
                                             startError = "Pick a world or a photo first"
                                         } else if (!photo.exists() || !com.arsniper.ml.AnalysisCache.fileFor(context.filesDir, com.arsniper.ml.AnalysisCache.keyFor(photo)).exists()) {
@@ -370,7 +237,7 @@ fun CoopScreen(
                                             }
                                         }
                                     },
-                                    enabled = !preparing && !rolling && !CoopTransfer.sending,
+                                    enabled = !preparing && !pick.rolling && !CoopTransfer.sending,
                                     style = GameButtonStyle.Primary,
                                     height = 48.dp,
                                     fontSize = 18.sp,
@@ -437,6 +304,9 @@ fun CoopScreen(
                                     modifier = Modifier.widthIn(min = 110.dp)
                                 )
                             }
+                        }
+                        if (pick.error.isNotEmpty()) {
+                            OutlinedText(pick.error, fontSize = 13.sp, color = Color(0xFFFF8A8A), outline = null)
                         }
                         if (startError.isNotEmpty()) {
                             OutlinedText(startError, fontSize = 13.sp, color = Color(0xFFFF8A8A), outline = null)
