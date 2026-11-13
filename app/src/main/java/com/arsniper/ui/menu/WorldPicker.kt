@@ -50,7 +50,7 @@ import java.io.File
  * מצב הבורר המשותף: מה נבחר (עולם AI או תמונה קלאסית), איזה לשונית פתוחה והודעת שגיאה.
  * מי שמשתמש בבורר (קו-אופ, משחק סולו) מחזיק מופע אחד וקורא ממנו את הבחירה.
  */
-class WorldPickerState(startTab: Int = 0) {
+internal class WorldPickerState(startTab: Int = 0) {
     var world by mutableStateOf<SavedWorld?>(null)
     var photo by mutableStateOf<File?>(null)
     var tab by mutableStateOf(startTab)
@@ -72,7 +72,7 @@ class WorldPickerState(startTab: Int = 0) {
  * לא מתחיל משחק בעצמו. רק מעדכן את [state].
  */
 @Composable
-fun WorldPicker(
+internal fun WorldPicker(
     state: WorldPickerState,
     library: List<File>,
     onNewPhoto: (camera: Boolean) -> Unit,
