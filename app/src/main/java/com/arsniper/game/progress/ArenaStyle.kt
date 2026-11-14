@@ -26,7 +26,7 @@ enum class ArenaStyle(
     Ruins("ANCIENT RUINS", 0xFFD9A441, 0.26f, 0.42f, ParticleKind.Drift, 0xFFFFE2A0, 34),
     Market("BAZAAR", 0xFFFF8A3D, 0.20f, 0.30f, ParticleKind.Rise, 0xFFFFD27A, 28),
     Cyber("CYBERPUNK", 0xFFB02CFF, 0.30f, 0.50f, ParticleKind.Rain, 0xFF5CF2FF, 36, fog = 0.18f),
-    Forest("ENCHANTED FOREST", 0xFF3FBF8F, 0.24f, 0.45f, ParticleKind.Rise, 0xFFB9FFE6, 30),
+    Forest("ROCKY FOREST", 0xFF3FBF8F, 0.24f, 0.45f, ParticleKind.Rise, 0xFFB9FFE6, 30),
     Industrial("INDUSTRIAL", 0xFF8A5A3A, 0.28f, 0.50f, ParticleKind.Rise, 0xFFFF9A3C, 32);
 
     /** הארנה שצריך לנצח לפניה, או null לראשונה (נשאר לתאימות; הפתיחה בפועל לפי שכנים במפה) */
