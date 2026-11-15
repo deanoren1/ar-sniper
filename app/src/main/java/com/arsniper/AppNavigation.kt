@@ -23,7 +23,7 @@ import com.arsniper.ui.menu.ScanLabScreen
 import com.arsniper.ui.menu.SettingsScreen
 import com.arsniper.ui.menu.StatsScreen
 
-enum class Screen { Start, ArenaMode, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Armory, Multiplayer, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
+enum class Screen { Start, ChooseGame, WorldPlay, ArenaMode, Play, PanoView, Capture, Review, Scene, Arena, Game, Shop, Armory, Multiplayer, Settings, Stats, ArtLab, ScanLab, SceneDebug, Coop }
 
 @Composable
 fun AppNavigation() {
@@ -51,6 +51,8 @@ fun AppNavigation() {
     // צילום/גלריה מתוך לובי ה-CO-OP: אותו מסלול סריקה רגיל (סקירה וניתוח), ובסיומו חוזרים ללובי עם התמונה החדשה נבחרת
     var coopPick by rememberSaveable { mutableStateOf(false) }
     var coopPreselect by rememberSaveable { mutableStateOf(false) }
+    // מצב שנבחר במסך CHOOSE YOUR GAME: "journey" / "classic" / "random" / "worlds". ריק = לא נפתח משם
+    var chosenMode by rememberSaveable { mutableStateOf("") }
     fun goScene() {
         restoreTried = false
         if (coopPick) { screen = Screen.Scene; return }
@@ -81,27 +83,52 @@ fun AppNavigation() {
         screen = when (screen) {
             Screen.Game -> if (coopRole.isNotEmpty()) Screen.Coop else if (quick) Screen.Play else Screen.Arena
             Screen.ArenaMode -> { modeArena = false; Screen.Arena }
-            Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (coopPick) { coopPick = false; Screen.Coop } else if (modeArena) Screen.ArenaMode else Screen.Play
-            Screen.Arena -> if (mapFromStart) Screen.Start else Screen.Play
+            Screen.Capture, Screen.Review, Screen.Scene, Screen.PanoView -> if (coopPick) { coopPick = false; Screen.Coop } else if (modeArena && (chosenMode == "random" || chosenMode == "worlds")) { modeArena = false; Screen.WorldPlay } else if (modeArena) Screen.ArenaMode else Screen.Play
+            Screen.Play -> if (chosenMode == "classic") Screen.ChooseGame else Screen.Start
+            Screen.ChooseGame -> { chosenMode = ""; Screen.Start }
+            Screen.WorldPlay -> Screen.ChooseGame
+            Screen.Arena -> if (mapFromStart) (if (chosenMode == "journey") Screen.ChooseGame else Screen.Start) else Screen.Play
             Screen.Coop -> if (coopFromMulti) Screen.Multiplayer else Screen.Settings
             Screen.Multiplayer -> if (fromMain == "multi") Screen.Start else Screen.Arena
             Screen.Armory -> if (fromMain == "armory") Screen.Start else Screen.Shop
-            Screen.Shop -> if (fromMain == "shop") Screen.Start else if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start
+            Screen.Shop -> if (fromMain == "choose") Screen.ChooseGame else if (fromMain == "shop") Screen.Start else if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start
             else -> Screen.Start
         }
     }
 
     when (screen) {
         Screen.Start -> MainMenuScreen(
-            onStart = { arenaFirst = false; mapFromStart = true; screen = Screen.Arena },
+            onStart = { screen = Screen.ChooseGame },
             onShop = { tab -> fromMain = "shop"; shopTab = tab; screen = Screen.Shop },
             onMultiplayer = { fromMain = "multi"; screen = Screen.Multiplayer },
             onArmory = { fromMain = "armory"; screen = Screen.Armory },
             onSettings = { screen = Screen.Settings },
             onStats = { screen = Screen.Stats }
         )
+        Screen.ChooseGame -> com.arsniper.ui.menu.ChooseGameScreen(
+            onBack = { chosenMode = ""; screen = Screen.Start },
+            onJourney = { chosenMode = "journey"; arenaFirst = false; mapFromStart = true; screen = Screen.Arena },
+            onClassic = { chosenMode = "classic"; arenaFirst = false; mapFromStart = false; screen = Screen.Play },
+            onRandom = { chosenMode = "random"; screen = Screen.WorldPlay },
+            onMyWorlds = { chosenMode = "worlds"; screen = Screen.WorldPlay },
+            onShop = { fromMain = "choose"; shopTab = 0; screen = Screen.Shop }
+        )
+        Screen.WorldPlay -> com.arsniper.ui.menu.WorldPlayScreen(
+            random = chosenMode == "random",
+            onBack = { screen = Screen.ChooseGame },
+            onPlay = { file, worldStyle ->
+                // כמו "שחק עולם" במסך הארנה: העולם כבר במטמון, הניתוח רץ על התמונה המקורית
+                arenaIndex = worldStyle.ordinal
+                PhotoLibrary.select(context, file)
+                PhotoLibrary.clearPending(context)
+                com.arsniper.pano.PanoramaStore.clearPendingGame(context)
+                quick = false
+                modeArena = true
+                if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
+            }
+        )
         Screen.Play -> PlayScreen(
-            onBack = { if (mapFromStart) { arenaFirst = false; screen = Screen.Arena } else screen = Screen.Start },
+            onBack = { if (chosenMode == "classic") screen = Screen.ChooseGame else if (mapFromStart) { arenaFirst = false; screen = Screen.Arena } else screen = Screen.Start },
             onTakePhoto = { PhotoLibrary.clearPending(context); com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Capture },
             onGalleryPicked = { com.arsniper.pano.PanoramaStore.clearPendingGame(context); quick = false; screen = Screen.Review },
             onPickSaved = { file ->
@@ -178,7 +205,7 @@ fun AppNavigation() {
             onShop = { fromMain = ""; shopTab = 0; screen = Screen.Shop },
             onArmory = { fromMain = ""; screen = Screen.Armory },
             onMultiplayer = { fromMain = ""; screen = Screen.Multiplayer },
-            onBack = { if (mapFromStart && !arenaFirst) { screen = Screen.Start } else { arenaFirst = false; screen = Screen.Play } }
+            onBack = { if (mapFromStart && !arenaFirst) { screen = if (chosenMode == "journey") Screen.ChooseGame else Screen.Start } else { arenaFirst = false; screen = Screen.Play } }
         )
         Screen.ArenaMode -> com.arsniper.ui.arena.ArenaModeScreen(
             style = ArenaStyle.values()[arenaIndex.coerceIn(0, ArenaStyle.values().size - 1)],
@@ -237,7 +264,7 @@ fun AppNavigation() {
         )
         Screen.Shop -> com.arsniper.ui.shop.CurrencyShopScreen(
             initialTab = shopTab,
-            onBack = { screen = if (fromMain == "shop") Screen.Start else if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start },
+            onBack = { screen = if (fromMain == "choose") Screen.ChooseGame else if (fromMain == "shop") Screen.Start else if (mapFromStart) (if (modeArena) Screen.ArenaMode else Screen.Arena) else Screen.Start },
             onArmory = { fromMain = ""; screen = Screen.Armory }
         )
         Screen.Multiplayer -> com.arsniper.ui.menu.MultiplayerScreen(

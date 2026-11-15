@@ -1,0 +1,228 @@
+package com.arsniper.ui.menu
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.arsniper.R
+import com.arsniper.data.PlayerProfile
+import com.arsniper.ui.components.AddCurrencyButton
+import com.arsniper.ui.components.CurrencyItem
+import com.arsniper.ui.components.GameButton
+import com.arsniper.ui.components.GameIcon
+import com.arsniper.ui.components.GameIconButton
+import com.arsniper.ui.components.NavyPanel
+import com.arsniper.ui.components.OutlinedText
+import com.arsniper.ui.components.SpriteButton
+import com.arsniper.ui.theme.GameButtonStyle
+import com.arsniper.ui.theme.GameColors
+import java.io.File
+
+// יחסי הגובה/רוחב של האמנות (כפי שנחתכה מגיליון הנכסים)
+private const val LOGO_RATIO = 835f / 171f
+private const val TITLE_RATIO = 713f / 115f
+private const val JOURNEY_RATIO = 836f / 682f
+private const val CARD_RATIO = 780f / 195f
+
+/**
+ * CHOOSE YOUR GAME: נפתח אחרי PLAY במסך הראשי.
+ * שמאל: WORLD JOURNEY (הכרטיס הגדול). ימין: CLASSIC, RANDOM, MY WORLDS. מעל: הלוגו והכותרת.
+ * כל כרטיס הוא תמונה אחת שלמה ולחיצה על כל השטח שלו (כולל PLAY שבתוך WORLD JOURNEY) פותחת את המצב.
+ * המונים ו-+ זהים למסך הראשי. כל המידות יחסיות לגובה המסך, והקבוצה מוקטנת אם המסך צר.
+ */
+@Composable
+fun ChooseGameScreen(
+    onBack: () -> Unit,
+    onJourney: () -> Unit,
+    onClassic: () -> Unit,
+    onRandom: () -> Unit,
+    onMyWorlds: () -> Unit,
+    onShop: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PlayerProfile.revision.hashCode()
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
+        val w = maxWidth
+        val h = maxHeight
+        // רקע: ממלא את כל המסך בלי עיוות (חיתוך מהשוליים), ומעליו הצללה עדינה שהממשק יבלוט
+        Image(
+            painter = painterResource(R.drawable.cg_background),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(Color(0x80081028), Color(0x33081028), Color(0x66081028)))
+            )
+        )
+
+        val insets = WindowInsets.safeDrawing.asPaddingValues()
+        val dir = LocalLayoutDirection.current
+        val safeL = insets.calculateLeftPadding(dir)
+        val safeR = insets.calculateRightPadding(dir)
+        // אותה יחידה כמו במסך הראשי (קנבס 2560x1180), כדי שהמונים ו-+ יהיו באותו גודל בדיוק
+        val unit = maxOf(w, h * (2560f / 1180f)) / 2560f
+        val margin = maxOf(unit * 28f, 10.dp)
+
+        // כפתור חזרה בפינה השמאלית העליונה
+        GameIconButton(
+            GameIcon.Back, onClick = onBack, style = GameButtonStyle.Secondary, size = maxOf(unit * 110f, 40.dp),
+            modifier = Modifier.align(Alignment.TopStart).padding(start = maxOf(margin, safeL), top = maxOf(margin, insets.calculateTopPadding()))
+        )
+        // מטבעות, יהלומים ו-+: כמו במסך הראשי
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(unit * 24f),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = maxOf(unit * 28f, insets.calculateTopPadding()), end = maxOf(unit * 28f, safeR))
+        ) {
+            CurrencyItem(R.drawable.ui_icon_coin, PlayerProfile.coins, "Coins", unit)
+            CurrencyItem(R.drawable.ui_icon_gem, PlayerProfile.diamonds, "Gems", unit)
+            AddCurrencyButton(onClick = onShop, unit = unit)
+        }
+
+        // לוגו וכותרת: למעלה במרכז, אחד מעל השני
+        val logoH = h * 0.125f
+        val titleH = h * 0.085f
+        Image(
+            painter = painterResource(R.drawable.cg_logo), contentDescription = "SnapBoo",
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.offset(x = (w - logoH * LOGO_RATIO) / 2, y = h * 0.02f).requiredSize(logoH * LOGO_RATIO, logoH)
+        )
+        Image(
+            painter = painterResource(R.drawable.cg_title), contentDescription = "Choose your game",
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.offset(x = (w - titleH * TITLE_RATIO) / 2, y = h * 0.15f).requiredSize(titleH * TITLE_RATIO, titleH)
+        )
+
+        // אזור הכרטיסים: מתחת לכותרת עד קרוב לתחתית. שמאל = WORLD JOURNEY, ימין = שלושה כרטיסים שווים
+        val areaTop = h * 0.265f
+        val areaH = h * 0.69f
+        val colGap = h * 0.03f
+        val rowGap = h * 0.025f
+        var journeyH = areaH
+        var cardH = (areaH - rowGap * 2) / 3
+        val groupW = journeyH * JOURNEY_RATIO + colGap + cardH * CARD_RATIO
+        val maxGroupW = w - maxOf(margin, safeL) - maxOf(margin, safeR)
+        // מסך צר: מקטינים את כל הקבוצה באותו יחס (WORLD JOURNEY נשאר הדומיננטי)
+        val s = if (groupW > maxGroupW) maxGroupW / groupW else 1f
+        journeyH *= s
+        cardH *= s
+        val jW = journeyH * JOURNEY_RATIO
+        val cW = cardH * CARD_RATIO
+        val gW = jW + colGap * s + cW
+        val left = (w - gW) / 2
+        val top = areaTop + (areaH - journeyH) / 2
+
+        SpriteButton(
+            sprite = R.drawable.cg_journey, contentDescription = "World Journey", onClick = onJourney,
+            width = jW, height = journeyH,
+            modifier = Modifier.offset(x = left, y = top)
+        )
+        val cards = listOf(
+            Triple(R.drawable.cg_classic, "Classic", onClassic),
+            Triple(R.drawable.cg_random, "Random", onRandom),
+            Triple(R.drawable.cg_myworlds, "My Worlds", onMyWorlds)
+        )
+        cards.forEachIndexed { i, (sprite, label, action) ->
+            SpriteButton(
+                sprite = sprite, contentDescription = label, onClick = action,
+                width = cW, height = cardH,
+                modifier = Modifier.offset(x = left + jW + colGap * s, y = top + (cardH + rowGap * s) * i)
+            )
+        }
+    }
+}
+
+/**
+ * RANDOM / MY WORLDS: הבורר המשותף פתוח על הלשונית המתאימה (בלי שורת הלשוניות), ו-PLAY כשנבחר עולם.
+ * random = true: הגרלת עולם קהילה ציבורי. false: העולמות השמורים של השחקן.
+ */
+@Composable
+fun WorldPlayScreen(
+    random: Boolean,
+    onBack: () -> Unit,
+    onPlay: (source: File, style: com.arsniper.game.progress.ArenaStyle) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pick = remember(random) { WorldPickerState(if (random) 0 else 1) }
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
+        Image(
+            painter = painterResource(R.drawable.cg_background), contentDescription = null,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
+        )
+        Box(Modifier.fillMaxSize().background(Color(0x99081028)))
+        val insets = WindowInsets.safeDrawing.asPaddingValues()
+        val dir = LocalLayoutDirection.current
+        GameIconButton(
+            GameIcon.Back, onClick = onBack, style = GameButtonStyle.Secondary, size = 44.dp,
+            modifier = Modifier.align(Alignment.TopStart).padding(start = maxOf(12.dp, insets.calculateLeftPadding(dir)), top = 12.dp)
+        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.align(Alignment.Center).widthIn(max = 520.dp).fillMaxWidth(0.62f)
+                .verticalScroll(rememberScrollState()).padding(vertical = 12.dp)
+        ) {
+            OutlinedText(if (random) "RANDOM WORLD" else "MY WORLDS", fontSize = 26.sp)
+            NavyPanel(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    WorldPicker(
+                        state = pick,
+                        library = emptyList(),
+                        onNewPhoto = {},
+                        onGallery = {},
+                        showTabs = false
+                    )
+                    if (pick.error.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedText(pick.error, fontSize = 12.sp, color = Color(0xFFFFB4B4), outline = null)
+                    }
+                }
+            }
+            val world = pick.world
+            GameButton(
+                text = "PLAY",
+                onClick = { if (world != null) onPlay(world.source, world.style) },
+                enabled = world != null,
+                icon = GameIcon.Play,
+                style = GameButtonStyle.Success,
+                height = 52.dp,
+                fontSize = 22.sp,
+                modifier = Modifier.fillMaxWidth(0.6f)
+            )
+        }
+    }
+}

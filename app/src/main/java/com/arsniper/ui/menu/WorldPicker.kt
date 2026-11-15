@@ -78,7 +78,9 @@ internal fun WorldPicker(
     onNewPhoto: (camera: Boolean) -> Unit,
     onGallery: () -> Unit,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** false: בלי שורת הלשוניות (מסך שמציג לשונית אחת בלבד) */
+    showTabs: Boolean = true
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -90,7 +92,7 @@ internal fun WorldPicker(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        if (showTabs) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             for ((i, label) in listOf("🎲 RANDOM WORLD", "MY WORLDS", "MY PHOTOS").withIndex()) {
                 Box(
                     modifier = Modifier
