@@ -155,9 +155,13 @@ fun rememberWeaponArt(weapon: WeaponId): WeaponArt? {
     return remember(weapon) {
         when (weapon) {
             WeaponId.Plasma -> {
-                val sheet = decode(context, R.drawable.weapon_angles)
                 val flash = decode(context, R.drawable.weapon_flash)
-                if (sheet != null && flash != null) {
+                // הרובה הראשי: מטריצת הספרייטים מ-Blender (189 זוויות + אנימציית טעינה). אם הקבצים חסרים, חוזרים לרובה הישן
+                val hasMatrix = try { context.assets.list(WeaponMatrixArt.DIR)?.isNotEmpty() == true } catch (e: Exception) { false }
+                val sheet = if (hasMatrix) null else decode(context, R.drawable.weapon_angles)
+                if (flash != null && hasMatrix) {
+                    WeaponMatrixArt(context, flash)
+                } else if (sheet != null && flash != null) {
                     val angles = WeaponArt.Angles(sheet, flash, MK1_MUZZLE_X, MK1_MUZZLE_Y, MK1_DIR, MK1_ORIGIN_X, MK1_ORIGIN_Y, 17, 8)
                     if (android.os.Build.VERSION.SDK_INT >= 21) WeaponArt.Model3D(flash, angles) else angles
                 } else decode(context, R.drawable.weapon_sheet)?.let { WeaponArt.Sheet(it) }
@@ -298,7 +302,7 @@ private fun Weapon3DLayer(
 /** כמה מהר הרובה מגיע לכיוון הכוונת (גדול = מהיר). 14 = כ-70ms לרוב הדרך */
 private const val AIM_FOLLOW_SPEED = 14f
 
-private fun DrawScope.drawTracer(muzzle: Offset, target: Offset, since: Float) {
+internal fun DrawScope.drawTracer(muzzle: Offset, target: Offset, since: Float) {
     if (since >= TRACER_SECONDS) return
     val a = 1f - since / TRACER_SECONDS
     drawLine(
@@ -513,6 +517,8 @@ private fun DrawScope.drawWeapon(art: WeaponArt, weapon: Weapon, tracerNormalize
 
         is WeaponArt.Model3D -> Unit
 
+        is WeaponMatrixArt -> drawWeaponMatrix(art, weapon, tracerTarget, timeSeconds, aimX, aimY, state)
+
         is WeaponArt.Sheet -> {
             val (row, column) = frameOf(weapon, timeSeconds)
             // גובה התא הוא 55% מגובה המסך. הרובה מיושר לתחתית, וקצת יוצא מהמסך
@@ -575,6 +581,8 @@ fun WeaponPreview(weapon: WeaponId, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         when (art) {
             is WeaponArt.Model3D -> Unit
+
+            is WeaponMatrixArt -> drawWeaponMatrixPreview(art)
 
             is WeaponArt.Aim -> {
                 val s = minOf(size.width / art.cw, size.height / art.ch)
