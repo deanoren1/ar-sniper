@@ -50,6 +50,12 @@ fun SettingsScreen(onBack: () -> Unit, onArtLab: () -> Unit, onScanLab: () -> Un
                     ) {
                         SettingRow("SOUND EFFECTS", PlayerProfile.soundOn) { PlayerProfile.soundOn = it }
                         SettingRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
+                        SettingRow("GYRO AIMING", PlayerProfile.gyroAim) { PlayerProfile.gyroAim = it }
+                        if (PlayerProfile.gyroAim) GyroSensitivityRow()
+                        OutlinedText(
+                            "Turn the phone to aim in the normal arena. The joystick still works. Panorama arenas always use the gyro.",
+                            fontSize = 12.sp, color = GameColors.Ice, outline = null
+                        )
                         SettingRow("FPS METER (DEBUG)", PlayerProfile.fpsMeter) { PlayerProfile.fpsMeter = it }
                         SoundTest()
                         OwnerKeyField()
@@ -126,6 +132,27 @@ private fun SettingRow(label: String, checked: Boolean, onChange: (Boolean) -> U
     ) {
         OutlinedText(label, fontSize = 20.sp, outline = null, modifier = Modifier.weight(1f))
         GameToggle(checked = checked, onChange = onChange)
+    }
+}
+
+/** רגישות הג'ירו: שלוש רמות */
+@Composable
+internal fun GyroSensitivityRow() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedText("SENSITIVITY", fontSize = 16.sp, outline = null, modifier = Modifier.weight(1f))
+        listOf("LOW", "MID", "HIGH").forEachIndexed { i, label ->
+            GameButton(
+                text = label,
+                onClick = { PlayerProfile.gyroSensitivity = i },
+                style = if (PlayerProfile.gyroSensitivity == i) GameButtonStyle.Success else GameButtonStyle.Secondary,
+                height = 34.dp,
+                fontSize = 13.sp
+            )
+        }
     }
 }
 

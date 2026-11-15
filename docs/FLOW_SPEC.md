@@ -45,6 +45,7 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 - Panorama modes (180/360) use the gyro for the view direction (already).
 - Normal arena: optional "Gyro aiming" (default OFF), with sensitivity and a re-center button.
 - Where: Settings (toggle + sensitivity), pause menu (quick toggle), and a one-time tip chip on the Classic "ready to play" screen.
+- Built: Settings toggle + LOW/MID/HIGH sensitivity, pause menu toggle + RE-CENTER AIM. Joystick keeps working alongside. Tip chip not built yet.
 
 ## 7. Build order
 1. Shared world picker (also used by Co-op): returns a world; solo/co-op continue from it.

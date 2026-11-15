@@ -73,6 +73,22 @@ object PlayerProfile {
             revision++
         }
 
+    /** כיוון עם ג'ירו בזירה הרגילה (בפנורמה הג'ירו תמיד פועל). ברירת מחדל: כבוי */
+    var gyroAim: Boolean
+        get() = prefs?.getBoolean("gyro_aim", false) ?: false
+        set(value) {
+            prefs?.edit()?.putBoolean("gyro_aim", value)?.apply()
+            revision++
+        }
+
+    /** רגישות הג'ירו בזירה הרגילה: 0 = נמוכה, 1 = רגילה, 2 = גבוהה */
+    var gyroSensitivity: Int
+        get() = prefs?.getInt("gyro_sensitivity", 1) ?: 1
+        set(value) {
+            prefs?.edit()?.putInt("gyro_sensitivity", value.coerceIn(0, 2))?.apply()
+            revision++
+        }
+
     var vibrationOn: Boolean
         get() = prefs?.getBoolean("vibration_on", true) ?: true
         set(value) {

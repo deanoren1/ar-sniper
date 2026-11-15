@@ -39,7 +39,9 @@ fun PauseMenu(
     onResume: () -> Unit,
     onRestart: () -> Unit,
     onMainMenu: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** null = אין ג'ירו לבחירה כאן (פנורמה, שם הוא תמיד פועל) */
+    onRecenter: (() -> Unit)? = null
 ) {
     var showSettings by remember { mutableStateOf(false) }
     // "restart" / "menu" כשמחכים לאישור, אחרת null
@@ -81,10 +83,17 @@ fun PauseMenu(
                 } else if (showSettings) {
                     ToggleRow("SOUND", PlayerProfile.soundOn) { PlayerProfile.soundOn = it }
                     ToggleRow("VIBRATION", PlayerProfile.vibrationOn) { PlayerProfile.vibrationOn = it }
+                    if (onRecenter != null) {
+                        ToggleRow("GYRO AIM", PlayerProfile.gyroAim) { PlayerProfile.gyroAim = it }
+                        if (PlayerProfile.gyroAim) com.arsniper.ui.menu.GyroSensitivityRow()
+                    }
                     GameButton("BACK", { showSettings = false }, icon = GameIcon.Back, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
                 } else {
                     GameButton("RESUME", onResume, icon = GameIcon.Play, style = GameButtonStyle.Success, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
                     GameButton("RESTART", { confirm = "restart" }, icon = GameIcon.Restart, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
+                    if (onRecenter != null && PlayerProfile.gyroAim) {
+                        GameButton("RE-CENTER AIM", onRecenter, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
+                    }
                     GameButton("SETTINGS", { showSettings = true }, icon = GameIcon.Gear, style = GameButtonStyle.Secondary, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
                     GameButton("MAIN MENU", { confirm = "menu" }, icon = GameIcon.Home, style = GameButtonStyle.Danger, height = 46.dp, fontSize = 18.sp, modifier = Modifier.fillMaxWidth())
                 }

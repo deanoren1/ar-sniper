@@ -1037,17 +1037,24 @@ fun GameScreen(
         Shot.attackMaxX = 1f
     }
 
-    // ג'ירו: סיבוב הטלפון מזיז את הכוונת (והמצלמה אחריה) לאורך הפנורמה
+    // ג'ירו: סיבוב הטלפון מזיז את הכוונת (והמצלמה אחריה). בפנורמה תמיד, בזירה הרגילה רק אם הופעל בהגדרות
     val context2 = LocalContext.current
     val tracker = remember { HeadingTracker(context2) }
     val spanH = panoInfo?.spanH ?: PanoramaStore.spanH(context2)
     val spanV = panoInfo?.spanV ?: PanoramaStore.spanV(context2)
-    DisposableEffect(panoMode) {
-        if (panoMode) tracker.start()
+    PlayerProfile.revision.hashCode()
+    val gyroActive = panoMode || PlayerProfile.gyroAim
+    // בזירה הרגילה התמונה כולה היא בערך שדה הראייה של המצלמה: סיבוב הטלפון בזווית הזאת מעביר את הכוונת מקצה לקצה.
+    // רגישות גבוהה = פחות סיבוב לאותה תזוזה
+    val cameraFov = remember { com.arsniper.pano.horizontalFov(context2) }
+    val latestZoomForGyro by rememberUpdatedState(zoom)
+    val latestAspectForGyro by rememberUpdatedState(aspect)
+    DisposableEffect(gyroActive) {
+        if (gyroActive) tracker.start()
         onDispose { tracker.stop() }
     }
-    LaunchedEffect(panoMode) {
-        if (!panoMode) return@LaunchedEffect
+    LaunchedEffect(gyroActive) {
+        if (!gyroActive) return@LaunchedEffect
         var lastYaw = Float.NaN
         var lastPitch = 0f
         while (true) {
@@ -1074,10 +1081,22 @@ fun GameScreen(
             if (kotlin.math.abs(dPitch) < 0.0012f) dPitch = 0f
             dYaw = dYaw.coerceIn(-0.12f, 0.12f)
             dPitch = dPitch.coerceIn(-0.12f, 0.12f)
-            crosshair = Vec2(
-                (crosshair.x + dYaw / spanH).coerceIn(0f, 1f),
-                (crosshair.y - dPitch / spanV).coerceIn(0f, 1f)
-            )
+            if (panoMode) {
+                crosshair = Vec2(
+                    (crosshair.x + dYaw / spanH).coerceIn(0f, 1f),
+                    (crosshair.y - dPitch / spanV).coerceIn(0f, 1f)
+                )
+            } else {
+                // זום: תזוזה איטית יותר, כמו בכוונת צלף
+                val sens = floatArrayOf(0.7f, 1f, 1.5f)[PlayerProfile.gyroSensitivity.coerceIn(0, 2)]
+                val zoomFactor = (latestZoomForGyro / BASE_ZOOM).coerceAtLeast(1f)
+                val h = cameraFov / sens * zoomFactor
+                val v = h / latestAspectForGyro.coerceAtLeast(0.5f)
+                crosshair = Vec2(
+                    (crosshair.x + dYaw / h).coerceIn(0f, 1f),
+                    (crosshair.y - dPitch / v).coerceIn(0f, 1f)
+                )
+            }
         }
     }
     val worldModifier = if (panoMode && screenHeightPx > 1) {
@@ -1951,7 +1970,8 @@ fun GameScreen(
                 onMainMenu = {
                     paused = false
                     onExit()
-                }
+                },
+                onRecenter = if (panoMode) null else ({ crosshair = Vec2(0.5f, 0.5f); paused = false })
             )
         }
 
