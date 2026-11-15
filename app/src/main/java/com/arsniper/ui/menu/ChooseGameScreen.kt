@@ -76,8 +76,8 @@ fun ChooseGameScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
         val w = maxWidth
         val h = maxHeight
-        // רקע: גרסה מוכנה של הסמטה בלילה (הגדלה x1.2, צמודה לקצה הימני של התמונה), מטושטשת, כהה ובניגודיות גבוהה.
-        // ממלא את כל המסך בלי עיוות; במסך צר יותר נחתך מהצדדים
+        // רקע: הסמטה בלילה כמו שהיא (בלי הגדלה), מטושטשת (כ-29px ב-4000 רוחב), כהה ובניגודיות גבוהה.
+        // ממלא את כל המסך בלי עיוות; במסך רחב נחתך מעט מלמעלה ומלמטה
         Image(
             painter = painterResource(R.drawable.cg_background),
             contentDescription = null,
