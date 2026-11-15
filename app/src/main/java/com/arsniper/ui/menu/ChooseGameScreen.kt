@@ -76,8 +76,8 @@ fun ChooseGameScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
         val w = maxWidth
         val h = maxHeight
-        // רקע: גרסה מוכנה של תמונת התעלה: החלק העליון (שמיים ובניינים, הגדלה x1.2) בחצי העליון,
-        // והשתקפות שלו כמו במים בחצי התחתון. מטושטש, כהה ובניגודיות גבוהה. ממלא את כל המסך בלי עיוות
+        // רקע: גרסה מוכנה של הסמטה בלילה (הגדלה x1.2, צמודה לקצה הימני של התמונה), מטושטשת, כהה ובניגודיות גבוהה.
+        // ממלא את כל המסך בלי עיוות; במסך צר יותר נחתך מהצדדים
         Image(
             painter = painterResource(R.drawable.cg_background),
             contentDescription = null,
@@ -93,12 +93,12 @@ fun ChooseGameScreen(
         val unit = maxOf(w, h * (2560f / 1180f)) / 2560f
         val margin = maxOf(unit * 28f, 10.dp)
 
-        // לוגו וכותרת: נמתחים לרוחב 40% מהמסך בלי לשנות את הגובה. הלוגו יושב על הכותרת מלמעלה
-        val logoW = w * 0.40f
+        // לוגו וכותרת: נמתחים לרוחב (לוגו 34%, כותרת 40% מהמסך) בלי לשנות את הגובה. הלוגו עולה מעט על הכותרת
+        val logoW = w * 0.34f
         val logoH = h * 0.14f
         val titleW = w * 0.40f
         val titleH = h * 0.115f
-        val titleY = logoH * 0.80f
+        val titleY = logoH * 0.90f
 
         // אזור הכרטיסים: מתחת לכותרת, עם מרווח כפול מלמטה. הכרטיסים שומרים על הפרופורציות שלהם
         val colGap = h * 0.03f
@@ -138,15 +138,17 @@ fun ChooseGameScreen(
                 val (pos, size) = rect(i)
                 val gw = size.first * 1.03f
                 val gh = size.second * 1.06f
-                Image(
-                    painter = painterResource(sprite), contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    modifier = Modifier
-                        .offset(x = pos.first - (gw - size.first) / 2, y = pos.second - (gh - size.second) / 2)
-                        .requiredSize(gw, gh)
-                        .blur(size.second * 0.07f, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                        .alpha(0.95f)
-                )
+                // שתי שכבות זוהר: אחת רחבה ואחת צמודה, כדי שהכרטיס ייראה מאיר
+                for (radius in listOf(0.12f, 0.06f)) {
+                    Image(
+                        painter = painterResource(sprite), contentDescription = null,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier
+                            .offset(x = pos.first - (gw - size.first) / 2, y = pos.second - (gh - size.second) / 2)
+                            .requiredSize(gw, gh)
+                            .blur(size.second * radius, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                    )
+                }
             }
         }
         cards.forEachIndexed { i, (sprite, label, action) ->
