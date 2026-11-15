@@ -49,10 +49,10 @@ import com.arsniper.ui.theme.GameColors
 import java.io.File
 
 // יחסי הגובה/רוחב של האמנות (כפי שנחתכה מגיליון הנכסים)
-private const val LOGO_RATIO = 835f / 171f
-private const val TITLE_RATIO = 713f / 115f
-private const val JOURNEY_RATIO = 836f / 682f
-private const val CARD_RATIO = 780f / 195f
+private const val LOGO_RATIO = 1200f / 247f
+private const val TITLE_RATIO = 1300f / 172f
+private const val JOURNEY_RATIO = 1400f / 1132f
+private const val CARD_RATIO = 1300f / 308f
 
 /**
  * CHOOSE YOUR GAME: נפתח אחרי PLAY במסך הראשי.
@@ -83,7 +83,7 @@ fun ChooseGameScreen(
         )
         Box(
             Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(Color(0x80081028), Color(0x33081028), Color(0x66081028)))
+                Brush.verticalGradient(listOf(Color(0xCC081028), Color(0x99081028), Color(0xB3081028)))
             )
         )
 
@@ -114,22 +114,22 @@ fun ChooseGameScreen(
         }
 
         // לוגו וכותרת: למעלה במרכז, אחד מעל השני
-        val logoH = h * 0.125f
+        val logoH = h * 0.17f
         val titleH = h * 0.085f
         Image(
             painter = painterResource(R.drawable.cg_logo), contentDescription = "SnapBoo",
             contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(x = (w - logoH * LOGO_RATIO) / 2, y = h * 0.02f).requiredSize(logoH * LOGO_RATIO, logoH)
+            modifier = Modifier.offset(x = (w - logoH * LOGO_RATIO) / 2, y = h * 0.012f).requiredSize(logoH * LOGO_RATIO, logoH)
         )
         Image(
             painter = painterResource(R.drawable.cg_title), contentDescription = "Choose your game",
             contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(x = (w - titleH * TITLE_RATIO) / 2, y = h * 0.15f).requiredSize(titleH * TITLE_RATIO, titleH)
+            modifier = Modifier.offset(x = (w - titleH * TITLE_RATIO) / 2, y = h * 0.188f).requiredSize(titleH * TITLE_RATIO, titleH)
         )
 
         // אזור הכרטיסים: מתחת לכותרת עד קרוב לתחתית. שמאל = WORLD JOURNEY, ימין = שלושה כרטיסים שווים
-        val areaTop = h * 0.265f
-        val areaH = h * 0.69f
+        val areaTop = h * 0.295f
+        val areaH = h * 0.67f
         val colGap = h * 0.03f
         val rowGap = h * 0.025f
         var journeyH = areaH
@@ -183,7 +183,7 @@ fun WorldPlayScreen(
             painter = painterResource(R.drawable.cg_background), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
         )
-        Box(Modifier.fillMaxSize().background(Color(0x99081028)))
+        Box(Modifier.fillMaxSize().background(Color(0xCC081028)))
         val insets = WindowInsets.safeDrawing.asPaddingValues()
         val dir = LocalLayoutDirection.current
         GameIconButton(
@@ -196,7 +196,14 @@ fun WorldPlayScreen(
             modifier = Modifier.align(Alignment.Center).widthIn(max = 520.dp).fillMaxWidth(0.62f)
                 .verticalScroll(rememberScrollState()).padding(vertical = 12.dp)
         ) {
-            OutlinedText(if (random) "RANDOM WORLD" else "MY WORLDS", fontSize = 26.sp)
+            // כותרת: הכרטיס המעוצב של המצב (אותה אמנות כמו ב-CHOOSE YOUR GAME)
+            val headerH = maxHeight * 0.2f
+            Image(
+                painter = painterResource(if (random) R.drawable.cg_random else R.drawable.cg_myworlds),
+                contentDescription = if (random) "Random" else "My Worlds",
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.size(headerH * CARD_RATIO, headerH)
+            )
             NavyPanel(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     WorldPicker(
