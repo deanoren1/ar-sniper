@@ -184,6 +184,7 @@ fun WorldPlayScreen(
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
         )
         Box(Modifier.fillMaxSize().background(Color(0xCC081028)))
+        val screenH = maxHeight
         val insets = WindowInsets.safeDrawing.asPaddingValues()
         val dir = LocalLayoutDirection.current
         GameIconButton(
@@ -197,7 +198,7 @@ fun WorldPlayScreen(
                 .verticalScroll(rememberScrollState()).padding(vertical = 12.dp)
         ) {
             // כותרת: הכרטיס המעוצב של המצב (אותה אמנות כמו ב-CHOOSE YOUR GAME)
-            val headerH = maxHeight * 0.2f
+            val headerH = screenH * 0.2f
             Image(
                 painter = painterResource(if (random) R.drawable.cg_random else R.drawable.cg_myworlds),
                 contentDescription = if (random) "Random" else "My Worlds",
