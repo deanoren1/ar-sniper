@@ -51,8 +51,8 @@ import com.arsniper.ui.theme.GameColors
 import java.io.File
 
 // יחסי הגובה/רוחב של האמנות (כפי שנחתכה מגיליון הנכסים)
-private const val LOGO_RATIO = 1200f / 247f
-private const val TITLE_RATIO = 1157f / 172f
+private const val LOGO_RATIO = 708f / 177f
+private const val TITLE_RATIO = 738f / 116f
 private const val JOURNEY_RATIO = 1400f / 1132f
 private const val CARD_RATIO = 1300f / 308f
 
@@ -161,7 +161,7 @@ fun ChooseGameScreen(
         }
 
         // כותרת גדולה, והלוגו (קטן יותר) יושב עליה מלמעלה במרכז
-        val logoH = h * 0.13f
+        val logoH = h * 0.14f
         val titleH = h * 0.115f
         Image(
             painter = painterResource(R.drawable.cg_title), contentDescription = "Choose your game",
