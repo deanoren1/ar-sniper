@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -29,8 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -79,7 +76,8 @@ fun ChooseGameScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
         val w = maxWidth
         val h = maxHeight
-        // רקע: גרסה מוכנה של תמונת התעלה (מוגדלת, מטושטשת, כהה ובניגודיות גבוהה). ממלא את כל המסך בלי עיוות
+        // רקע: גרסה מוכנה של תמונת התעלה: החלק העליון (שמיים ובניינים, הגדלה x1.2) בחצי העליון,
+        // והשתקפות שלו כמו במים בחצי התחתון. מטושטש, כהה ובניגודיות גבוהה. ממלא את כל המסך בלי עיוות
         Image(
             painter = painterResource(R.drawable.cg_background),
             contentDescription = null,
@@ -95,36 +93,31 @@ fun ChooseGameScreen(
         val unit = maxOf(w, h * (2560f / 1180f)) / 2560f
         val margin = maxOf(unit * 28f, 10.dp)
 
-        // לוגו וכותרת: כל אחד ברוחב 40% מהמסך (בלי עיוות). הלוגו יושב על הכותרת מלמעלה
+        // לוגו וכותרת: נמתחים לרוחב 40% מהמסך בלי לשנות את הגובה. הלוגו יושב על הכותרת מלמעלה
         val logoW = w * 0.40f
-        val logoH = logoW / LOGO_RATIO
+        val logoH = h * 0.14f
         val titleW = w * 0.40f
-        val titleH = titleW / TITLE_RATIO
+        val titleH = h * 0.115f
         val titleY = logoH * 0.80f
 
-        // אזור הכרטיסים: מתחת לכותרת. למטה נשאר מרווח להשתקפות של הכרטיסים ברצפה הרטובה
+        // אזור הכרטיסים: מתחת לכותרת, עם מרווח כפול מלמטה. הכרטיסים שומרים על הפרופורציות שלהם
         val colGap = h * 0.03f
         val rowGap = h * 0.025f
         val areaTop = titleY + titleH + h * 0.02f
-        val bottomGap = h * 0.06f
+        val bottomGap = h * 0.05f
         val areaH = h - areaTop - bottomGap
-        // שוליים בצדדים: 40% מהשוליים של הפריסה הקודמת (כרטיסים בגובה 72.5% מהמסך, בלי מתיחה)
-        val oldH = h * 0.725f
-        val oldW = oldH * JOURNEY_RATIO + colGap + (oldH - rowGap * 2) / 3 * CARD_RATIO
-        val side = maxOf((w - oldW) / 2 * 0.4f, margin, safeL, safeR)
-        val targetW = w - side * 2
         var journeyH = areaH
         var cardH = (areaH - rowGap * 2) / 3
         val naturalW = journeyH * JOURNEY_RATIO + colGap + cardH * CARD_RATIO
-        // הכרטיסים נמתחים לרוחב כדי למלא עד השוליים. אם המסך צר מדי, מקטינים במקום למתוח
-        var sx = (targetW - colGap) / (naturalW - colGap)
-        if (sx < 1f) {
-            journeyH *= sx
-            cardH *= sx
-            sx = 1f
+        val maxW = w - maxOf(margin, safeL) - maxOf(margin, safeR)
+        // מסך צר: כל הקבוצה קטנה באותו יחס
+        if (naturalW > maxW) {
+            val k = maxW / naturalW
+            journeyH *= k
+            cardH *= k
         }
-        val jW = journeyH * JOURNEY_RATIO * sx
-        val cW = cardH * CARD_RATIO * sx
+        val jW = journeyH * JOURNEY_RATIO
+        val cW = cardH * CARD_RATIO
         val left = (w - (jW + colGap + cW)) / 2
         val top = areaTop + (areaH - journeyH) / 2
 
@@ -138,38 +131,6 @@ fun ChooseGameScreen(
         fun rect(i: Int): Pair<Pair<Dp, Dp>, Pair<Dp, Dp>> =
             if (i == 0) (left to top) to (jW to journeyH)
             else ((left + jW + colGap) to (top + (cardH + rowGap) * (i - 1))) to (cW to cardH)
-
-        // השתקפות ברצפה: עותק הפוך של הכרטיסים התחתונים (WORLD JOURNEY ו-MY WORLDS), נמוג כלפי מטה
-        for (i in listOf(0, 3)) {
-            val (pos, size) = rect(i)
-            val reflH = bottomGap * 0.92f
-            Box(
-                modifier = Modifier
-                    .offset(x = pos.first, y = pos.second + size.second + bottomGap * 0.06f)
-                    .requiredSize(size.first, reflH)
-                    .clipToBounds()
-                    .graphicsLayer(compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen)
-                    .drawWithContent {
-                        drawContent()
-                        drawRect(
-                            Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent)),
-                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
-                        )
-                    }
-            ) {
-                Image(
-                    painter = painterResource(cards[i].first), contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    alignment = Alignment.TopStart,
-                    // היפוך סביב המרכז: השורה התחתונה של הכרטיס מופיעה בראש ההשתקפות
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .wrapContentSize(Alignment.TopStart, unbounded = true)
-                        .requiredSize(size.first, size.second)
-                        .graphicsLayer(scaleY = -1f)
-                )
-            }
-        }
 
         // זוהר: עותק מטושטש של כל כרטיס מאחוריו, בצבעים של הכרטיס עצמו (Android 12 ומעלה; בגרסאות ישנות אין טשטוש ולכן לא מצויר)
         if (android.os.Build.VERSION.SDK_INT >= 31) {
