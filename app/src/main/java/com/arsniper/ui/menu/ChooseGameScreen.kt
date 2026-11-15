@@ -25,6 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -50,7 +52,7 @@ import java.io.File
 
 // יחסי הגובה/רוחב של האמנות (כפי שנחתכה מגיליון הנכסים)
 private const val LOGO_RATIO = 1200f / 247f
-private const val TITLE_RATIO = 1300f / 172f
+private const val TITLE_RATIO = 1157f / 172f
 private const val JOURNEY_RATIO = 1400f / 1132f
 private const val CARD_RATIO = 1300f / 308f
 
@@ -74,18 +76,25 @@ fun ChooseGameScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
         val w = maxWidth
         val h = maxHeight
-        // רקע: ממלא את כל המסך בלי עיוות (חיתוך מהשוליים), ומעליו הצללה עדינה שהממשק יבלוט
+        // רקע: ממלא את כל המסך בלי עיוות. מוצג כהה ורווי יותר (מסנן צבע, הקובץ עצמו לא משתנה), ומעליו הצללה קלה
+        val bgFilter = remember {
+            val m = androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(1.6f) }
+            m.timesAssign(androidx.compose.ui.graphics.ColorMatrix(floatArrayOf(
+                0.5f, 0f, 0f, 0f, 0f,
+                0f, 0.5f, 0f, 0f, 0f,
+                0f, 0f, 0.68f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            )))
+            androidx.compose.ui.graphics.ColorFilter.colorMatrix(m)
+        }
         Image(
             painter = painterResource(R.drawable.cg_background),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            colorFilter = bgFilter,
             modifier = Modifier.fillMaxSize()
         )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(Color(0xCC081028), Color(0x99081028), Color(0xB3081028)))
-            )
-        )
+        Box(Modifier.fillMaxSize().background(Color(0x460A0C28)))
 
         val insets = WindowInsets.safeDrawing.asPaddingValues()
         val dir = LocalLayoutDirection.current
@@ -94,6 +103,76 @@ fun ChooseGameScreen(
         // אותה יחידה כמו במסך הראשי (קנבס 2560x1180), כדי שהמונים ו-+ יהיו באותו גודל בדיוק
         val unit = maxOf(w, h * (2560f / 1180f)) / 2560f
         val margin = maxOf(unit * 28f, 10.dp)
+
+        // אזור הכרטיסים: מתחת לכותרת עד כמעט התחתית. שמאל = WORLD JOURNEY, ימין = שלושה כרטיסים שווים
+        val areaTop = h * 0.255f
+        val areaH = h * 0.725f
+        val colGap = h * 0.03f
+        val rowGap = h * 0.025f
+        var journeyH = areaH
+        var cardH = (areaH - rowGap * 2) / 3
+        val groupW = journeyH * JOURNEY_RATIO + colGap + cardH * CARD_RATIO
+        val maxGroupW = w - maxOf(margin, safeL) - maxOf(margin, safeR)
+        // מסך צר: מקטינים את כל הקבוצה באותו יחס (WORLD JOURNEY נשאר הדומיננטי)
+        val s = if (groupW > maxGroupW) maxGroupW / groupW else 1f
+        journeyH *= s
+        cardH *= s
+        val jW = journeyH * JOURNEY_RATIO
+        val cW = cardH * CARD_RATIO
+        val gW = jW + colGap * s + cW
+        val left = (w - gW) / 2
+        val top = areaTop + (areaH - journeyH) / 2
+
+        val cards = listOf(
+            Triple(R.drawable.cg_journey, "World Journey", onJourney),
+            Triple(R.drawable.cg_classic, "Classic", onClassic),
+            Triple(R.drawable.cg_random, "Random", onRandom),
+            Triple(R.drawable.cg_myworlds, "My Worlds", onMyWorlds)
+        )
+        // מיקום וגודל של כל כרטיס: הראשון הוא WORLD JOURNEY, השאר בעמודה הימנית
+        fun rect(i: Int): Pair<Pair<Dp, Dp>, Pair<Dp, Dp>> =
+            if (i == 0) (left to top) to (jW to journeyH)
+            else ((left + jW + colGap * s) to (top + (cardH + rowGap * s) * (i - 1))) to (cW to cardH)
+
+        // זוהר: עותק מטושטש של כל כרטיס מאחוריו, בצבעים של הכרטיס עצמו (Android 12 ומעלה; בגרסאות ישנות אין טשטוש ולכן לא מצויר)
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            cards.forEachIndexed { i, (sprite, _, _) ->
+                val (pos, size) = rect(i)
+                val gw = size.first * 1.03f
+                val gh = size.second * 1.06f
+                Image(
+                    painter = painterResource(sprite), contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .offset(x = pos.first - (gw - size.first) / 2, y = pos.second - (gh - size.second) / 2)
+                        .requiredSize(gw, gh)
+                        .blur(size.second * 0.07f, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                        .alpha(0.95f)
+                )
+            }
+        }
+        cards.forEachIndexed { i, (sprite, label, action) ->
+            val (pos, size) = rect(i)
+            SpriteButton(
+                sprite = sprite, contentDescription = label, onClick = action,
+                width = size.first, height = size.second,
+                modifier = Modifier.offset(x = pos.first, y = pos.second)
+            )
+        }
+
+        // כותרת גדולה, והלוגו (קטן יותר) יושב עליה מלמעלה במרכז
+        val logoH = h * 0.13f
+        val titleH = h * 0.115f
+        Image(
+            painter = painterResource(R.drawable.cg_title), contentDescription = "Choose your game",
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.offset(x = (w - titleH * TITLE_RATIO) / 2, y = h * 0.115f).requiredSize(titleH * TITLE_RATIO, titleH)
+        )
+        Image(
+            painter = painterResource(R.drawable.cg_logo), contentDescription = "SnapBoo",
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.offset(x = (w - logoH * LOGO_RATIO) / 2, y = h * 0.005f).requiredSize(logoH * LOGO_RATIO, logoH)
+        )
 
         // כפתור חזרה בפינה השמאלית העליונה
         GameIconButton(
@@ -111,57 +190,6 @@ fun ChooseGameScreen(
             CurrencyItem(R.drawable.ui_icon_coin, PlayerProfile.coins, "Coins", unit)
             CurrencyItem(R.drawable.ui_icon_gem, PlayerProfile.diamonds, "Gems", unit)
             AddCurrencyButton(onClick = onShop, unit = unit)
-        }
-
-        // לוגו וכותרת: למעלה במרכז, אחד מעל השני
-        val logoH = h * 0.17f
-        val titleH = h * 0.085f
-        Image(
-            painter = painterResource(R.drawable.cg_logo), contentDescription = "SnapBoo",
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(x = (w - logoH * LOGO_RATIO) / 2, y = h * 0.012f).requiredSize(logoH * LOGO_RATIO, logoH)
-        )
-        Image(
-            painter = painterResource(R.drawable.cg_title), contentDescription = "Choose your game",
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(x = (w - titleH * TITLE_RATIO) / 2, y = h * 0.188f).requiredSize(titleH * TITLE_RATIO, titleH)
-        )
-
-        // אזור הכרטיסים: מתחת לכותרת עד קרוב לתחתית. שמאל = WORLD JOURNEY, ימין = שלושה כרטיסים שווים
-        val areaTop = h * 0.295f
-        val areaH = h * 0.67f
-        val colGap = h * 0.03f
-        val rowGap = h * 0.025f
-        var journeyH = areaH
-        var cardH = (areaH - rowGap * 2) / 3
-        val groupW = journeyH * JOURNEY_RATIO + colGap + cardH * CARD_RATIO
-        val maxGroupW = w - maxOf(margin, safeL) - maxOf(margin, safeR)
-        // מסך צר: מקטינים את כל הקבוצה באותו יחס (WORLD JOURNEY נשאר הדומיננטי)
-        val s = if (groupW > maxGroupW) maxGroupW / groupW else 1f
-        journeyH *= s
-        cardH *= s
-        val jW = journeyH * JOURNEY_RATIO
-        val cW = cardH * CARD_RATIO
-        val gW = jW + colGap * s + cW
-        val left = (w - gW) / 2
-        val top = areaTop + (areaH - journeyH) / 2
-
-        SpriteButton(
-            sprite = R.drawable.cg_journey, contentDescription = "World Journey", onClick = onJourney,
-            width = jW, height = journeyH,
-            modifier = Modifier.offset(x = left, y = top)
-        )
-        val cards = listOf(
-            Triple(R.drawable.cg_classic, "Classic", onClassic),
-            Triple(R.drawable.cg_random, "Random", onRandom),
-            Triple(R.drawable.cg_myworlds, "My Worlds", onMyWorlds)
-        )
-        cards.forEachIndexed { i, (sprite, label, action) ->
-            SpriteButton(
-                sprite = sprite, contentDescription = label, onClick = action,
-                width = cW, height = cardH,
-                modifier = Modifier.offset(x = left + jW + colGap * s, y = top + (cardH + rowGap * s) * i)
-            )
         }
     }
 }
