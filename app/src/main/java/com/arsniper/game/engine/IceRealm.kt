@@ -89,7 +89,7 @@ enum class BossAttack(
  * תגובות פגיעה לפי מקום הפגיעה, ומוות. Kotlin טהור: הנגן והציור ב-IceRealmLayer, החיבור למשחק ב-GameScreen.
  *
  * הזרימה (לפי מספרי הסרטונים של דין):
- *  0 פורטל → 1 כניסה → 2 הכנה → 3 חבטת טופר → 4 נשימה → 5 ברקים → 6 כדור קרח → 7 קפיצה
+ *  סדקי קרח זוהרים על רצפת הארנה (2 שניות) → 0 פורטל → 1 כניסה → 2 הכנה → 3 חבטת טופר → 4 נשימה → 5 ברקים → 6 כדור קרח → 7 קפיצה
  *  ואז אקראי, בלי אותו צעד פעמיים ברצף: [2+3] (3 תמיד אחרי 2), 4, 5, 6, 7.
  *  פגיעה בבוס כשהוא נושם (4) = סרטון התגובה של אותו מקום, עד הסוף, ואז ממשיכים בזרימה.
  *  פגיעה בהכנה (2) לא עוצרת את המתקפה (היהלום הזהוב = נזק כפול). מתחמקים מהמתקפה עם הכוונת (ג'ויסטיק).
@@ -104,7 +104,7 @@ enum class BossAttack(
  */
 class IceRealm {
 
-    enum class Stage { Off, Portal, Intro, Idle, PreparingAttack, Attacking, HitReaction, Dead }
+    enum class Stage { Off, Cracks, Portal, Intro, Idle, PreparingAttack, Attacking, HitReaction, Dead }
 
     /** מקום פגיעה. ימין/שמאל = של הבוס (ימין שלו בצד שמאל של המסך). index = מקום בטבלאות המעקב */
     enum class Zone(val index: Int, val clip: BossClip) {
@@ -196,7 +196,7 @@ class IceRealm {
             return ((clipMs - (a.impactMs - warnMs())) / warnMs()).coerceIn(0f, 1f)
         }
 
-    private fun warnMs() = if (enraged) WARN_MS_ENRAGED else WARN_MS
+    private fun warnMs() = when (phase) { 1 -> WARN_MS_PHASE1; 2 -> WARN_MS_PHASE2; else -> WARN_MS_PHASE3 }
 
     private var hitThisTick = false
     private var deathHold = 0f
@@ -220,8 +220,31 @@ class IceRealm {
     val fraction: Float get() = totalHp.toFloat() / (diamonds.size * DIAMOND_HP)
     private val broken: Int get() = diamonds.count { !it.alive }
 
-    /** נשארו 2 יהלומים או פחות: הבוס כועס (הכנה מהירה יותר, פחות מנוחה בין מתקפות) */
-    val enraged: Boolean get() = diamonds.count { it.alive } <= 2
+    /**
+     * שלב הקרב לפי החיים שנשארו:
+     *  1 (100%–70%): מתקפות איטיות, חלונות פגיעה ארוכים, הזהרה ארוכה; השחקן לומד.
+     *  2 (70%–35%): מתקפות מהירות יותר, פחות מנוחה (נשימה קצרה), הזהרה קצרה יותר.
+     *  3 (35%–0%): זעם: מתקפות משולבות (שתיים ברצף), עוצמה גבוהה, חלונות פגיעה קצרים.
+     * ניצחון: כשכל 5 היהלומים נהרסים.
+     */
+    val phase: Int
+        get() = when {
+            fraction > PHASE2_AT -> 1
+            fraction > PHASE3_AT -> 2
+            else -> 3
+        }
+    val enraged: Boolean get() = phase == 3
+
+    private fun attackSpeed() = when (phase) { 1 -> 0.9f; 2 -> 1.15f; else -> 1.3f }
+    private fun prepareSpeed() = when (phase) { 1 -> 1.0f; 2 -> 1.2f; else -> 1.4f }
+
+    /** כמה שניות הבוס נושם (חלון הפגיעה): מלא בשלב 1, מתקצר אחר כך */
+    private fun breathSeconds() = when (phase) { 1 -> 5.0f; 2 -> 3.2f; else -> 2.0f }
+
+    /** עוצמת הרעידה של מכה */
+    val impactPower: Float get() = when (phase) { 1 -> 1f; 2 -> 1.15f; else -> 1.35f }
+
+    private var comboChained = false
 
     /** התקדמות ההכנה 0..1 (לטבעת שמתכווצת סביב היהלום הדלוק) */
     val prepareFraction: Float
@@ -230,7 +253,7 @@ class IceRealm {
     fun begin() {
         if (stage != Stage.Off) return
         reset()
-        go(Stage.Portal)
+        go(Stage.Cracks)
     }
 
     /** חוזר להתחלה (החייאה, משחק חוזר, או ארנה חדשה). הנגן משתחרר כשהשכבה יורדת מהמסך */
@@ -255,6 +278,7 @@ class IceRealm {
         cutFlash = 0f
         dodgeFlash = 0f
         dazzle = 0f
+        comboChained = false
         hitThisTick = false
         deathHold = 0f
         finished = false
@@ -321,12 +345,13 @@ class IceRealm {
         hitThisTick = false
         advanceClock(dt)
         when (stage) {
+            Stage.Cracks -> if (stageTime >= CRACKS_SECONDS) go(Stage.Portal)
             Stage.Portal -> if (stageTime >= PORTAL_SECONDS) {
                 go(Stage.Intro)
                 play(BossClip.Intro)
             }
             Stage.Intro -> if (clipDone()) nextStep()
-            Stage.Idle -> if (clipDone()) nextStep()
+            Stage.Idle -> if (clipDone() || stageTime >= breathSeconds()) nextStep()
             Stage.PreparingAttack -> if (clipDone()) startAttack(BossAttack.ClawSwipe)
             Stage.Attacking -> {
                 val a = attack
@@ -349,7 +374,15 @@ class IceRealm {
                     }
                     if (clipDone()) {
                         attack = null
-                        nextStep()
+                        // שלב 3: מתקפה משולבת, עוד מתקפה (אחרת) מיד, בלי מנוחה
+                        if (phase == 3 && !comboChained && Random.nextFloat() < COMBO_CHANCE) {
+                            comboChained = true
+                            val others = listOf(BossAttack.ThunderSlam, BossAttack.FrostOrb, BossAttack.GroundPound).filter { it != a }
+                            startAttack(others[Random.nextInt(others.size)])
+                        } else {
+                            comboChained = false
+                            nextStep()
+                        }
                     }
                 }
             }
@@ -394,7 +427,7 @@ class IceRealm {
         val live = diamonds.indices.filter { diamonds[it].alive }
         exposed = if (live.isEmpty()) -1 else live[Random.nextInt(live.size)]
         go(Stage.PreparingAttack)
-        play(BossClip.Prepare, if (enraged) PREPARE_SPEED_ENRAGED else 1f)
+        play(BossClip.Prepare, prepareSpeed())
     }
 
     private fun startAttack(a: BossAttack) {
@@ -402,7 +435,7 @@ class IceRealm {
         attack = a
         impactDone = false
         go(Stage.Attacking)
-        play(a.clip)
+        play(a.clip, attackSpeed())
     }
 
     private val pts = FloatArray(IceBossTracks.POINTS * 3)
@@ -491,12 +524,20 @@ class IceRealm {
         const val DIAMOND_HP = 3
         const val EXPOSED_DAMAGE = 2
 
-        /** מהירות סרטון ההכנה כשהבוס כועס (מתקפה מגיעה מהר יותר, פחות זמן לבטל) */
-        const val PREPARE_SPEED_ENRAGED = 1.3f
+        /** גבולות השלבים (חלק מהחיים) */
+        const val PHASE2_AT = 0.70f
+        const val PHASE3_AT = 0.35f
+
+        /** בשלב 3: הסיכוי שמתקפה תבוא מיד אחרי מתקפה (משולבת) */
+        const val COMBO_CHANCE = 0.65f
+
+        /** סדקי הקרח על הרצפה לפני הפורטל */
+        const val CRACKS_SECONDS = 2.0f
 
         /** כמה זמן לפני הפגיעה מופיע אזור הסכנה (קשה: מספיק רק למי שזז מהר), ובזעם */
-        const val WARN_MS = 900f
-        const val WARN_MS_ENRAGED = 700f
+        const val WARN_MS_PHASE1 = 1100f
+        const val WARN_MS_PHASE2 = 800f
+        const val WARN_MS_PHASE3 = 600f
 
         const val DODGE_FLASH_SECONDS = 0.8f
 

@@ -589,6 +589,8 @@ fun GameScreen(
                     ) {
                         // הפורטל והבוס מגיעים עם הצלילים שלהם (מתוך הסרטונים)
                         realm.begin()
+                        // הסדקים על הרצפה מתחילים להיפתח
+                        soundPlayer.play(Sfx.Crack)
                         director.enterRealm()
                         enemies = emptyList()
                         fire.reset()
@@ -606,7 +608,7 @@ fun GameScreen(
                                 if (director.hitPlayer()) {
                                     soundPlayer.play(Sfx.PlayerHit)
                                     sfxMemo.damagedThisWave = true
-                                    shake = max(shake, attack.shake)
+                                    shake = max(shake, attack.shake * realm.impactPower)
                                     // רטט חזק כשהבוס פוגע
                                     if (PlayerProfile.vibrationOn) bossHitVibrate(context0)
                                     combo.reset()
@@ -1668,7 +1670,16 @@ fun GameScreen(
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
 
         // עולם הקרח (בוס ארנת הקרח): שכבה קבועה למסך מעל הארנה ומתחת לכוונת, לנשק ולממשק
-        IceRealmLayer(realm = realm, nowNanos = frameNanos, paused = paused || director.phase == ArenaPhase.Lost, shake = shake)
+        IceRealmLayer(
+            realm = realm,
+            nowNanos = frameNanos,
+            paused = paused || director.phase == ArenaPhase.Lost,
+            shake = shake,
+            // הרצפה של הארנה מניתוח התמונה (בלי ניתוח: החלק התחתון)
+            floorAt = remember(scene) { scene?.let { sc -> { x: Float, y: Float -> sc.isWalkable(x, y) } } },
+            worldAspect = aspect,
+            camMap = cameraMap(camera.zoom, camera.viewFraction, camera.center.x, camera.center.y)
+        )
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
         SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)

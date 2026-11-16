@@ -48,7 +48,16 @@ import kotlin.math.sin
  * nowNanos רק כדי שהשכבה תתרענן בכל פריים (וכך גם הסנכרון עם הנגן).
  */
 @Composable
-fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, shake: Float = 0f, modifier: Modifier = Modifier) {
+fun IceRealmLayer(
+    realm: IceRealm,
+    nowNanos: Long,
+    paused: Boolean,
+    shake: Float = 0f,
+    floorAt: ((Float, Float) -> Boolean)? = null,
+    worldAspect: Float = 2f,
+    camMap: FloatArray = cameraMap(1f, 1f, 0.5f, 0.5f),
+    modifier: Modifier = Modifier
+) {
     if (!realm.visible) return
     val context = LocalContext.current
 
@@ -77,6 +86,9 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, shake: Float
         if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) controller.setLifecyclePaused(true)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    // סדקי הקרח על רצפת הארנה (לפי ניתוח התמונה), נבנים פעם אחת כשהבוס מתחיל
+    val cracks = remember(floorAt, worldAspect) { FloorCracks.build(floorAt, worldAspect, seed = (System.nanoTime() and 0xFFFF).toInt()) }
 
     // סרטון 0: הפורטל, עם שקיפות (הרקע הירוק הוסר מראש), מעל הארנה. מתנגן פעם אחת. AnimatedImageDrawable קיים מאנדרואיד 9
     val portal = remember {
@@ -152,6 +164,12 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, shake: Float
         Canvas(modifier = Modifier.fillMaxSize()) {
             if (nowNanos < 0L) return@Canvas
             val aspect = size.width / size.height
+
+            // סדקי קרח זוהרים שמתפשטים על הרצפה (2 שניות), ונשארים מתחת לפורטל עד שסרטון הכניסה מופיע
+            if (!videoShown && (realm.stage == IceRealm.Stage.Cracks || inPortal || realm.stage == IceRealm.Stage.Intro)) {
+                val k = if (realm.stage == IceRealm.Stage.Cracks) realm.stageTime / IceRealm.CRACKS_SECONDS else 1f
+                cracks.draw(this, k, camMap)
+            }
 
             // סרטון 0: הפורטל, עד שהפריים הראשון של הכניסה מוכן (הפריים האחרון שלו זהה לראשון של הכניסה)
             if (portal != null && !videoShown && (inPortal || realm.stage == IceRealm.Stage.Intro)) {
