@@ -76,8 +76,8 @@ fun ChooseGameScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
         val w = maxWidth
         val h = maxHeight
-        // רקע: הסמטה בלילה כמו שהיא (בלי הגדלה), מטושטשת (כ-29px ב-4000 רוחב), כהה ובניגודיות גבוהה.
-        // ממלא את כל המסך בלי עיוות; במסך רחב נחתך מעט מלמעלה ומלמטה
+        // רקע: הסמטה בלילה כולה, בגובה מלא (רואים את ההשתקפויות ברצפה), עם הרחבה משוקפת בצדדים עד יחס 2.17:1.
+        // טשטוש כ-15px ב-4000 רוחב, מעט כהה. ממלא את כל המסך בלי עיוות
         Image(
             painter = painterResource(R.drawable.cg_background),
             contentDescription = null,
@@ -93,18 +93,22 @@ fun ChooseGameScreen(
         val unit = maxOf(w, h * (2560f / 1180f)) / 2560f
         val margin = maxOf(unit * 28f, 10.dp)
 
-        // לוגו וכותרת: נמתחים לרוחב (לוגו 34%, כותרת 40% מהמסך) בלי לשנות את הגובה. הלוגו עולה מעט על הכותרת
-        val logoW = w * 0.34f
-        val logoH = h * 0.14f
-        val titleW = w * 0.40f
+        // שורה עליונה: לוגו משמאל לכותרת, באמצע בין כפתור החזרה למונים (המונים מימין, לכן הקבוצה מוזזת מעט שמאלה)
         val titleH = h * 0.115f
-        val titleY = logoH * 0.90f
+        val titleW = w * 0.34f
+        val logoH = h * 0.12f
+        val logoW = logoH * LOGO_RATIO
+        val logoGap = w * 0.015f
+        val titleY = maxOf(h * 0.015f, insets.calculateTopPadding())
+        val groupW = logoW + logoGap + titleW
+        val groupX = (w * 0.41f - groupW / 2).coerceAtLeast(maxOf(margin, safeL) + unit * 150f)
 
         // אזור הכרטיסים: מתחת לכותרת, עם מרווח כפול מלמטה. הכרטיסים שומרים על הפרופורציות שלהם
         val colGap = h * 0.03f
         val rowGap = h * 0.025f
-        val areaTop = titleY + titleH + h * 0.02f
-        val bottomGap = h * 0.05f
+        val areaTop = titleY + titleH + h * 0.03f
+        // מרווח למטה: שיראו את ההשתקפויות ברצפה הרטובה של הרקע
+        val bottomGap = h * 0.11f
         val areaH = h - areaTop - bottomGap
         var journeyH = areaH
         var cardH = (areaH - rowGap * 2) / 3
@@ -163,12 +167,12 @@ fun ChooseGameScreen(
         Image(
             painter = painterResource(R.drawable.cg_title), contentDescription = "Choose your game",
             contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(x = (w - titleW) / 2, y = titleY).requiredSize(titleW, titleH)
+            modifier = Modifier.offset(x = groupX + logoW + logoGap, y = titleY).requiredSize(titleW, titleH)
         )
         Image(
             painter = painterResource(R.drawable.cg_logo), contentDescription = "SnapBoo",
             contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(x = (w - logoW) / 2, y = 0.dp).requiredSize(logoW, logoH)
+            modifier = Modifier.offset(x = groupX, y = titleY + (titleH - logoH) / 2).requiredSize(logoW, logoH)
         )
 
         // כפתור חזרה בפינה השמאלית העליונה
