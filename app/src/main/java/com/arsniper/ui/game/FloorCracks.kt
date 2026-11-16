@@ -95,9 +95,9 @@ class FloorCracks private constructor(
                 var a = a0
                 var dist = dist0
                 for (s in 0 until steps) {
-                    a += (rnd.nextFloat() - 0.5f) * 0.9f
+                    a += (rnd.nextFloat() - 0.5f) * 0.45f
                     val p = persp(y)
-                    val step = 0.03f * (0.35f + 0.65f * p)
+                    val step = 0.045f * (0.35f + 0.65f * p)
                     // משטוח: על רצפה תנועה "קדימה" נראית קצרה יותר בגובה
                     val nx = x + cos(a) * step / worldAspect * 1.6f
                     val ny = y + sin(a) * step * 0.5f
@@ -106,7 +106,7 @@ class FloorCracks private constructor(
                     out.add(x); out.add(y); out.add(nx); out.add(ny)
                     out.add(dist); out.add(d1); out.add(width * (1f - 0.5f * s / steps)); out.add(p)
                     maxDist = max(maxDist, d1)
-                    if (depth < 2 && rnd.nextFloat() < 0.24f) {
+                    if (depth < 2 && rnd.nextFloat() < 0.18f) {
                         val side = if (rnd.nextBoolean()) 1f else -1f
                         grow(nx, ny, a + side * (0.5f + rnd.nextFloat() * 0.7f), (steps * 0.55f).toInt().coerceAtLeast(3), width * 0.6f, d1, depth + 1)
                     }
@@ -116,10 +116,10 @@ class FloorCracks private constructor(
                 }
             }
 
-            val mains = 8
+            val mains = 6
             for (k in 0 until mains) {
                 val a = (k + rnd.nextFloat() * 0.6f) / mains * 2f * PI.toFloat()
-                grow(sx, sy, a, 14 + rnd.nextInt(10), 1f, 0f, 0)
+                grow(sx, sy, a, 10 + rnd.nextInt(8), 1f, 0f, 0)
             }
             val arr = FloatArray(out.size)
             for (i in out.indices) arr[i] = out[i]
@@ -164,7 +164,7 @@ class FloorCracks private constructor(
 
         val glow = Color(0xFF3FB8FF)
         val core = Color(0xFFE8FCFF)
-        val base = h * 0.0055f
+        val base = h * 0.008f
         // שני מעברים: זוהר רחב, ואז קו לבן דק
         for (pass in 0 until 2) {
             var i = 0
@@ -182,7 +182,7 @@ class FloorCracks private constructor(
                     val p = seg[i + 7]
                     val wd = base * seg[i + 6] * (0.35f + 0.65f * p)
                     if (pass == 0) {
-                        drawLine(glow.copy(alpha = 0.38f * fade * pulse), Offset(x0, y0), Offset(x1, y1), strokeWidth = wd * 4.5f, cap = StrokeCap.Round)
+                        drawLine(glow.copy(alpha = 0.5f * fade * pulse), Offset(x0, y0), Offset(x1, y1), strokeWidth = wd * 4.5f, cap = StrokeCap.Round)
                     } else {
                         drawLine(core.copy(alpha = 0.95f * fade), Offset(x0, y0), Offset(x1, y1), strokeWidth = max(1.2f, wd), cap = StrokeCap.Round)
                         // ניצוץ בקצה שעוד מתקדם
