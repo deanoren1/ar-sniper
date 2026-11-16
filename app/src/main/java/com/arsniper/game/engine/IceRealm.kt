@@ -56,7 +56,7 @@ enum class BossAttack(
  * תגובות פגיעה לפי מקום הפגיעה, ומוות. Kotlin טהור: הנגן והציור ב-IceRealmLayer, החיבור למשחק ב-GameScreen.
  *
  * מכונת מצבים אחת (stage) היא מקור האמת:
- *  Portal → Intro → Idle → PreparingAttack → Attacking → Idle
+ *  Portal (מעבר הקרח, 2 שניות) → Intro → Idle → PreparingAttack → Attacking → Idle
  *  Idle → HitReaction → Idle (או ישר להכנה, אם הגיע זמן מתקפה: התגובה לא נקטעת, אבל גם לא חוסמת מתקפות לעד)
  *  PreparingAttack → HitReaction כשפוגעים ביהלום הדלוק (מבטל את המתקפה, כמו קודם)
  *  כל מצב → Dead כשהחיים נגמרים. מ-Dead אין חזרה.
@@ -416,8 +416,8 @@ class IceRealm {
         /** מהירות סרטון ההכנה כשהבוס כועס (מתקפה מגיעה מהר יותר, פחות זמן לבטל) */
         const val PREPARE_SPEED_ENRAGED = 1.3f
 
-        /** הפורטל מעל הארנה, לפני סרטון הכניסה */
-        const val PORTAL_SECONDS = 4.04f
+        /** מעבר הקרח מעל הארנה (FrostTransition), לפני סרטון הכניסה */
+        const val PORTAL_SECONDS = 2.0f
 
         /** אחרי שסרטון המוות נגמר: הבוס המובס נשאר על המסך עוד רגע, ואז הארנה נוצחת */
         const val DEATH_HOLD_SECONDS = 1.0f

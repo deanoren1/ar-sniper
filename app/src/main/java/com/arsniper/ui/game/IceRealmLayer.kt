@@ -1,9 +1,6 @@
 package com.arsniper.ui.game
 
-import android.graphics.ImageDecoder
-import android.graphics.drawable.AnimatedImageDrawable
 import android.media.MediaPlayer
-import android.os.Build
 import android.view.TextureView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -31,12 +28,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.arsniper.R
 import com.arsniper.data.PlayerProfile
 import com.arsniper.game.engine.BossClip
-import com.arsniper.game.engine.BossFrame
 import com.arsniper.game.engine.IceRealm
 import kotlin.math.sin
 
 /**
- * עולם הקרח (בוס ארנת הקרח): פורטל מעל הארנה, ואז הבוס כווידאו שממלא את המסך (בלי עיוות),
+ * עולם הקרח (בוס ארנת הקרח): מעבר קרח של 2 שניות מעל הארנה (FrostTransition), ואז הבוס כווידאו שממלא את המסך (בלי עיוות),
  * ומעליו סימוני היהלומים, מד החיים והבזקים. שכבה קבועה למסך, מעל הארנה ומתחת לכוונת, לנשק ולממשק.
  * paused = המשחק עצור (תפריט עצירה / הפסד): הווידאו נעצר איתו.
  * nowNanos רק כדי שהשכבה תתרענן בכל פריים (וכך גם הסנכרון עם הנגן).
@@ -67,25 +63,11 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // הפורטל: אנימציה עם שקיפות (הרקע הירוק הוסר מראש), מתנגנת פעם אחת. AnimatedImageDrawable קיים מאנדרואיד 9
-    val portal = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            runCatching {
-                (ImageDecoder.decodeDrawable(ImageDecoder.createSource(context.resources, R.raw.boss_portal)) as? AnimatedImageDrawable)
-                    ?.apply { repeatCount = 0 }
-            }.getOrNull()
-        } else {
-            null
-        }
-    }
     val inPortal = realm.stage == IceRealm.Stage.Portal
-    LaunchedEffect(inPortal) {
-        if (inPortal && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) portal?.start()
-    }
-    // הצליל של הפורטל (הקובץ המקורי היה עם קול; האנימציה עצמה בלי)
+    // הצליל של הפורטל (מהקובץ המקורי). נעצר כשסרטון הכניסה מתחיל (לסרטון יש קול משלו)
     val portalSound = remember { if (PlayerProfile.soundOn) runCatching { MediaPlayer.create(context, R.raw.boss_portal_sfx) }.getOrNull() else null }
     LaunchedEffect(inPortal) {
-        if (inPortal) runCatching { portalSound?.start() }
+        if (inPortal) runCatching { portalSound?.start() } else runCatching { if (portalSound?.isPlaying == true) portalSound.pause() }
     }
     DisposableEffect(portalSound) {
         onDispose { runCatching { portalSound?.release() } }
@@ -128,16 +110,14 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
             if (nowNanos < 0L) return@Canvas
             val aspect = size.width / size.height
 
-            // הפורטל: בזמן הפורטל, ועד שהפריים הראשון של הכניסה מוכן (הפריים האחרון שלו זהה לראשון של הכניסה)
-            if (portal != null && !videoShown && (inPortal || realm.stage == IceRealm.Stage.Intro)) {
-                val r = BossFrame.rect(aspect)
-                drawIntoCanvas { c ->
-                    portal.setBounds(
-                        (r[0] * size.width).toInt(), (r[1] * size.height).toInt(),
-                        ((r[0] + r[2]) * size.width).toInt(), ((r[1] + r[3]) * size.height).toInt()
-                    )
-                    portal.draw(c.nativeCanvas)
-                }
+            // מעבר הקרח מעל תמונת הארנה; אם הפריים הראשון של הכניסה עוד לא מוכן, נשארים על הפריים האחרון של המעבר
+            if (!videoShown && (inPortal || realm.stage == IceRealm.Stage.Intro)) {
+                val t = if (inPortal) realm.stageTime.coerceAtMost(FrostTransition.SECONDS) else FrostTransition.SECONDS
+                drawIntoCanvas { c -> FrostTransition.draw(c.nativeCanvas, size.width, size.height, t) }
+            } else if (videoShown && realm.stage == IceRealm.Stage.Intro && realm.clipMs < INTRO_FLASH_MS) {
+                // ההבזק של סוף המעבר דועך מעל הפריימים הראשונים של סרטון הכניסה (החיתוך מוסתר)
+                val k = 1f - realm.clipMs / INTRO_FLASH_MS
+                drawRect(Color(0xFFD8F6FF).copy(alpha = FrostTransition.FINAL_FLASH * k))
             }
 
             val vulnerable = realm.vulnerable
@@ -176,6 +156,9 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
         }
     }
 }
+
+/** כמה זמן (ms מתחילת סרטון הכניסה) דועך ההבזק של סוף המעבר */
+private const val INTRO_FLASH_MS = 250f
 
 /** סימוני היהלומים במיקום שלהם על הבוס: טבעת זוהרת; הדלוק בהכנה בזהב עם טבעת אדומה שמתכווצת; שבור = X אפור */
 private fun DrawScope.drawDiamonds(realm: IceRealm, z: FloatArray) {

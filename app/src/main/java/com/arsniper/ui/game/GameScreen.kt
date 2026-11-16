@@ -261,6 +261,15 @@ fun GameScreen(
     DisposableEffect(Unit) {
         onDispose { soundPlayer.release() }
     }
+    // ארנת הקרח: טעינה מראש של נכסי מעבר הקרח לבוס (ברקע), ושחרור ביציאה
+    LaunchedEffect(style) {
+        if (style == ArenaStyle.Tundra) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { FrostTransition.preload(context0) }
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { FrostTransition.release() }
+    }
     // משחק משותף (מארח): צלילי פגיעה והשמדה נשלחים גם לשותף
     DisposableEffect(isHost) {
         if (isHost) soundPlayer.onPlay = { s, r -> if (s in COOP_SHARED_SFX) CoopSync.queueSound(s.ordinal, r) }
