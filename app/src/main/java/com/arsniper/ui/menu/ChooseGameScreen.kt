@@ -76,8 +76,8 @@ fun ChooseGameScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(GameColors.Navy900).clipToBounds()) {
         val w = maxWidth
         val h = maxHeight
-        // רקע: הסמטה בלילה כולה, בגובה מלא (רואים את ההשתקפויות ברצפה), עם הרחבה משוקפת בצדדים עד יחס 2.17:1.
-        // טשטוש כ-15px ב-4000 רוחב, מעט כהה. ממלא את כל המסך בלי עיוות
+        // רקע: הסמטה בלילה כולה, מוקטנת ל-85% מהגובה וצמודה לתחתית (רואים את ההשתקפויות ברצפה),
+        // והשוליים מלמעלה ובצדדים מושלמים בשיקוף. טשטוש כ-15px ב-4000 רוחב, מעט כהה. ממלא את כל המסך בלי עיוות
         Image(
             painter = painterResource(R.drawable.cg_background),
             contentDescription = null,
@@ -93,13 +93,15 @@ fun ChooseGameScreen(
         val unit = maxOf(w, h * (2560f / 1180f)) / 2560f
         val margin = maxOf(unit * 28f, 10.dp)
 
-        // שורה עליונה: לוגו משמאל לכותרת, באמצע בין כפתור החזרה למונים (המונים מימין, לכן הקבוצה מוזזת מעט שמאלה)
+        // לוגו משמאל לכותרת, באמצע בין כפתור החזרה למונים (המונים מימין, לכן הקבוצה מוזזת מעט שמאלה).
+        // הכותרת והכרטיסים יחד ממורכזים לגובה: אותו מרווח מעליהם ומתחתם
         val titleH = h * 0.115f
         val titleW = w * 0.34f
-        val logoH = h * 0.12f
+        val logoH = h * 0.132f
         val logoW = logoH * LOGO_RATIO
         val logoGap = w * 0.015f
-        val titleY = maxOf(h * 0.015f, insets.calculateTopPadding())
+        val cardsAreaH = h * 0.73f
+        val titleY = maxOf((h - (titleH + h * 0.03f + cardsAreaH)) / 2, insets.calculateTopPadding())
         val groupW = logoW + logoGap + titleW
         val groupX = (w * 0.41f - groupW / 2).coerceAtLeast(maxOf(margin, safeL) + unit * 150f)
 
@@ -107,9 +109,7 @@ fun ChooseGameScreen(
         val colGap = h * 0.03f
         val rowGap = h * 0.025f
         val areaTop = titleY + titleH + h * 0.03f
-        // מרווח למטה: שיראו את ההשתקפויות ברצפה הרטובה של הרקע
-        val bottomGap = h * 0.11f
-        val areaH = h - areaTop - bottomGap
+        val areaH = cardsAreaH
         var journeyH = areaH
         var cardH = (areaH - rowGap * 2) / 3
         val naturalW = journeyH * JOURNEY_RATIO + colGap + cardH * CARD_RATIO
