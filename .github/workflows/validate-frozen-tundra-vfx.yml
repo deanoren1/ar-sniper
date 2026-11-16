@@ -1,0 +1,22 @@
+name: Validate Frozen Tundra VFX
+
+on:
+  push:
+    paths:
+      - "VFX/Frozen_Tundra/**"
+      - ".github/workflows/validate-frozen-tundra-vfx.yml"
+  pull_request:
+    paths:
+      - "VFX/Frozen_Tundra/**"
+      - ".github/workflows/validate-frozen-tundra-vfx.yml"
+
+jobs:
+  source-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Parse and validate VFX scripts
+        run: python VFX/Frozen_Tundra/validate_sources.py
