@@ -51,7 +51,6 @@ import com.arsniper.ui.theme.GameColors
 import java.io.File
 
 // יחסי הגובה/רוחב של האמנות (כפי שנחתכה מגיליון הנכסים)
-private const val LOGO_RATIO = 708f / 177f
 private const val TITLE_RATIO = 738f / 116f
 private const val JOURNEY_RATIO = 1400f / 1132f
 private const val CARD_RATIO = 1300f / 308f
@@ -93,18 +92,16 @@ fun ChooseGameScreen(
         val unit = maxOf(w, h * (2560f / 1180f)) / 2560f
         val margin = maxOf(unit * 28f, 10.dp)
 
-        // לוגו וכותרת: נמתחים לרוחב (לוגו 34%, כותרת 40% מהמסך) בלי לשנות את הגובה. הלוגו עולה מעט על הכותרת
-        val logoW = w * 0.34f
-        val logoH = h * 0.14f
+        // כותרת: בשורה העליונה, באמצע בין כפתור החזרה למונים (בלי לוגו במסך הזה). נמתחת לרוחב 40% מהמסך
         val titleW = w * 0.40f
         val titleH = h * 0.115f
-        val titleY = logoH * 0.90f
+        val titleY = maxOf(h * 0.015f, insets.calculateTopPadding())
 
-        // אזור הכרטיסים: מתחת לכותרת, עם מרווח כפול מלמטה. הכרטיסים שומרים על הפרופורציות שלהם
+        // אזור הכרטיסים: כל הגובה שמתחת לכותרת. הכרטיסים שומרים על הפרופורציות שלהם
         val colGap = h * 0.03f
         val rowGap = h * 0.025f
-        val areaTop = titleY + titleH + h * 0.02f
-        val bottomGap = h * 0.05f
+        val areaTop = titleY + titleH + h * 0.03f
+        val bottomGap = h * 0.035f
         val areaH = h - areaTop - bottomGap
         var journeyH = areaH
         var cardH = (areaH - rowGap * 2) / 3
@@ -164,11 +161,6 @@ fun ChooseGameScreen(
             painter = painterResource(R.drawable.cg_title), contentDescription = "Choose your game",
             contentScale = ContentScale.FillBounds,
             modifier = Modifier.offset(x = (w - titleW) / 2, y = titleY).requiredSize(titleW, titleH)
-        )
-        Image(
-            painter = painterResource(R.drawable.cg_logo), contentDescription = "SnapBoo",
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.offset(x = (w - logoW) / 2, y = 0.dp).requiredSize(logoW, logoH)
         )
 
         // כפתור חזרה בפינה השמאלית העליונה
