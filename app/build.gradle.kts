@@ -53,13 +53,6 @@ android {
         noCompress += "tflite"
     }
 
-    // מעבר הקרח לבוס: הנכסים המקוריים של VFX/Frozen_Tundra/Assets נארזים כמו שהם (בלי עותק נוסף בפרויקט)
-    sourceSets {
-        getByName("main") {
-            assets.srcDir("../VFX/Frozen_Tundra/Assets")
-        }
-    }
-
     packaging {
         jniLibs {
             pickFirsts += "**/libc++_shared.so"
@@ -96,6 +89,4 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // בוס הקרח: ניגון סרטוני הבוס (עמידה, הכנה, מתקפות, פגיעות, מוות)
     implementation("androidx.media3:media3-exoplayer:1.4.1")
-    // רינדור קובצי ה-SVG של אפקטי הקרח (פעם אחת, לתמונות שקופות)
-    implementation("com.caverock:androidsvg-aar:1.4")
 }

@@ -22,8 +22,41 @@ enum class BossClip(val durationMs: Float, val loop: Boolean = false) {
 }
 
 /**
+ * אזור הסכנה של מתקפה, בשברי הווידאו (x = חלק מהרוחב, y = חלק מהגובה). מרחקים במעגל/פס ביחידות של גובה הווידאו.
+ * ברגע הפגיעה: אם הכוונת (שזזה בג'ויסטיק) בתוך האזור, השחקן נפגע; אם הספיק להזיז אותה החוצה, הוא התחמק.
+ */
+sealed class DangerZone {
+    abstract fun contains(vx: Float, vy: Float): Boolean
+
+    class Box(val l: Float, val t: Float, val r: Float, val b: Float) : DangerZone() {
+        override fun contains(vx: Float, vy: Float) = vx in l..r && vy in t..b
+    }
+
+    class Circle(val cx: Float, val cy: Float, val radius: Float) : DangerZone() {
+        override fun contains(vx: Float, vy: Float): Boolean {
+            val dx = (vx - cx) * BossFrame.VIDEO_ASPECT
+            val dy = vy - cy
+            return dx * dx + dy * dy <= radius * radius
+        }
+    }
+
+    /** פס אלכסוני מ-(x0,y0) ל-(x1,y1), חצי רוחב half */
+    class Band(val x0: Float, val y0: Float, val x1: Float, val y1: Float, val half: Float) : DangerZone() {
+        override fun contains(vx: Float, vy: Float): Boolean {
+            val a = BossFrame.VIDEO_ASPECT
+            val px = vx * a; val ax = x0 * a; val bx = x1 * a
+            val ex = bx - ax; val ey = y1 - y0
+            val k = (((px - ax) * ex + (vy - y0) * ey) / (ex * ex + ey * ey)).coerceIn(0f, 1f)
+            val dx = px - (ax + ex * k); val dy = vy - (y0 + ey * k)
+            return dx * dx + dy * dy <= half * half
+        }
+    }
+}
+
+/**
  * חמש המתקפות של הבוס. impactMs = רגע הפגיעה בסרטון (נמדד מהפריים שבו המכה מגיעה למסך), ורק אז השחקן נפגע.
- * כל המתקפות מורידות לב אחד דרך מערכת הלבבות הקיימת (בלי ערכי נזק חדשים); ההבדל ביניהן בעוצמת הרעידה,
+ * כל מתקפה פוגעת באזור אחר על המסך (zone), ואזור הסכנה מופיע רק רגע לפני הפגיעה: מזיזים את הכוונת החוצה בג'ויסטיק.
+ * פגיעה מורידה לב אחד דרך מערכת הלבבות הקיימת (בלי ערכי נזק חדשים); ההבדל ביניהן גם בעוצמת הרעידה,
  * בזמן ההמתנה עד שאותה מתקפה חוזרת, ובתנאי: מכות הקרקע הכבדות (3, 4) רק אחרי שנשבר יהלום ראשון.
  * seamless = הסרטון ממשיך ישר מסוף ההכנה (תקריב); באחרות יש קפיצה שמוסתרת בהבזק קצר.
  */
@@ -33,22 +66,23 @@ enum class BossAttack(
     val cooldownSeconds: Float,
     val minBroken: Int,
     val shake: Float,
-    val seamless: Boolean
+    val seamless: Boolean,
+    val zone: DangerZone
 ) {
     /** Attack1: חבטת טופר אל המצלמה */
-    ClawSwipe(BossClip.Attack1, 2083f, 6f, 0, 0.75f, true),
+    ClawSwipe(BossClip.Attack1, 2083f, 6f, 0, 0.75f, true, DangerZone.Box(0.12f, 0.30f, 0.60f, 1.0f)),
 
     /** Attack2: שריטת טופר עם להב קרח אלכסוני */
-    FrostSlash(BossClip.Attack2, 1667f, 6f, 0, 0.7f, true),
+    FrostSlash(BossClip.Attack2, 1667f, 6f, 0, 0.7f, true, DangerZone.Band(0.05f, 0.95f, 0.95f, 0.12f, 0.14f)),
 
     /** Attack3: הלמות שתי האגרופים בקרקע, גל ברקים */
-    ThunderSlam(BossClip.Attack3, 1750f, 9f, 1, 0.9f, false),
+    ThunderSlam(BossClip.Attack3, 1750f, 9f, 1, 0.9f, false, DangerZone.Box(0f, 0.56f, 1f, 1f)),
 
     /** Attack4: קפיצה ונחיתה, גל קרח לאורך הרצפה */
-    GroundPound(BossClip.Attack4, 1750f, 9f, 1, 0.85f, false),
+    GroundPound(BossClip.Attack4, 1750f, 9f, 1, 0.85f, false, DangerZone.Box(0.32f, 0f, 0.68f, 1f)),
 
     /** Attack5: כדור קרח טעון שנזרק אל המסך */
-    FrostOrb(BossClip.Attack5, 2625f, 7f, 0, 0.8f, false)
+    FrostOrb(BossClip.Attack5, 2625f, 7f, 0, 0.8f, false, DangerZone.Circle(0.45f, 0.55f, 0.26f))
 }
 
 /**
@@ -56,12 +90,12 @@ enum class BossAttack(
  * תגובות פגיעה לפי מקום הפגיעה, ומוות. Kotlin טהור: הנגן והציור ב-IceRealmLayer, החיבור למשחק ב-GameScreen.
  *
  * מכונת מצבים אחת (stage) היא מקור האמת:
- *  Portal (מעבר הקרח, 2 שניות) → Intro → Idle → PreparingAttack → Attacking → Idle
+ *  Intro (סרטון הכניסה) → Idle → PreparingAttack → Attacking → Idle
  *  Idle → HitReaction → Idle (או ישר להכנה, אם הגיע זמן מתקפה: התגובה לא נקטעת, אבל גם לא חוסמת מתקפות לעד)
- *  PreparingAttack → HitReaction כשפוגעים ביהלום הדלוק (מבטל את המתקפה, כמו קודם)
+ *  פגיעה בהכנה למתקפה לא עוצרת אותה (היהלום הזהוב = נזק כפול). מתחמקים מהמתקפה עם הכוונת (ג'ויסטיק)
  *  כל מצב → Dead כשהחיים נגמרים. מ-Dead אין חזרה.
  *
- * חיים: 5 יהלומים (ראש, 2 כתפיים, 2 ידיים) × 3 = 15, כמו קודם. פגיעה = 1, ביהלום הדלוק בהכנה = 2.
+ * חיים: 5 יהלומים (ראש, 2 כתפיים, 2 ידיים) × 3 = 15, כמו קודם. פגיעה = 1, ביהלום הזהוב בהכנה = 2.
  * הבוס פגיע רק בעמידה ובהכנה (שם יש מעקב מדויק של הנקודות); במתקפה ובתגובה הירייה נהדפת.
  * פגיעה בגוף (לא ביהלום) נהדפת בלי נזק, כמו קודם (אין לה סרטון תגובה ייעודי).
  *
@@ -70,7 +104,7 @@ enum class BossAttack(
  */
 class IceRealm {
 
-    enum class Stage { Off, Portal, Intro, Idle, PreparingAttack, Attacking, HitReaction, Dead }
+    enum class Stage { Off, Intro, Idle, PreparingAttack, Attacking, HitReaction, Dead }
 
     /** מקום פגיעה. ימין/שמאל = של הבוס (ימין שלו בצד שמאל של המסך). index = מקום בטבלאות המעקב */
     enum class Zone(val index: Int, val clip: BossClip) {
@@ -135,6 +169,26 @@ class IceRealm {
     var cutFlash: Float = 0f
         private set
 
+    /** "התחמקת" על המסך אחרי התחמקות */
+    var dodgeFlash: Float = 0f
+        private set
+
+    /** אזור הסכנה שמוצג עכשיו (null = אין), ועוצמת ההתראה 0..1 (מתמלאת עד רגע הפגיעה) */
+    val warnZone: DangerZone?
+        get() {
+            val a = attack ?: return null
+            if (stage != Stage.Attacking || impactDone) return null
+            return if (clipMs >= a.impactMs - warnMs()) a.zone else null
+        }
+    val warnFraction: Float
+        get() {
+            val a = attack ?: return 0f
+            if (stage != Stage.Attacking || impactDone) return 0f
+            return ((clipMs - (a.impactMs - warnMs())) / warnMs()).coerceIn(0f, 1f)
+        }
+
+    private fun warnMs() = if (enraged) WARN_MS_ENRAGED else WARN_MS
+
     private var attackIn = FIRST_ATTACK_SECONDS
     private var hitThisTick = false
     private var deathHold = 0f
@@ -168,7 +222,8 @@ class IceRealm {
     fun begin() {
         if (stage != Stage.Off) return
         reset()
-        go(Stage.Portal)
+        go(Stage.Intro)
+        play(BossClip.Intro)
     }
 
     /** חוזר להתחלה (החייאה, משחק חוזר, או ארנה חדשה). הנגן משתחרר כשהשכבה יורדת מהמסך */
@@ -191,6 +246,7 @@ class IceRealm {
         exposed = -1
         hitFlash = 0f
         cutFlash = 0f
+        dodgeFlash = 0f
         attackIn = FIRST_ATTACK_SECONDS
         hitThisTick = false
         deathHold = 0f
@@ -238,19 +294,19 @@ class IceRealm {
     /**
      * מקדם פריים. onImpact נקרא פעם אחת לכל מתקפה, ברגע הפגיעה שבסרטון. onWin כשהמוות הסתיים.
      */
-    fun update(dt: Float, onImpact: (BossAttack) -> Unit, onWin: () -> Unit) {
+    fun update(
+        dt: Float, aimX: Float, aimY: Float, aspect: Float,
+        onImpact: (BossAttack) -> Unit, onDodge: (BossAttack) -> Unit, onWin: () -> Unit
+    ) {
         if (!active) return
         time += dt
         stageTime += dt
         hitFlash = (hitFlash - dt).coerceAtLeast(0f)
+        dodgeFlash = (dodgeFlash - dt).coerceAtLeast(0f)
         cutFlash = (cutFlash - dt).coerceAtLeast(0f)
         hitThisTick = false
         advanceClock(dt)
         when (stage) {
-            Stage.Portal -> if (stageTime >= PORTAL_SECONDS) {
-                go(Stage.Intro)
-                play(BossClip.Intro)
-            }
             Stage.Intro -> if (clipDone()) enterIdle()
             Stage.Idle -> {
                 attackIn -= dt
@@ -264,7 +320,16 @@ class IceRealm {
                 } else {
                     if (!impactDone && clipMs >= a.impactMs) {
                         impactDone = true
-                        onImpact(a)
+                        // הכוונת היא המקום של השחקן: בתוך האזור = נפגע, מחוץ = התחמק
+                        val r = BossFrame.rect(aspect)
+                        val vx = (aimX - r[0]) / r[2]
+                        val vy = (aimY - r[1]) / r[3]
+                        if (a.zone.contains(vx, vy)) {
+                            onImpact(a)
+                        } else {
+                            dodgeFlash = DODGE_FLASH_SECONDS
+                            onDodge(a)
+                        }
                     }
                     if (clipDone()) {
                         lastAttack = a
@@ -381,8 +446,9 @@ class IceRealm {
 
         hitThisTick = true
         val d = diamonds[best]
-        val cancel = stage == Stage.PreparingAttack && best == exposed
-        d.hp = (d.hp - if (cancel) EXPOSED_DAMAGE else 1).coerceAtLeast(0)
+        // היהלום הזהוב בהכנה: נזק כפול, אבל המתקפה לא נעצרת
+        val bonus = stage == Stage.PreparingAttack && best == exposed
+        d.hp = (d.hp - if (bonus) EXPOSED_DAMAGE else 1).coerceAtLeast(0)
         hitFlash = HIT_FLASH_SECONDS
         hitX = px
         hitY = py
@@ -396,17 +462,17 @@ class IceRealm {
             return Hit.Killed
         }
         // תגובה לפי מקום הפגיעה: מהעמידה, או כשהמתקפה בוטלה בהכנה
-        if (stage == Stage.Idle || cancel) {
-            if (cancel) attackIn = nextCooldown()
+        // תגובת פגיעה רק כשהבוס עומד; בהכנה למתקפה הפגיעה לא עוצרת אותו
+        if (stage == Stage.Idle) {
             exposed = -1
             go(Stage.HitReaction)
             play(d.zone.clip)
         }
-        return if (d.hp == 0) Hit.Broke else if (cancel) Hit.Cancel else Hit.Hit
+        return if (d.hp == 0) Hit.Broke else if (bonus) Hit.Bonus else Hit.Hit
     }
 
     /** None = לא על הבוס; Deflect = גוף בלי יהלום; Guard = הבוס לא פגיע עכשיו (מתקפה/תגובה) */
-    enum class Hit { None, Deflect, Guard, Hit, Cancel, Broke, Killed }
+    enum class Hit { None, Deflect, Guard, Hit, Bonus, Broke, Killed }
 
     companion object {
         const val DIAMOND_HP = 3
@@ -416,8 +482,11 @@ class IceRealm {
         /** מהירות סרטון ההכנה כשהבוס כועס (מתקפה מגיעה מהר יותר, פחות זמן לבטל) */
         const val PREPARE_SPEED_ENRAGED = 1.3f
 
-        /** מעבר הקרח מעל הארנה (FrostTransition), לפני סרטון הכניסה */
-        const val PORTAL_SECONDS = 2.0f
+        /** כמה זמן לפני הפגיעה מופיע אזור הסכנה (קשה: מספיק רק למי שזז מהר), ובזעם */
+        const val WARN_MS = 900f
+        const val WARN_MS_ENRAGED = 700f
+
+        const val DODGE_FLASH_SECONDS = 0.8f
 
         /** אחרי שסרטון המוות נגמר: הבוס המובס נשאר על המסך עוד רגע, ואז הארנה נוצחת */
         const val DEATH_HOLD_SECONDS = 1.0f

@@ -261,15 +261,6 @@ fun GameScreen(
     DisposableEffect(Unit) {
         onDispose { soundPlayer.release() }
     }
-    // ארנת הקרח: טעינה מראש של נכסי מעבר הקרח לבוס (ברקע), ושחרור ביציאה
-    LaunchedEffect(style) {
-        if (style == ArenaStyle.Tundra) {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { FrostTransition.preload(context0) }
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose { FrostTransition.release() }
-    }
     // משחק משותף (מארח): צלילי פגיעה והשמדה נשלחים גם לשותף
     DisposableEffect(isHost) {
         if (isHost) soundPlayer.onPlay = { s, r -> if (s in COOP_SHARED_SFX) CoopSync.queueSound(s.ordinal, r) }
@@ -605,8 +596,11 @@ fun GameScreen(
                     // אחרי הפסד הבוס קופא (לא ממשיך לתקוף מאחורי מסך הסיום)
                     if (realm.active && director.phase != ArenaPhase.Lost) {
                         director.realmTick(dt)
+                        // המקום של השחקן מול המתקפה = הכוונת על המסך (זזה בג'ויסטיק)
+                        val aim = (camHolder[0] ?: com.arsniper.game.model.GameCamera()).worldToScreen(crosshair)
                         realm.update(
-                            dt,
+                            dt, aim.x, aim.y, viewAspect,
+                            onDodge = { soundPlayer.play(Sfx.Deflect) },
                             onImpact = { attack ->
                                 // רגע הפגיעה בסרטון המתקפה: לב יורד דרך המערכת הקיימת (כולל זמן החסינות)
                                 if (director.hitPlayer()) {
@@ -1373,7 +1367,7 @@ fun GameScreen(
             }
             when (realm.shoot(crosshairOnScreen.x, crosshairOnScreen.y, viewAspect)) {
                 IceRealm.Hit.Deflect, IceRealm.Hit.Guard -> soundPlayer.play(Sfx.Deflect)
-                IceRealm.Hit.Hit, IceRealm.Hit.Cancel -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.2f) }
+                IceRealm.Hit.Hit, IceRealm.Hit.Bonus -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.2f) }
                 IceRealm.Hit.Broke -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.45f) }
                 // סרטון המוות מגיע עם הקול שלו
                 IceRealm.Hit.Killed -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.8f) }

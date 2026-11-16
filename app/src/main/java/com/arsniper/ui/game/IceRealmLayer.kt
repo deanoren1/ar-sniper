@@ -1,13 +1,11 @@
 package com.arsniper.ui.game
 
-import android.media.MediaPlayer
 import android.view.TextureView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -16,9 +14,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -27,12 +25,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.arsniper.R
 import com.arsniper.data.PlayerProfile
-import com.arsniper.game.engine.BossClip
+import com.arsniper.game.engine.BossFrame
+import com.arsniper.game.engine.DangerZone
 import com.arsniper.game.engine.IceRealm
 import kotlin.math.sin
 
 /**
- * עולם הקרח (בוס ארנת הקרח): מעבר קרח של 2 שניות מעל הארנה (FrostTransition), ואז הבוס כווידאו שממלא את המסך (בלי עיוות),
+ * עולם הקרח (בוס ארנת הקרח): ישר לסרטון הכניסה, ואז הבוס כווידאו שממלא את המסך (בלי עיוות),
  * ומעליו סימוני היהלומים, מד החיים והבזקים. שכבה קבועה למסך, מעל הארנה ומתחת לכוונת, לנשק ולממשק.
  * paused = המשחק עצור (תפריט עצירה / הפסד): הווידאו נעצר איתו.
  * nowNanos רק כדי שהשכבה תתרענן בכל פריים (וכך גם הסנכרון עם הנגן).
@@ -63,31 +62,17 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val inPortal = realm.stage == IceRealm.Stage.Portal
-    // הצליל של הפורטל (מהקובץ המקורי). נעצר כשסרטון הכניסה מתחיל (לסרטון יש קול משלו)
-    val portalSound = remember { if (PlayerProfile.soundOn) runCatching { MediaPlayer.create(context, R.raw.boss_portal_sfx) }.getOrNull() else null }
-    LaunchedEffect(inPortal) {
-        if (inPortal) runCatching { portalSound?.start() } else runCatching { if (portalSound?.isPlaying == true) portalSound.pause() }
-    }
-    DisposableEffect(portalSound) {
-        onDispose { runCatching { portalSound?.release() } }
-    }
-
     // סנכרון בכל פריים: מה שמכונת המצבים רוצה לנגן, ומיקום הנגן בחזרה למכונה
     SideEffect {
         controller.setMuted(!PlayerProfile.soundOn)
         controller.setGamePaused(paused)
         val clip = realm.clip
-        if (inPortal) {
-            controller.preload(BossClip.Intro)
-        } else if (clip != null) {
-            controller.show(clip, realm.clipToken, realm.clipSpeed)
-        }
+        if (clip != null) controller.show(clip, realm.clipToken, realm.clipSpeed)
         if (nowNanos >= 0L) realm.syncVideo(controller.syncToken(), controller.positionMs(), controller.isEnded())
     }
 
-    // הווידאו מוצג מהפריים הראשון של סרטון הכניסה; עד אז רואים את הארנה והפורטל
-    val videoShown = !inPortal && controller.frameShownToken != -1
+    // הווידאו מוצג מהפריים הראשון של סרטון הכניסה; עד אז רואים את הארנה
+    val videoShown = controller.frameShownToken != -1
 
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
@@ -110,16 +95,6 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
             if (nowNanos < 0L) return@Canvas
             val aspect = size.width / size.height
 
-            // מעבר הקרח מעל תמונת הארנה; אם הפריים הראשון של הכניסה עוד לא מוכן, נשארים על הפריים האחרון של המעבר
-            if (!videoShown && (inPortal || realm.stage == IceRealm.Stage.Intro)) {
-                val t = if (inPortal) realm.stageTime.coerceAtMost(FrostTransition.SECONDS) else FrostTransition.SECONDS
-                drawIntoCanvas { c -> FrostTransition.draw(c.nativeCanvas, size.width, size.height, t) }
-            } else if (videoShown && realm.stage == IceRealm.Stage.Intro && realm.clipMs < INTRO_FLASH_MS) {
-                // ההבזק של סוף המעבר דועך מעל הפריימים הראשונים של סרטון הכניסה (החיתוך מוסתר)
-                val k = 1f - realm.clipMs / INTRO_FLASH_MS
-                drawRect(Color(0xFFD8F6FF).copy(alpha = FrostTransition.FINAL_FLASH * k))
-            }
-
             val vulnerable = realm.vulnerable
             if (vulnerable) {
                 val zones = realm.zonesOnScreen(aspect)
@@ -135,6 +110,10 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
                     )
                 }
             }
+
+            // אזור הסכנה של המתקפה, רגע לפני הפגיעה: לצאת ממנו עם הכוונת
+            realm.warnZone?.let { drawDanger(it, realm.warnFraction, realm.time) }
+            if (realm.dodgeFlash > 0f) drawDodged(realm.dodgeFlash / IceRealm.DODGE_FLASH_SECONDS)
 
             // פגיעה ביהלום: הבזק קטן במקום הפגיעה
             if (realm.hitFlash > 0f) {
@@ -157,8 +136,55 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
     }
 }
 
-/** כמה זמן (ms מתחילת סרטון הכניסה) דועך ההבזק של סוף המעבר */
-private const val INTRO_FLASH_MS = 250f
+/** אזור הסכנה: אדום שקוף שמתחזק ומהבהב מהר יותר ככל שהפגיעה קרובה, עם קו גבול */
+private fun DrawScope.drawDanger(zone: DangerZone, k: Float, time: Float) {
+    val r = BossFrame.rect(size.width / size.height)
+    val pulse = 0.5f + 0.5f * sin(time * (10f + 20f * k))
+    val fillC = Color(0xFFFF2A2A).copy(alpha = 0.18f + 0.22f * k + 0.08f * pulse)
+    val edge = Color(0xFFFF6A4A).copy(alpha = 0.6f + 0.4f * pulse)
+    val sw = 6f
+    fun sx(fx: Float) = BossFrame.fracToScreenX(fx, r) * size.width
+    fun sy(fy: Float) = BossFrame.fracToScreenY(fy, r) * size.height
+    when (zone) {
+        is DangerZone.Box -> {
+            val tl = Offset(sx(zone.l), sy(zone.t))
+            val sz = Size(sx(zone.r) - tl.x, sy(zone.b) - tl.y)
+            drawRect(fillC, tl, sz)
+            drawRect(edge, tl, sz, style = Stroke(width = sw))
+        }
+        is DangerZone.Circle -> {
+            val c = Offset(sx(zone.cx), sy(zone.cy))
+            val rad = zone.radius * r[3] * size.height
+            drawCircle(fillC, rad, c)
+            drawCircle(edge, rad, c, style = Stroke(width = sw))
+        }
+        is DangerZone.Band -> {
+            val hpx = zone.half * r[3] * size.height
+            val ax = sx(zone.x0); val ay = sy(zone.y0); val bx = sx(zone.x1); val by = sy(zone.y1)
+            val len = kotlin.math.hypot(bx - ax, by - ay)
+            val nx = -(by - ay) / len * hpx
+            val ny = (bx - ax) / len * hpx
+            val path = Path().apply {
+                moveTo(ax + nx, ay + ny); lineTo(bx + nx, by + ny); lineTo(bx - nx, by - ny); lineTo(ax - nx, ay - ny); close()
+            }
+            drawPath(path, fillC)
+            drawPath(path, edge, style = Stroke(width = sw))
+        }
+    }
+}
+
+/** "DODGE!" באמצע המסך אחרי התחמקות */
+private fun DrawScope.drawDodged(k: Float) {
+    val paint = android.graphics.Paint().apply {
+        isAntiAlias = true
+        color = android.graphics.Color.argb((255 * k.coerceIn(0f, 1f)).toInt(), 0x9F, 0xF0, 0xFF)
+        textSize = size.height * (0.09f + 0.02f * (1f - k))
+        textAlign = android.graphics.Paint.Align.CENTER
+        isFakeBoldText = true
+        setShadowLayer(10f, 0f, 3f, android.graphics.Color.BLACK)
+    }
+    drawContext.canvas.nativeCanvas.drawText("DODGE!", size.width / 2f, size.height * 0.42f, paint)
+}
 
 /** סימוני היהלומים במיקום שלהם על הבוס: טבעת זוהרת; הדלוק בהכנה בזהב עם טבעת אדומה שמתכווצת; שבור = X אפור */
 private fun DrawScope.drawDiamonds(realm: IceRealm, z: FloatArray) {

@@ -153,4 +153,8 @@ object BossFrame {
 
     /** אורך בפיקסלי וידאו, בשברי גובה מסך */
     fun screenLen(px: Float, r: FloatArray): Float = px / VIDEO_H * r[3]
+
+    /** נקודה בשברי וידאו (0..1) אל שברי מסך */
+    fun fracToScreenX(fx: Float, r: FloatArray): Float = r[0] + fx * r[2]
+    fun fracToScreenY(fy: Float, r: FloatArray): Float = r[1] + fy * r[3]
 }
