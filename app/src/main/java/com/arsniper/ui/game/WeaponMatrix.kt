@@ -26,7 +26,8 @@ class WeaponMatrixArt(context: Context, val flash: ImageBitmap) : WeaponArt() {
     private val assets = context.applicationContext.assets
     private val cache = LruCache<Int, ImageBitmap>(CACHE_SIZE)
     private val pending = HashSet<Int>()
-    private val loader = Executors.newSingleThreadExecutor()
+    // שני חוטי טעינה: התא הבא מוכן מהר יותר כשהכוונת זזה
+    private val loader = Executors.newFixedThreadPool(2)
 
     /** פריימי הטעינה (13), נטענים ברקע פעם אחת */
     val reload = arrayOfNulls<ImageBitmap>(RELOAD_FRAMES)
@@ -67,9 +68,9 @@ class WeaponMatrixArt(context: Context, val flash: ImageBitmap) : WeaponArt() {
         return null
     }
 
-    /** טוען מראש את השכנים של התא, כדי שתזוזת הכוונת לא תחכה לטעינה */
+    /** טוען מראש את השכנים הקרובים של התא (3×3), כדי שתזוזת הכוונת לא תחכה לטעינה ולא ידחוק את התא המוצג מהמטמון */
     fun warm(col: Int, row: Int) {
-        for (dr in -1..1) for (dc in -2..2) {
+        for (dr in -1..1) for (dc in -1..1) {
             val c = col + dc
             val r = row + dr
             if (c in 0 until COLS && r in 0 until ROWS) get(c, r)
@@ -83,7 +84,7 @@ class WeaponMatrixArt(context: Context, val flash: ImageBitmap) : WeaponArt() {
         const val CENTER_COL = 10
         const val CENTER_ROW = 3
         const val RELOAD_FRAMES = 13
-        const val CACHE_SIZE = 24
+        const val CACHE_SIZE = 40
         fun cellOf(col: Int, row: Int) = row * COLS + col
 
         /** ערך ה-pitch (מעלות) של כל שורה. שלוש השורות התחתונות אינן מעלות אחידות: הן תלויות ב-yaw */
@@ -116,8 +117,8 @@ private const val TARGET_WIDTH = 0.22f
 private const val NEUTRAL_HEIGHT = 0.5741f
 private const val NEUTRAL_WIDTH = 0.3639f
 
-/** כמה זמן (שניות) נמשך המעבר הרך בין שני תאים */
-private const val CELL_FADE = 0.08f
+/** מחליפים תמונה רק כשהיא טובה יותר בכמה מעלות לפחות (פחות החלפות = פחות קפיצות); הסיבוב הרציף משלים את השאר */
+private const val SWITCH_MARGIN = 5f
 
 /** הסיבוב הדו-ממדי המרבי (מעלות) שמוסיפים לספרייט כדי שהקנה יעבור בדיוק דרך הכוונת */
 private const val MAX_RESIDUAL = 12f
@@ -184,11 +185,9 @@ internal fun DrawScope.drawWeaponMatrix(
         if (a != null) {
             val dstOffset = IntOffset((frameL + frameW * RELOAD_L).toInt(), (frameT + frameH * RELOAD_T).toInt())
             val dstSize = IntSize((frameW * RELOAD_W).toInt(), (frameH * RELOAD_H).toInt())
-            drawImage(a, IntOffset.Zero, IntSize(a.width, a.height), dstOffset, dstSize)
-            val blend = pos - i0
-            if (b != null && i1 != i0 && blend > 0.02f) {
-                drawImage(b, IntOffset.Zero, IntSize(b.width, b.height), dstOffset, dstSize, alpha = blend)
-            }
+            // פריים אחד בכל רגע (בלי לערבב שניים: זה נראה כמו רובה כפול)
+            val img = if (pos - i0 >= 0.5f && b != null) b else a
+            drawImage(img, IntOffset.Zero, IntSize(img.width, img.height), dstOffset, dstSize)
             // אחרי הטעינה חוזרים לתא הנייטרלי, ומשם הרובה עוקב שוב אחרי הכוונת
             state[3] = WeaponMatrixArt.CENTER_COL.toFloat()
             state[4] = WeaponMatrixArt.CENTER_ROW.toFloat()
@@ -218,7 +217,7 @@ internal fun DrawScope.drawWeaponMatrix(
         if (pitch >= pitches[r]) rowPos = r + ((pitch - pitches[r]) / (pitches[r + 1] - pitches[r])).coerceIn(0f, 1f)
     }
     var row = state[4].toInt().coerceIn(0, rows - 1)
-    if (kotlin.math.abs(rowPos - row) > 0.62f) row = Math.round(rowPos).coerceIn(0, rows - 1)
+    if (kotlin.math.abs(rowPos - row) > 0.8f) row = Math.round(rowPos).coerceIn(0, rows - 1)
 
     // עמודה: זו שהקנה שלה (מהלוע שלה) פונה הכי קרוב לכוונת. היסטרזיס: נשארים בעמודה הנוכחית כל עוד היא לא רחוקה בהרבה
     var bestCol = 0
@@ -229,7 +228,7 @@ internal fun DrawScope.drawWeaponMatrix(
     }
     var col = state[3].toInt().coerceIn(0, cols - 1)
     val curErr = kotlin.math.abs(aimError(row * cols + col, 0f, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp))
-    if (curErr > bestErr + 2.5f) col = bestCol
+    if (curErr > bestErr + SWITCH_MARGIN) col = bestCol
     state[3] = col.toFloat()
     state[4] = row.toFloat()
 
@@ -246,8 +245,9 @@ internal fun DrawScope.drawWeaponMatrix(
     val shownCell = state[5].toInt().coerceIn(0, cols * rows - 1)
     val prevCell = state[7].toInt().coerceIn(0, cols * rows - 1)
     val shown = art.get(shownCell % cols, shownCell / cols) ?: art.last ?: return
-    val fade = ((timeSeconds - state[6]) / CELL_FADE).coerceIn(0f, 1f)
-    val prev = if (fade < 1f && prevCell != shownCell) art.get(prevCell % cols, prevCell / cols) else null
+    // החלפה מיידית בין תמונות, בלי לצייר את הקודמת מעל (זה יצר רובה כפול ומהבהב)
+    val fade = 1f
+    val prev: ImageBitmap? = null
     art.last = shown
 
     // הסיבוב הרציף שמשלים את הכיוון לכוונת. התמונה הקודמת (בזמן המעבר) מסתובבת לפי הסיבוב שלה, כך ששתיהן מכוונות לאותה נקודה

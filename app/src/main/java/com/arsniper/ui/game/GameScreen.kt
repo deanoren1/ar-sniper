@@ -1845,15 +1845,18 @@ fun GameScreen(
             )
         }
 
+        // בזמן בוס הקרח: הלבבות שקופים למחצה כדי לא להסתיר את הבוס, ובלי מצב הגל
+        val bossView = realm.visible
         if (!tundraHud) HeartsRow(
             hearts = director.hearts,
             max = ArenaDirector.MAX_HEARTS,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 8.dp)
+                .graphicsLayer { alpha = if (bossView) 0.45f else 1f }
         )
 
-        WaveStatus(
+        if (!bossView) WaveStatus(
             wave = director.waveIndex + 1,
             waves = director.waveCount,
             left = director.leftInWave,

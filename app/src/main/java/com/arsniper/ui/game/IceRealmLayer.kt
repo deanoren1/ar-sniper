@@ -377,25 +377,16 @@ private fun DrawScope.drawDiamonds(realm: IceRealm, z: FloatArray) {
     }
 }
 
-/** מד חיים של הבוס: שם וקו, לפי סך החיים שנשארו ביהלומים */
+/** מד חיים של הבוס: קו דק בקצה העליון של המסך, מעל הלבבות, כדי שלא יסתיר את הבוס */
 private fun DrawScope.drawBossBar(realm: IceRealm) {
     val w = size.width
     val h = size.height
-    val bw = w * 0.34f
-    val bh = h * 0.028f
+    val bw = w * 0.42f
+    val bh = h * 0.011f
     val x = (w - bw) / 2f
-    val y = h * 0.135f
-    drawRoundRect(Color(0xCC081028), Offset(x - 6f, y - 6f), Size(bw + 12f, bh + 12f), CornerRadius(bh))
+    val y = h * 0.006f
+    drawRoundRect(Color(0x99081028), Offset(x - 3f, y - 3f), Size(bw + 6f, bh + 6f), CornerRadius(bh))
     val f = realm.fraction
-    val color = if (f > 0.5f) Color(0xFFFFC04A) else Color(0xFFFF5A3A)
-    drawRoundRect(color, Offset(x, y), Size(bw * f, bh), CornerRadius(bh / 2f))
-    val paint = android.graphics.Paint().apply {
-        isAntiAlias = true
-        this.color = android.graphics.Color.WHITE
-        textSize = h * 0.032f
-        textAlign = android.graphics.Paint.Align.CENTER
-        isFakeBoldText = true
-        setShadowLayer(6f, 0f, 2f, android.graphics.Color.BLACK)
-    }
-    drawContext.canvas.nativeCanvas.drawText("ICE BEHEMOTH", w / 2f, y - h * 0.018f, paint)
+    val color = when (realm.phase) { 1 -> Color(0xFF7FE6FF); 2 -> Color(0xFFFFC04A); else -> Color(0xFFFF5A3A) }
+    drawRoundRect(color.copy(alpha = 0.9f), Offset(x, y), Size(bw * f, bh), CornerRadius(bh / 2f))
 }

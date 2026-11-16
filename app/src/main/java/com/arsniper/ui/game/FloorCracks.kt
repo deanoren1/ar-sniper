@@ -2,7 +2,12 @@ package com.arsniper.ui.game
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import kotlin.math.PI
@@ -26,7 +31,9 @@ class FloorCracks private constructor(
     val seedX: Float,
     val seedY: Float,
     /** פרספקטיבה במרכז (לגודל הזוהר על הרצפה) */
-    private val seedPersp: Float
+    private val seedPersp: Float,
+    /** שכבת הכפור על הרצפה (כל העולם, שקוף מחוץ לרצפה): ברק קר, רעש של קרח ולוחות קרח עם תפרים בהירים */
+    private val frost: ImageBitmap?
 ) {
 
     companion object {
@@ -130,7 +137,70 @@ class FloorCracks private constructor(
                 arr[i + 5] /= maxDist
                 i += STRIDE
             }
-            return FloorCracks(arr, arr.size / STRIDE, sx, sy, persp(sy))
+            val frostBmp = runCatching { buildFrost(::isFloor, ::persp, worldAspect, top, rnd) }.getOrNull()
+            return FloorCracks(arr, arr.size / STRIDE, sx, sy, persp(sy), frostBmp)
+        }
+
+        /**
+         * מצייר פעם אחת את שכבת הכפור: רק על הרצפה, לבן-תכלת שקוף עם רעש, ולוחות קרח (וורונוי משוטח לפי הפרספקטיבה)
+         * שהתפרים ביניהם בהירים יותר. גודל קטן (המסך מגדיל אותה) כדי שהבנייה תהיה מהירה.
+         */
+        private fun buildFrost(
+            isFloor: (Float, Float) -> Boolean, persp: (Float) -> Float, worldAspect: Float, top: Float, rnd: Random
+        ): ImageBitmap {
+            val bw = 320
+            val bh = (bw / worldAspect).toInt().coerceIn(100, 320)
+            // נקודות הלוחות: יותר צפופות ליד הקצה הרחוק של הרצפה (פרספקטיבה)
+            val n = 70
+            val px = FloatArray(n)
+            val py = FloatArray(n)
+            for (i in 0 until n) {
+                px[i] = rnd.nextFloat()
+                val u = rnd.nextFloat()
+                py[i] = top + (1f - top) * u * u
+            }
+            // רעש ערכים פשוט (רשת 24×16, אינטרפולציה)
+            val gw = 24
+            val gh = 16
+            val grid = FloatArray(gw * gh) { rnd.nextFloat() }
+            fun noise(x: Float, y: Float): Float {
+                val fx = x * (gw - 1)
+                val fy = y * (gh - 1)
+                val ix = fx.toInt().coerceIn(0, gw - 2)
+                val iy = fy.toInt().coerceIn(0, gh - 2)
+                val tx = fx - ix
+                val ty = fy - iy
+                val a = grid[iy * gw + ix] + (grid[iy * gw + ix + 1] - grid[iy * gw + ix]) * tx
+                val b = grid[(iy + 1) * gw + ix] + (grid[(iy + 1) * gw + ix + 1] - grid[(iy + 1) * gw + ix]) * tx
+                return a + (b - a) * ty
+            }
+            val pixels = IntArray(bw * bh)
+            for (j in 0 until bh) {
+                val y = (j + 0.5f) / bh
+                val p = persp(y)
+                for (i in 0 until bw) {
+                    val x = (i + 0.5f) / bw
+                    if (!isFloor(x, y)) continue
+                    // שני הקרובים בוורונוי: התפר = כשהמרחקים כמעט שווים. משטוחים את y כדי שהלוחות ייראו שוכבים
+                    var d1 = Float.MAX_VALUE
+                    var d2 = Float.MAX_VALUE
+                    for (k in 0 until n) {
+                        val dx = (x - px[k]) * worldAspect
+                        val dy = (y - py[k]) * 2.6f / (0.35f + 0.65f * p)
+                        val d = dx * dx + dy * dy
+                        if (d < d1) { d2 = d1; d1 = d } else if (d < d2) d2 = d
+                    }
+                    val seam = (1f - ((kotlin.math.sqrt(d2) - kotlin.math.sqrt(d1)) / (0.012f + 0.02f * p)).coerceIn(0f, 1f))
+                    val nz = 0.55f * noise(x, y) + 0.45f * noise((x * 3.1f) % 1f, (y * 3.7f) % 1f)
+                    val a = (0.32f + 0.3f * nz + 0.45f * seam * seam).coerceIn(0f, 1f) * (0.55f + 0.45f * p)
+                    val r = (170 + 85 * seam).toInt().coerceIn(0, 255)
+                    val g = (215 + 40 * seam).toInt().coerceIn(0, 255)
+                    pixels[j * bw + i] = ((a * 255).toInt() shl 24) or (r shl 16) or (g shl 8) or 255
+                }
+            }
+            val bmp = android.graphics.Bitmap.createBitmap(bw, bh, android.graphics.Bitmap.Config.ARGB_8888)
+            bmp.setPixels(pixels, 0, bw, 0, 0, bw, bh)
+            return bmp.asImageBitmap()
         }
     }
 
@@ -161,6 +231,33 @@ class FloorCracks private constructor(
             gr, Offset.Zero
         )
         drawContext.canvas.restore()
+
+        // שכבת הכפור מתפשטת מהמרכז יחד עם הסדקים (עיגול רך ומשוטח שגדל), וזוהרת קלות
+        val fz = frost
+        if (fz != null) {
+            val left = map[1] * w
+            val topY = map[3] * h
+            val ww = map[0] * w
+            val hh = map[2] * h
+            val fr = (0.08f + 1.25f * reveal) * w
+            drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(0f, 0f, w, h), androidx.compose.ui.graphics.Paint())
+            drawImage(
+                fz, IntOffset.Zero, IntSize(fz.width, fz.height),
+                IntOffset(left.toInt(), topY.toInt()), IntSize(ww.toInt(), hh.toInt()),
+                alpha = 0.85f * fade * (0.9f + 0.1f * pulse)
+            )
+            // מסכה: רק בתוך העיגול שגדל מהמרכז נשאר כפור
+            drawContext.canvas.save()
+            drawContext.canvas.translate(cx, cy)
+            drawContext.canvas.scale(1f, 0.42f)
+            drawRect(
+                Brush.radialGradient(listOf(Color.White, Color.White, Color.Transparent), center = Offset.Zero, radius = fr),
+                topLeft = Offset(-w * 2f, -h * 5f), size = androidx.compose.ui.geometry.Size(w * 4f, h * 10f),
+                blendMode = BlendMode.DstIn
+            )
+            drawContext.canvas.restore()
+            drawContext.canvas.restore()
+        }
 
         val glow = Color(0xFF3FB8FF)
         val core = Color(0xFFE8FCFF)
