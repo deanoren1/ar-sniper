@@ -3,8 +3,11 @@ package com.arsniper.game.engine
 import kotlin.math.hypot
 import kotlin.random.Random
 
-/** סרטוני בוס הקרח (בסדר הזה גם ברשימת ההשמעה של הנגן). משך במילישניות, לפי מספר הפריימים ב-24fps */
-enum class BossClip(val durationMs: Float, val loop: Boolean = false) {
+/**
+ * סרטוני בוס הקרח (בסדר הזה גם ברשימת ההשמעה של הנגן). משך במילישניות, לפי מספר הפריימים ב-24fps.
+ * startMs = מאיפה מתחילים: בסרטוני הפגיעה הפריימים הראשונים כמעט זהים לעמידה, אז מדלגים ישר לרגע שהבוס מגיב.
+ */
+enum class BossClip(val durationMs: Float, val loop: Boolean = false, val startMs: Float = 0f) {
     Intro(6750f),
     Breath(5042f, loop = true),
     Prepare(5042f),
@@ -13,11 +16,11 @@ enum class BossClip(val durationMs: Float, val loop: Boolean = false) {
     Attack3(4042f),
     Attack4(4042f),
     Attack5(4042f),
-    HitHead(2000f),
-    HitRightShoulder(2000f),
-    HitLeftShoulder(2000f),
-    HitRightHand(2000f),
-    HitLeftHand(2000f),
+    HitHead(2000f, startMs = 42f),
+    HitRightShoulder(2000f, startMs = 250f),
+    HitLeftShoulder(2000f, startMs = 167f),
+    HitRightHand(2000f, startMs = 250f),
+    HitLeftHand(2000f, startMs = 208f),
     Death(4042f)
 }
 
@@ -265,13 +268,19 @@ class IceRealm {
         stageTime = 0f
     }
 
+    /**
+     * נקרא מיד כשמכונת המצבים מחליפה סרטון (מהנגן), כדי שהסרטון יתחיל באותו רגע ולא רק בפריים הבא.
+     */
+    var onClip: ((BossClip, Int, Float) -> Unit)? = null
+
     private fun play(c: BossClip, speed: Float = 1f) {
         clip = c
         clipSpeed = speed
         clipToken += 1
-        clipMs = 0f
-        ownMs = 0f
+        clipMs = c.startMs
+        ownMs = c.startMs
         videoEnded = false
+        onClip?.invoke(c, clipToken, speed)
     }
 
     private fun synced(): Boolean = videoToken == clipToken

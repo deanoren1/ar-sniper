@@ -44,7 +44,12 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
     // נגן אחד לכל הקרב; משתחרר כשהשכבה יורדת (ארנה נסגרה, החייאה, משחק חוזר, יציאה)
     val controller = remember { BossVideoController(context) }
     DisposableEffect(controller) {
-        onDispose { controller.release() }
+        // סרטון חדש מתחיל מיד כשהמצב מתחלף (למשל תגובת פגיעה ברגע הירייה), בלי לחכות לפריים הבא
+        realm.onClip = { c, token, speed -> controller.show(c, token, speed) }
+        onDispose {
+            realm.onClip = null
+            controller.release()
+        }
     }
 
     // מחזור חיים: האפליקציה ברקע = הווידאו נעצר, בלי לנגן ברקע

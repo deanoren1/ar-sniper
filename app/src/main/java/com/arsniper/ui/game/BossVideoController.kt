@@ -9,7 +9,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
 import com.arsniper.R
 import com.arsniper.game.engine.BossClip
 import com.arsniper.game.engine.BossFrame
@@ -25,7 +27,15 @@ class BossVideoController(context: Context) {
 
     private val app = context.applicationContext
 
-    val player: ExoPlayer = ExoPlayer.Builder(app).build()
+    // קבצים מקומיים: מתחילים לנגן מיד אחרי קפיצה, בלי לחכות למאגר של שניות (ברירת המחדל 2.5 שניות)
+    val player: ExoPlayer = ExoPlayer.Builder(app)
+        .setLoadControl(
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMs(1000, 4000, 0, 0)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build()
+        )
+        .build()
 
     /** ה-token של הסרטון שהנגן מנגן עכשיו (מ-IceRealm), ו-1- אם עוד לא התחיל */
     private var token = -1
@@ -66,6 +76,7 @@ class BossVideoController(context: Context) {
                 failed = true
             }
         })
+        player.setSeekParameters(SeekParameters.EXACT)
         player.prepare()
     }
 
@@ -120,7 +131,7 @@ class BossVideoController(context: Context) {
         player.repeatMode = if (c.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         player.pauseAtEndOfMediaItems = !c.loop
         player.setPlaybackSpeed(speed)
-        player.seekTo(c.ordinal, 0L)
+        player.seekTo(c.ordinal, c.startMs.toLong())
         if (player.playbackState == Player.STATE_IDLE) player.prepare()
         applyPlay()
     }
