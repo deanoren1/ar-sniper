@@ -56,6 +56,8 @@ fun IceRealmLayer(
     floorAt: ((Float, Float) -> Boolean)? = null,
     worldAspect: Float = 2f,
     camMap: FloatArray = cameraMap(1f, 1f, 0.5f, 0.5f),
+    aimX: Float = 0.5f,
+    aimY: Float = 0.5f,
     modifier: Modifier = Modifier
 ) {
     if (!realm.visible) return
@@ -129,6 +131,7 @@ fun IceRealmLayer(
 
     // הווידאו מוצג מהפריים הראשון של סרטון הכניסה; עד אז רואים את הארנה
     val videoShown = !inPortal && controller.frameShownToken != -1
+    realm.covering = videoShown
 
     // כשהבוס פוגע: כל השכבה רועדת (כמו הארנה), ומוגדלת קצת בזמן הרעידה כדי שלא ייראו קצוות
     val t = nowNanos / 1_000_000_000f
@@ -148,7 +151,7 @@ fun IceRealmLayer(
         AndroidView(
             factory = { ctx ->
                 TextureView(ctx).apply {
-                    isOpaque = false
+                    isOpaque = true
                     alpha = 0f
                     addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> controller.fit() }
                     controller.attach(this)
@@ -200,7 +203,7 @@ fun IceRealmLayer(
             }
 
             // אזור הסכנה של המתקפה, רגע לפני הפגיעה: לצאת ממנו עם הכוונת
-            realm.warnZone?.let { drawDanger(it, realm.warnFraction, realm.time) }
+            realm.warnZone?.let { drawDanger(it, realm.warnFraction, realm.time, aimX, aimY, realm.attacksSeen <= 3) }
             if (realm.dazzle > 0f) drawDazzle(realm.dazzle / IceRealm.DAZZLE_SECONDS)
             if (realm.dodgeFlash > 0f) drawDodged(realm.dodgeFlash / IceRealm.DODGE_FLASH_SECONDS)
 
@@ -225,13 +228,19 @@ fun IceRealmLayer(
     }
 }
 
-/** אזור הסכנה: אדום שקוף שמתחזק ומהבהב מהר יותר ככל שהפגיעה קרובה, עם קו גבול */
-private fun DrawScope.drawDanger(zone: DangerZone, k: Float, time: Float) {
+/**
+ * אזור הסכנה, רגע לפני מכה: אם הכוונת בפנים הוא אדום ומהבהב, עם "MOVE!" וחץ גדול לכיוון היציאה הקרובה;
+ * כשהכוונת יצאה הוא נהיה כחול-בהיר עם "SAFE". בשלוש המתקפות הראשונות מוצג גם הסבר קצר.
+ */
+private fun DrawScope.drawDanger(zone: DangerZone, k: Float, time: Float, aimX: Float, aimY: Float, tutorial: Boolean) {
     val r = BossFrame.rect(size.width / size.height)
+    val vx = (aimX - r[0]) / r[2]
+    val vy = (aimY - r[1]) / r[3]
+    val inside = zone.contains(vx, vy)
     val pulse = 0.5f + 0.5f * sin(time * (10f + 20f * k))
-    val fillC = Color(0xFFFF2A2A).copy(alpha = 0.18f + 0.22f * k + 0.08f * pulse)
-    val edge = Color(0xFFFF6A4A).copy(alpha = 0.6f + 0.4f * pulse)
-    val sw = 6f
+    val fillC = if (inside) Color(0xFFFF2A2A).copy(alpha = 0.22f + 0.25f * k + 0.1f * pulse) else Color(0xFF9FDFFF).copy(alpha = 0.12f)
+    val edge = if (inside) Color(0xFFFF6A4A).copy(alpha = 0.7f + 0.3f * pulse) else Color(0xFFBFEFFF).copy(alpha = 0.5f)
+    val sw = 7f
     fun sx(fx: Float) = BossFrame.fracToScreenX(fx, r) * size.width
     fun sy(fy: Float) = BossFrame.fracToScreenY(fy, r) * size.height
     when (zone) {
@@ -259,6 +268,50 @@ private fun DrawScope.drawDanger(zone: DangerZone, k: Float, time: Float) {
             drawPath(path, fillC)
             drawPath(path, edge, style = Stroke(width = sw))
         }
+    }
+    val cx = aimX * size.width
+    val cy = aimY * size.height
+    val paint = android.graphics.Paint().apply {
+        isAntiAlias = true
+        textAlign = android.graphics.Paint.Align.CENTER
+        isFakeBoldText = true
+        setShadowLayer(10f, 0f, 3f, android.graphics.Color.BLACK)
+    }
+    if (inside) {
+        // הכיוון הקצר ביותר החוצה (בודקים 16 כיוונים מהכוונת)
+        var bestA = 0f
+        var bestD = Float.MAX_VALUE
+        for (i in 0 until 16) {
+            val a = i / 16f * 2f * kotlin.math.PI.toFloat()
+            var d = 0.02f
+            while (d < 1.2f && zone.contains(vx + cos(a) * d / BossFrame.VIDEO_ASPECT, vy + sin(a) * d)) d += 0.02f
+            if (d < bestD) { bestD = d; bestA = a }
+        }
+        val dirX = cos(bestA)
+        val dirY = sin(bestA)
+        val len = size.height * 0.16f
+        val start = Offset(cx + dirX * size.height * 0.07f, cy + dirY * size.height * 0.07f)
+        val end = Offset(start.x + dirX * len, start.y + dirY * len)
+        val arrow = Color.White.copy(alpha = 0.75f + 0.25f * pulse)
+        drawLine(arrow, start, end, strokeWidth = 12f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        val back = 0.42f * len
+        val wing = 0.6f
+        val ex = end.x - dirX * back
+        val ey = end.y - dirY * back
+        drawLine(arrow, end, Offset(ex - dirY * back * wing, ey + dirX * back * wing), strokeWidth = 12f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        drawLine(arrow, end, Offset(ex + dirY * back * wing, ey - dirX * back * wing), strokeWidth = 12f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        paint.color = android.graphics.Color.argb(255, 255, 90, 70)
+        paint.textSize = size.height * 0.075f
+        drawContext.canvas.nativeCanvas.drawText("MOVE!", cx, cy - size.height * 0.1f, paint)
+    } else {
+        paint.color = android.graphics.Color.argb(230, 170, 240, 255)
+        paint.textSize = size.height * 0.06f
+        drawContext.canvas.nativeCanvas.drawText("SAFE", cx, cy - size.height * 0.1f, paint)
+    }
+    if (tutorial) {
+        paint.color = android.graphics.Color.WHITE
+        paint.textSize = size.height * 0.042f
+        drawContext.canvas.nativeCanvas.drawText("Move the crosshair out of the red zone with the joystick!", size.width / 2f, size.height * 0.33f, paint)
     }
 }
 
@@ -317,10 +370,6 @@ private fun DrawScope.drawDiamonds(realm: IceRealm, z: FloatArray) {
             r * 1.4f, Offset(x, y)
         )
         drawCircle(base.copy(alpha = if (exposed) 0.95f else 0.35f + 0.2f * pulse), r * 0.8f, Offset(x, y), style = Stroke(width = if (exposed) 6f else 3f))
-        if (exposed) {
-            val shrink = 1f - realm.prepareFraction
-            drawCircle(Color(0xFFFF4A3A).copy(alpha = 0.9f), r * (0.8f + 0.9f * shrink), Offset(x, y), style = Stroke(width = 5f))
-        }
         // חיים שנשארו ביהלום: נקודות קטנות מתחתיו
         for (k in 0 until d.hp) {
             drawCircle(Color.White.copy(alpha = 0.85f), 4f, Offset(x + (k - (d.hp - 1) / 2f) * 14f, y + r * 0.95f))

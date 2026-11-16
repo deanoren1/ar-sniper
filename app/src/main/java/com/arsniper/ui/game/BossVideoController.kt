@@ -51,6 +51,10 @@ class BossVideoController(context: Context) {
         private set
     private var renderedSinceToken = false
 
+    /** הסרטון שהוכן מראש (בזמן הפורטל) והאם הפריים הראשון שלו כבר צויר */
+    private var preloadedClip: BossClip? = null
+    private var preloadRendered = false
+
     private var view: TextureView? = null
 
     init {
@@ -69,6 +73,7 @@ class BossVideoController(context: Context) {
 
             override fun onRenderedFirstFrame() {
                 renderedSinceToken = true
+                if (token == -1) preloadRendered = true
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -126,7 +131,9 @@ class BossVideoController(context: Context) {
         token = newToken
         clip = c
         ended = false
-        renderedSinceToken = false
+        // קפיצה למקום שהנגן כבר עומד בו לא מציירת פריים מחדש: אם הסרטון הוכן מראש והפריים שלו כבר צויר, הוא מוצג
+        renderedSinceToken = c == preloadedClip && preloadRendered && c.startMs == 0f
+        preloadedClip = null
         player.repeatMode = if (c.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         player.pauseAtEndOfMediaItems = !c.loop
         player.setPlaybackSpeed(speed)
@@ -138,6 +145,10 @@ class BossVideoController(context: Context) {
     /** הכנה מראש בלי לנגן (בזמן הפורטל): הנגן ממתין על הפריים הראשון של הסרטון */
     fun preload(c: BossClip) {
         if (released || token != -1) return
+        if (preloadedClip != c) {
+            preloadedClip = c
+            preloadRendered = false
+        }
         if (player.currentMediaItemIndex != c.ordinal) player.seekTo(c.ordinal, 0L)
     }
 
@@ -170,7 +181,8 @@ class BossVideoController(context: Context) {
         if (released || failed || token == -1) return -1
         val c = clip ?: return -1
         if (player.currentMediaItemIndex != c.ordinal) return -1
-        if (renderedSinceToken) frameShownToken = token
+        // גיבוי: אם הנגן כבר מתקדם בסרטון, יש תמונה גם אם האירוע של הפריים הראשון לא הגיע
+        if (renderedSinceToken || (player.isPlaying && player.currentPosition > c.startMs + 120)) frameShownToken = token
         return token
     }
 

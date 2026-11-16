@@ -148,14 +148,14 @@ class FloorCracks private constructor(
         // זוהר כחול על הרצפה סביב המרכז, משוטח לפי הפרספקטיבה
         val cx = (map[0] * seedX + map[1]) * w
         val cy = (map[2] * seedY + map[3]) * h
-        val gr = h * (0.08f + 0.55f * reveal) * (0.5f + 0.5f * seedPersp)
+        val gr = h * (0.1f + 0.75f * reveal) * (0.5f + 0.5f * seedPersp)
         val flat = 0.38f
         drawContext.canvas.save()
         drawContext.canvas.translate(cx, cy)
         drawContext.canvas.scale(1f, flat)
         drawCircle(
             Brush.radialGradient(
-                listOf(Color(0xFF8FE3FF).copy(alpha = 0.55f * fade * pulse), Color(0xFF2E9BFF).copy(alpha = 0.28f * fade), Color.Transparent),
+                listOf(Color(0xFFBFF0FF).copy(alpha = 0.75f * fade * pulse), Color(0xFF2E9BFF).copy(alpha = 0.4f * fade), Color.Transparent),
                 center = Offset.Zero, radius = gr
             ),
             gr, Offset.Zero
@@ -182,9 +182,9 @@ class FloorCracks private constructor(
                     val p = seg[i + 7]
                     val wd = base * seg[i + 6] * (0.35f + 0.65f * p)
                     if (pass == 0) {
-                        drawLine(glow.copy(alpha = 0.5f * fade * pulse), Offset(x0, y0), Offset(x1, y1), strokeWidth = wd * 4.5f, cap = StrokeCap.Round)
+                        drawLine(glow.copy(alpha = 0.7f * fade * pulse), Offset(x0, y0), Offset(x1, y1), strokeWidth = wd * 6.5f, cap = StrokeCap.Round)
                     } else {
-                        drawLine(core.copy(alpha = 0.95f * fade), Offset(x0, y0), Offset(x1, y1), strokeWidth = max(1.2f, wd), cap = StrokeCap.Round)
+                        drawLine(core.copy(alpha = 0.95f * fade), Offset(x0, y0), Offset(x1, y1), strokeWidth = max(1.6f, wd * 1.4f), cap = StrokeCap.Round)
                         // ניצוץ בקצה שעוד מתקדם
                         if (part < 1f) drawCircle(Color.White.copy(alpha = 0.9f * fade), wd * 1.6f + 1.5f, Offset(x1, y1))
                     }

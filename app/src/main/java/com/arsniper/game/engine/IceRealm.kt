@@ -178,6 +178,15 @@ class IceRealm {
     var dazzle: Float = 0f
         private set
 
+    /**
+     * הווידאו של הבוס מכסה את כל המסך (נקבע מהשכבה). כשכן, המשחק לא מצייר את הארנה מתחת (חוסך עבודה, הווידאו חלק יותר)
+     */
+    var covering: Boolean = false
+
+    /** כמה מתקפות כבר היו בקרב הזה (לרמז ההתחמקות בהתחלה) */
+    var attacksSeen: Int = 0
+        private set
+
     /** "התחמקת" על המסך אחרי התחמקות */
     var dodgeFlash: Float = 0f
         private set
@@ -279,6 +288,8 @@ class IceRealm {
         dodgeFlash = 0f
         dazzle = 0f
         comboChained = false
+        covering = false
+        attacksSeen = 0
         hitThisTick = false
         deathHold = 0f
         finished = false
@@ -417,6 +428,20 @@ class IceRealm {
         }
     }
 
+    /**
+     * אחרי החייאה: חוזרים ישר לבוס (בלי סדקים/פורטל/כניסה מחדש), עם החיים שנשארו לו.
+     * אם הבוס היה באמצע מתקפה, הוא חוזר לנשימה, כדי שהשחקן לא ייפגע ברגע שחזר.
+     */
+    fun resumeAfterRevive() {
+        if (!active) return
+        if (stage == Stage.Attacking || stage == Stage.PreparingAttack || stage == Stage.HitReaction) {
+            attack = null
+            impactDone = true
+            comboChained = false
+            enterIdle()
+        }
+    }
+
     private fun enterIdle() {
         go(Stage.Idle)
         exposed = -1
@@ -431,6 +456,7 @@ class IceRealm {
     }
 
     private fun startAttack(a: BossAttack) {
+        attacksSeen += 1
         exposed = -1
         attack = a
         impactDone = false

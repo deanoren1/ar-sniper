@@ -598,6 +598,8 @@ fun GameScreen(
                     // אחרי הפסד הבוס קופא (לא ממשיך לתקוף מאחורי מסך הסיום)
                     if (realm.active && director.phase != ArenaPhase.Lost) {
                         director.realmTick(dt)
+                        // הרצפה נסדקת: רעידה קלה שמתחזקת
+                        if (realm.stage == IceRealm.Stage.Cracks) shake = max(shake, 0.12f + 0.25f * (realm.stageTime / IceRealm.CRACKS_SECONDS))
                         // המקום של השחקן מול המתקפה = הכוונת על המסך (זזה בג'ויסטיק)
                         val aim = (camHolder[0] ?: com.arsniper.game.model.GameCamera()).worldToScreen(crosshair)
                         realm.update(
@@ -1465,8 +1467,15 @@ fun GameScreen(
         slimeSplats = emptyList()
         sfxMemo.phase = null
         sfxMemo.damagedThisWave = true
-        realm.reset()
-        director.revive()
+        if (realm.active) {
+            // בוס הקרח: חוזרים ישר לבוס, לא לחדר
+            director.revive()
+            director.enterRealm()
+            realm.resumeAfterRevive()
+        } else {
+            realm.reset()
+            director.revive()
+        }
     }
 
     fun retry() {
@@ -1610,6 +1619,8 @@ fun GameScreen(
                     }
                 }
         ) {
+          // כשהווידאו של הבוס מכסה את המסך, לא מציירים את הארנה מתחתיו
+          if (!realm.covering) {
             BackgroundLayer(photo = photo, colorFilter = null)
             // התמונה המעוצבת נכנסת בהדרגה מעל המקורית (בלי קפיצה כשהחישוב מסתיים)
             themed?.let { t ->
@@ -1665,6 +1676,7 @@ fun GameScreen(
             EffectsLayer(blasts = blasts, nowNanos = frameNanos)
             PoofLayer(poofs = poofs, nowNanos = frameNanos)
             FloatingTextLayer(floaters = floaters, nowNanos = frameNanos)
+          }
         }
 
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
@@ -1678,7 +1690,9 @@ fun GameScreen(
             // הרצפה של הארנה מניתוח התמונה (בלי ניתוח: החלק התחתון)
             floorAt = remember(scene) { scene?.let { sc -> { x: Float, y: Float -> sc.isWalkable(x, y) } } },
             worldAspect = aspect,
-            camMap = cameraMap(camera.zoom, camera.viewFraction, camera.center.x, camera.center.y)
+            camMap = cameraMap(camera.zoom, camera.viewFraction, camera.center.x, camera.center.y),
+            aimX = crosshairOnScreen.x,
+            aimY = crosshairOnScreen.y
         )
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
