@@ -587,21 +587,23 @@ fun GameScreen(
                     if (!isGuest && coop == null && style == ArenaStyle.Tundra && started && director.isBossWave &&
                         director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost && !realm.active && !realm.finished
                     ) {
+                        // הפורטל והבוס מגיעים עם הצלילים שלהם (מתוך הסרטונים)
                         realm.begin()
                         director.enterRealm()
                         enemies = emptyList()
                         fire.reset()
-                        soundPlayer.play(Sfx.BossRoar)
                     }
-                    if (realm.active) {
+                    // אחרי הפסד הבוס קופא (לא ממשיך לתקוף מאחורי מסך הסיום)
+                    if (realm.active && director.phase != ArenaPhase.Lost) {
                         director.realmTick(dt)
                         realm.update(
                             dt,
-                            onPlayerHit = {
+                            onImpact = { attack ->
+                                // רגע הפגיעה בסרטון המתקפה: לב יורד דרך המערכת הקיימת (כולל זמן החסינות)
                                 if (director.hitPlayer()) {
                                     soundPlayer.play(Sfx.PlayerHit)
                                     sfxMemo.damagedThisWave = true
-                                    shake = max(shake, 0.7f)
+                                    shake = max(shake, attack.shake)
                                     combo.reset()
                                     flash = FLASH_START
                                 }
@@ -1360,11 +1362,12 @@ fun GameScreen(
                     return
                 }
             }
-            when (realm.shoot(crosshairOnScreen.x, crosshairOnScreen.y, viewAspect, realmBob(realm.time))) {
-                IceRealm.Hit.Deflect -> soundPlayer.play(Sfx.Deflect)
+            when (realm.shoot(crosshairOnScreen.x, crosshairOnScreen.y, viewAspect)) {
+                IceRealm.Hit.Deflect, IceRealm.Hit.Guard -> soundPlayer.play(Sfx.Deflect)
                 IceRealm.Hit.Hit, IceRealm.Hit.Cancel -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.2f) }
                 IceRealm.Hit.Broke -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.45f) }
-                IceRealm.Hit.Killed -> { soundPlayer.play(Sfx.BossRoar); shake = max(shake, 0.8f) }
+                // סרטון המוות מגיע עם הקול שלו
+                IceRealm.Hit.Killed -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.8f) }
                 IceRealm.Hit.None -> Unit
             }
             return
@@ -1660,7 +1663,7 @@ fun GameScreen(
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
 
         // עולם הקרח (בוס ארנת הקרח): שכבה קבועה למסך מעל הארנה ומתחת לכוונת, לנשק ולממשק
-        IceRealmLayer(realm = realm, nowNanos = frameNanos)
+        IceRealmLayer(realm = realm, nowNanos = frameNanos, paused = paused || director.phase == ArenaPhase.Lost)
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
         SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)

@@ -3,94 +3,205 @@ package com.arsniper.game.engine
 import kotlin.math.hypot
 import kotlin.random.Random
 
+/** סרטוני בוס הקרח (בסדר הזה גם ברשימת ההשמעה של הנגן). משך במילישניות, לפי מספר הפריימים ב-24fps */
+enum class BossClip(val durationMs: Float, val loop: Boolean = false) {
+    Intro(6750f),
+    Breath(5042f, loop = true),
+    Prepare(5042f),
+    Attack1(4042f),
+    Attack2(4042f),
+    Attack3(4042f),
+    Attack4(4042f),
+    Attack5(4042f),
+    HitHead(2000f),
+    HitRightShoulder(2000f),
+    HitLeftShoulder(2000f),
+    HitRightHand(2000f),
+    HitLeftHand(2000f),
+    Death(4042f)
+}
+
 /**
- * עולם הקרח: שלב הבוס של ארנת הקרח. בוס ענק (ICE BEHEMOTH) שתופס כמעט את כל המסך, בלי מפלצות אחרות,
- * והכול אנימציה בלי קשר לתמונה האמיתית. פוגעים ביהלומים (גבישי הקרח שעל הבוס) כדי לשבור אותו.
- * Kotlin טהור: הציור נמצא ב-IceRealmLayer, וההתחברות למשחק ב-GameScreen.
+ * חמש המתקפות של הבוס. impactMs = רגע הפגיעה בסרטון (נמדד מהפריים שבו המכה מגיעה למסך), ורק אז השחקן נפגע.
+ * כל המתקפות מורידות לב אחד דרך מערכת הלבבות הקיימת (בלי ערכי נזק חדשים); ההבדל ביניהן בעוצמת הרעידה,
+ * בזמן ההמתנה עד שאותה מתקפה חוזרת, ובתנאי: מכות הקרקע הכבדות (3, 4) רק אחרי שנשבר יהלום ראשון.
+ * seamless = הסרטון ממשיך ישר מסוף ההכנה (תקריב); באחרות יש קפיצה שמוסתרת בהבזק קצר.
+ */
+enum class BossAttack(
+    val clip: BossClip,
+    val impactMs: Float,
+    val cooldownSeconds: Float,
+    val minBroken: Int,
+    val shake: Float,
+    val seamless: Boolean
+) {
+    /** Attack1: חבטת טופר אל המצלמה */
+    ClawSwipe(BossClip.Attack1, 2083f, 6f, 0, 0.75f, true),
+
+    /** Attack2: שריטת טופר עם להב קרח אלכסוני */
+    FrostSlash(BossClip.Attack2, 1667f, 6f, 0, 0.7f, true),
+
+    /** Attack3: הלמות שתי האגרופים בקרקע, גל ברקים */
+    ThunderSlam(BossClip.Attack3, 1750f, 9f, 1, 0.9f, false),
+
+    /** Attack4: קפיצה ונחיתה, גל קרח לאורך הרצפה */
+    GroundPound(BossClip.Attack4, 1750f, 9f, 1, 0.85f, false),
+
+    /** Attack5: כדור קרח טעון שנזרק אל המסך */
+    FrostOrb(BossClip.Attack5, 2625f, 7f, 0, 0.8f, false)
+}
+
+/**
+ * עולם הקרח: שלב הבוס של ארנת הקרח (גל 6). הבוס הוא סרטונים: עמידה ונשימה, הכנה למתקפה, 5 מתקפות,
+ * תגובות פגיעה לפי מקום הפגיעה, ומוות. Kotlin טהור: הנגן והציור ב-IceRealmLayer, החיבור למשחק ב-GameScreen.
  *
- * מהלך: פורטל נפתח בארנה, נמשכים פנימה, עולם הקרח, צללית של הבוס, חשיפה עם שאגה, ואז הקרב.
- * בקרב כל היהלומים תמיד גלויים (פגיעה = נזק 1). מדי כמה שניות הבוס מתחיל מתקפה ואחד היהלומים נדלק:
- * פגיעה ביהלום הדלוק שוברת בו 2 ומבטלת את המתקפה; אם לא פוגעים בו בזמן, השחקן מאבד לב.
+ * מכונת מצבים אחת (stage) היא מקור האמת:
+ *  Portal → Intro → Idle → PreparingAttack → Attacking → Idle
+ *  Idle → HitReaction → Idle (או ישר להכנה, אם הגיע זמן מתקפה: התגובה לא נקטעת, אבל גם לא חוסמת מתקפות לעד)
+ *  PreparingAttack → HitReaction כשפוגעים ביהלום הדלוק (מבטל את המתקפה, כמו קודם)
+ *  כל מצב → Dead כשהחיים נגמרים. מ-Dead אין חזרה.
+ *
+ * חיים: 5 יהלומים (ראש, 2 כתפיים, 2 ידיים) × 3 = 15, כמו קודם. פגיעה = 1, ביהלום הדלוק בהכנה = 2.
+ * הבוס פגיע רק בעמידה ובהכנה (שם יש מעקב מדויק של הנקודות); במתקפה ובתגובה הירייה נהדפת.
+ * פגיעה בגוף (לא ביהלום) נהדפת בלי נזק, כמו קודם (אין לה סרטון תגובה ייעודי).
+ *
+ * הזמן בתוך סרטון: לפי מיקום הנגן כשהוא מסונכרן (syncVideo), ואחרת לפי שעון פנימי, כך שאם הווידאו נתקע
+ * המשחק לא נתקע איתו.
  */
 class IceRealm {
 
-    enum class Stage { Off, Portal, Pull, Shift, Silhouette, Reveal, Fight, Dying, Done }
+    enum class Stage { Off, Portal, Intro, Idle, PreparingAttack, Attacking, HitReaction, Dead }
 
-    /** יהלום: מיקום כשבר מתיבת הבוס (0..1), וחיים */
-    class Diamond(val x: Float, val y: Float, var hp: Int) {
+    /** מקום פגיעה. ימין/שמאל = של הבוס (ימין שלו בצד שמאל של המסך). index = מקום בטבלאות המעקב */
+    enum class Zone(val index: Int, val clip: BossClip) {
+        Head(0, BossClip.HitHead),
+        RightShoulder(1, BossClip.HitRightShoulder),
+        LeftShoulder(2, BossClip.HitLeftShoulder),
+        RightHand(3, BossClip.HitRightHand),
+        LeftHand(4, BossClip.HitLeftHand)
+    }
+
+    class Diamond(val zone: Zone, var hp: Int) {
         val alive: Boolean get() = hp > 0
     }
 
     var stage: Stage = Stage.Off
         private set
 
-    /** שניות מתחילת העולם (כולל המעבר) */
+    /** שניות מתחילת העולם, ושניות בתוך המצב הנוכחי */
     var time: Float = 0f
         private set
-
-    /** שניות בתוך השלב הנוכחי */
     var stageTime: Float = 0f
         private set
 
-    val diamonds: List<Diamond> = listOf(
-        Diamond(0.585f, 0.12f, DIAMOND_HP), // ראש
-        Diamond(0.20f, 0.29f, DIAMOND_HP),  // כתף שמאל
-        Diamond(0.84f, 0.29f, DIAMOND_HP),  // כתף ימין
-        Diamond(0.09f, 0.62f, DIAMOND_HP),  // אגרוף שמאל
-        Diamond(0.91f, 0.62f, DIAMOND_HP)   // אגרוף ימין
-    )
+    val diamonds: List<Diamond> = Zone.entries.map { Diamond(it, DIAMOND_HP) }
 
-    /** היהלום שנדלק במתקפה (-1 = אין מתקפה), וכמה זמן עבר מתחילת המתקפה */
+    // --- הסרטון הנוכחי ---
+    var clip: BossClip? = null
+        private set
+
+    /** עולה בכל בקשת סרטון חדשה: הנגן מתחיל סרטון רק כשהמספר משתנה (אין השמעה כפולה מאותו אירוע) */
+    var clipToken: Int = 0
+        private set
+    var clipSpeed: Float = 1f
+        private set
+
+    /** מיקום בסרטון (ms של הסרטון) */
+    var clipMs: Float = 0f
+        private set
+    private var ownMs = 0f
+    private var videoToken = -1
+    private var videoMs = 0L
+    private var videoEnded = false
+
+    /** המתקפה הנוכחית (במצב Attacking) */
+    var attack: BossAttack? = null
+        private set
+    private var impactDone = false
+    private var lastAttack: BossAttack? = null
+    private val attackReadyAt = HashMap<BossAttack, Float>()
+
+    /** היהלום שנדלק בהכנה למתקפה (-1 = אין) */
     var exposed: Int = -1
         private set
-    var windup: Float = 0f
-        private set
 
-    /** הבהוב נזק אחרי פגיעה ביהלום, והבהוב כשפגיעה לא עשתה כלום */
+    /** הבזקים לציור: פגיעה ביהלום (ומיקומה בשברי מסך), והבזק לבן שמסתיר קפיצה בין סרטונים */
     var hitFlash: Float = 0f
         private set
-    var deflectFlash: Float = 0f
+    var hitX: Float = 0f
+        private set
+    var hitY: Float = 0f
+        private set
+    var cutFlash: Float = 0f
         private set
 
-    /** זמן שהבוס "מבוהל" אחרי שהמתקפה בוטלה */
-    var stagger: Float = 0f
-        private set
+    private var attackIn = FIRST_ATTACK_SECONDS
+    private var hitThisTick = false
+    private var deathHold = 0f
 
-    private var attackIn: Float = FIRST_ATTACK_SECONDS
-
-    /** האם הבוס כבר נוצח במהלך הריצה (כדי לא להתחיל שוב) */
+    /** הבוס נוצח והמנהל קיבל הודעה */
     var finished: Boolean = false
         private set
 
-    val active: Boolean get() = stage != Stage.Off && stage != Stage.Done
+    /** רץ (מתעדכן). אחרי הניצחון הוא כבר לא רץ, אבל נשאר על המסך (הפריים האחרון של המוות) */
+    val active: Boolean get() = stage != Stage.Off && !finished
+    val visible: Boolean get() = stage != Stage.Off
 
-    val fighting: Boolean get() = stage == Stage.Fight
+    /** בקרב (אפשר לירות). בפורטל, בכניסה ובמוות לא יורים */
+    val fighting: Boolean
+        get() = stage == Stage.Idle || stage == Stage.PreparingAttack || stage == Stage.Attacking || stage == Stage.HitReaction
+
+    /** הבוס פגיע עכשיו (יש מעקב לנקודות בסרטון הזה) */
+    val vulnerable: Boolean get() = stage == Stage.Idle || stage == Stage.PreparingAttack
 
     val totalHp: Int get() = diamonds.sumOf { it.hp }
     val fraction: Float get() = totalHp.toFloat() / (diamonds.size * DIAMOND_HP)
+    private val broken: Int get() = diamonds.count { !it.alive }
 
-    /** נשארו לפחות 2 יהלומים? (מי שנשאר אחד כועס: מתקפות מהירות יותר) */
-    private val enraged: Boolean get() = diamonds.count { it.alive } <= 2
+    /** נשארו 2 יהלומים או פחות: הבוס כועס (הכנה מהירה יותר, פחות מנוחה בין מתקפות) */
+    val enraged: Boolean get() = diamonds.count { it.alive } <= 2
+
+    /** התקדמות ההכנה 0..1 (לטבעת שמתכווצת סביב היהלום הדלוק) */
+    val prepareFraction: Float
+        get() = if (stage == Stage.PreparingAttack) (clipMs / BossClip.Prepare.durationMs).coerceIn(0f, 1f) else 0f
 
     fun begin() {
         if (stage != Stage.Off) return
         reset()
-        stage = Stage.Portal
+        go(Stage.Portal)
     }
 
-    /** חוזר להתחלה (החייאה, משחק חוזר, או ארנה חדשה) */
+    /** חוזר להתחלה (החייאה, משחק חוזר, או ארנה חדשה). הנגן משתחרר כשהשכבה יורדת מהמסך */
     fun reset() {
         stage = Stage.Off
         time = 0f
         stageTime = 0f
         for (d in diamonds) d.hp = DIAMOND_HP
+        clip = null
+        clipSpeed = 1f
+        clipMs = 0f
+        ownMs = 0f
+        videoToken = -1
+        videoMs = 0L
+        videoEnded = false
+        attack = null
+        impactDone = false
+        lastAttack = null
+        attackReadyAt.clear()
         exposed = -1
-        windup = 0f
         hitFlash = 0f
-        deflectFlash = 0f
-        stagger = 0f
+        cutFlash = 0f
         attackIn = FIRST_ATTACK_SECONDS
+        hitThisTick = false
+        deathHold = 0f
         finished = false
+    }
+
+    /** מהנגן, בכל פריים: איזה סרטון הוא מנגן (token), איפה, והאם הגיע לסוף. token = -1 אם הנגן לא מוכן */
+    fun syncVideo(token: Int, positionMs: Long, ended: Boolean) {
+        videoToken = token
+        videoMs = positionMs
+        videoEnded = ended
     }
 
     private fun go(next: Stage) {
@@ -98,127 +209,229 @@ class IceRealm {
         stageTime = 0f
     }
 
+    private fun play(c: BossClip, speed: Float = 1f) {
+        clip = c
+        clipSpeed = speed
+        clipToken += 1
+        clipMs = 0f
+        ownMs = 0f
+        videoEnded = false
+    }
+
+    private fun synced(): Boolean = videoToken == clipToken
+
+    private fun advanceClock(dt: Float) {
+        val c = clip ?: return
+        ownMs += dt * 1000f * clipSpeed
+        if (c.loop) ownMs %= c.durationMs
+        // הנגן הוא האמת, אלא אם הוא נתקע הרבה מאחורי השעון הפנימי
+        val useVideo = synced() && (c.loop || ownMs - videoMs < STALL_MS)
+        clipMs = if (useVideo) videoMs.toFloat() else ownMs
+    }
+
+    private fun clipDone(): Boolean {
+        val c = clip ?: return true
+        if (c.loop) return false
+        return (synced() && videoEnded) || clipMs >= c.durationMs - END_SLACK_MS
+    }
+
     /**
-     * מקדם פריים. onPlayerHit נקרא כשמתקפה הגיעה לשחקן, onWin כשהבוס נפל.
+     * מקדם פריים. onImpact נקרא פעם אחת לכל מתקפה, ברגע הפגיעה שבסרטון. onWin כשהמוות הסתיים.
      */
-    fun update(dt: Float, onPlayerHit: () -> Unit, onWin: () -> Unit) {
+    fun update(dt: Float, onImpact: (BossAttack) -> Unit, onWin: () -> Unit) {
         if (!active) return
         time += dt
         stageTime += dt
         hitFlash = (hitFlash - dt).coerceAtLeast(0f)
-        deflectFlash = (deflectFlash - dt).coerceAtLeast(0f)
-        stagger = (stagger - dt).coerceAtLeast(0f)
+        cutFlash = (cutFlash - dt).coerceAtLeast(0f)
+        hitThisTick = false
+        advanceClock(dt)
         when (stage) {
-            Stage.Portal -> if (stageTime >= PORTAL_SECONDS) go(Stage.Pull)
-            Stage.Pull -> if (stageTime >= PULL_SECONDS) go(Stage.Shift)
-            Stage.Shift -> if (stageTime >= SHIFT_SECONDS) go(Stage.Silhouette)
-            Stage.Silhouette -> if (stageTime >= SILHOUETTE_SECONDS) go(Stage.Reveal)
-            Stage.Reveal -> if (stageTime >= REVEAL_SECONDS) go(Stage.Fight)
-            Stage.Fight -> fight(dt, onPlayerHit)
-            Stage.Dying -> if (stageTime >= DYING_SECONDS) {
-                go(Stage.Done)
-                finished = true
-                onWin()
+            Stage.Portal -> if (stageTime >= PORTAL_SECONDS) {
+                go(Stage.Intro)
+                play(BossClip.Intro)
             }
-            else -> Unit
-        }
-    }
-
-    private fun fight(dt: Float, onPlayerHit: () -> Unit) {
-        if (stagger > 0f) return
-        if (exposed >= 0) {
-            windup += dt
-            if (windup >= windupSeconds()) {
-                exposed = -1
-                windup = 0f
-                attackIn = nextCooldown()
-                onPlayerHit()
+            Stage.Intro -> if (clipDone()) enterIdle()
+            Stage.Idle -> {
+                attackIn -= dt
+                if (attackIn <= 0f) startPrepare()
             }
-        } else {
-            attackIn -= dt
-            if (attackIn <= 0f) {
-                val live = diamonds.indices.filter { diamonds[it].alive }
-                if (live.isNotEmpty()) {
-                    exposed = live[Random.nextInt(live.size)]
-                    windup = 0f
+            Stage.PreparingAttack -> if (clipDone()) startAttack()
+            Stage.Attacking -> {
+                val a = attack
+                if (a == null) {
+                    enterIdle()
+                } else {
+                    if (!impactDone && clipMs >= a.impactMs) {
+                        impactDone = true
+                        onImpact(a)
+                    }
+                    if (clipDone()) {
+                        lastAttack = a
+                        attack = null
+                        attackIn = nextCooldown()
+                        enterIdle()
+                    }
                 }
             }
+            Stage.HitReaction -> {
+                attackIn -= dt
+                if (clipDone()) {
+                    if (attackIn <= 0f) startPrepare() else enterIdle()
+                }
+            }
+            Stage.Dead -> if (clipDone()) {
+                deathHold += dt
+                if (deathHold >= DEATH_HOLD_SECONDS) {
+                    finished = true
+                    onWin()
+                }
+            }
+            Stage.Off -> Unit
         }
     }
 
-    private fun windupSeconds() = if (enraged) WINDUP_ENRAGED_SECONDS else WINDUP_SECONDS
+    private fun enterIdle() {
+        go(Stage.Idle)
+        exposed = -1
+        play(BossClip.Breath)
+    }
+
+    private fun startPrepare() {
+        val live = diamonds.indices.filter { diamonds[it].alive }
+        exposed = if (live.isEmpty()) -1 else live[Random.nextInt(live.size)]
+        go(Stage.PreparingAttack)
+        play(BossClip.Prepare, if (enraged) PREPARE_SPEED_ENRAGED else 1f)
+    }
+
+    private fun startAttack() {
+        val a = pickAttack()
+        exposed = -1
+        attack = a
+        impactDone = false
+        attackReadyAt[a] = time + a.cooldownSeconds
+        if (!a.seamless) cutFlash = CUT_FLASH_SECONDS
+        go(Stage.Attacking)
+        play(a.clip)
+    }
+
+    /** בחירת מתקפה: מהזמינות (תנאי + זמן המתנה), לא אותה מתקפה פעמיים ברצף */
+    private fun pickAttack(): BossAttack {
+        val all = BossAttack.entries
+        val allowed = all.filter { broken >= it.minBroken }
+        val ready = allowed.filter { it != lastAttack && time >= (attackReadyAt[it] ?: 0f) }
+        val pool = ready.ifEmpty { allowed.filter { it != lastAttack } }.ifEmpty { allowed }.ifEmpty { all }
+        return pool[Random.nextInt(pool.size)]
+    }
+
     private fun nextCooldown() = (if (enraged) 2.0f else 3.0f) + Random.nextFloat() * 1.0f
 
-    /** התקדמות המתקפה 0..1 (להצגה), או 0 אם אין */
-    val windupFraction: Float get() = if (exposed >= 0) (windup / windupSeconds()).coerceIn(0f, 1f) else 0f
+    private val pts = FloatArray(IceBossTracks.POINTS * 3)
 
     /**
-     * ירי על נקודה על המסך (px, py בשברי מסך). מחזיר מה קרה.
-     * aspect = רוחב/גובה של המסך. היהלומים עגולים על המסך (לא אליפסה), ולכן המרחק נמדד עם התאמת יחס.
+     * מיקומי היהלומים על המסך עכשיו: [x, y, r] לכל יהלום (x, y בשברי מסך, r בשברי גובה מסך).
+     * מחזיר null אם הבוס לא פגיע בסרטון הנוכחי.
      */
-    fun shoot(px: Float, py: Float, aspect: Float, bossBob: Float = 0f): Hit {
-        if (stage != Stage.Fight) return Hit.None
-        val rect = bossRect(aspect, bossBob)
+    fun zonesOnScreen(aspect: Float, out: FloatArray = FloatArray(IceBossTracks.POINTS * 3)): FloatArray? {
+        val c = clip ?: return null
+        if (!vulnerable) return null
+        if (!IceBossTracks.points(c, clipMs, pts)) return null
+        val r = BossFrame.rect(aspect)
+        for (i in 0 until IceBossTracks.POINTS) {
+            out[i * 3] = BossFrame.screenX(pts[i * 3], r)
+            out[i * 3 + 1] = BossFrame.screenY(pts[i * 3 + 1], r)
+            out[i * 3 + 2] = BossFrame.screenLen(pts[i * 3 + 2], r)
+        }
+        return out
+    }
+
+    private val zoneBuf = FloatArray(IceBossTracks.POINTS * 3)
+
+    /** האם הנקודה על גוף הבוס (בערך: בין הידיים, מהראש עד הידיים) */
+    private fun inBody(px: Float, py: Float, z: FloatArray): Boolean {
+        val left = z[3 * 3] - z[3 * 3 + 2]
+        val right = z[4 * 3] + z[4 * 3 + 2]
+        val top = z[1] - z[2]
+        val bottom = maxOf(z[3 * 3 + 1], z[4 * 3 + 1]) + z[3 * 3 + 2]
+        return px in left..right && py in top..bottom
+    }
+
+    /**
+     * ירייה בנקודה על המסך (px, py בשברי מסך; aspect = רוחב/גובה). מחזיר מה קרה.
+     * לכל היותר פגיעה אחת שגורמת נזק בכל פריים, ותגובת פגיעה לא מתחילה מחדש באמצע תגובה.
+     */
+    fun shoot(px: Float, py: Float, aspect: Float): Hit {
+        if (stage == Stage.Attacking || stage == Stage.HitReaction) return Hit.Guard
+        if (!vulnerable) return Hit.None
+        if (hitThisTick) return Hit.None
+        val z = zonesOnScreen(aspect, zoneBuf) ?: return Hit.None
         var best = -1
         var bestD = Float.MAX_VALUE
         for ((i, d) in diamonds.withIndex()) {
             if (!d.alive) continue
-            val cx = rect[0] + d.x * rect[2]
-            val cy = rect[1] + d.y * rect[3]
-            val dist = hypot((px - cx) * aspect, py - cy)
-            if (dist < HIT_RADIUS && dist < bestD) { best = i; bestD = dist }
+            val idx = d.zone.index
+            val dist = hypot((px - z[idx * 3]) * aspect, py - z[idx * 3 + 1])
+            val radius = z[idx * 3 + 2] * HIT_SCALE
+            if (dist < radius && dist < bestD) {
+                best = i
+                bestD = dist
+            }
         }
-        if (best < 0) {
-            val inBody = px >= rect[0] && px <= rect[0] + rect[2] && py >= rect[1] && py <= rect[1] + rect[3]
-            if (inBody) deflectFlash = 0.18f
-            return if (inBody) Hit.Deflect else Hit.None
-        }
+        if (best < 0) return if (inBody(px, py, z)) Hit.Deflect else Hit.None
+
+        hitThisTick = true
         val d = diamonds[best]
-        val cancel = best == exposed
+        val cancel = stage == Stage.PreparingAttack && best == exposed
         d.hp = (d.hp - if (cancel) EXPOSED_DAMAGE else 1).coerceAtLeast(0)
-        hitFlash = 0.22f
-        if (cancel) {
-            exposed = -1
-            windup = 0f
-            attackIn = nextCooldown()
-            stagger = STAGGER_SECONDS
-        }
+        hitFlash = HIT_FLASH_SECONDS
+        hitX = px
+        hitY = py
+
+        // החיים נגמרו: מוות, בעדיפות על כל דבר אחר
         if (diamonds.none { it.alive }) {
             exposed = -1
-            go(Stage.Dying)
+            attack = null
+            go(Stage.Dead)
+            play(BossClip.Death)
             return Hit.Killed
+        }
+        // תגובה לפי מקום הפגיעה: מהעמידה, או כשהמתקפה בוטלה בהכנה
+        if (stage == Stage.Idle || cancel) {
+            if (cancel) attackIn = nextCooldown()
+            exposed = -1
+            go(Stage.HitReaction)
+            play(d.zone.clip)
         }
         return if (d.hp == 0) Hit.Broke else if (cancel) Hit.Cancel else Hit.Hit
     }
 
-    enum class Hit { None, Deflect, Hit, Cancel, Broke, Killed }
+    /** None = לא על הבוס; Deflect = גוף בלי יהלום; Guard = הבוס לא פגיע עכשיו (מתקפה/תגובה) */
+    enum class Hit { None, Deflect, Guard, Hit, Cancel, Broke, Killed }
 
     companion object {
         const val DIAMOND_HP = 3
         const val EXPOSED_DAMAGE = 2
         const val FIRST_ATTACK_SECONDS = 2.5f
-        const val WINDUP_SECONDS = 1.7f
-        const val WINDUP_ENRAGED_SECONDS = 1.25f
-        const val STAGGER_SECONDS = 1.1f
-        const val HIT_RADIUS = 0.075f   // בגובה מסך
 
-        const val PORTAL_SECONDS = 1.3f
-        const val PULL_SECONDS = 1.8f
-        const val SHIFT_SECONDS = 0.9f
-        const val SILHOUETTE_SECONDS = 0.8f
-        const val REVEAL_SECONDS = 1.2f
-        const val DYING_SECONDS = 2.4f
+        /** מהירות סרטון ההכנה כשהבוס כועס (מתקפה מגיעה מהר יותר, פחות זמן לבטל) */
+        const val PREPARE_SPEED_ENRAGED = 1.3f
 
-        /** תמונת הבוס: יחס רוחב/גובה, וגובה הבוס כשבר מגובה המסך */
-        const val BOSS_IMAGE_ASPECT = 454f / 354f
-        const val BOSS_HEIGHT = 0.90f
-        const val BOSS_BOTTOM = 1.05f
+        /** הפורטל מעל הארנה, לפני סרטון הכניסה */
+        const val PORTAL_SECONDS = 4.04f
 
-        /** תיבת הבוס בשברי מסך: [שמאל, למעלה, רוחב, גובה]. bob = תזוזה אנכית (שבר מגובה המסך) */
-        fun bossRect(aspect: Float, bob: Float = 0f): FloatArray {
-            val h = BOSS_HEIGHT
-            val w = h * BOSS_IMAGE_ASPECT / aspect
-            return floatArrayOf(0.5f - w / 2f, BOSS_BOTTOM - h + bob, w, h)
-        }
+        /** אחרי שסרטון המוות נגמר: הבוס המובס נשאר על המסך עוד רגע, ואז הארנה נוצחת */
+        const val DEATH_HOLD_SECONDS = 1.0f
+
+        const val HIT_FLASH_SECONDS = 0.22f
+        const val CUT_FLASH_SECONDS = 0.22f
+
+        /** כמה מהרדיוס של הנקודה נחשב פגיעה */
+        const val HIT_SCALE = 0.95f
+
+        /** אם הנגן מפגר יותר מזה אחרי השעון הפנימי, ממשיכים לפי השעון (הנגן נתקע) */
+        const val STALL_MS = 600f
+
+        /** סרטון נחשב גמור קצת לפני הפריים האחרון (פריים אחד) */
+        const val END_SLACK_MS = 42f
     }
 }

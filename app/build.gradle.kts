@@ -87,4 +87,6 @@ dependencies {
     implementation("com.google.ai.edge.litert:litert:2.1.0")
     // משחק משותף: חיבור WebSocket לשרת החדרים
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // בוס הקרח: ניגון סרטוני הבוס (עמידה, הכנה, מתקפות, פגיעות, מוות)
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
 }
