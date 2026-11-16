@@ -1,11 +1,16 @@
 package com.arsniper.ui.game
 
+import android.graphics.ImageDecoder
+import android.graphics.drawable.AnimatedImageDrawable
+import android.media.MediaPlayer
+import android.os.Build
 import android.view.TextureView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -28,16 +33,22 @@ import com.arsniper.data.PlayerProfile
 import com.arsniper.game.engine.BossFrame
 import com.arsniper.game.engine.DangerZone
 import com.arsniper.game.engine.IceRealm
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import com.arsniper.game.engine.BossClip
+import com.arsniper.game.engine.DAZZLE_X
+import com.arsniper.game.engine.DAZZLE_Y
+import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * עולם הקרח (בוס ארנת הקרח): ישר לסרטון הכניסה, ואז הבוס כווידאו שממלא את המסך (בלי עיוות),
+ * עולם הקרח (בוס ארנת הקרח): פורטל (סרטון 0) מעל הארנה, ואז סרטון הכניסה, ואז הבוס כווידאו שממלא את המסך (בלי עיוות),
  * ומעליו סימוני היהלומים, מד החיים והבזקים. שכבה קבועה למסך, מעל הארנה ומתחת לכוונת, לנשק ולממשק.
  * paused = המשחק עצור (תפריט עצירה / הפסד): הווידאו נעצר איתו.
  * nowNanos רק כדי שהשכבה תתרענן בכל פריים (וכך גם הסנכרון עם הנגן).
  */
 @Composable
-fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Modifier = Modifier) {
+fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, shake: Float = 0f, modifier: Modifier = Modifier) {
     if (!realm.visible) return
     val context = LocalContext.current
 
@@ -67,19 +78,61 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // סרטון 0: הפורטל, עם שקיפות (הרקע הירוק הוסר מראש), מעל הארנה. מתנגן פעם אחת. AnimatedImageDrawable קיים מאנדרואיד 9
+    val portal = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            runCatching {
+                (ImageDecoder.decodeDrawable(ImageDecoder.createSource(context.resources, R.raw.boss_portal)) as? AnimatedImageDrawable)
+                    ?.apply { repeatCount = 0 }
+            }.getOrNull()
+        } else {
+            null
+        }
+    }
+    val inPortal = realm.stage == IceRealm.Stage.Portal
+    LaunchedEffect(inPortal) {
+        if (inPortal && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) portal?.start()
+    }
+    // הצליל של סרטון 0 (האנימציה עצמה בלי קול)
+    val portalSound = remember { if (PlayerProfile.soundOn) runCatching { MediaPlayer.create(context, R.raw.boss_portal_sfx) }.getOrNull() else null }
+    LaunchedEffect(inPortal) {
+        if (inPortal) runCatching { portalSound?.start() }
+    }
+    DisposableEffect(portalSound) {
+        onDispose { runCatching { portalSound?.release() } }
+    }
+
     // סנכרון בכל פריים: מה שמכונת המצבים רוצה לנגן, ומיקום הנגן בחזרה למכונה
     SideEffect {
         controller.setMuted(!PlayerProfile.soundOn)
         controller.setGamePaused(paused)
         val clip = realm.clip
-        if (clip != null) controller.show(clip, realm.clipToken, realm.clipSpeed)
+        if (inPortal) {
+            controller.preload(BossClip.Intro)
+        } else if (clip != null) {
+            controller.show(clip, realm.clipToken, realm.clipSpeed)
+        }
         if (nowNanos >= 0L) realm.syncVideo(controller.syncToken(), controller.positionMs(), controller.isEnded())
     }
 
     // הווידאו מוצג מהפריים הראשון של סרטון הכניסה; עד אז רואים את הארנה
-    val videoShown = controller.frameShownToken != -1
+    val videoShown = !inPortal && controller.frameShownToken != -1
 
-    Box(modifier = modifier.fillMaxSize()) {
+    // כשהבוס פוגע: כל השכבה רועדת (כמו הארנה), ומוגדלת קצת בזמן הרעידה כדי שלא ייראו קצוות
+    val t = nowNanos / 1_000_000_000f
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                if (shake > 0f) {
+                    translationX = sin(t * 83f) * shake * size.width * 0.012f
+                    translationY = cos(t * 97f) * shake * size.height * 0.016f
+                    val sc = 1f + 0.04f * shake.coerceAtMost(1f)
+                    scaleX = sc
+                    scaleY = sc
+                }
+            }
+    ) {
         AndroidView(
             factory = { ctx ->
                 TextureView(ctx).apply {
@@ -100,6 +153,18 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
             if (nowNanos < 0L) return@Canvas
             val aspect = size.width / size.height
 
+            // סרטון 0: הפורטל, עד שהפריים הראשון של הכניסה מוכן (הפריים האחרון שלו זהה לראשון של הכניסה)
+            if (portal != null && !videoShown && (inPortal || realm.stage == IceRealm.Stage.Intro)) {
+                val pr = BossFrame.rect(aspect)
+                drawIntoCanvas { c ->
+                    portal.setBounds(
+                        (pr[0] * size.width).toInt(), (pr[1] * size.height).toInt(),
+                        ((pr[0] + pr[2]) * size.width).toInt(), ((pr[1] + pr[3]) * size.height).toInt()
+                    )
+                    portal.draw(c.nativeCanvas)
+                }
+            }
+
             val vulnerable = realm.vulnerable
             if (vulnerable) {
                 val zones = realm.zonesOnScreen(aspect)
@@ -118,6 +183,7 @@ fun IceRealmLayer(realm: IceRealm, nowNanos: Long, paused: Boolean, modifier: Mo
 
             // אזור הסכנה של המתקפה, רגע לפני הפגיעה: לצאת ממנו עם הכוונת
             realm.warnZone?.let { drawDanger(it, realm.warnFraction, realm.time) }
+            if (realm.dazzle > 0f) drawDazzle(realm.dazzle / IceRealm.DAZZLE_SECONDS)
             if (realm.dodgeFlash > 0f) drawDodged(realm.dodgeFlash / IceRealm.DODGE_FLASH_SECONDS)
 
             // פגיעה ביהלום: הבזק קטן במקום הפגיעה
@@ -176,6 +242,25 @@ private fun DrawScope.drawDanger(zone: DangerZone, k: Float, time: Float) {
             drawPath(path, edge, style = Stroke(width = sw))
         }
     }
+}
+
+/**
+ * סינוור מכדור הקרח (סרטון 6): אור לבן-תכלת חזק בצד ימין, איפה שהכדור פוגע, ולא במרכז.
+ * k = 1 בתחילת הסינוור ויורד ל-0. נדלק מהר, נשאר רגע, ודועך.
+ */
+private fun DrawScope.drawDazzle(k: Float) {
+    val r = BossFrame.rect(size.width / size.height)
+    val c = Offset(BossFrame.fracToScreenX(DAZZLE_X, r) * size.width, BossFrame.fracToScreenY(DAZZLE_Y, r) * size.height)
+    val a = if (k > 0.85f) (1f - k) / 0.15f else (k / 0.85f)
+    val a2 = a * a * (3f - 2f * a)
+    val rad = size.width * (0.55f + 0.25f * (1f - k))
+    drawRect(
+        Brush.radialGradient(
+            listOf(Color.White.copy(alpha = 0.97f * a2), Color(0xFFCFF4FF).copy(alpha = 0.8f * a2), Color(0xFF7FD8FF).copy(alpha = 0.35f * a2), Color.Transparent),
+            center = c, radius = rad
+        )
+    )
+    drawRect(Color.White.copy(alpha = 0.22f * a2))
 }
 
 /** "DODGE!" באמצע המסך אחרי התחמקות */

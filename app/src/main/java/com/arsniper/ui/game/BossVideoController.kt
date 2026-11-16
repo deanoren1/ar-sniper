@@ -87,7 +87,6 @@ class BossVideoController(context: Context) {
         BossClip.Breath -> R.raw.boss_breath
         BossClip.Prepare -> R.raw.boss_prepare
         BossClip.Attack1 -> R.raw.boss_attack1
-        BossClip.Attack2 -> R.raw.boss_attack2
         BossClip.Attack3 -> R.raw.boss_attack3
         BossClip.Attack4 -> R.raw.boss_attack4
         BossClip.Attack5 -> R.raw.boss_attack5

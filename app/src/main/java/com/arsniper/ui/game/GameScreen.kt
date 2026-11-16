@@ -607,6 +607,8 @@ fun GameScreen(
                                     soundPlayer.play(Sfx.PlayerHit)
                                     sfxMemo.damagedThisWave = true
                                     shake = max(shake, attack.shake)
+                                    // רטט חזק כשהבוס פוגע
+                                    if (PlayerProfile.vibrationOn) bossHitVibrate(context0)
                                     combo.reset()
                                     flash = FLASH_START
                                 }
@@ -1666,7 +1668,7 @@ fun GameScreen(
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
 
         // עולם הקרח (בוס ארנת הקרח): שכבה קבועה למסך מעל הארנה ומתחת לכוונת, לנשק ולממשק
-        IceRealmLayer(realm = realm, nowNanos = frameNanos, paused = paused || director.phase == ArenaPhase.Lost)
+        IceRealmLayer(realm = realm, nowNanos = frameNanos, paused = paused || director.phase == ArenaPhase.Lost, shake = shake)
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
         SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)
@@ -2026,3 +2028,16 @@ private class SfxMemo {
 
 /** מסגרת ה-HUD החדשה של הטונדרה (TundraHud). כבויה כרגע; החזרה = true */
 private const val TUNDRA_HUD_FRAME = false
+
+/** רטט של מכת בוס (כרבע שנייה, חזק). בלי רטט במכשיר / בלי הרשאה: לא קורה כלום */
+private fun bossHitVibrate(context: android.content.Context) {
+    runCatching {
+        val vib: android.os.Vibrator? = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            (context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+        }
+        vib?.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 180, 60, 120), intArrayOf(0, 255, 0, 200), -1))
+    }
+}
