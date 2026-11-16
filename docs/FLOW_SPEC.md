@@ -20,7 +20,7 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 - Stars come from performance only, never from the world: 1 star = all waves cleared, 2 = at least 2 hearts left, 3 = all hearts left (hearts-based, as decided earlier).
 - Stars belong to the motif (best result kept), earned in the journey on the official world, a world the player created, or a saved world.
 - **1 star unlocks the next world.**
-- **Chapter gate**: the journey is divided into chapters; moving to the next chapter also needs a total number of stars (example: 20). Set each gate at about 60% of the maximum stars available before it (3 per world), so it is reachable without replaying everything.
+- **Chapter gate**: the journey is divided into chapters; moving to the next chapter also needs a total number of stars. Each gate is about 60% of the maximum stars available before it (3 per world), so it is reachable without replaying everything. With 3 chapters of 6 worlds: chapter 2 needs **11 stars** (of 18), chapter 3 needs **22 stars** (of 36). Journey order: section 10.
 - RANDOM WORLD: coins/gems only, no stars. Classic is journey world 1 and earns stars like any other world (stars come from hearts left, so the player's room does not change the star rules). Panorama games (section 5) earn rewards only, no journey stars.
 - Replays always pay coins, so replaying for stars is worth it.
 
@@ -57,10 +57,16 @@ The mock-up is a visual direction; this file holds the rules we agreed. Where th
 
 ## 8. Open items
 - Where NEXT WORLD leads after a Classic win.
-- Number of chapters and each gate's star count (after the launch motif list is fixed).
 - XP/levels: not in the first version.
 
 ## 9. The 17 motifs (list from Dean, 2026-11-13)
 Industrial Warehouse, Jungle, Military Base, Frozen Tundra, Ruins, Urban Bazaar, Cyberpunk, Rocky Forest, Candy World, Volcano, Desert, Underwater, Space, Haunted World, Toy Factory, Cloud Kingdom, Crystal Cave.
 - Already in code (8): Industrial, Jungle, Military, Tundra, Ruins, Bazaar, Cyber, Forest (shown as "Rocky Forest"). Classic is journey world 1 ("Home Base") and is not one of the 17.
 - Not in code yet (9): Candy, Volcano, Desert, Underwater, Space, Haunted, Toy Factory, Cloud Kingdom, Crystal Cave (each needs an ArenaStyle, server AI style, tint/particles, map position).
+
+## 10. Journey order (agreed 2026-11-16)
+18 worlds (Classic + the 17 motifs), 3 chapters of 6. From familiar to fantasy; warm/cold and nature/city alternate.
+- **Chapter 1 - Real World** (all already in code; launch content): 1 Classic (Home Base), 2 Frozen Tundra, 3 Jungle, 4 Industrial Warehouse, 5 Cyberpunk, 6 Military Base.
+- **Chapter 2 - Lost Lands** (gate: 11 stars): 7 Ruins, 8 Rocky Forest, 9 Urban Bazaar, 10 Desert (new), 11 Volcano (new), 12 Underwater (new).
+- **Chapter 3 - Fantasy** (gate: 22 stars): 13 Haunted World, 14 Crystal Cave, 15 Candy World, 16 Toy Factory, 17 Cloud Kingdom, 18 Space (finale). All new.
+- Worlds not in code yet appear on the map as "coming soon" (locked).
