@@ -437,7 +437,7 @@ const IMG_TTL_MS = 60 * 24 * 3600 * 1000;
 
 // ───────────── עולמות קהילה ─────────────
 
-const WORLD_STYLES = new Set(["tundra", "tundra_mid", "jungle_mid", "rockforest_mid", "cyber_mid", "military_mid", "ruins_mid", "market_mid", "industrial_mid"]);
+const WORLD_STYLES = new Set(["tundra", "tundra_mid", "tundra_toon2", "jungle_mid", "rockforest_mid", "cyber_mid", "military_mid", "ruins_mid", "market_mid", "industrial_mid"]);
 const MAX_WORLD_BYTES = 1_800_000;
 const MAX_ANALYSIS_BYTES = 2_500_000;
 const SHARES_PER_DEVICE_PER_DAY = 10;
