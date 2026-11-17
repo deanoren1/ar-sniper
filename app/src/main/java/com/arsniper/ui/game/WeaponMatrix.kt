@@ -118,7 +118,16 @@ private const val NEUTRAL_HEIGHT = 0.5741f
 private const val NEUTRAL_WIDTH = 0.3639f
 
 /** מחליפים תמונה רק כשהיא טובה יותר בכמה מעלות לפחות (פחות החלפות = פחות קפיצות); הסיבוב הרציף משלים את השאר */
-private const val SWITCH_MARGIN = 5f
+private const val SWITCH_MARGIN = 2.5f
+
+/** כמה זמן (שניות) הרובה גולש מהמיקום של התמונה הקודמת למיקום של החדשה */
+private const val SLIDE_SECONDS = 0.16f
+
+/** כמה מהגלישה עוד נשאר (1 = הרגע הוחלף, 0 = הגיע) */
+private fun slideLeft(now: Float, switchedAt: Float): Float {
+    val t = ((now - switchedAt) / SLIDE_SECONDS).coerceIn(0f, 1f)
+    return (1f - t) * (1f - t) * (1f - t)
+}
 
 /** הסיבוב הדו-ממדי המרבי (מעלות) שמוסיפים לספרייט כדי שהקנה יעבור בדיוק דרך הכוונת */
 private const val MAX_RESIDUAL = 12f
@@ -194,6 +203,8 @@ internal fun DrawScope.drawWeaponMatrix(
             state[5] = centerCell.toFloat()
             state[7] = centerCell.toFloat()
             state[6] = timeSeconds - 1f
+            state[11] = 0f
+            state[12] = 0f
             art.warm(WeaponMatrixArt.CENTER_COL, WeaponMatrixArt.CENTER_ROW)
             return
         }
@@ -237,14 +248,34 @@ internal fun DrawScope.drawWeaponMatrix(
 
     val cell = WeaponMatrixArt.cellOf(col, row)
     art.warm(col, row)
+    // מיקום הלוע של תא (אחרי הסיבוב המשלים): לפיו מחשבים את הקפיצה בהחלפת תמונה
+    fun muzzleOf(c: Int): Offset {
+        val r = residualFor(c, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
+        val rr = Math.toRadians(r.toDouble())
+        val cs0 = kotlin.math.cos(rr).toFloat()
+        val sn0 = kotlin.math.sin(rr).toFloat()
+        val ax = frameL + frameW * MATRIX_MUZZLE_X[c] - pivot.x
+        val ay = frameT + frameH * MATRIX_MUZZLE_Y[c] - pivot.y
+        return Offset(pivot.x + ax * cs0 - ay * sn0, pivot.y + ax * sn0 + ay * cs0)
+    }
     if (cell != state[5].toInt().coerceIn(0, cols * rows - 1)) {
         // מחליפים רק כשהתמונה החדשה כבר בזיכרון. עד אז ממשיכים להציג את הקודמת (והסיבוב משלים את ההפרש)
         if (art.get(col, row) != null) {
+            val oldCell = state[5].toInt().coerceIn(0, cols * rows - 1)
+            // הקפיצה בין שתי התמונות (כולל מה שעוד נשאר מהחלקה קודמת) הופכת להחלקה קצרה: הרובה גולש למקום החדש במקום לקפוץ
+            val left = slideLeft(timeSeconds, state[6])
+            val a = muzzleOf(oldCell)
+            val b = muzzleOf(cell)
+            state[11] = (a.x - b.x + state[11] * left).coerceIn(-size.width * 0.12f, size.width * 0.12f)
+            state[12] = (a.y - b.y + state[12] * left).coerceIn(-size.height * 0.12f, size.height * 0.12f)
             state[7] = state[5]
             state[5] = cell.toFloat()
             state[6] = timeSeconds
         }
     }
+    val slide = slideLeft(timeSeconds, state[6])
+    val sx = state[11] * slide
+    val sy = state[12] * slide
     val shownCell = state[5].toInt().coerceIn(0, cols * rows - 1)
     val prevCell = state[7].toInt().coerceIn(0, cols * rows - 1)
     val shown = art.get(shownCell % cols, shownCell / cols) ?: art.last ?: return
@@ -267,7 +298,7 @@ internal fun DrawScope.drawWeaponMatrix(
     val sn = kotlin.math.sin(rad).toFloat()
     val mx0 = frameL + frameW * MATRIX_MUZZLE_X[shownCell] - pivot.x
     val my0 = frameT + frameH * MATRIX_MUZZLE_Y[shownCell] - pivot.y
-    val muzzle = Offset(pivot.x + mx0 * cs - my0 * sn + ox, pivot.y + mx0 * sn + my0 * cs + drop + oy)
+    val muzzle = Offset(pivot.x + mx0 * cs - my0 * sn + ox + sx, pivot.y + mx0 * sn + my0 * cs + drop + oy + sy)
 
     if (tracerTarget != null) drawTracer(muzzle, tracerTarget, since)
     val dstOffset = IntOffset((frameL + frameW * CROP_L).toInt(), (frameT + frameH * CROP_T).toInt())
@@ -279,7 +310,7 @@ internal fun DrawScope.drawWeaponMatrix(
             }
         }
     }
-    translate(ox, oy + drop) {
+    translate(ox + sx, oy + drop + sy) {
         rotate(residual, pivot) {
             drawImage(shown, IntOffset.Zero, IntSize(shown.width, shown.height), dstOffset, dstSize, alpha = if (prev != null) fade else 1f)
         }
