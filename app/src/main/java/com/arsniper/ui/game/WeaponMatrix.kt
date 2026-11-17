@@ -248,34 +248,24 @@ internal fun DrawScope.drawWeaponMatrix(
 
     val cell = WeaponMatrixArt.cellOf(col, row)
     art.warm(col, row)
-    // מיקום הלוע של תא (אחרי הסיבוב המשלים): לפיו מחשבים את הקפיצה בהחלפת תמונה
-    fun muzzleOf(c: Int): Offset {
-        val r = residualFor(c, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
-        val rr = Math.toRadians(r.toDouble())
-        val cs0 = kotlin.math.cos(rr).toFloat()
-        val sn0 = kotlin.math.sin(rr).toFloat()
-        val ax = frameL + frameW * MATRIX_MUZZLE_X[c] - pivot.x
-        val ay = frameT + frameH * MATRIX_MUZZLE_Y[c] - pivot.y
-        return Offset(pivot.x + ax * cs0 - ay * sn0, pivot.y + ax * sn0 + ay * cs0)
-    }
     if (cell != state[5].toInt().coerceIn(0, cols * rows - 1)) {
         // מחליפים רק כשהתמונה החדשה כבר בזיכרון. עד אז ממשיכים להציג את הקודמת (והסיבוב משלים את ההפרש)
         if (art.get(col, row) != null) {
             val oldCell = state[5].toInt().coerceIn(0, cols * rows - 1)
-            // הקפיצה בין שתי התמונות (כולל מה שעוד נשאר מהחלקה קודמת) הופכת להחלקה קצרה: הרובה גולש למקום החדש במקום לקפוץ
+            // בהחלפת תמונה הסיבוב המשלים קופץ (לתמונה החדשה זווית אחרת). את הקפיצה הזו מחליקים:
+            // התמונה החדשה מתחילה באותה הטיה כמו הקודמת ומתיישרת תוך 0.16 שניות (נבדק בסימולציה: חצי מהקפיצות)
             val left = slideLeft(timeSeconds, state[6])
-            val a = muzzleOf(oldCell)
-            val b = muzzleOf(cell)
-            state[11] = (a.x - b.x + state[11] * left).coerceIn(-size.width * 0.12f, size.width * 0.12f)
-            state[12] = (a.y - b.y + state[12] * left).coerceIn(-size.height * 0.12f, size.height * 0.12f)
+            val ro = residualFor(oldCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
+            val rn = residualFor(cell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
+            state[11] = (ro + state[11] * left - rn).coerceIn(-20f, 20f)
             state[7] = state[5]
             state[5] = cell.toFloat()
             state[6] = timeSeconds
         }
     }
-    val slide = slideLeft(timeSeconds, state[6])
-    val sx = state[11] * slide
-    val sy = state[12] * slide
+    val rotEase = state[11] * slideLeft(timeSeconds, state[6])
+    val sx = 0f
+    val sy = 0f
     val shownCell = state[5].toInt().coerceIn(0, cols * rows - 1)
     val prevCell = state[7].toInt().coerceIn(0, cols * rows - 1)
     val shown = art.get(shownCell % cols, shownCell / cols) ?: art.last ?: return
@@ -285,11 +275,14 @@ internal fun DrawScope.drawWeaponMatrix(
     art.last = shown
 
     // הסיבוב הרציף שמשלים את הכיוון לכוונת. התמונה הקודמת (בזמן המעבר) מסתובבת לפי הסיבוב שלה, כך ששתיהן מכוונות לאותה נקודה
-    val residual = residualFor(shownCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
+    val residual = residualFor(shownCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL) + rotEase
     val prevResidual = if (prev != null) residualFor(prevCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL) else residual
     val cropW = frameW * CROP_W
     // כשמסובבים, פינה אחת של התמונה מתרוממת מתחתית המסך: מורידים מעט את הרובה כדי שלא ייראה רווח
-    fun dropFor(r: Float) = (cropW / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(r).toDouble())).toFloat()
+    // ירידה קטנה ורציפה (1-cos): ירידה גדולה לפי sin גרמה לרובה "לקפץ" למעלה ולמטה בכל שינוי הטיה (נבדק בסימולציה).
+    // את הרווח שנפתח מתחת לזרוע כשהרובה נוטה ממלא עותק של הספרייט שמצויר מתחתיו (fill)
+    fun dropFor(r: Float) = (cropW / 2f) * (1f - kotlin.math.cos(Math.toRadians(r.toDouble())).toFloat())
+    val fill = (cropW / 2f) * kotlin.math.sin(Math.toRadians(kotlin.math.abs(residual).toDouble())).toFloat()
     val drop = dropFor(residual)
 
     // הלוע אחרי הסיבוב וההזזה: ממנו יוצאים קו הירי וההבזק
@@ -312,6 +305,9 @@ internal fun DrawScope.drawWeaponMatrix(
     }
     translate(ox + sx, oy + drop + sy) {
         rotate(residual, pivot) {
+            if (fill > 1f) {
+                drawImage(shown, IntOffset.Zero, IntSize(shown.width, shown.height), IntOffset(dstOffset.x, dstOffset.y + fill.toInt()), dstSize)
+            }
             drawImage(shown, IntOffset.Zero, IntSize(shown.width, shown.height), dstOffset, dstSize, alpha = if (prev != null) fade else 1f)
         }
     }
