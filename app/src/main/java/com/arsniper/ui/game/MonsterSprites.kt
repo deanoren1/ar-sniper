@@ -288,7 +288,8 @@ class MonsterSprites private constructor(
                     if (id2 == 0) break
                     loadRig2(context, id2)?.let {
                         // מפלצת rig2 מחליפה את הציור המקורי של אותו סוג (שאר המפלצות לא משתנות)
-                        if (m == 0 && REPLACE_ORIGINAL_WITH_RIG2) pools[foe].removeAll { sheet -> sheet.rig == null }
+                        // בארנה מעוצבת (למשל טונדרה) המפלצת של הארנה מחליפה גם את גיליון ה-rig2 הקלאסי של אותו סוג
+                        if (m == 0 && REPLACE_ORIGINAL_WITH_RIG2) pools[foe].removeAll { sheet -> sheet.rig == null || arena != "classic" }
                         pools[foe].add(it)
                     }
                     m++
