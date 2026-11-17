@@ -235,7 +235,13 @@ class IceRealm {
         get() = stage == Stage.Idle || stage == Stage.PreparingAttack || stage == Stage.Attacking || stage == Stage.HitReaction
 
     /** הבוס פגיע עכשיו (יש מעקב לנקודות בסרטון הזה) */
-    val vulnerable: Boolean get() = stage == Stage.Idle || stage == Stage.PreparingAttack
+    val vulnerable: Boolean
+        get() = when (stage) {
+            Stage.Idle, Stage.PreparingAttack -> true
+            // במתקפה ובתגובה: כל עוד יש מעקב אמין לנקודות (במתקפה עד רגע לפני התנועה המהירה)
+            Stage.Attacking, Stage.HitReaction -> clip?.let { IceBossTracks.covers(it, clipMs) } ?: false
+            else -> false
+        }
 
     val totalHp: Int get() = diamonds.sumOf { it.hp }
     val fraction: Float get() = totalHp.toFloat() / (diamonds.size * DIAMOND_HP)
@@ -545,8 +551,7 @@ class IceRealm {
             }
             return Hit.Guard
         }
-        if (stage == Stage.Attacking || stage == Stage.HitReaction) return Hit.Guard
-        if (!vulnerable) return Hit.None
+        if (!vulnerable) return if (stage == Stage.Attacking || stage == Stage.HitReaction) Hit.Guard else Hit.None
         if (hitThisTick) return Hit.None
         val z = zonesOnScreen(aspect, zoneBuf) ?: return Hit.None
         var best = -1
@@ -629,7 +634,7 @@ class IceRealm {
         const val CUT_FLASH_SECONDS = 0.22f
 
         /** כמה מהרדיוס של הנקודה נחשב פגיעה */
-        const val HIT_SCALE = 0.95f
+        const val HIT_SCALE = 1.3f
 
         /** אם הנגן מפגר יותר מזה אחרי השעון הפנימי, ממשיכים לפי השעון (הנגן נתקע) */
         const val STALL_MS = 600f

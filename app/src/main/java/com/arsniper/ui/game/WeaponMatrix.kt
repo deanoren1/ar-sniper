@@ -201,12 +201,15 @@ internal fun DrawScope.drawWeaponMatrix(
     }
 
     val tx = aimX * size.width
-    val ty = aimY * size.height
+    // כוונת קרובה לגובה הלוע: הנקודה שהקנה מכוון אליה מורמת לפחות 22% מגובה המסך מעל לוע קבוע (של התנוחה הישרה).
+    // קודם זה חושב מהלוע של כל תמונה, ואז כל החלפת תמונה שינתה את היעד והרובה הבהב בין שתי תנוחות
+    val anchorY = frameT + frameH * MATRIX_MUZZLE_Y[centerCell]
+    val ty = minOf(aimY * size.height, anchorY - size.height * 0.22f)
     // נקודת הסיבוב: תחתית הרובה באמצע המסך
     val pivot = Offset(frameL + frameW * 0.47f, size.height)
     // כוונת קרובה לגובה הלוע (או מתחתיו): אין תמונה שהקנה שלה אופקי, אז מחשבים כאילו הכוונת לפחות 22% מגובה המסך מעל הלוע.
     // שם הקנה פונה לכיוון הכוונת ולא עובר בדיוק דרכה
-    val minUp = size.height * 0.22f
+    val minUp = 1f
 
     // שורה לפי גובה הכוונת: למעלה = pitch +20, סביב 55% מהגובה = ישר, למטה = הכי נמוך (עם היסטרזיס)
     val pitch = if (aimY < 0.55f) ((0.55f - aimY) / 0.45f).coerceIn(0f, 1f) * 20f

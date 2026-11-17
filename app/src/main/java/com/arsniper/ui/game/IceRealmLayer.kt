@@ -330,8 +330,9 @@ private fun DrawScope.drawDiamonds(realm: IceRealm, z: FloatArray) {
         val idx = d.zone.index
         val x = z[idx * 3] * size.width
         val y = z[idx * 3 + 1] * size.height
-        val r = z[idx * 3 + 2] * size.height * 0.5f
+        val r = z[idx * 3 + 2] * size.height * 0.55f
         val c = Offset(x, y)
+        val sw = size.height * 0.008f
         if (!d.alive) {
             val g = Color(0xFF8A96B0).copy(alpha = 0.7f)
             drawCircle(g, r * 0.5f, c, style = Stroke(width = 4f))
@@ -343,12 +344,12 @@ private fun DrawScope.drawDiamonds(realm: IceRealm, z: FloatArray) {
         val pulse = 0.5f + 0.5f * sin(t * 5f + i)
         val base = if (exposed) Color(0xFFFFD34D) else Color(0xFF8FF0FF)
         drawCircle(
-            Brush.radialGradient(listOf(base.copy(alpha = 0.35f + 0.2f * pulse), Color.Transparent), center = c, radius = r * 1.6f),
-            r * 1.6f, c
+            Brush.radialGradient(listOf(base.copy(alpha = 0.5f + 0.25f * pulse), base.copy(alpha = 0.15f), Color.Transparent), center = c, radius = r * 1.7f),
+            r * 1.7f, c
         )
-        drawCircle(Color(0xFF06182E).copy(alpha = 0.55f), r * 0.86f, c, style = Stroke(width = 9f))
-        drawCircle(base.copy(alpha = 0.95f), r * 0.86f, c, style = Stroke(width = if (exposed) 7f else 5f))
-        drawCircle(Color.White.copy(alpha = 0.5f + 0.4f * pulse), r * 0.86f * (1.08f + 0.12f * pulse), c, style = Stroke(width = 2f))
+        drawCircle(Color(0xFF06182E).copy(alpha = 0.75f), r * 0.86f, c, style = Stroke(width = sw * 2.2f))
+        drawCircle(base, r * 0.86f, c, style = Stroke(width = if (exposed) sw * 1.6f else sw * 1.2f))
+        drawCircle(Color.White.copy(alpha = 0.6f + 0.4f * pulse), r * 0.86f * (1.1f + 0.12f * pulse), c, style = Stroke(width = sw * 0.5f))
         // יהלום קטן במרכז
         val dr = r * 0.28f
         val gem = Path().apply { moveTo(x, y - dr); lineTo(x + dr * 0.75f, y); lineTo(x, y + dr); lineTo(x - dr * 0.75f, y); close() }
