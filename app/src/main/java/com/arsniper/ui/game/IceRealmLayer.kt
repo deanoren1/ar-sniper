@@ -31,7 +31,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.arsniper.R
 import com.arsniper.data.PlayerProfile
 import com.arsniper.game.engine.BossFrame
-import com.arsniper.game.engine.DangerZone
 import com.arsniper.game.engine.IceRealm
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
@@ -56,8 +55,9 @@ fun IceRealmLayer(
     floorAt: ((Float, Float) -> Boolean)? = null,
     worldAspect: Float = 2f,
     camMap: FloatArray = cameraMap(1f, 1f, 0.5f, 0.5f),
-    aimX: Float = 0.5f,
-    aimY: Float = 0.5f,
+    bossZoom: Float = 1f,
+    bossCenterX: Float = 0.5f,
+    bossCenterY: Float = 0.5f,
     modifier: Modifier = Modifier
 ) {
     if (!realm.visible) return
@@ -135,17 +135,24 @@ fun IceRealmLayer(
 
     // כשהבוס פוגע: כל השכבה רועדת (כמו הארנה), ומוגדלת קצת בזמן הרעידה כדי שלא ייראו קצוות
     val t = nowNanos / 1_000_000_000f
+    // זום על הבוס: כשהווידאו מכסה, הבוס הוא "העולם", והמצלמה (זום + מרכז שעוקב אחרי הכוונת) מגדילה אותו
+    val bz = if (videoShown) bossZoom.coerceAtLeast(1f) else 1f
+    val bcx = if (videoShown) bossCenterX else 0.5f
+    val bcy = if (videoShown) bossCenterY else 0.5f
+    Box(modifier = modifier.fillMaxSize()) {
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
-                if (shake > 0f) {
-                    translationX = sin(t * 83f) * shake * size.width * 0.012f
-                    translationY = cos(t * 97f) * shake * size.height * 0.016f
-                    val sc = 1f + 0.04f * shake.coerceAtMost(1f)
-                    scaleX = sc
-                    scaleY = sc
-                }
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                val sc = bz * (1f + 0.04f * shake.coerceIn(0f, 1f))
+                scaleX = sc
+                scaleY = sc
+                // מרכז ההגדלה בשולי הרעידה: מגדילים מעט כדי שלא ייראו קצוות
+                val shakeX = if (shake > 0f) sin(t * 83f) * shake * size.width * 0.012f - 0.02f * shake.coerceIn(0f, 1f) * size.width * bz else 0f
+                val shakeY = if (shake > 0f) cos(t * 97f) * shake * size.height * 0.016f - 0.02f * shake.coerceIn(0f, 1f) * size.height * bz else 0f
+                translationX = (0.5f - bcx * bz) * size.width + shakeX
+                translationY = (0.5f - bcy * bz) * size.height + shakeY
             }
     ) {
         AndroidView(
@@ -202,10 +209,9 @@ fun IceRealmLayer(
                 }
             }
 
-            // אזור הסכנה של המתקפה, רגע לפני הפגיעה: לצאת ממנו עם הכוונת
-            realm.warnZone?.let { drawDanger(it, realm.warnFraction, realm.time, aimX, aimY, realm.attacksSeen <= 3) }
+            // מטרות החסימה של המתקפה: לפגוע בהן לפני המכה
+            if (realm.targetsActive) drawTargets(realm)
             if (realm.dazzle > 0f) drawDazzle(realm.dazzle / IceRealm.DAZZLE_SECONDS)
-            if (realm.dodgeFlash > 0f) drawDodged(realm.dodgeFlash / IceRealm.DODGE_FLASH_SECONDS)
 
             // פגיעה ביהלום: הבזק קטן במקום הפגיעה
             if (realm.hitFlash > 0f) {
@@ -223,96 +229,75 @@ fun IceRealmLayer(
                 drawRect(Color.White.copy(alpha = 0.85f * (realm.cutFlash / IceRealm.CUT_FLASH_SECONDS)))
             }
 
+        }
+    }
+        // שכבת מסך (לא מוגדלת): מד חיים, "BLOCKED!", והסבר בהתחלה
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            if (nowNanos < 0L) return@Canvas
             if (realm.fighting) drawBossBar(realm)
+            if (realm.dodgeFlash > 0f) drawBlocked(realm.dodgeFlash / IceRealm.DODGE_FLASH_SECONDS)
+            if (realm.targetsActive && realm.attacksSeen <= 3) {
+                val paint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    isFakeBoldText = true
+                    color = android.graphics.Color.WHITE
+                    textSize = size.height * 0.045f
+                    setShadowLayer(10f, 0f, 3f, android.graphics.Color.BLACK)
+                }
+                drawContext.canvas.nativeCanvas.drawText("Shoot the target to block the attack!", size.width / 2f, size.height * 0.2f, paint)
+            }
         }
     }
 }
 
 /**
- * אזור הסכנה, רגע לפני מכה: אם הכוונת בפנים הוא אדום ומהבהב, עם "MOVE!" וחץ גדול לכיוון היציאה הקרובה;
- * כשהכוונת יצאה הוא נהיה כחול-בהיר עם "SAFE". בשלוש המתקפות הראשונות מוצג גם הסבר קצר.
+ * מטרת החסימה: עיגול קרח זוהר עם מרכז, וטבעת אדומה שמתכווצת עד רגע המכה.
+ * בזעם יש שתיים ברצף: הנוכחית בולטת, הבאה מוצגת חלשה עם מספר.
  */
-private fun DrawScope.drawDanger(zone: DangerZone, k: Float, time: Float, aimX: Float, aimY: Float, tutorial: Boolean) {
-    val r = BossFrame.rect(size.width / size.height)
-    val vx = (aimX - r[0]) / r[2]
-    val vy = (aimY - r[1]) / r[3]
-    val inside = zone.contains(vx, vy)
-    val pulse = 0.5f + 0.5f * sin(time * (10f + 20f * k))
-    val fillC = if (inside) Color(0xFFFF2A2A).copy(alpha = 0.22f + 0.25f * k + 0.1f * pulse) else Color(0xFF9FDFFF).copy(alpha = 0.12f)
-    val edge = if (inside) Color(0xFFFF6A4A).copy(alpha = 0.7f + 0.3f * pulse) else Color(0xFFBFEFFF).copy(alpha = 0.5f)
-    val sw = 7f
-    fun sx(fx: Float) = BossFrame.fracToScreenX(fx, r) * size.width
-    fun sy(fy: Float) = BossFrame.fracToScreenY(fy, r) * size.height
-    when (zone) {
-        is DangerZone.Box -> {
-            val tl = Offset(sx(zone.l), sy(zone.t))
-            val sz = Size(sx(zone.r) - tl.x, sy(zone.b) - tl.y)
-            drawRect(fillC, tl, sz)
-            drawRect(edge, tl, sz, style = Stroke(width = sw))
-        }
-        is DangerZone.Circle -> {
-            val c = Offset(sx(zone.cx), sy(zone.cy))
-            val rad = zone.radius * r[3] * size.height
-            drawCircle(fillC, rad, c)
-            drawCircle(edge, rad, c, style = Stroke(width = sw))
-        }
-        is DangerZone.Band -> {
-            val hpx = zone.half * r[3] * size.height
-            val ax = sx(zone.x0); val ay = sy(zone.y0); val bx = sx(zone.x1); val by = sy(zone.y1)
-            val len = kotlin.math.hypot(bx - ax, by - ay)
-            val nx = -(by - ay) / len * hpx
-            val ny = (bx - ax) / len * hpx
-            val path = Path().apply {
-                moveTo(ax + nx, ay + ny); lineTo(bx + nx, by + ny); lineTo(bx - nx, by - ny); lineTo(ax - nx, ay - ny); close()
+private fun DrawScope.drawTargets(realm: IceRealm) {
+    val h = size.height
+    val left = realm.targetTimeLeft
+    val pulse = 0.5f + 0.5f * sin(realm.time * (12f + 16f * (1f - left)))
+    for (i in realm.targetIndex until realm.targetCount) {
+        val c = Offset(realm.targets[i * 2] * size.width, realm.targets[i * 2 + 1] * h)
+        val r = realm.targetRadius * h
+        val current = i == realm.targetIndex
+        val a = if (current) 1f else 0.35f
+        drawCircle(
+            Brush.radialGradient(listOf(Color(0xFFBFF4FF).copy(alpha = 0.55f * a), Color(0xFF2EA8FF).copy(alpha = 0.25f * a), Color.Transparent), center = c, radius = r * 2.2f),
+            r * 2.2f, c
+        )
+        drawCircle(Color.White.copy(alpha = 0.95f * a), r, c, style = Stroke(width = 5f))
+        drawCircle(Color(0xFF7FE6FF).copy(alpha = 0.9f * a), r * 0.55f, c, style = Stroke(width = 4f))
+        drawCircle(Color.White.copy(alpha = a), r * 0.16f, c)
+        if (current) {
+            // הזמן שנשאר: טבעת אדומה שמתכווצת אל המטרה
+            drawCircle(Color(0xFFFF4A3A).copy(alpha = 0.6f + 0.4f * pulse), r * (1.15f + 1.6f * left), c, style = Stroke(width = 6f))
+        } else {
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                textAlign = android.graphics.Paint.Align.CENTER
+                isFakeBoldText = true
+                color = android.graphics.Color.WHITE
+                textSize = r * 1.1f
             }
-            drawPath(path, fillC)
-            drawPath(path, edge, style = Stroke(width = sw))
+            drawContext.canvas.nativeCanvas.drawText("${i + 1}", c.x, c.y + r * 0.38f, paint)
         }
     }
-    val cx = aimX * size.width
-    val cy = aimY * size.height
+}
+
+/** "BLOCKED!" באמצע המסך אחרי חסימה */
+private fun DrawScope.drawBlocked(k: Float) {
     val paint = android.graphics.Paint().apply {
         isAntiAlias = true
+        color = android.graphics.Color.argb((255 * k.coerceIn(0f, 1f)).toInt(), 0x6F, 0xF0, 0xFF)
+        textSize = size.height * (0.1f + 0.02f * (1f - k))
         textAlign = android.graphics.Paint.Align.CENTER
         isFakeBoldText = true
-        setShadowLayer(10f, 0f, 3f, android.graphics.Color.BLACK)
+        setShadowLayer(14f, 0f, 4f, android.graphics.Color.BLACK)
     }
-    if (inside) {
-        // הכיוון הקצר ביותר החוצה (בודקים 16 כיוונים מהכוונת)
-        var bestA = 0f
-        var bestD = Float.MAX_VALUE
-        for (i in 0 until 16) {
-            val a = i / 16f * 2f * kotlin.math.PI.toFloat()
-            var d = 0.02f
-            while (d < 1.2f && zone.contains(vx + cos(a) * d / BossFrame.VIDEO_ASPECT, vy + sin(a) * d)) d += 0.02f
-            if (d < bestD) { bestD = d; bestA = a }
-        }
-        val dirX = cos(bestA)
-        val dirY = sin(bestA)
-        val len = size.height * 0.16f
-        val start = Offset(cx + dirX * size.height * 0.07f, cy + dirY * size.height * 0.07f)
-        val end = Offset(start.x + dirX * len, start.y + dirY * len)
-        val arrow = Color.White.copy(alpha = 0.75f + 0.25f * pulse)
-        drawLine(arrow, start, end, strokeWidth = 12f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        val back = 0.42f * len
-        val wing = 0.6f
-        val ex = end.x - dirX * back
-        val ey = end.y - dirY * back
-        drawLine(arrow, end, Offset(ex - dirY * back * wing, ey + dirX * back * wing), strokeWidth = 12f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        drawLine(arrow, end, Offset(ex + dirY * back * wing, ey - dirX * back * wing), strokeWidth = 12f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        paint.color = android.graphics.Color.argb(255, 255, 90, 70)
-        paint.textSize = size.height * 0.075f
-        drawContext.canvas.nativeCanvas.drawText("MOVE!", cx, cy - size.height * 0.1f, paint)
-    } else {
-        paint.color = android.graphics.Color.argb(230, 170, 240, 255)
-        paint.textSize = size.height * 0.06f
-        drawContext.canvas.nativeCanvas.drawText("SAFE", cx, cy - size.height * 0.1f, paint)
-    }
-    if (tutorial) {
-        paint.color = android.graphics.Color.WHITE
-        paint.textSize = size.height * 0.042f
-        drawContext.canvas.nativeCanvas.drawText("Move the crosshair out of the red zone with the joystick!", size.width / 2f, size.height * 0.33f, paint)
-    }
+    drawContext.canvas.nativeCanvas.drawText("BLOCKED!", size.width / 2f, size.height * 0.42f, paint)
 }
 
 /**
@@ -334,45 +319,46 @@ private fun DrawScope.drawDazzle(k: Float) {
     drawRect(Color.White.copy(alpha = 0.22f * a2))
 }
 
-/** "DODGE!" באמצע המסך אחרי התחמקות */
-private fun DrawScope.drawDodged(k: Float) {
-    val paint = android.graphics.Paint().apply {
-        isAntiAlias = true
-        color = android.graphics.Color.argb((255 * k.coerceIn(0f, 1f)).toInt(), 0x9F, 0xF0, 0xFF)
-        textSize = size.height * (0.09f + 0.02f * (1f - k))
-        textAlign = android.graphics.Paint.Align.CENTER
-        isFakeBoldText = true
-        setShadowLayer(10f, 0f, 3f, android.graphics.Color.BLACK)
-    }
-    drawContext.canvas.nativeCanvas.drawText("DODGE!", size.width / 2f, size.height * 0.42f, paint)
-}
 
-/** סימוני היהלומים במיקום שלהם על הבוס: טבעת זוהרת; הדלוק בהכנה בזהב עם טבעת אדומה שמתכווצת; שבור = X אפור */
+/**
+ * נקודות התורפה (היהלומים) על הבוס: טבעת כפולה ברורה עם זוהר ויהלום קטן במרכז, וחיים שנשארו כנקודות.
+ * הזהוב (בהכנה למתקפה) = נזק כפול. שבור = X אפור.
+ */
 private fun DrawScope.drawDiamonds(realm: IceRealm, z: FloatArray) {
     val t = realm.time
     for ((i, d) in realm.diamonds.withIndex()) {
         val idx = d.zone.index
         val x = z[idx * 3] * size.width
         val y = z[idx * 3 + 1] * size.height
-        val r = z[idx * 3 + 2] * size.height * 0.55f
+        val r = z[idx * 3 + 2] * size.height * 0.5f
+        val c = Offset(x, y)
         if (!d.alive) {
-            val c = Color(0xFF7A8AA8).copy(alpha = 0.55f)
-            drawCircle(c, r * 0.45f, Offset(x, y), style = Stroke(width = 3f))
-            drawLine(c, Offset(x - r * 0.25f, y - r * 0.25f), Offset(x + r * 0.25f, y + r * 0.25f), strokeWidth = 3f)
-            drawLine(c, Offset(x + r * 0.25f, y - r * 0.25f), Offset(x - r * 0.25f, y + r * 0.25f), strokeWidth = 3f)
+            val g = Color(0xFF8A96B0).copy(alpha = 0.7f)
+            drawCircle(g, r * 0.5f, c, style = Stroke(width = 4f))
+            drawLine(g, Offset(x - r * 0.3f, y - r * 0.3f), Offset(x + r * 0.3f, y + r * 0.3f), strokeWidth = 4f)
+            drawLine(g, Offset(x + r * 0.3f, y - r * 0.3f), Offset(x - r * 0.3f, y + r * 0.3f), strokeWidth = 4f)
             continue
         }
         val exposed = i == realm.exposed
-        val pulse = 0.5f + 0.5f * sin(t * 4f + i)
-        val base = if (exposed) Color(0xFFFFD34D) else Color(0xFF7FE6FF)
+        val pulse = 0.5f + 0.5f * sin(t * 5f + i)
+        val base = if (exposed) Color(0xFFFFD34D) else Color(0xFF8FF0FF)
         drawCircle(
-            Brush.radialGradient(listOf(base.copy(alpha = if (exposed) 0.55f else 0.10f + 0.08f * pulse), Color.Transparent), center = Offset(x, y), radius = r * 1.4f),
-            r * 1.4f, Offset(x, y)
+            Brush.radialGradient(listOf(base.copy(alpha = 0.35f + 0.2f * pulse), Color.Transparent), center = c, radius = r * 1.6f),
+            r * 1.6f, c
         )
-        drawCircle(base.copy(alpha = if (exposed) 0.95f else 0.35f + 0.2f * pulse), r * 0.8f, Offset(x, y), style = Stroke(width = if (exposed) 6f else 3f))
-        // חיים שנשארו ביהלום: נקודות קטנות מתחתיו
+        drawCircle(Color(0xFF06182E).copy(alpha = 0.55f), r * 0.86f, c, style = Stroke(width = 9f))
+        drawCircle(base.copy(alpha = 0.95f), r * 0.86f, c, style = Stroke(width = if (exposed) 7f else 5f))
+        drawCircle(Color.White.copy(alpha = 0.5f + 0.4f * pulse), r * 0.86f * (1.08f + 0.12f * pulse), c, style = Stroke(width = 2f))
+        // יהלום קטן במרכז
+        val dr = r * 0.28f
+        val gem = Path().apply { moveTo(x, y - dr); lineTo(x + dr * 0.75f, y); lineTo(x, y + dr); lineTo(x - dr * 0.75f, y); close() }
+        drawPath(gem, Color.White.copy(alpha = 0.9f))
+        drawPath(gem, base, style = Stroke(width = 3f))
+        // חיים שנשארו ביהלום
         for (k in 0 until d.hp) {
-            drawCircle(Color.White.copy(alpha = 0.85f), 4f, Offset(x + (k - (d.hp - 1) / 2f) * 14f, y + r * 0.95f))
+            val p = Offset(x + (k - (d.hp - 1) / 2f) * 18f, y + r * 1.08f)
+            drawCircle(Color(0xFF06182E), 7f, p)
+            drawCircle(Color.White, 5f, p)
         }
     }
 }

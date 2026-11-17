@@ -8,7 +8,7 @@ import kotlin.random.Random
  * startMs = מאיפה מתחילים: בסרטוני הפגיעה הפריימים הראשונים כמעט זהים לעמידה, אז מדלגים ישר לרגע שהבוס מגיב.
  */
 enum class BossClip(val durationMs: Float, val loop: Boolean = false, val startMs: Float = 0f) {
-    Intro(6750f),
+    Intro(6667f),
     Breath(5042f),
     Prepare(5042f),
     Attack1(4042f),
@@ -23,65 +23,32 @@ enum class BossClip(val durationMs: Float, val loop: Boolean = false, val startM
     Death(4042f)
 }
 
-/**
- * אזור הסכנה של מתקפה, בשברי הווידאו (x = חלק מהרוחב, y = חלק מהגובה). מרחקים במעגל/פס ביחידות של גובה הווידאו.
- * ברגע הפגיעה: אם הכוונת (שזזה בג'ויסטיק) בתוך האזור, השחקן נפגע; אם הספיק להזיז אותה החוצה, הוא התחמק.
- */
-sealed class DangerZone {
-    abstract fun contains(vx: Float, vy: Float): Boolean
-
-    class Box(val l: Float, val t: Float, val r: Float, val b: Float) : DangerZone() {
-        override fun contains(vx: Float, vy: Float) = vx in l..r && vy in t..b
-    }
-
-    class Circle(val cx: Float, val cy: Float, val radius: Float) : DangerZone() {
-        override fun contains(vx: Float, vy: Float): Boolean {
-            val dx = (vx - cx) * BossFrame.VIDEO_ASPECT
-            val dy = vy - cy
-            return dx * dx + dy * dy <= radius * radius
-        }
-    }
-
-    /** פס אלכסוני מ-(x0,y0) ל-(x1,y1), חצי רוחב half */
-    class Band(val x0: Float, val y0: Float, val x1: Float, val y1: Float, val half: Float) : DangerZone() {
-        override fun contains(vx: Float, vy: Float): Boolean {
-            val a = BossFrame.VIDEO_ASPECT
-            val px = vx * a; val ax = x0 * a; val bx = x1 * a
-            val ex = bx - ax; val ey = y1 - y0
-            val k = (((px - ax) * ex + (vy - y0) * ey) / (ex * ex + ey * ey)).coerceIn(0f, 1f)
-            val dx = px - (ax + ex * k); val dy = vy - (y0 + ey * k)
-            return dx * dx + dy * dy <= half * half
-        }
-    }
-}
-
 /** מרכז הסינוור של כדור הקרח (סרטון 6), בשברי הווידאו: איפה שהכדור פוגע, בצד ימין של המסך */
 const val DAZZLE_X = 0.66f
 const val DAZZLE_Y = 0.6f
 
 /**
  * מתקפות הבוס. impactMs = רגע הפגיעה בסרטון (נמדד מהפריים שבו המכה מגיעה למסך), ורק אז השחקן נפגע.
- * כל מתקפה פוגעת באזור אחר על המסך (zone), ואזור הסכנה מופיע רק רגע לפני הפגיעה: מזיזים את הכוונת החוצה בג'ויסטיק.
+ * הגנה: רגע לפני כל מכה מופיעה מטרה קטנה במקום אקראי (בזעם: שתיים ברצף). פוגעים בה בזמן = המכה נחסמת.
  * פגיעה מורידה לב אחד דרך מערכת הלבבות הקיימת, עם רטט ורעידת מסך.
  */
 enum class BossAttack(
     val clip: BossClip,
     val impactMs: Float,
     val shake: Float,
-    val zone: DangerZone,
     val dazzle: Boolean = false
 ) {
     /** סרטון 3 (Attack1): חבטת טופר אל המצלמה. בא תמיד אחרי סרטון 2 (ההכנה) */
-    ClawSwipe(BossClip.Attack1, 2083f, 1.0f, DangerZone.Box(0.12f, 0.30f, 0.60f, 1.0f)),
+    ClawSwipe(BossClip.Attack1, 2083f, 1.0f),
 
     /** סרטון 5 (Attack3): הלמות שתי האגרופים בקרקע, גל ברקים */
-    ThunderSlam(BossClip.Attack3, 1750f, 1.2f, DangerZone.Box(0f, 0.56f, 1f, 1f)),
+    ThunderSlam(BossClip.Attack3, 1750f, 1.2f),
 
     /** סרטון 6 (Attack5): כדור קרח שנזרק ופוגע במסך בצד ימין; המסך מסתנוור בצד, לא במרכז */
-    FrostOrb(BossClip.Attack5, 2625f, 1.0f, DangerZone.Circle(DAZZLE_X, DAZZLE_Y, 0.27f), dazzle = true),
+    FrostOrb(BossClip.Attack5, 2625f, 1.0f, dazzle = true),
 
     /** סרטון 7 (Attack4): קפיצה ונחיתה, גל קרח לאורך הרצפה */
-    GroundPound(BossClip.Attack4, 1750f, 1.1f, DangerZone.Box(0.32f, 0f, 0.68f, 1f))
+    GroundPound(BossClip.Attack4, 1750f, 1.1f)
 }
 
 /**
@@ -191,21 +158,66 @@ class IceRealm {
     var dodgeFlash: Float = 0f
         private set
 
-    /** אזור הסכנה שמוצג עכשיו (null = אין), ועוצמת ההתראה 0..1 (מתמלאת עד רגע הפגיעה) */
-    val warnZone: DangerZone?
-        get() {
-            val a = attack ?: return null
-            if (stage != Stage.Attacking || impactDone) return null
-            return if (clipMs >= a.impactMs - warnMs()) a.zone else null
-        }
-    val warnFraction: Float
+    // ---- מטרות החסימה: רגע לפני מכה מופיעה מטרה קטנה במקום אחר בכל פעם; פוגעים בה = המכה נחסמת ----
+    /** מיקומי המטרות (שברי מסך כשאין זום): x0, y0, x1, y1 */
+    val targets = FloatArray(4)
+
+    /** כמה מטרות יש במתקפה הזו (0 = עוד לא הופיעו), ואיזו מהן הנוכחית */
+    var targetCount: Int = 0
+        private set
+    var targetIndex: Int = 0
+        private set
+
+    /** רדיוס המטרה (חלק מגובה המסך) */
+    var targetRadius: Float = 0.05f
+        private set
+
+    /** המכה נחסמה (כל המטרות נפגעו בזמן) */
+    var blocked: Boolean = false
+        private set
+    var blockFlash: Float = 0f
+        private set
+
+    /** המטרות מוצגות עכשיו */
+    val targetsActive: Boolean get() = stage == Stage.Attacking && !impactDone && targetCount > 0 && !blocked
+
+    /** כמה זמן נשאר עד המכה, 1 = הרגע הופיעה, 0 = המכה */
+    val targetTimeLeft: Float
         get() {
             val a = attack ?: return 0f
-            if (stage != Stage.Attacking || impactDone) return 0f
-            return ((clipMs - (a.impactMs - warnMs())) / warnMs()).coerceIn(0f, 1f)
+            return ((a.impactMs - clipMs) / warnMs()).coerceIn(0f, 1f)
         }
 
+    private fun spawnTargets() {
+        val n = if (phase == 3) 2 else 1
+        targetCount = n
+        targetIndex = 0
+        targetRadius = when (phase) { 1 -> 0.06f; 2 -> 0.032f; else -> 0.042f }
+        for (i in 0 until n) {
+            var x: Float
+            var y: Float
+            var tries = 0
+            do {
+                x = 0.22f + Random.nextFloat() * 0.56f
+                y = 0.26f + Random.nextFloat() * 0.44f
+                tries++
+                val farFromFirst = i == 0 || kotlin.math.hypot(x - targets[0], y - targets[1]) > 0.28f
+                val farFromLast = kotlin.math.hypot(x - lastTargetX, y - lastTargetY) > 0.2f
+            } while ((!farFromFirst || !farFromLast) && tries < 20)
+            targets[i * 2] = x
+            targets[i * 2 + 1] = y
+        }
+        lastTargetX = targets[(n - 1) * 2]
+        lastTargetY = targets[(n - 1) * 2 + 1]
+    }
+
+    private var lastTargetX = 0.5f
+    private var lastTargetY = 0.5f
+
     private fun warnMs() = when (phase) { 1 -> WARN_MS_PHASE1; 2 -> WARN_MS_PHASE2; else -> WARN_MS_PHASE3 }
+
+    /** שלב 1: אחרי כל מתקפה הבוס נושם (חלון ירי) */
+    private var restPending = false
 
     private var hitThisTick = false
     private var deathHold = 0f
@@ -289,6 +301,11 @@ class IceRealm {
         dazzle = 0f
         comboChained = false
         covering = false
+        targetCount = 0
+        targetIndex = 0
+        blocked = false
+        blockFlash = 0f
+        restPending = false
         attacksSeen = 0
         hitThisTick = false
         deathHold = 0f
@@ -343,8 +360,8 @@ class IceRealm {
      * מקדם פריים. onImpact נקרא פעם אחת לכל מתקפה, ברגע הפגיעה שבסרטון. onWin כשהמוות הסתיים.
      */
     fun update(
-        dt: Float, aimX: Float, aimY: Float, aspect: Float,
-        onImpact: (BossAttack) -> Unit, onDodge: (BossAttack) -> Unit, onWin: () -> Unit
+        dt: Float,
+        onImpact: (BossAttack) -> Unit, onBlock: (BossAttack) -> Unit, onWin: () -> Unit
     ) {
         if (!active) return
         time += dt
@@ -352,6 +369,7 @@ class IceRealm {
         hitFlash = (hitFlash - dt).coerceAtLeast(0f)
         dodgeFlash = (dodgeFlash - dt).coerceAtLeast(0f)
         dazzle = (dazzle - dt).coerceAtLeast(0f)
+        blockFlash = (blockFlash - dt).coerceAtLeast(0f)
         cutFlash = (cutFlash - dt).coerceAtLeast(0f)
         hitThisTick = false
         advanceClock(dt)
@@ -369,18 +387,15 @@ class IceRealm {
                 if (a == null) {
                     enterIdle()
                 } else {
+                    if (targetCount == 0 && clipMs >= a.impactMs - warnMs()) spawnTargets()
                     if (!impactDone && clipMs >= a.impactMs) {
                         impactDone = true
-                        if (a.dazzle) dazzle = DAZZLE_SECONDS
-                        // הכוונת היא המקום של השחקן: בתוך האזור = נפגע, מחוץ = התחמק
-                        val r = BossFrame.rect(aspect)
-                        val vx = (aimX - r[0]) / r[2]
-                        val vy = (aimY - r[1]) / r[3]
-                        if (a.zone.contains(vx, vy)) {
-                            onImpact(a)
-                        } else {
+                        if (a.dazzle && !blocked) dazzle = DAZZLE_SECONDS
+                        if (blocked) {
                             dodgeFlash = DODGE_FLASH_SECONDS
-                            onDodge(a)
+                            onBlock(a)
+                        } else {
+                            onImpact(a)
                         }
                     }
                     if (clipDone()) {
@@ -392,6 +407,7 @@ class IceRealm {
                             startAttack(others[Random.nextInt(others.size)])
                         } else {
                             comboChained = false
+                            if (phase == 1) restPending = true
                             nextStep()
                         }
                     }
@@ -412,6 +428,13 @@ class IceRealm {
 
     /** הצעד הבא: קודם הסדר הקבוע (2+3, 4, 5, 6, 7), ואז אקראי בלי חזרה על אותו צעד ברצף */
     private fun nextStep() {
+        // שלב 1: מנוחה (נשימה) אחרי כל מתקפה, לפני הצעד הבא
+        if (restPending && phase == 1 && lastStep != Step.Breath) {
+            restPending = false
+            enterIdle()
+            return
+        }
+        restPending = false
         val step = if (scriptIndex < script.size) {
             script[scriptIndex++]
         } else {
@@ -457,6 +480,9 @@ class IceRealm {
 
     private fun startAttack(a: BossAttack) {
         attacksSeen += 1
+        targetCount = 0
+        targetIndex = 0
+        blocked = false
         exposed = -1
         attack = a
         impactDone = false
@@ -499,6 +525,26 @@ class IceRealm {
      * לכל היותר פגיעה אחת שגורמת נזק בכל פריים, ותגובת פגיעה לא מתחילה מחדש באמצע תגובה.
      */
     fun shoot(px: Float, py: Float, aspect: Float): Hit {
+        // מטרת החסימה של המתקפה
+        if (targetsActive) {
+            if (hitThisTick) return Hit.None
+            val tx = targets[targetIndex * 2]
+            val ty = targets[targetIndex * 2 + 1]
+            if (hypot((px - tx) * aspect, py - ty) <= targetRadius * 1.15f) {
+                hitThisTick = true
+                hitFlash = HIT_FLASH_SECONDS
+                hitX = px
+                hitY = py
+                targetIndex += 1
+                if (targetIndex >= targetCount) {
+                    blocked = true
+                    blockFlash = BLOCK_FLASH_SECONDS
+                    return Hit.Block
+                }
+                return Hit.Target
+            }
+            return Hit.Guard
+        }
         if (stage == Stage.Attacking || stage == Stage.HitReaction) return Hit.Guard
         if (!vulnerable) return Hit.None
         if (hitThisTick) return Hit.None
@@ -544,7 +590,7 @@ class IceRealm {
     }
 
     /** None = לא על הבוס; Deflect = גוף בלי יהלום; Guard = הבוס לא פגיע עכשיו (מתקפה/תגובה) */
-    enum class Hit { None, Deflect, Guard, Hit, Bonus, Broke, Killed }
+    enum class Hit { None, Deflect, Guard, Hit, Bonus, Broke, Killed, Target, Block }
 
     companion object {
         const val DIAMOND_HP = 3
@@ -561,14 +607,17 @@ class IceRealm {
         const val CRACKS_SECONDS = 2.0f
 
         /** כמה זמן לפני הפגיעה מופיע אזור הסכנה (קשה: מספיק רק למי שזז מהר), ובזעם */
-        const val WARN_MS_PHASE1 = 1100f
-        const val WARN_MS_PHASE2 = 800f
-        const val WARN_MS_PHASE3 = 600f
+        /** כמה זמן לפני המכה מופיעה מטרת החסימה (בזעם: לשתי המטרות יחד) */
+        const val WARN_MS_PHASE1 = 1600f
+        const val WARN_MS_PHASE2 = 1200f
+        const val WARN_MS_PHASE3 = 1700f
+
+        const val BLOCK_FLASH_SECONDS = 0.5f
 
         const val DODGE_FLASH_SECONDS = 0.8f
 
         /** הפורטל (סרטון 0, בלי הרקע הירוק) מעל הארנה, לפני סרטון הכניסה */
-        const val PORTAL_SECONDS = 4.04f
+        const val PORTAL_SECONDS = 29f / 24f
 
         /** כמה זמן המסך מסתנוור מכדור הקרח (כ-14 פריימים) */
         const val DAZZLE_SECONDS = 0.6f

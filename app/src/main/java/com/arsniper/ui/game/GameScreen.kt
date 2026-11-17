@@ -600,11 +600,10 @@ fun GameScreen(
                         director.realmTick(dt)
                         // הרצפה נסדקת: רעידה קלה שמתחזקת
                         if (realm.stage == IceRealm.Stage.Cracks) shake = max(shake, 0.12f + 0.25f * (realm.stageTime / IceRealm.CRACKS_SECONDS))
-                        // המקום של השחקן מול המתקפה = הכוונת על המסך (זזה בג'ויסטיק)
-                        val aim = (camHolder[0] ?: com.arsniper.game.model.GameCamera()).worldToScreen(crosshair)
                         realm.update(
-                            dt, aim.x, aim.y, viewAspect,
-                            onDodge = { soundPlayer.play(Sfx.Deflect) },
+                            dt,
+                            // כל המטרות נפגעו בזמן: המכה נחסמה
+                            onBlock = { soundPlayer.play(Sfx.Crack) },
                             onImpact = { attack ->
                                 // רגע הפגיעה בסרטון המתקפה: לב יורד דרך המערכת הקיימת (כולל זמן החסינות)
                                 if (director.hitPlayer()) {
@@ -1031,7 +1030,9 @@ fun GameScreen(
 
     // המצלמה עוקבת אחרי הכוונת, ובלי לצאת מגבולות התמונה
     val viewFraction = if (panoMode) (viewAspect / aspect).coerceAtMost(1f) else 1f
-    val camera = GameCamera.following(crosshair, zoom, viewFraction)
+    // בוס הקרח: הבוס ממלא את העולם, ובזום הרגיל (x1.0) רואים אותו כולו; זום מגדיל אותו סביב הכוונת
+    val camera = if (realm.covering) GameCamera.following(crosshair, zoom / BASE_ZOOM, 1f)
+    else GameCamera.following(crosshair, zoom, viewFraction)
     val crosshairOnScreen = camera.worldToScreen(crosshair)
     camHolder[0] = camera
     // הקליעים טסים אל אמצע תחתית מה שרואים, ומפלצות יורות רק קרוב לתצוגה
@@ -1371,7 +1372,10 @@ fun GameScreen(
                     return
                 }
             }
-            when (realm.shoot(crosshairOnScreen.x, crosshairOnScreen.y, viewAspect)) {
+            // בזמן הבוס הכוונת בעולם = הנקודה על הבוס (הבוס ממלא את העולם; זום מגדיל אותו)
+            when (realm.shoot(crosshair.x, crosshair.y, viewAspect)) {
+                IceRealm.Hit.Target -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.15f) }
+                IceRealm.Hit.Block -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.35f) }
                 IceRealm.Hit.Deflect, IceRealm.Hit.Guard -> soundPlayer.play(Sfx.Deflect)
                 IceRealm.Hit.Hit, IceRealm.Hit.Bonus -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.2f) }
                 IceRealm.Hit.Broke -> { soundPlayer.play(Sfx.Crack); shake = max(shake, 0.45f) }
@@ -1691,8 +1695,9 @@ fun GameScreen(
             floorAt = remember(scene) { scene?.let { sc -> { x: Float, y: Float -> sc.isWalkable(x, y) } } },
             worldAspect = aspect,
             camMap = cameraMap(camera.zoom, camera.viewFraction, camera.center.x, camera.center.y),
-            aimX = crosshairOnScreen.x,
-            aimY = crosshairOnScreen.y
+            bossZoom = camera.zoom,
+            bossCenterX = camera.center.x,
+            bossCenterY = camera.center.y
         )
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת

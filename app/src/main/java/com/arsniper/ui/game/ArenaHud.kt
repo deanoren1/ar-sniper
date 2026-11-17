@@ -248,15 +248,26 @@ fun ArenaBanner(title: String, subtitle: String?, age: Float, modifier: Modifier
     }
 }
 
-/** הבהוב אדום על כל המסך כשהשחקן נפגע. alpha 0 = לא נראה. לא תופס לחיצות */
+/**
+ * הבהוב אדום כשהשחקן נפגע: רק בקצוות המסך (המרכז נשאר נקי, לא צובע את כל המסך ואת הממשק).
+ * alpha 0 = לא נראה. לא תופס לחיצות
+ */
 @Composable
 fun DamageFlash(alpha: Float, modifier: Modifier = Modifier) {
     if (alpha > 0.01f) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(Color(0xFFFF1744).copy(alpha = alpha.coerceIn(0f, 0.7f)))
-        )
+        androidx.compose.foundation.Canvas(modifier = modifier.fillMaxSize()) {
+            val a = (alpha / 0.55f).coerceIn(0f, 1f)
+            drawRect(
+                androidx.compose.ui.graphics.Brush.radialGradient(
+                    0.0f to Color.Transparent,
+                    0.55f to Color.Transparent,
+                    0.8f to Color(0xFFFF1744).copy(alpha = 0.35f * a),
+                    1.0f to Color(0xFFFF1744).copy(alpha = 0.75f * a),
+                    center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f),
+                    radius = kotlin.math.hypot(size.width, size.height) / 2f
+                )
+            )
+        }
     }
 }
 
