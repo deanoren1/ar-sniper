@@ -179,20 +179,40 @@ class IceRealm {
         private set
 
     /** המטרות מוצגות עכשיו */
-    val targetsActive: Boolean get() = stage == Stage.Attacking && !impactDone && targetCount > 0 && !blocked
+    val targetsActive: Boolean
+        get() = targetCount > 0 && !blocked && (
+            (stage == Stage.Attacking && !impactDone) || (stage == Stage.PreparingAttack && preSpawned)
+        )
 
     /** כמה זמן נשאר עד המכה, 1 = הרגע הופיעה, 0 = המכה */
     val targetTimeLeft: Float
         get() {
+            if (stage == Stage.PreparingAttack) return 1f
             val a = attack ?: return 0f
-            return ((a.impactMs - clipMs) / warnMs()).coerceIn(0f, 1f)
+            val span = if (preSpawned) a.impactMs else warnMs()
+            return ((a.impactMs - clipMs) / span).coerceIn(0f, 1f)
         }
+
+    /** המטרה של המתקפה הראשונה בקרב: מופיעה כבר בהכנה, גדולה ובאמצע המסך, כדי שהשחקן יבין מה לעשות */
+    private var preSpawned = false
+
+    private fun spawnFirstTarget() {
+        targetCount = 1
+        targetIndex = 0
+        targetRadius = FIRST_TARGET_RADIUS
+        targets[0] = 0.5f
+        targets[1] = 0.45f
+        lastTargetX = 0.5f
+        lastTargetY = 0.45f
+        blocked = false
+        preSpawned = true
+    }
 
     private fun spawnTargets() {
         val n = if (phase == 3) 2 else 1
         targetCount = n
         targetIndex = 0
-        targetRadius = when (phase) { 1 -> 0.06f; 2 -> 0.032f; else -> 0.042f }
+        targetRadius = when (phase) { 1 -> 0.085f; 2 -> 0.04f; else -> 0.05f }
         for (i in 0 until n) {
             var x: Float
             var y: Float
@@ -312,6 +332,7 @@ class IceRealm {
         blocked = false
         blockFlash = 0f
         restPending = false
+        preSpawned = false
         attacksSeen = 0
         hitThisTick = false
         deathHold = 0f
@@ -387,7 +408,11 @@ class IceRealm {
             }
             Stage.Intro -> if (clipDone()) nextStep()
             Stage.Idle -> if (clipDone() || stageTime >= breathSeconds()) nextStep()
-            Stage.PreparingAttack -> if (clipDone()) startAttack(BossAttack.ClawSwipe)
+            Stage.PreparingAttack -> {
+                // המתקפה הראשונה בקרב: המטרה מופיעה כבר באמצע ההכנה (הרבה זמן ללמוד)
+                if (attacksSeen == 0 && targetCount == 0 && clipMs >= FIRST_TARGET_AT_MS) spawnFirstTarget()
+                if (clipDone()) startAttack(BossAttack.ClawSwipe)
+            }
             Stage.Attacking -> {
                 val a = attack
                 if (a == null) {
@@ -406,6 +431,7 @@ class IceRealm {
                     }
                     if (clipDone()) {
                         attack = null
+                        preSpawned = false
                         // שלב 3: מתקפה משולבת, עוד מתקפה (אחרת) מיד, בלי מנוחה
                         if (phase == 3 && !comboChained && Random.nextFloat() < COMBO_CHANCE) {
                             comboChained = true
@@ -437,10 +463,12 @@ class IceRealm {
         // שלב 1: מנוחה (נשימה) אחרי כל מתקפה, לפני הצעד הבא
         if (restPending && phase == 1 && lastStep != Step.Breath) {
             restPending = false
+        preSpawned = false
             enterIdle()
             return
         }
         restPending = false
+        preSpawned = false
         val step = if (scriptIndex < script.size) {
             script[scriptIndex++]
         } else {
@@ -486,9 +514,12 @@ class IceRealm {
 
     private fun startAttack(a: BossAttack) {
         attacksSeen += 1
-        targetCount = 0
-        targetIndex = 0
-        blocked = false
+        // מטרה שהופיעה כבר בהכנה ממשיכה (וגם אם כבר נפגעה, החסימה נשמרת)
+        if (!preSpawned) {
+            targetCount = 0
+            targetIndex = 0
+            blocked = false
+        }
         exposed = -1
         attack = a
         impactDone = false
@@ -549,7 +580,7 @@ class IceRealm {
                 }
                 return Hit.Target
             }
-            return Hit.Guard
+            // לא במטרה: אולי ביהלום (הבוס פגיע גם בזמן שהמטרה מוצגת)
         }
         if (!vulnerable) return if (stage == Stage.Attacking || stage == Stage.HitReaction) Hit.Guard else Hit.None
         if (hitThisTick) return Hit.None
@@ -618,6 +649,10 @@ class IceRealm {
         const val WARN_MS_PHASE3 = 1700f
 
         const val BLOCK_FLASH_SECONDS = 0.5f
+
+        /** המטרה הראשונה: מתי בהכנה היא מופיעה, וכמה היא גדולה */
+        const val FIRST_TARGET_AT_MS = 2000f
+        const val FIRST_TARGET_RADIUS = 0.11f
 
         const val DODGE_FLASH_SECONDS = 0.8f
 

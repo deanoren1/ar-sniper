@@ -268,12 +268,21 @@ private fun DrawScope.drawTargets(realm: IceRealm) {
             Brush.radialGradient(listOf(Color(0xFFBFF4FF).copy(alpha = 0.55f * a), Color(0xFF2EA8FF).copy(alpha = 0.25f * a), Color.Transparent), center = c, radius = r * 2.2f),
             r * 2.2f, c
         )
-        drawCircle(Color.White.copy(alpha = 0.95f * a), r, c, style = Stroke(width = 5f))
-        drawCircle(Color(0xFF7FE6FF).copy(alpha = 0.9f * a), r * 0.55f, c, style = Stroke(width = 4f))
+        drawCircle(Color.White.copy(alpha = 0.95f * a), r, c, style = Stroke(width = h * 0.009f))
+        drawCircle(Color(0xFF7FE6FF).copy(alpha = 0.9f * a), r * 0.55f, c, style = Stroke(width = h * 0.007f))
         drawCircle(Color.White.copy(alpha = a), r * 0.16f, c)
         if (current) {
-            // הזמן שנשאר: טבעת אדומה שמתכווצת אל המטרה
-            drawCircle(Color(0xFFFF4A3A).copy(alpha = 0.6f + 0.4f * pulse), r * (1.15f + 1.6f * left), c, style = Stroke(width = 6f))
+            // הזמן שנשאר: טבעת אדומה שמתכווצת אל המטרה, ו-"BLOCK!" מעליה
+            drawCircle(Color(0xFFFF4A3A).copy(alpha = 0.6f + 0.4f * pulse), r * (1.15f + 1.6f * left), c, style = Stroke(width = h * 0.008f))
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                textAlign = android.graphics.Paint.Align.CENTER
+                isFakeBoldText = true
+                color = android.graphics.Color.argb(255, 255, 220, 90)
+                textSize = h * 0.05f
+                setShadowLayer(10f, 0f, 3f, android.graphics.Color.BLACK)
+            }
+            drawContext.canvas.nativeCanvas.drawText("BLOCK!", c.x, c.y - r * 1.35f - h * 0.02f, paint)
         } else {
             val paint = android.graphics.Paint().apply {
                 isAntiAlias = true
