@@ -189,6 +189,8 @@ fun GameScreen(
     var themed by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     // עולם AI שנוצר עכשיו (לא מהמטמון): נחשף במעבר דרמטי. מהמטמון או מהעיצוב המקומי: דהייה רגילה
     var themedFresh by remember { mutableStateOf(false) }
+    // העולם נוצר עכשיו (השחקן כבר חיכה): ההפיכה מתחילה מיד, בלי ההמתנה של המטמון
+    var justCreatedWorld by remember { mutableStateOf(false) }
     // מסך יצירת עולם AI (המשחק מושהה עד שהעולם מוכן, או עד ש"PLAY NOW")
     var aiOverlay by remember { mutableStateOf(false) }
     // גוון הרקע המוצג (עולם AI אם יש) למפלצות: משתנה כשהעולם נטען
@@ -465,6 +467,8 @@ fun GameScreen(
                         com.arsniper.ml.AiWorld.cachedWorld(context, key, aiStyle)
                     }
                     if (cached != null) {
+                        // תמיד: הארנה עולה קודם כמו שהיא (התמונה המקורית), ואחרי כמה שניות הופכת לעולם, כמו בפעם הראשונה
+                        themedFresh = true
                         themed = cached.asImageBitmap()
                         aiHandled = true
                         // ניתוח העולם שמור בדיסק: מהיר, ואפשר לחכות לו לפני הגל הראשון (המחבואים החדשים מוכנים כשהמפלצות נוצרות).
@@ -504,6 +508,7 @@ fun GameScreen(
                             if (aiOverlay) { aiOverlay = false; paused = false }
                             if (made != null) {
                                 themedFresh = true
+                                justCreatedWorld = true
                                 themed = made.asImageBitmap()
                             } else if (style == ArenaStyle.Tundra) {
                                 // אין AI (בלי רשת, מכסה או תקלה): העיצוב המקומי של הטונדרה
@@ -523,6 +528,7 @@ fun GameScreen(
             if (!aiHandled && analysis != null && photo != null && style == ArenaStyle.Tundra) {
                 val file = PhotoRepository.currentFile(context)
                 if (file != null) {
+                    themedFresh = true
                     themed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                         try {
                             val key = com.arsniper.ml.AnalysisCache.keyFor(file)
@@ -1629,11 +1635,15 @@ fun GameScreen(
             // התמונה המעוצבת נכנסת בהדרגה מעל המקורית (בלי קפיצה כשהחישוב מסתיים)
             themed?.let { t ->
                 var fadeIn by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) { fadeIn = true }
                 val fresh = themedFresh
+                // עולם שנטען מהמטמון: מחכים כמה שניות על התמונה המקורית ורק אז ההפיכה (עולם שנוצר עכשיו: מיד)
+                LaunchedEffect(Unit) {
+                    if (fresh && !justCreatedWorld) kotlinx.coroutines.delay(WORLD_REVEAL_DELAY_MS)
+                    fadeIn = true
+                }
                 val themedAlpha by androidx.compose.animation.core.animateFloatAsState(
                     if (fadeIn) 1f else 0f,
-                    if (fresh) androidx.compose.animation.core.tween(2200, easing = androidx.compose.animation.core.FastOutSlowInEasing) else androidx.compose.animation.core.tween(900),
+                    if (fresh) androidx.compose.animation.core.tween(2600, easing = androidx.compose.animation.core.FastOutSlowInEasing) else androidx.compose.animation.core.tween(900),
                     label = "themedFade"
                 )
                 if (fresh) {
@@ -2061,6 +2071,9 @@ private class SfxMemo {
 
 /** מסגרת ה-HUD החדשה של הטונדרה (TundraHud). כבויה כרגע; החזרה = true */
 private const val TUNDRA_HUD_FRAME = false
+
+/** כמה זמן הארנה נשארת כמו שהיא (התמונה המקורית) לפני שהיא הופכת לעולם */
+private const val WORLD_REVEAL_DELAY_MS = 2500L
 
 /** רטט של מכת בוס (כרבע שנייה, חזק). בלי רטט במכשיר / בלי הרשאה: לא קורה כלום */
 private fun bossHitVibrate(context: android.content.Context) {
