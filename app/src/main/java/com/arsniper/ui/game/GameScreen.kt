@@ -1698,7 +1698,8 @@ fun GameScreen(
                 telegraphs = fire.telegraphViews.toList(),
                 time = fire.time,
                 shotRadius = { fire.currentRadius(it) },
-                altShots = style == ArenaStyle.Tundra || style == ArenaStyle.Cyber || style == ArenaStyle.Industrial || style == ArenaStyle.Ruins
+                altShots = style == ArenaStyle.Tundra || style == ArenaStyle.Cyber || style == ArenaStyle.Industrial || style == ArenaStyle.Ruins,
+                arena = style.name.lowercase()
             )
             LootLayer(loot = loot, nowNanos = frameNanos)
             EffectsLayer(blasts = blasts, nowNanos = frameNanos)

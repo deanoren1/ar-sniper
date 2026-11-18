@@ -90,10 +90,21 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
             return bitmap.asImageBitmap()
         }
 
-        fun load(context: Context, alt: Boolean): ShotSprites {
+        /**
+         * arena: קליעים בעיצוב של העולם (shot_<סוג>_<ארנה>_big/_small), למשל קוקוס בג'ונגל ופגז בבסיס הצבאי.
+         * סוג בלי ציור של העולם נשאר עם הציור הרגיל.
+         */
+        fun load(context: Context, alt: Boolean, arena: String? = null): ShotSprites {
             val variant = if (alt) "b" else "a"
             val map = HashMap<ShotKind, ShotPair>()
             for ((kind, name) in NAMES) {
+                if (arena != null) {
+                    val ab = decode(context, "shot_${name}_${arena}_big")
+                    if (ab != null) {
+                        map[kind] = ShotPair(decode(context, "shot_${name}_${arena}_small") ?: ab, ab)
+                        continue
+                    }
+                }
                 val small = decode(context, "shot_${name}_${variant}_small")
                 val big = decode(context, "shot_${name}_${variant}_big")
                 val side = if (alt) null else SIDE_ANCHORS[name]?.let { a ->

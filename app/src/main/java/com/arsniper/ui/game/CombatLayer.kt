@@ -36,10 +36,12 @@ fun CombatLayer(
     shotRadius: (Shot) -> Float,
     modifier: Modifier = Modifier,
     /** true: גרסת הצבעים השנייה של הקליעים (ארנות קרות/עתידניות) */
-    altShots: Boolean = false
+    altShots: Boolean = false,
+    /** העולם, לקליעים בעיצוב שלו (shot_<סוג>_<עולם>_big) */
+    arena: String? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val sprites = remember(altShots) { ShotSprites.load(context, altShots) }
+    val sprites = remember(altShots, arena) { ShotSprites.load(context, altShots, arena) }
     Canvas(modifier = modifier.fillMaxSize()) {
         for (t in telegraphs) drawTelegraph(t, time)
         // בציור בלבד: קליע מתקרב לא גדל מעבר לגודל שמסתיר את כפתורי ה-HUD
