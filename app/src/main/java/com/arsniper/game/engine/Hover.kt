@@ -21,6 +21,26 @@ object Hover {
     /** "חיים" של מפלצת הבלונים: ארבעה. שלושה בלונים, שניים, אחד, ובלי בלונים (נפלה, מוממת וחשופה) */
     const val LIVES = 4
 
+    /**
+     * מפלצות מעופפות אחרות (עטלף, דרקון מכונף, מסוק, רוח...): לכל שורת Foe, אילו מראות במאגר עפים.
+     * נקבע כשנטענים גיליונות המפלצות של הארנה (MonsterSprites), באותו סדר כמו בחירת המראה לפי המספר
+     */
+    @Volatile
+    var flyers: List<BooleanArray> = emptyList()
+
+    /** גובה הטיסה של מעופף, ברדיוסים, ועוצמת התנודה שלו */
+    private const val FLY_RADII = 1.15f
+    private const val FLY_BOB_RADII = 0.22f
+
+    /** מפלצת מעופפת (לא מפלצת הבלונים): המראה שנבחר לה במאגר מסומן כעף */
+    fun isFlyer(enemy: Enemy): Boolean {
+        if (isBalloonMonster(enemy) || enemy.id == ArenaDirector.BOSS_ID) return false
+        val row = ((enemy.id % 5) + 5) % 5
+        val pool = flyers.getOrNull(row) ?: return false
+        if (pool.isEmpty()) return false
+        return pool[(((enemy.id / 5) % pool.size) + pool.size) % pool.size]
+    }
+
     /** מפלצת הבלונים היא שורה 3 בגיליון: מספר האויב מודולו 5 */
     fun isBalloonMonster(enemy: Enemy): Boolean = ((enemy.id % 5) + 5) % 5 == 3
 
@@ -36,9 +56,15 @@ object Hover {
 
     /** גובה ההרמה, ביחידות גובה מסך. מציץ שמאחורי עצם לא מרחף */
     fun lift(enemy: Enemy, nowSeconds: Double): Float {
-        if (!isBalloonMonster(enemy)) return 0f
+        val flyer = isFlyer(enemy)
+        if (!isBalloonMonster(enemy) && !flyer) return 0f
         val free = (enemy.kind == EnemyKind.Open && enemy.spot == null) || enemy.kind == EnemyKind.Static
         if (!free) return 0f
+        if (flyer) {
+            // טיסה: גבוה באוויר, עולה ויורדת בקצב כנפיים (מהיר יותר מהבלון)
+            val bob = 0.5f + 0.5f * sin(nowSeconds * 3.1 + enemy.id * 1.7).toFloat()
+            return enemy.radius * (FLY_RADII + FLY_BOB_RADII * bob)
+        }
         val count = balloons(enemy)
         if (count <= 0) return 0f
         val bob = 0.5f + 0.5f * sin(nowSeconds * 2.2 + enemy.id).toFloat()

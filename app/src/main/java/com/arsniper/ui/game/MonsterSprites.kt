@@ -92,7 +92,9 @@ class MonsterSheet(
     /** מפלצת בפורמט rig2 (רב-זוויתי): הכנה, פגיעה, מוות וירייה בזווית קדמית ובצד */
     val rig: RigAnim? = null,
     /** מפלצת הבלונים: הגיליון של כל מצב לפי מספר הבלונים שנשארו (0 = נפלה ומוממת, 1, 2). שלושה בלונים הוא הגיליון הזה עצמו */
-    val balloonStates: Map<Int, MonsterSheet> = emptyMap()
+    val balloonStates: Map<Int, MonsterSheet> = emptyMap(),
+    /** מפלצת מעופפת (עטלף, דרקון מכונף, מסוק...): מרחפת באוויר ולא הולכת על הקרקע. נקבע לפי שם הקובץ rig2f_ */
+    val flies: Boolean = false
 )
 
 /** פריימים של מפלצת rig2, לפי הזווית: front = אל המצלמה, side = מהצד (פונה ימינה) */
@@ -141,6 +143,11 @@ class MonsterSprites private constructor(
     private val boss: MonsterSheet? = null
 ) {
 
+    init {
+        // המנוע (ריחוף, פגיעה, ירי) צריך לדעת אילו מראות עפים: אותה בחירה כמו forEnemy
+        com.arsniper.game.engine.Hover.flyers = pools.map { pool -> BooleanArray(pool.size) { pool[it].flies } }
+    }
+
     /** המפלצת של אויב מסוים: הסוג לפי id % 5 (כדי שהמראה יתאים להתנהגות), והמראה בתוך הסוג קבוע לפי המספר */
     fun forEnemy(id: Int): MonsterSheet {
         if (id == ArenaDirector.BOSS_ID && boss != null) return boss
@@ -186,6 +193,7 @@ class MonsterSprites private constructor(
         fun isAvailable(context: Context): Boolean = atlasId(context) != 0
 
         fun load(context: Context, variant: String? = null): MonsterSprites? {
+            if (variant != null) loadRoster(context, variant)?.let { return it }
             val variantId = if (variant != null) atlasId(context, variant) else 0
             if (variantId != 0) loadVariant(context, variant!!, variantId)?.let { return it }
             val id = atlasId(context)
@@ -258,6 +266,41 @@ class MonsterSprites private constructor(
                 }
             }
             return MonsterSprites(pools, loadBoss(context, variant) ?: loadBoss(context))
+        }
+
+        /** כמה מפלצות rig2 לפחות צריך לארנה כדי שתהיה לה "צוות מלא" משלה (בלי המפלצות הקלאסיות) */
+        private const val ROSTER_MIN = 5
+
+        /**
+         * ארנה עם צוות מפלצות מלא משלה: rig2_<ארנה>_<סוג>_<n> (הולכות) ו-rig2f_<ארנה>_<סוג>_<n> (עפות).
+         * הסוג הוא שורת ההתנהגות (0 ענק, 1 תמנון, 2 קיפוד, 3 בלון, 4 חייזר). המאגרים נבנים רק מהן, כדי שכל
+         * המפלצות בארנה יהיו מחופשות לעולם שלה (וגם כדי לא לטעון לזיכרון גיליונות שלא בשימוש).
+         * שורה בלי אף מפלצת של הארנה מקבלת את המפלצת הקלאסית של אותה שורה. null אם אין מספיק מפלצות לארנה.
+         */
+        private fun loadRoster(context: Context, arena: String): MonsterSprites? {
+            val res = context.resources
+            fun has(name: String) = res.getIdentifier(name, "drawable", context.packageName) != 0
+            var count = 0
+            for (foe in 0 until 5) for (n in 0 until 12) {
+                if (has("rig2_${arena}_${foe}_$n") || has("rig2f_${arena}_${foe}_$n")) count++
+            }
+            if (count < ROSTER_MIN) return null
+            val pools = List(5) { mutableListOf<MonsterSheet>() }
+            for (foe in 0 until 5) {
+                for (n in 0 until 12) {
+                    for (fly in listOf(false, true)) {
+                        val name = (if (fly) "rig2f_" else "rig2_") + "${arena}_${foe}_$n"
+                        val id = res.getIdentifier(name, "drawable", context.packageName)
+                        if (id != 0) loadRig2(context, id, fly)?.let { pools[foe].add(it) }
+                    }
+                }
+            }
+            if (pools.any { it.isEmpty() }) {
+                val classic = load(context, null)
+                if (classic != null) for (row in 0 until 5) if (pools[row].isEmpty()) pools[row].addAll(classic.pools[row])
+            }
+            if (pools.any { it.isEmpty() }) return null
+            return MonsterSprites(pools, loadBoss(context, arena) ?: loadBoss(context))
         }
 
         private const val RIG_COLUMNS = 6
@@ -402,7 +445,7 @@ class MonsterSprites private constructor(
 
         private const val BALLOON_SIZE_SCALE = 1.0f
 
-        private fun loadRig2(context: Context, id: Int): MonsterSheet? {
+        private fun loadRig2(context: Context, id: Int, flies: Boolean = false): MonsterSheet? {
             val options = BitmapFactory.Options().apply {
                 inScaled = false
                 inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -433,6 +476,7 @@ class MonsterSprites private constructor(
                 // התמנון (גובה הגוף 92.6% מהתא) הוא נקודת הייחוס; גיליון עם תא צפוף יותר (חילזון) מוקטן בהתאם
                 sizeScale = 1.08f * RIG2_REF_BODY / idleBodyFraction(bitmap, cw, ch),
                 moves = WalkSet(walkSide, walkFront, walkBack, walkSide),
+                flies = flies,
                 rig = RigAnim(
                     idleFront = views[0],
                     idleSide = views[2],

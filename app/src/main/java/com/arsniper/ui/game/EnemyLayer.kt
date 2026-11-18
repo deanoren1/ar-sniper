@@ -436,6 +436,10 @@ private fun DrawScope.drawMonster(
             val raw = (gait.phase / (2f * PI.toFloat()) * list.size).toInt()
             list[((raw % list.size) + list.size) % list.size]
         } else if (enemy.dirY > 0.5f) sheet.idle else if (enemy.dirY < -0.5f) sheet.walk[1] else sheet.walk[0]
+    } else if (sheet.flies && sheet.moves != null && !rigAttacking && hurt <= 0f) {
+        // מעופף שעומד במקום: ממשיך לנפנף בכנפיים / לסובב את הפרופלור (מחזור הטיסה אל המצלמה), לא קופא בציור עמידה
+        val list = sheet.moves.front
+        list[(((anim * 9f + enemy.id).toInt() % list.size) + list.size) % list.size]
     } else if (sheet.rig != null) {
         rigFrame(sheet.rig, enemy, hurt, anim)
     } else if (sheet.frontPeek && (enemy.kind == EnemyKind.Peek || enemy.kind == EnemyKind.Window)) {
@@ -463,7 +467,12 @@ private fun DrawScope.drawMonster(
     var tilt = 0f
     var hop = 0f
     var shakeX = 0f
-    if (!dead && walking) {
+    if (!dead && walking && sheet.flies) {
+        // טיסה: בלי קפיצות צעדים. נטייה אל כיוון הטיסה וגלישה רכה (הכנפיים כבר מנפנפות בפריימים)
+        val forward = if (enemy.direction < 0f) -1f else 1f
+        val sideways = abs(enemy.dirY) <= 0.5f
+        tilt = (if (sideways) forward * 7f else 0f) + sin(anim * 2.3f + enemy.id) * 2f
+    } else if (!dead && walking) {
         val swing = gait.swing
         val bounce = abs(sin(gait.phase))
         // עם פריימי הליכה אמיתיים התנועה כבר בציור: רק קפיצה וטלטול קלים
@@ -529,7 +538,8 @@ private fun DrawScope.drawMonster(
     val flip = sheet.bossAnim == null && (walking || dead) && enemy.direction < 0f && (dead || abs(enemy.dirY) <= 0.5f)
 
     // מפלצת בלונים שנפגעה למוות: הבלונים התפוצצו, אז מציירים רק את הגוף (בלי החלק העליון עם הבלונים)
-    val cropTop = if (dead && sheet.bossAnim == null && Hover.isBalloonMonster(enemy) && sheet.rig?.idleLoop == null) 0.4f else 0f
+    // (רק לציור הישן בלי rig: לגיליונות rig יש פריימי מוות משלהם, כולל פיצוץ הבלונים)
+    val cropTop = if (dead && sheet.bossAnim == null && Hover.isBalloonMonster(enemy) && sheet.rig == null) 0.4f else 0f
     val srcCut = (sprite.image.height * cropTop).toInt()
     val dstCut = height * cropTop
     // לפגיעה לפי הגוף: הפריים שמצויר עכשיו ומיקומו על המסך (ראו BodyRegistry)
