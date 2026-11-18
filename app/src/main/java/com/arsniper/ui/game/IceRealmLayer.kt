@@ -64,7 +64,7 @@ fun IceRealmLayer(
     val context = LocalContext.current
 
     // נגן אחד לכל הקרב; משתחרר כשהשכבה יורדת (ארנה נסגרה, החייאה, משחק חוזר, יציאה)
-    val controller = remember { BossVideoController(context) }
+    val controller = remember(com.arsniper.game.engine.BossWorld.key) { BossVideoController(context) }
     DisposableEffect(controller) {
         // סרטון חדש מתחיל מיד כשהמצב מתחלף (למשל תגובת פגיעה ברגע הירייה), בלי לחכות לפריים הבא
         realm.onClip = { c, token, speed -> controller.show(c, token, speed) }
@@ -176,13 +176,13 @@ fun IceRealmLayer(
             val aspect = size.width / size.height
 
             // סדקי קרח זוהרים שמתפשטים על הרצפה (2 שניות), ונשארים מתחת לפורטל עד שסרטון הכניסה מופיע
-            if (!videoShown && (realm.stage == IceRealm.Stage.Cracks || inPortal || realm.stage == IceRealm.Stage.Intro)) {
+            if (com.arsniper.game.engine.BossWorld.isTundra && !videoShown && (realm.stage == IceRealm.Stage.Cracks || inPortal || realm.stage == IceRealm.Stage.Intro)) {
                 val k = if (realm.stage == IceRealm.Stage.Cracks) realm.stageTime / IceRealm.CRACKS_SECONDS else 1f
                 cracks.draw(this, k, camMap)
             }
 
             // סרטון 0: הפורטל, עד שהפריים הראשון של הכניסה מוכן (הפריים האחרון שלו זהה לראשון של הכניסה)
-            if (portal != null && !videoShown && (inPortal || realm.stage == IceRealm.Stage.Intro)) {
+            if (portal != null && com.arsniper.game.engine.BossWorld.isTundra && !videoShown && (inPortal || realm.stage == IceRealm.Stage.Intro)) {
                 val pr = BossFrame.rect(aspect)
                 drawIntoCanvas { c ->
                     portal.setBounds(

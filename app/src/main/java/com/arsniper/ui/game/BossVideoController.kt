@@ -87,7 +87,18 @@ class BossVideoController(context: Context) {
 
     private fun uriOf(c: BossClip): Uri = Uri.parse("android.resource://${app.packageName}/${rawOf(c)}")
 
-    private fun rawOf(c: BossClip): Int = when (c) {
+    /** העולם של הבוס הזה (נקבע כשהנגן נוצר) */
+    private val world = com.arsniper.game.engine.BossWorld.key
+
+    private fun rawOf(c: BossClip): Int {
+        if (world != com.arsniper.game.engine.BossWorld.TUNDRA) {
+            val id = app.resources.getIdentifier("boss_${world}_${com.arsniper.game.engine.BossWorld.suffix(c)}", "raw", app.packageName)
+            if (id != 0) return id
+        }
+        return tundraRaw(c)
+    }
+
+    private fun tundraRaw(c: BossClip): Int = when (c) {
         BossClip.Intro -> R.raw.boss_intro
         BossClip.Breath -> R.raw.boss_breath
         BossClip.Prepare -> R.raw.boss_prepare

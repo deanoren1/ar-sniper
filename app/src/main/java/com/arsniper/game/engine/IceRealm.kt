@@ -300,7 +300,13 @@ class IceRealm {
     fun begin() {
         if (stage != Stage.Off) return
         reset()
-        go(Stage.Cracks)
+        if (BossWorld.isTundra) {
+            go(Stage.Cracks)
+        } else {
+            // בוס של עולם אחר: הכניסה (התגלות הבוס) כבר בתוך סרטון הכניסה שלו, בלי סדקי קרח ופורטל
+            go(Stage.Intro)
+            play(BossClip.Intro)
+        }
     }
 
     /** חוזר להתחלה (החייאה, משחק חוזר, או ארנה חדשה). הנגן משתחרר כשהשכבה יורדת מהמסך */

@@ -225,7 +225,15 @@ object IceBossTracks {
     )
 
     /** טבלת המעקב של הסרטון, או null אם בסרטון הזה הבוס לא פגיע (כניסה, מוות) */
-    fun table(clip: BossClip): IntArray? = when (clip) {
+    /** מעקב של בוס של עולם אחר (BossWorld): טבלה לכל קטע, רדיוסים, ומרחק הכתפיים בעמידה. null = בוס הקרח */
+    class Custom(val tables: Map<BossClip, IntArray>, val radius: FloatArray?, val shoulders: Float)
+
+    @Volatile
+    var custom: Custom? = null
+
+    fun table(clip: BossClip): IntArray? = custom?.let { return it.tables[clip] } ?: builtIn(clip)
+
+    private fun builtIn(clip: BossClip): IntArray? = when (clip) {
         BossClip.Breath -> BREATH
         BossClip.Prepare -> PREPARE
         BossClip.Attack1 -> ATTACK1
@@ -267,8 +275,11 @@ object IceBossTracks {
         }
         val dx = out[3] - out[6]
         val dy = out[4] - out[7]
-        val scale = (kotlin.math.sqrt(dx * dx + dy * dy) / BASE_SHOULDERS).coerceIn(0.8f, 1.5f)
-        for (p in 0 until POINTS) out[p * 3 + 2] = BASE_RADIUS[p] * scale
+        val cu = custom
+        val baseShoulders = cu?.shoulders?.takeIf { it > 0f } ?: BASE_SHOULDERS
+        val radius = cu?.radius?.takeIf { it.size >= POINTS } ?: BASE_RADIUS
+        val scale = (kotlin.math.sqrt(dx * dx + dy * dy) / baseShoulders).coerceIn(0.8f, 1.5f)
+        for (p in 0 until POINTS) out[p * 3 + 2] = radius[p] * scale
         return true
     }
 }

@@ -236,6 +236,18 @@ fun GameScreen(
     val director = remember { ArenaDirector(difficulty.apply(ArenaDirector.DEFAULT_WAVES)) }
     // ארנת הקרח: גל הבוס מתנהל בעולם הקרח (בוס ענק ויהלומים), לא בדרקון
     val realm = remember { IceRealm() }
+    // שלב הבוס הגדול (סרטונים): בטונדרה תמיד, ובעולם אחר אם יש לו סרטוני בוס (boss_<עולם>_breath) וקובץ מעקב
+    val bossWorldKey = style.name.lowercase()
+    val bossTracksText = remember(bossWorldKey) {
+        if (style == ArenaStyle.Tundra) {
+            null
+        } else {
+            val id = context.resources.getIdentifier("boss_${bossWorldKey}_tracks", "raw", context.packageName)
+            if (id == 0 || context.resources.getIdentifier("boss_${bossWorldKey}_breath", "raw", context.packageName) == 0) null
+            else runCatching { context.resources.openRawResource(id).bufferedReader().use { it.readText() } }.getOrNull()
+        }
+    }
+    val bigBoss = style == ArenaStyle.Tundra || bossTracksText != null
     // התגמול בהתאם לקושי; כל מקום שמצטבר בו ניקוד עובר דרך זה, כדי שהמספרים יהיו עקביים
     fun scaled(points: Int): Int = (points * difficulty.rewardScale).roundToInt()
     val context0 = LocalContext.current
@@ -590,10 +602,12 @@ fun GameScreen(
                         if (wx > 1f - ext) wx -= ring else if (wx < ext) wx += ring
                         if (wx != crosshair.x) crosshair = Vec2(wx, crosshair.y)
                     }
-                    if (!isGuest && coop == null && style == ArenaStyle.Tundra && started && director.isBossWave &&
+                    if (!isGuest && coop == null && bigBoss && started && director.isBossWave &&
                         director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost && !realm.active && !realm.finished
                     ) {
                         // הפורטל והבוס מגיעים עם הצלילים שלהם (מתוך הסרטונים)
+                        com.arsniper.game.engine.BossWorld.key = bossWorldKey
+                        com.arsniper.game.engine.BossWorld.loadTracks(bossTracksText)
                         realm.begin()
                         // הסדקים על הרצפה מתחילים להיפתח
                         soundPlayer.play(Sfx.Crack)
