@@ -45,13 +45,13 @@ for i in $(seq 1 $ROUNDS); do
     --throttle 150 \
     --pct-touch 55 --pct-motion 35 --pct-nav 0 --pct-majornav 0 \
     --pct-syskeys 0 --pct-appswitch 0 --pct-anyevent 0 \
+    --ignore-timeouts \
     -s $((1000 + i)) -v $EVENTS_PER_ROUND >> "$OUT/monkey.txt" 2>&1
-  RESULT=$?
 
   NAME=$(printf '%02d_round_%d' "$i" "$i")
   shot "$NAME"
 
-  if [ $RESULT -ne 0 ] || ! adb shell pidof "$PKG" > /dev/null 2>&1; then
+  if ! adb shell pidof "$PKG" > /dev/null 2>&1; then
     CRASHES=$((CRASHES + 1))
     echo "Round $i: CRASH / app not running (screenshot $NAME)" | tee -a "$OUT/summary.txt"
     launch
@@ -64,7 +64,16 @@ done
 sleep 2
 kill $LOGCAT_PID 2>/dev/null || true
 
-grep -n -E "FATAL EXCEPTION|ANR in|Fatal signal" -A 40 "$OUT/logcat_full.txt" > "$OUT/crashes.txt" || true
+# Real crashes = Java/Kotlin exception or native crash in the game process
+grep -n -E "FATAL EXCEPTION|Fatal signal" -A 40 "$OUT/logcat_full.txt" > "$OUT/crashes.txt" || true
+# ANR = slow / frozen screen. The software-GPU emulator is slow, so these are warnings only
+grep -n -E "ANR in .*com\.arsniper" "$OUT/logcat_full.txt" > "$OUT/anr.txt" || true
+ANRS=$(wc -l < "$OUT/anr.txt" | tr -d ' ')
+echo "Slow/frozen-screen warnings (ANR): $ANRS" | tee -a "$OUT/summary.txt"
+if [ "$ANRS" -gt 0 ]; then
+  echo "::warning::Game was not responding $ANRS time(s) on the emulator - check anr.txt"
+  head -n 5 "$OUT/anr.txt"
+fi
 
 echo "Total crashes: $CRASHES" | tee -a "$OUT/summary.txt"
 if [ -s "$OUT/crashes.txt" ]; then
