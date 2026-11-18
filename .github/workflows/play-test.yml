@@ -1,0 +1,79 @@
+name: Play Test (Emulator)
+
+# Runs automatically after every successful "Build APK" on main,
+# reusing that build's APK (no second build, saves Actions minutes).
+on:
+  workflow_run:
+    workflows: [ "Build APK" ]
+    types: [ completed ]
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: "Run ID of a 'Build APK' run whose APK to test (empty = latest successful)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: play-test-main
+  cancel-in-progress: true
+
+jobs:
+  play-test:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find build run
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            id="${{ github.event.workflow_run.id }}"
+          elif [ -n "${{ github.event.inputs.build_run_id }}" ]; then
+            id="${{ github.event.inputs.build_run_id }}"
+          else
+            id=$(gh run list -R "${{ github.repository }}" --workflow build.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          echo "Testing APK from build run $id"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      - name: Download APK from build
+        uses: actions/download-artifact@v4
+        with:
+          name: app-debug
+          path: apk
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ github.token }}
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Play the game on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated
+          disable-animations: true
+          script: bash .github/scripts/play_test.sh apk/app-debug.apk
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-test-results
+          path: play-test-results/
+          retention-days: 3
