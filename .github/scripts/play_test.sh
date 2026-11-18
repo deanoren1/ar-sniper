@@ -17,7 +17,10 @@ if [ -z "$APK" ] || [ ! -f "$APK" ]; then
 fi
 echo "APK: $APK" | tee -a "$OUT/summary.txt"
 
-adb install -r -g "$APK" | tee -a "$OUT/summary.txt"
+if ! adb install -r -g "$APK" 2>&1 | tee -a "$OUT/summary.txt" | grep -q "^Success"; then
+  echo "INSTALL FAILED - game was not tested" | tee -a "$OUT/summary.txt"
+  exit 1
+fi
 
 adb logcat -c
 adb logcat -v time > "$OUT/logcat_full.txt" 2>&1 &
@@ -64,6 +67,10 @@ kill $LOGCAT_PID 2>/dev/null || true
 grep -n -E "FATAL EXCEPTION|ANR in|Fatal signal" -A 40 "$OUT/logcat_full.txt" > "$OUT/crashes.txt" || true
 
 echo "Total crashes: $CRASHES" | tee -a "$OUT/summary.txt"
+if [ -s "$OUT/crashes.txt" ]; then
+  echo "----- first crash details -----"
+  head -n 80 "$OUT/crashes.txt"
+fi
 
 if [ "$CRASHES" -gt 0 ] || [ -s "$OUT/crashes.txt" ]; then
   echo "Play test found problems - see crashes.txt" | tee -a "$OUT/summary.txt"

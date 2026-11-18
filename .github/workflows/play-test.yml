@@ -1,22 +1,17 @@
 name: Play Test (Emulator)
 
-# Runs automatically after every successful "Build APK" on main,
-# reusing that build's APK (no second build, saves Actions minutes).
+# Runs automatically after every successful "Build APK" on main:
+# builds an emulator-compatible APK (arm64 + x86_64) of the same commit
+# and lets a robot play it with random input. Red X = crash or freeze.
 on:
   workflow_run:
     workflows: [ "Build APK" ]
     types: [ completed ]
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      build_run_id:
-        description: "Run ID of a 'Build APK' run whose APK to test (empty = latest successful)"
-        required: false
-        default: ""
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: play-test-main
@@ -26,37 +21,33 @@ jobs:
   play-test:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
-      - name: Find build run
-        id: run
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            id="${{ github.event.workflow_run.id }}"
-          elif [ -n "${{ github.event.inputs.build_run_id }}" ]; then
-            id="${{ github.event.inputs.build_run_id }}"
-          else
-            id=$(gh run list -R "${{ github.repository }}" --workflow build.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-          fi
-          echo "Testing APK from build run $id"
-          echo "id=$id" >> "$GITHUB_OUTPUT"
-
-      - name: Download APK from build
-        uses: actions/download-artifact@v4
         with:
-          name: app-debug
-          path: apk
-          run-id: ${{ steps.run.outputs.id }}
-          github-token: ${{ github.token }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Free disk space for the emulator
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
           df -h /
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      - name: Fetch UI font (Oxanium, OFL)
+        run: |
+          mkdir -p app/src/main/res/font
+          curl -fsSL --retry 3 -o app/src/main/res/font/oxanium.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/oxanium/Oxanium%5Bwght%5D.ttf"
+
+      - name: Build emulator APK (arm64 + x86_64)
+        run: gradle assembleDebug -PemulatorAbi --stacktrace
 
       - name: Enable KVM
         run: |
@@ -77,7 +68,7 @@ jobs:
           emulator-boot-timeout: 400
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics -camera-back emulated
           disable-animations: true
-          script: bash .github/scripts/play_test.sh apk/app-debug.apk
+          script: bash .github/scripts/play_test.sh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload results
         if: always()

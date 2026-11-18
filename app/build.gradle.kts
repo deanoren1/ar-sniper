@@ -19,6 +19,10 @@ android {
 
         ndk {
             abiFilters += listOf("arm64-v8a")
+            // בדיקת הרובוט באמולטור (play-test.yml) בונה גם x86_64; הבנייה הרגילה לטלפון לא משתנה
+            if (project.hasProperty("emulatorAbi")) {
+                abiFilters += listOf("x86_64")
+            }
         }
     }
 
