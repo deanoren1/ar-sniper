@@ -516,7 +516,12 @@ private fun DrawScope.drawMonster(
     // צל על הקרקע מתחת לרגליים
     if (shadow) {
         val shadowWidth = sheet.idle.width * k * 0.95f
-        drawGroundShadow(cx, feetY + groundLift - r * 0.02f, shadowWidth, r * 0.42f, 0.62f * alpha * (0.6f + 0.4f * shade.coerceIn(0.55f, 1f)))
+        // מרחפת/עפה: הצל על הקרקע קטן ודהוי יותר ככל שהיא גבוהה יותר (תחושת גובה)
+        val high = (groundLift / (r * 2.5f)).coerceIn(0f, 1f)
+        drawGroundShadow(
+            cx, feetY + groundLift - r * 0.02f, shadowWidth * (1f - 0.45f * high), r * 0.42f * (1f - 0.45f * high),
+            0.62f * alpha * (0.6f + 0.4f * shade.coerceIn(0.55f, 1f)) * (1f - 0.5f * high)
+        )
     }
 
     val gray = (0.3f + 0.7f * shade).coerceIn(0.4f, 1f)
