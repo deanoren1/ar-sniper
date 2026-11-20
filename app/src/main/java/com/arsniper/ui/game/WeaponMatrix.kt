@@ -130,7 +130,8 @@ private fun slideLeft(now: Float, switchedAt: Float): Float {
 }
 
 /** הסיבוב הדו-ממדי המרבי (מעלות) שמוסיפים לספרייט כדי שהקנה יעבור בדיוק דרך הכוונת */
-private const val MAX_RESIDUAL = 12f
+// 25: בקצוות המסך (כוונת רחוקה לצד בגובה האמצע) אין תמונה שהקנה שלה נוטה מספיק, והסיבוב משלים עד 25 מעלות
+private const val MAX_RESIDUAL = 25f
 
 /** כמה מעלות חסרות לקנה של התא (אחרי סיבוב r סביב ה-pivot) כדי לפנות בדיוק אל הכוונת. minUp = מרחק אנכי מינימלי מהלוע לכוונת */
 private fun aimError(
@@ -147,13 +148,34 @@ private fun aimError(
     return toTarget - MATRIX_DIR[cell] - r
 }
 
-/** הסיבוב הקטן שבו הקנה של התא עובר דרך הכוונת (כמה צעדי קירוב, הלוע זז עם הסיבוב) */
+/**
+ * הסיבוב (מעלות) שבו הקנה של התא עובר בדיוק דרך הכוונת, הקרוב ביותר ל-0. null אם אין כזה בטווח.
+ * מחפשים שורש של aimError בסריקה + חצייה (bisection). קודם היו כאן 3 צעדי קירוב שלא התכנסו:
+ * הסיבוב קפץ בין +12 ל-‎-12 והרובה "חזר אחורה" באמצע תנועה (נבדק בסימולציה)
+ */
 private fun residualFor(
     cell: Int, frameL: Float, frameT: Float, frameW: Float, frameH: Float, pivot: Offset, tx: Float, ty: Float, minUp: Float
-): Float {
-    var r = 0f
-    repeat(3) { r += aimError(cell, r, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp) }
-    return r
+): Float? {
+    fun f(r: Float) = aimError(cell, r, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp)
+    var best: Float? = null
+    var r0 = -MAX_RESIDUAL
+    var f0 = f(r0)
+    while (r0 < MAX_RESIDUAL) {
+        val r1 = (r0 + 2f).coerceAtMost(MAX_RESIDUAL)
+        val f1 = f(r1)
+        // החלפת סימן אמיתית (לא קפיצה של atan2)
+        if (f0 * f1 <= 0f && kotlin.math.abs(f0 - f1) < 90f) {
+            var lo = r0; var hi = r1; val flo = f0
+            repeat(18) {
+                val mid = (lo + hi) / 2f
+                if (flo * f(mid) <= 0f) hi = mid else lo = mid
+            }
+            val root = (lo + hi) / 2f
+            if (best == null || kotlin.math.abs(root) < kotlin.math.abs(best!!)) best = root
+        }
+        r0 = r1; f0 = f1
+    }
+    return best
 }
 
 /**
@@ -215,7 +237,8 @@ internal fun DrawScope.drawWeaponMatrix(
     // כוונת קרובה לגובה הלוע: הנקודה שהקנה מכוון אליה מורמת לפחות 22% מגובה המסך מעל לוע קבוע (של התנוחה הישרה).
     // קודם זה חושב מהלוע של כל תמונה, ואז כל החלפת תמונה שינתה את היעד והרובה הבהב בין שתי תנוחות
     val anchorY = frameT + frameH * MATRIX_MUZZLE_Y[centerCell]
-    val ty = minOf(aimY * size.height, anchorY - size.height * 0.22f)
+    // 8% (קודם 22%): כוונת בגובה אמצע המסך נשארת יעד אמיתי, והקנה עובר דרכה. רק כוונת נמוכה מזה מורמת
+    val ty = minOf(aimY * size.height, anchorY - size.height * 0.08f)
     // נקודת הסיבוב: תחתית הרובה באמצע המסך
     val pivot = Offset(frameL + frameW * 0.47f, size.height)
     // כוונת קרובה לגובה הלוע (או מתחתיו): אין תמונה שהקנה שלה אופקי, אז מחשבים כאילו הכוונת לפחות 22% מגובה המסך מעל הלוע.
@@ -233,16 +256,27 @@ internal fun DrawScope.drawWeaponMatrix(
     var row = state[4].toInt().coerceIn(0, rows - 1)
     if (kotlin.math.abs(rowPos - row) > 0.8f) row = Math.round(rowPos).coerceIn(0, rows - 1)
 
-    // עמודה: זו שהקנה שלה (מהלוע שלה) פונה הכי קרוב לכוונת. היסטרזיס: נשארים בעמודה הנוכחית כל עוד היא לא רחוקה בהרבה
-    var bestCol = 0
-    var bestErr = Float.MAX_VALUE
+    // עמודה: זו שצריכה את הסיבוב המשלים הקטן ביותר כדי שהקנה יעבור דרך הכוונת.
+    // היסטרזיס: נשארים בעמודה הנוכחית כל עוד היא לא גרועה בהרבה. כך העמודות זזות ברצף, בלי חזרה אחורה
+    val needed = arrayOfNulls<Float>(cols)
+    var bestCol = -1
     for (c in 0 until cols) {
-        val e = kotlin.math.abs(aimError(row * cols + c, 0f, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp))
-        if (e < bestErr) { bestErr = e; bestCol = c }
+        val r = residualFor(row * cols + c, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp)
+        needed[c] = r
+        if (r != null && (bestCol < 0 || kotlin.math.abs(r) < kotlin.math.abs(needed[bestCol]!!))) bestCol = c
     }
     var col = state[3].toInt().coerceIn(0, cols - 1)
-    val curErr = kotlin.math.abs(aimError(row * cols + col, 0f, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp))
-    if (curErr > bestErr + SWITCH_MARGIN) col = bestCol
+    if (bestCol >= 0) {
+        val cur = needed[col]
+        if (cur == null || kotlin.math.abs(cur) > kotlin.math.abs(needed[bestCol]!!) + SWITCH_MARGIN) col = bestCol
+    } else {
+        // אין עמודה שמגיעה בדיוק: העמודה שהקנה שלה הכי קרוב לכיוון הכוונת
+        var be = Float.MAX_VALUE
+        for (c in 0 until cols) {
+            val e = kotlin.math.abs(aimError(row * cols + c, 0f, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp))
+            if (e < be) { be = e; col = c }
+        }
+    }
     state[3] = col.toFloat()
     state[4] = row.toFloat()
 
@@ -251,19 +285,13 @@ internal fun DrawScope.drawWeaponMatrix(
     if (cell != state[5].toInt().coerceIn(0, cols * rows - 1)) {
         // מחליפים רק כשהתמונה החדשה כבר בזיכרון. עד אז ממשיכים להציג את הקודמת (והסיבוב משלים את ההפרש)
         if (art.get(col, row) != null) {
-            val oldCell = state[5].toInt().coerceIn(0, cols * rows - 1)
-            // בהחלפת תמונה הסיבוב המשלים קופץ (לתמונה החדשה זווית אחרת). את הקפיצה הזו מחליקים:
-            // התמונה החדשה מתחילה באותה הטיה כמו הקודמת ומתיישרת תוך 0.16 שניות (נבדק בסימולציה: חצי מהקפיצות)
-            val left = slideLeft(timeSeconds, state[6])
-            val ro = residualFor(oldCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
-            val rn = residualFor(cell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
-            state[11] = (ro + state[11] * left - rn).coerceIn(-20f, 20f)
+            // הקנה של שתי התמונות עובר דרך הכוונת, אז אין צורך בהחלקת הטיה (היא גרמה לקנה לפנות לרגע הצידה)
+            state[11] = 0f
             state[7] = state[5]
             state[5] = cell.toFloat()
             state[6] = timeSeconds
         }
     }
-    val rotEase = state[11] * slideLeft(timeSeconds, state[6])
     val sx = 0f
     val sy = 0f
     val shownCell = state[5].toInt().coerceIn(0, cols * rows - 1)
@@ -275,8 +303,9 @@ internal fun DrawScope.drawWeaponMatrix(
     art.last = shown
 
     // הסיבוב הרציף שמשלים את הכיוון לכוונת. התמונה הקודמת (בזמן המעבר) מסתובבת לפי הסיבוב שלה, כך ששתיהן מכוונות לאותה נקודה
-    val residual = residualFor(shownCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL) + rotEase
-    val prevResidual = if (prev != null) residualFor(prevCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL) else residual
+    val residual = residualFor(shownCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp)
+        ?: aimError(shownCell, 0f, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp).coerceIn(-MAX_RESIDUAL, MAX_RESIDUAL)
+    val prevResidual = if (prev != null) residualFor(prevCell, frameL, frameT, frameW, frameH, pivot, tx, ty, minUp) ?: residual else residual
     val cropW = frameW * CROP_W
     // כשמסובבים, פינה אחת של התמונה מתרוממת מתחתית המסך: מורידים מעט את הרובה כדי שלא ייראה רווח
     // ירידה קטנה ורציפה (1-cos): ירידה גדולה לפי sin גרמה לרובה "לקפץ" למעלה ולמטה בכל שינוי הטיה (נבדק בסימולציה).
