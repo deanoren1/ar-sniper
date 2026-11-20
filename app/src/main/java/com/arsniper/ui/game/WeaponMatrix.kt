@@ -306,7 +306,16 @@ internal fun DrawScope.drawWeaponMatrix(
     translate(ox + sx, oy + drop + sy) {
         rotate(residual, pivot) {
             if (fill > 1f) {
-                drawImage(shown, IntOffset.Zero, IntSize(shown.width, shown.height), IntOffset(dstOffset.x, dstOffset.y + fill.toInt()), dstSize)
+                // ממלאים את הרווח מתחת לזרוע במתיחה של שורת הפיקסלים התחתונה בלבד (המשך הזרוע/הידיים).
+                // קודם צויר כאן עותק שלם של הספרייט מוזז למטה, וזה נראה כמו רובה כפול
+                val strip = 3
+                val stripScreen = (dstSize.height.toFloat() * strip / shown.height).toInt().coerceAtLeast(1)
+                drawImage(
+                    shown,
+                    IntOffset(0, shown.height - strip), IntSize(shown.width, strip),
+                    IntOffset(dstOffset.x, dstOffset.y + dstSize.height - stripScreen),
+                    IntSize(dstSize.width, stripScreen + fill.toInt() + 2)
+                )
             }
             drawImage(shown, IntOffset.Zero, IntSize(shown.width, shown.height), dstOffset, dstSize, alpha = if (prev != null) fade else 1f)
         }
