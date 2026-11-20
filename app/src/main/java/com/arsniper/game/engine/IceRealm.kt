@@ -62,7 +62,7 @@ enum class BossAttack(
  *  פגיעה בהכנה (2) לא עוצרת את המתקפה (היהלום הזהוב = נזק כפול). מתחמקים מהמתקפה עם הכוונת (ג'ויסטיק).
  *  כל מצב → Dead (Death, המוות האחרון) כשהחיים נגמרים. מ-Dead אין חזרה.
  *
- * חיים: 5 יהלומים (ראש, 2 כתפיים, 2 ידיים) × 3 = 15, כמו קודם. פגיעה = 1, ביהלום הזהוב בהכנה = 2.
+ * חיים: 5 יהלומים (ראש, 2 כתפיים, 2 ידיים) × 4 = 20. יהלום נשבר רק אחרי שסרטון התגובה שלו הוצג, והבוס מת רק אחרי שביצע את כל 4 המתקפות. פגיעה = 1, ביהלום הזהוב בהכנה = 2.
  * הבוס פגיע רק בנשימה ובהכנה (שם יש מעקב מדויק של הנקודות); במתקפה ובתגובה הירייה נהדפת.
  * פגיעה בגוף (לא ביהלום) נהדפת בלי נזק, כמו קודם (אין לה סרטון תגובה ייעודי).
  *
@@ -96,6 +96,12 @@ class IceRealm {
         private set
 
     val diamonds: List<Diamond> = Zone.entries.map { Diamond(it, DIAMOND_HP) }
+
+    /** לכל נקודת תורפה: האם סרטון התגובה שלה כבר הוצג. נקודה לא נשברת לפני שהסרטון שלה הוצג פעם אחת */
+    val reacted = BooleanArray(Zone.entries.size)
+
+    /** המתקפות שהבוס כבר ביצע בקרב הזה. הבוס לא מת לפני שביצע את כולן */
+    private val attacksDone = HashSet<BossAttack>()
 
     // --- הסרטון הנוכחי ---
     var clip: BossClip? = null
@@ -286,7 +292,7 @@ class IceRealm {
     private fun prepareSpeed() = when (phase) { 1 -> 1.0f; 2 -> 1.2f; else -> 1.4f }
 
     /** כמה שניות הבוס נושם (חלון הפגיעה): מלא בשלב 1, מתקצר אחר כך */
-    private fun breathSeconds() = when (phase) { 1 -> 5.0f; 2 -> 3.2f; else -> 2.0f }
+    private fun breathSeconds() = when (phase) { 1 -> 4.0f; 2 -> 2.6f; else -> 1.8f }
 
     /** עוצמת הרעידה של מכה */
     val impactPower: Float get() = when (phase) { 1 -> 1f; 2 -> 1.15f; else -> 1.35f }
@@ -315,6 +321,8 @@ class IceRealm {
         time = 0f
         stageTime = 0f
         for (d in diamonds) d.hp = DIAMOND_HP
+        reacted.fill(false)
+        attacksDone.clear()
         clip = null
         clipSpeed = 1f
         clipMs = 0f
@@ -520,6 +528,7 @@ class IceRealm {
 
     private fun startAttack(a: BossAttack) {
         attacksSeen += 1
+        attacksDone += a
         // מטרה שהופיעה כבר בהכנה ממשיכה (וגם אם כבר נפגעה, החסימה נשמרת)
         if (!preSpawned) {
             targetCount = 0
@@ -609,7 +618,13 @@ class IceRealm {
         val d = diamonds[best]
         // היהלום הזהוב בהכנה: נזק כפול, אבל המתקפה לא נעצרת
         val bonus = stage == Stage.PreparingAttack && best == exposed
-        d.hp = (d.hp - if (bonus) EXPOSED_DAMAGE else 1).coerceAtLeast(0)
+        var newHp = (d.hp - if (bonus) EXPOSED_DAMAGE else 1).coerceAtLeast(0)
+        // נקודה נשברת רק אחרי שסרטון התגובה שלה הוצג (פגיעה כשהבוס נושם). עד אז נשארת לה נקודת חיים אחת
+        if (!reacted[d.zone.index]) newHp = maxOf(newHp, 1)
+        // המכה האחרונה לא נחשבת לפני שהבוס ביצע את כל המתקפות שלו
+        val othersLeft = diamonds.withIndex().any { (j, o) -> j != best && o.alive }
+        if (newHp == 0 && !othersLeft && attacksDone.size < BossAttack.entries.size) newHp = 1
+        d.hp = newHp
         hitFlash = HIT_FLASH_SECONDS
         hitX = px
         hitY = py
@@ -625,6 +640,7 @@ class IceRealm {
         // תגובת פגיעה (הסרטון של אותו מקום) כשהבוס נושם; בהכנה למתקפה הפגיעה לא עוצרת אותו
         if (stage == Stage.Idle) {
             exposed = -1
+            reacted[d.zone.index] = true
             go(Stage.HitReaction)
             play(d.zone.clip)
         }
@@ -635,7 +651,7 @@ class IceRealm {
     enum class Hit { None, Deflect, Guard, Hit, Bonus, Broke, Killed, Target, Block }
 
     companion object {
-        const val DIAMOND_HP = 3
+        const val DIAMOND_HP = 4
         const val EXPOSED_DAMAGE = 2
 
         /** גבולות השלבים (חלק מהחיים) */
@@ -675,7 +691,7 @@ class IceRealm {
         const val CUT_FLASH_SECONDS = 0.22f
 
         /** כמה מהרדיוס של הנקודה נחשב פגיעה */
-        const val HIT_SCALE = 1.3f
+        const val HIT_SCALE = 1.0f
 
         /** אם הנגן מפגר יותר מזה אחרי השעון הפנימי, ממשיכים לפי השעון (הנגן נתקע) */
         const val STALL_MS = 600f
