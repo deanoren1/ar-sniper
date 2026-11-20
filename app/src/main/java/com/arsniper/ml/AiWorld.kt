@@ -132,7 +132,7 @@ object AiWorld {
     /** עולם שנוצר בעבר לאותה תמונה ובאותה משפחת ארנה בסגנון ישן (למשל tundra במקום tundra_mid): משתמשים בו במקום ליצור מחדש */
     private fun olderWorldFile(context: Context, photoKey: String, serverStyle: String): java.io.File? {
         val family = serverStyle.substringBefore("_")
-        val pattern = Regex("^" + Regex.escape(photoKey) + "_" + Regex.escape(family) + "(_[a-z]+)?\\.jpg$")
+        val pattern = Regex("^" + Regex.escape(photoKey) + "_" + Regex.escape(family) + "(_[a-z0-9]+)?\\.jpg$")
         val dir = java.io.File(context.filesDir, "ai_world")
         return (dir.listFiles() ?: emptyArray()).filter { pattern.matches(it.name) }.maxByOrNull { it.lastModified() }
     }

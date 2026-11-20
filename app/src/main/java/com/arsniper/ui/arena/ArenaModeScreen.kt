@@ -95,7 +95,7 @@ private fun deleteSavedWorld(context: android.content.Context, w: SavedWorld) {
     try {
         val dir = File(context.filesDir, "ai_world")
         val family = (AiWorld.serverStyle(w.style) ?: return).substringBefore("_")
-        val pattern = Regex("^" + Regex.escape(w.key) + "_" + Regex.escape(family) + "(_[a-z]+)?\\.jpg$")
+        val pattern = Regex("^" + Regex.escape(w.key) + "_" + Regex.escape(family) + "(_[a-z0-9]+)?\\.jpg$")
         (dir.listFiles() ?: emptyArray()).filter { pattern.matches(it.name) }.forEach { it.delete() }
         // קובץ המקור של ה-AI נמחק רק אם לא נשארו לתמונה עולמות בארנות אחרות
         val others = (dir.listFiles() ?: emptyArray()).any { !it.name.startsWith("src_") && it.name.startsWith(w.key + "_") }
@@ -119,7 +119,7 @@ private fun savedWorlds(context: android.content.Context, style: ArenaStyle): Li
     val dir = File(context.filesDir, "ai_world")
     // כל העולמות של משפחת הארנה (גם כאלה שנוצרו בסגנון ישן), אחד לכל תמונה; המועדף: הסגנון הנוכחי
     val family = serverStyle.substringBefore("_")
-    val pattern = Regex("^(.+)_" + Regex.escape(family) + "(_[a-z]+)?\\.jpg$")
+    val pattern = Regex("^(.+)_" + Regex.escape(family) + "(_[a-z0-9]+)?\\.jpg$")
     val byKey = (dir.listFiles() ?: emptyArray())
         .filter { !it.name.startsWith("src_") && pattern.matches(it.name) }
         .groupBy { pattern.matchEntire(it.name)!!.groupValues[1] }
