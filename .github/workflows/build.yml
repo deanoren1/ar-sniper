@@ -72,3 +72,7 @@ jobs:
           npx --yes wrangler@4 r2 object put snapboo-worlds/app/snapboo.apk --file "$APK" --content-type application/vnd.android.package-archive --remote
           npx --yes wrangler@4 r2 object put snapboo-worlds/app/latest.json --file latest.json --content-type application/json --remote
           echo "::notice title=In-app update::Published build ${{ github.run_number }} ($SIZE bytes)"
+          # בדיקה שהשרת מגיש את העדכון (דרך pages.dev, כמו הטלפון)
+          sleep 5
+          echo "::notice title=Served latest.json::$(curl -fsS https://snapboo-front.pages.dev/app/latest.json)"
+          echo "::notice title=Served APK::$(curl -fsSI https://snapboo-front.pages.dev/app/snapboo.apk | grep -iE '^(HTTP|content-length)' | tr '\r\n' '  ')"
