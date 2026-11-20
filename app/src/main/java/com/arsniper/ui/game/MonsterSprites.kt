@@ -291,7 +291,7 @@ class MonsterSprites private constructor(
                     for (fly in listOf(false, true)) {
                         val name = (if (fly) "rig2f_" else "rig2_") + "${arena}_${foe}_$n"
                         val id = res.getIdentifier(name, "drawable", context.packageName)
-                        if (id != 0) loadRig2(context, id, fly)?.let { pools[foe].add(it) }
+                        if (id != 0) loadRig2(context, id, fly)?.let { pools[foe].add(if (foe == 3) withBalloonStates(context, name, it) else it) }
                     }
                 }
             }
@@ -445,7 +445,27 @@ class MonsterSprites private constructor(
 
         private const val BALLOON_SIZE_SCALE = 1.0f
 
-        private fun loadRig2(context: Context, id: Int, flies: Boolean = false): MonsterSheet? {
+        /**
+         * מפלצת בלונים בפורמט rig2: אם יש גיליונות <שם>_b2, _b1, _b0 (אותו גיליון עם 2, 1 ו-0 בלונים, נוצרו ב-docs/tools/balloon_states.py),
+         * הבלונים נעלמים אחד אחד בפגיעות, כמו במפלצת הבלונים הקלאסית. באותו קנה מידה כמו הגיליון המלא. אחרת הגיליון כמו שהוא
+         */
+        private fun withBalloonStates(context: Context, name: String, full: MonsterSheet): MonsterSheet {
+            val res = context.resources
+            val states = HashMap<Int, MonsterSheet>()
+            for (n in 0..2) {
+                val id = res.getIdentifier("${name}_b$n", "drawable", context.packageName)
+                if (id == 0) return full
+                states[n] = loadRig2(context, id, full.flies, full.sizeScale) ?: return full
+            }
+            states[3] = full
+            return MonsterSheet(
+                idle = full.idle, walk = full.walk, peek = full.peek, hit = full.hit, sizeScale = full.sizeScale,
+                moves = full.moves, rig = full.rig, frontPeek = full.frontPeek, flies = full.flies,
+                balloonStates = states
+            )
+        }
+
+        private fun loadRig2(context: Context, id: Int, flies: Boolean = false, sizeOverride: Float? = null): MonsterSheet? {
             val options = BitmapFactory.Options().apply {
                 inScaled = false
                 inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -474,7 +494,7 @@ class MonsterSprites private constructor(
                 hit = cell(7, 1),
                 // התא כולל מקום לאפקטים מעל הראש (כוכבים, ברק): מגדילים מעט כדי שהגוף יהיה בגובה של שאר המפלצות.
                 // התמנון (גובה הגוף 92.6% מהתא) הוא נקודת הייחוס; גיליון עם תא צפוף יותר (חילזון) מוקטן בהתאם
-                sizeScale = 1.08f * RIG2_REF_BODY / idleBodyFraction(bitmap, cw, ch),
+                sizeScale = sizeOverride ?: (1.08f * RIG2_REF_BODY / idleBodyFraction(bitmap, cw, ch)),
                 moves = WalkSet(walkSide, walkFront, walkBack, walkSide),
                 flies = flies,
                 rig = RigAnim(
