@@ -303,6 +303,18 @@ class IceRealm {
     val prepareFraction: Float
         get() = if (stage == Stage.PreparingAttack) (clipMs / BossClip.Prepare.durationMs).coerceIn(0f, 1f) else 0f
 
+    /**
+     * התקדמות שאיבת הארנה 0..1: עולה אחרי הסדקים, ונשארת 1 (הארנה שחורה) בזמן הפורטל ועד שסרטון הכניסה מכסה את המסך
+     */
+    val suctionProgress: Float
+        get() = when {
+            !BossWorld.isTundra -> 0f
+            stage == Stage.Cracks -> ((stageTime - CRACKS_SECONDS) / SUCTION_SECONDS).coerceIn(0f, 1f)
+            stage == Stage.Portal -> 1f
+            stage == Stage.Intro && !covering -> 1f
+            else -> 0f
+        }
+
     fun begin() {
         if (stage != Stage.Off) return
         reset()
@@ -415,7 +427,8 @@ class IceRealm {
         hitThisTick = false
         advanceClock(dt)
         when (stage) {
-            Stage.Cracks -> if (stageTime >= CRACKS_SECONDS) go(Stage.Portal)
+            // הסדקים מתפשטים (CRACKS_SECONDS), ואז הארנה נשאבת לחור שחור (SUCTION_SECONDS), ורק אז הפורטל
+            Stage.Cracks -> if (stageTime >= CRACKS_SECONDS + SUCTION_SECONDS) go(Stage.Portal)
             Stage.Portal -> if (stageTime >= PORTAL_SECONDS) {
                 go(Stage.Intro)
                 play(BossClip.Intro)
@@ -663,6 +676,9 @@ class IceRealm {
 
         /** סדקי הקרח על הרצפה לפני הפורטל */
         const val CRACKS_SECONDS = 2.0f
+
+        /** שאיבת הארנה למערבולת אחרי הסדקים (BossSuctionTransition) */
+        const val SUCTION_SECONDS = 2.65f
 
         /** כמה זמן לפני הפגיעה מופיע אזור הסכנה (קשה: מספיק רק למי שזז מהר), ובזעם */
         /** כמה זמן לפני המכה מופיעה מטרת החסימה (בזעם: לשתי המטרות יחד) */

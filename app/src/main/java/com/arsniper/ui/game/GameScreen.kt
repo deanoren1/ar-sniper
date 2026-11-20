@@ -236,6 +236,8 @@ fun GameScreen(
     val director = remember { ArenaDirector(difficulty.apply(ArenaDirector.DEFAULT_WAVES)) }
     // ארנת הקרח: גל הבוס מתנהל בעולם הקרח (בוס ענק ויהלומים), לא בדרקון
     val realm = remember { IceRealm() }
+    // שיידר שאיבת הארנה לפני הבוס (Android 13+; בישנים רק שכבת האנרגיה)
+    val suctionShader = remember { createBossSuctionShader() }
     // שלב הבוס הגדול (סרטונים): בטונדרה תמיד, ובעולם אחר אם יש לו סרטוני בוס (boss_<עולם>_breath) וקובץ מעקב
     val bossWorldKey = style.name.lowercase()
     val bossTracksText = remember(bossWorldKey) {
@@ -1635,9 +1637,13 @@ fun GameScreen(
                     val shakeY = cos(t * 97f) * shake * size.height * 0.016f
                     translationX = (0.5f - camera.center.x * camera.zoom) * size.width + shakeX
                     translationY = (0.5f - camera.center.y * camera.zoom) * size.height + shakeY
-                    // פגיעת כדור אנרגיה: העולם מטשטש לרגע ומתחדד בחזרה (הממשק נשאר חד כדי שאפשר להמשיך לשחק).
-                    // ב-Android 12 ומעלה בלבד; בישנים יותר אין טשטוש
-                    if (orbImpact > 0f) {
+                    // שאיבת הארנה לפני הבוס (Android 13+): כל שכבת הארנה (רקע, מפלצות, אפקטים) מתעוותת יחד
+                    val suck = bossSuctionEffect(suctionShader, realm.suctionProgress, size.width, size.height)
+                    if (suck != null) {
+                        renderEffect = suck
+                    } else if (orbImpact > 0f) {
+                        // פגיעת כדור אנרגיה: העולם מטשטש לרגע ומתחדד בחזרה (הממשק נשאר חד כדי שאפשר להמשיך לשחק).
+                        // ב-Android 12 ומעלה בלבד; בישנים יותר אין טשטוש
                         val blur = OrbFx.blur(OrbFx.IMPACT_SECONDS - orbImpact) * 16f * density
                         if (blur > 0.5f) renderEffect = androidx.compose.ui.graphics.BlurEffect(blur, blur, androidx.compose.ui.graphics.TileMode.Clamp)
                     }
@@ -1711,8 +1717,16 @@ fun GameScreen(
         // פנורמה: חלקיקים, ערפל וחשכת קצוות צמודים למסך. המסגרת וכתמי הרצפה בעולם עצמו
 
         // עולם הקרח (בוס ארנת הקרח): שכבה קבועה למסך מעל הארנה ומתחת לכוונת, לנשק ולממשק
+        // שכבת אנרגיה של השאיבה: מעל הארנה, מתחת לפורטל ולסרטון של הבוס
+        if (realm.suctionProgress > 0f) BossSuctionOverlay(progress = realm.suctionProgress)
         IceRealmLayer(
             realm = realm,
+            // בזמן השאיבה גם הסדקים נשאבים (באותו עיוות כמו הארנה); הפורטל עצמו לא
+            modifier = Modifier.graphicsLayer {
+                if (realm.stage == com.arsniper.game.engine.IceRealm.Stage.Cracks) {
+                    renderEffect = bossSuctionEffect(suctionShader, realm.suctionProgress, size.width, size.height)
+                }
+            },
             nowNanos = frameNanos,
             paused = paused || director.phase == ArenaPhase.Lost,
             shake = shake,
