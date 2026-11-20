@@ -14,7 +14,8 @@ android {
         applicationId = "com.arsniper"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        // מספר הבנייה ב-GitHub Actions (build.yml מעביר -PbuildNumber); עולה בכל בנייה, כך שהעדכון מתוך המשחק מזהה גרסה חדשה
+        versionCode = (project.findProperty("buildNumber") as String?)?.toIntOrNull() ?: 1
         versionName = "1.0"
 
         ndk {

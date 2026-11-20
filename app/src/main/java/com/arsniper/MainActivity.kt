@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
                 androidx.compose.ui.text.TextStyle(fontFamily = com.arsniper.ui.theme.GameType.Family)
               ) {
                 AppNavigation()
+                // עדכון מתוך המשחק: גרסה חדשה מ-main
+                com.arsniper.update.UpdateDialog()
                 var crashText by androidx.compose.runtime.remember { mutableStateOf(lastCrash) }
                 if (crashText != null) {
                     AlertDialog(

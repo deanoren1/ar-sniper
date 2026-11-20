@@ -686,6 +686,20 @@ export default {
     if (url.pathname === "/admin") return env.ADMIN_KEY ? new Response(ADMIN_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } }) : new Response("Not found", { status: 404 });
     if (url.pathname.startsWith("/admin/api/")) return adminApi(request, env, url);
     if (url.pathname.startsWith("/worlds/")) return worldsApi(request, env, url);
+    // עדכון האפליקציה מתוך המשחק: build.yml מעלה לכאן (R2) את ה-APK של כל בנייה ב-main
+    if (url.pathname === "/app/latest.json" || url.pathname === "/app/snapboo.apk") {
+      if (!env.WORLDS) return new Response("Not found", { status: 404 });
+      const apk = url.pathname.endsWith(".apk");
+      const obj = await env.WORLDS.get(apk ? "app/snapboo.apk" : "app/latest.json");
+      if (!obj) return new Response("Not found", { status: 404 });
+      return new Response(obj.body, {
+        headers: {
+          "content-type": apk ? "application/vnd.android.package-archive" : "application/json",
+          "content-length": String(obj.size),
+          "cache-control": "no-store",
+        },
+      });
+    }
     if (url.pathname === "/quota") {
       const device = request.headers.get("x-device") ?? "";
       if (!/^[A-Za-z0-9_-]{8,64}$/.test(device)) return Response.json({ error: "bad-device" }, { status: 400 });

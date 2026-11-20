@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle clean assembleDebug --no-build-cache --stacktrace 2>&1 | tee build.log
+          gradle clean assembleDebug -PbuildNumber=${{ github.run_number }} --no-build-cache --stacktrace 2>&1 | tee build.log
           code=${PIPESTATUS[0]}
           # שגיאות קומפילציה כהערות על ההרצה (כדי שאפשר לקרוא אותן בלי הלוגים המלאים)
           grep -E "^e: " build.log | head -20 | while read -r l; do echo "::error::${l}"; done
@@ -55,3 +55,20 @@ jobs:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 1
+
+      # עדכון מתוך המשחק: ה-APK והגרסה עולים ל-R2, והמשחק בודק אותם בפתיחה (snapboo-front.pages.dev/app/latest.json)
+      - name: Publish in-app update
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          SIZE=$(stat -c %s "$APK")
+          NOTES=$(git log -1 --pretty=%s | head -c 300)
+          jq -n --argjson v ${{ github.run_number }} --arg n "$NOTES" --argjson s "$SIZE" '{versionCode:$v, notes:$n, size:$s}' > latest.json
+          cat latest.json
+          npx --yes wrangler@4 r2 object put snapboo-worlds/app/snapboo.apk --file "$APK" --content-type application/vnd.android.package-archive --remote
+          npx --yes wrangler@4 r2 object put snapboo-worlds/app/latest.json --file latest.json --content-type application/json --remote
+          echo "::notice title=In-app update::Published build ${{ github.run_number }} ($SIZE bytes)"
