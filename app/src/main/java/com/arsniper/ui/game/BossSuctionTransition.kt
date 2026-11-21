@@ -19,17 +19,19 @@ import kotlin.math.sin
  * progress is 0..1. Deterministic particle positions avoid allocations/randomness per frame.
  */
 @Composable
-fun BossSuctionOverlay(progress: Float, modifier: Modifier = Modifier) {
+fun BossSuctionOverlay(progress: Float, modifier: Modifier = Modifier, warped: Boolean = false) {
     if (progress <= 0f) return
     Canvas(modifier.fillMaxSize()) {
         val p = progress.coerceIn(0f, 1f)
-        val c = Offset(size.width * 0.5f, size.height * 0.5f)
+        // אותו מרכז כמו השיידר (uCenter)
+        val c = Offset(size.width * 0.5f, size.height * (0.62f - 0.14f * p))
         val maxR = hypot(size.width, size.height) * 0.56f
         val coreR = maxR * (0.04f + 0.88f * p * p)
 
         // Vortex glow surrounding the growing dark core.
         val glowR = coreR + size.height * (0.08f + 0.05f * (1f - p))
-        drawCircle(
+        // עם השיידר החור האמיתי נוצר מהעיוות עצמו; הליבה הכהה המצוירת רק בטלפונים בלי AGSL
+        if (!warped) drawCircle(
             Brush.radialGradient(
                 0f to Color(0xFF050313).copy(alpha = 0.98f),
                 (coreR / maxR).coerceIn(0.02f, 0.95f) to Color(0xFF130B35).copy(alpha = 0.92f),
@@ -48,7 +50,7 @@ fun BossSuctionOverlay(progress: Float, modifier: Modifier = Modifier) {
             val radius = maxR * (fraction * (1f - 0.55f * p) + 0.08f * p)
             rotate(degrees = (p * 900f * (if (i % 2 == 0) 1f else -1f)) + i * 31f, pivot = c) {
                 drawArc(
-                    color = if (i % 2 == 0) Color(0xFF55D8FF) else Color(0xFFB45CFF),
+                    color = (if (i % 2 == 0) Color(0xFF55D8FF) else Color(0xFFB45CFF)).copy(alpha = if (warped) 0.55f else 1f),
                     startAngle = 12f + i * 37f,
                     sweepAngle = 205f + 45f * p,
                     useCenter = false,
@@ -78,7 +80,7 @@ fun BossSuctionOverlay(progress: Float, modifier: Modifier = Modifier) {
 
         // Final dark-out: lets the boss portal take over cleanly.
         val blackout = ((p - 0.78f) / 0.22f).coerceIn(0f, 1f)
-        if (blackout > 0f) {
+        if (blackout > 0f && !warped) {
             drawRect(Color.Black.copy(alpha = blackout))
         }
     }
@@ -90,6 +92,8 @@ fun bossSuctionEffect(shader: Any?, progress: Float, w: Float, h: Float): androi
     val s = shader as android.graphics.RuntimeShader
     s.setFloatUniform("uResolution", w.coerceAtLeast(1f), h.coerceAtLeast(1f))
     s.setFloatUniform("uProgress", progress)
+    // מרכז השאיבה זז במהלך האנימציה: מהרצפה מול השחקן אל מרכז המסך
+    s.setFloatUniform("uCenter", 0.5f, 0.62f - 0.14f * progress)
     return android.graphics.RenderEffect.createRuntimeShaderEffect(s, "uContent").asComposeRenderEffect()
 }
 
@@ -102,46 +106,39 @@ const val BOSS_SUCTION_AGSL: String = """
 uniform shader uContent;
 uniform float2 uResolution;
 uniform float uProgress;
+uniform float2 uCenter;
 
 half4 main(float2 fragCoord) {
     float2 res = max(uResolution, float2(1.0, 1.0));
-    float2 uv = fragCoord / res;
-    float2 centered = uv - float2(0.5, 0.5);
-    float aspect = res.x / res.y;
-    float2 p = centered * float2(aspect, 1.0);
+    float2 c = uCenter * res;
+    // יחידות של גובה המסך, ביחס למרכז השאיבה
+    float2 p = (fragCoord - c) / res.y;
     float r = length(p);
-    float angle = atan(p.y, p.x);
-
     float t = clamp(uProgress, 0.0, 1.0);
-    float ease = t * t * (3.0 - 2.0 * t);
+    float e = t * t * (3.0 - 2.0 * t);
 
-    // Stronger twist near the singularity, with a radial pull toward the center.
-    float influence = 1.0 - smoothstep(0.08, 0.95, r);
-    angle += ease * 7.2 * influence * (0.35 + 0.65 * (1.0 - r));
-    float pull = ease * 0.48 * pow(max(0.0, 1.0 - r / 0.92), 2.0);
-    float sampleR = r + pull;
+    // משיכה כבידתית: כל נקודה מציגה תוכן שנמצא רחוק יותר מהמרכז, וחזק יותר ככל שקרובים לחור.
+    // כך הקרקע, ההרים והאובייקטים נמתחים ונדחסים פנימה (לא רק מסתובבים)
+    float pull = e * (0.10 + 0.22 / (r + 0.10));
+    float sampleR = r + pull * (1.0 + 2.0 * e);
+    // סיבוב שמתחזק לכיוון המרכז (דיסקת ספיחה)
+    float swirl = e * (1.2 + 3.2 / (r * 3.0 + 0.5));
+    float a = atan(p.y, p.x) + swirl;
+    float2 sp = c + float2(cos(a), sin(a)) * sampleR * res.y;
 
-    float2 warped = float2(cos(angle), sin(angle)) * sampleR;
-    float2 sampleUv = warped / float2(aspect, 1.0) + float2(0.5, 0.5);
+    half4 base = uContent.eval(clamp(sp, float2(0.0), res));
+    // מחוץ לתמונה: שקוף/כהה במקום מריחת קצוות
+    float inside = step(0.0, sp.x) * step(sp.x, res.x) * step(0.0, sp.y) * step(sp.y, res.y);
+    base *= half(inside);
 
-    // eval מקבל קואורדינטות בפיקסלים (לא 0..1)
-    half4 base = uContent.eval(clamp(sampleUv, float2(0.0), float2(1.0)) * res);
-    // מחוץ לתמונה: כהה, במקום למרוח את פיקסלי הקצה לפסים
-    float inside = step(0.0, sampleUv.x) * step(sampleUv.x, 1.0) * step(0.0, sampleUv.y) * step(sampleUv.y, 1.0);
-    base.rgb *= half(inside);
-
-    // Expanding black event horizon.
-    float holeRadius = ease * 0.98;
-    float keep = smoothstep(holeRadius - 0.025, holeRadius + 0.035, r);
-    base.rgb *= half(keep);
-
-    float ring = exp(-abs(r - (0.12 + 0.20 * ease)) * (24.0 - 10.0 * ease)) * ease;
-    half3 energy = half3(0.12, 0.42, 1.0) * half(ring * 0.55)
-                 + half3(0.48, 0.08, 0.95) * half(ring * 0.42);
-    base.rgb += energy * half(1.0 - smoothstep(0.72, 1.0, t));
-
-    // Final frame goes fully dark before the portal scene appears.
-    base.rgb *= half(1.0 - smoothstep(0.94, 1.0, t));
+    // אופק אירועים: חור שחור שגדל עד שמכסה את כל המסך
+    float hole = pow(e, 1.6) * 1.35;
+    float keep = smoothstep(hole - 0.02, hole + 0.06, r);
+    // טבעת זוהרת בשפת החור
+    float ring = exp(-abs(r - hole - 0.035) * 38.0) * (1.0 - smoothstep(0.85, 1.0, t)) * step(0.001, e);
+    base *= half(keep);
+    half3 glow = half3(0.25, 0.55, 1.0) * half(ring * 0.9) + half3(0.55, 0.15, 1.0) * half(ring * 0.35);
+    base.rgb += glow * base.a;
     return base;
 }
 """

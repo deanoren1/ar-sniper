@@ -1725,7 +1725,7 @@ fun GameScreen(
 
         // עולם הקרח (בוס ארנת הקרח): שכבה קבועה למסך מעל הארנה ומתחת לכוונת, לנשק ולממשק
         // שכבת אנרגיה של השאיבה: מעל הארנה, מתחת לפורטל ולסרטון של הבוס
-        if (realm.suctionProgress > 0f) BossSuctionOverlay(progress = realm.suctionProgress)
+        if (realm.suctionProgress > 0f) BossSuctionOverlay(progress = realm.suctionProgress, warped = suctionShader != null)
         IceRealmLayer(
             realm = realm,
             nowNanos = frameNanos,
@@ -1744,7 +1744,10 @@ fun GameScreen(
         SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)
 
         // הכוונת מצוירת במיקום המסך שלה
-        CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
+        // בזמן השאיבה גם הכוונת נשאבת (אותו עיוות כמו הארנה)
+        Box(Modifier.fillMaxSize().graphicsLayer { renderEffect = bossSuctionEffect(suctionShader, realm.suctionProgress, size.width, size.height) }) {
+            CrosshairOverlay(position = Offset(crosshairOnScreen.x, crosshairOnScreen.y))
+        }
 
         // משחק משותף: הכוונת השקופה של השותף, וחץ כשהוא מכוון אל מחוץ למסך
         if (coop != null) {
@@ -1927,7 +1930,10 @@ fun GameScreen(
 
         // הרובה בתחתית המסך (בלי מגע), ומד הכדורים מעל כפתור הירי
         if (weaponArt != null) {
-            WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget, aimX = crosshairOnScreen.x, aimY = crosshairOnScreen.y)
+            // בזמן השאיבה הרובה נשאב יחד עם העולם (אותו עיוות)
+            Box(Modifier.fillMaxSize().graphicsLayer { renderEffect = bossSuctionEffect(suctionShader, realm.suctionProgress, size.width, size.height) }) {
+                WeaponLayer(art = weaponArt, weapon = weapon, nowNanos = frameNanos, tracerTarget = tracerTarget, aimX = crosshairOnScreen.x, aimY = crosshairOnScreen.y)
+            }
         }
         if (coop != null) {
             com.arsniper.ui.components.MicToggle(
