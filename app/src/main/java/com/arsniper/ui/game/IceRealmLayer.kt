@@ -178,7 +178,9 @@ fun IceRealmLayer(
             // סדקי קרח זוהרים שמתפשטים על הרצפה (2 שניות), ונשארים מתחת לפורטל עד שסרטון הכניסה מופיע
             if (com.arsniper.game.engine.BossWorld.isTundra && !videoShown && (realm.stage == IceRealm.Stage.Cracks || inPortal || realm.stage == IceRealm.Stage.Intro)) {
                 val k = if (realm.stage == IceRealm.Stage.Cracks) realm.stageTime / IceRealm.CRACKS_SECONDS else 1f
-                cracks.draw(this, k, camMap)
+                // השאיבה לא מעוותת את שכבת הסדקים (הייתה נשארת חדה ומדורגת מעל המערבולת), אז הם נעלמים בתחילתה
+                val fade = (1f - realm.suctionProgress / 0.3f).coerceIn(0f, 1f)
+                cracks.draw(this, k, camMap, fade)
             }
 
             // סרטון 0: הפורטל, עד שהפריים הראשון של הכניסה מוכן (הפריים האחרון שלו זהה לראשון של הכניסה)

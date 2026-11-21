@@ -126,6 +126,9 @@ half4 main(float2 fragCoord) {
 
     // eval מקבל קואורדינטות בפיקסלים (לא 0..1)
     half4 base = uContent.eval(clamp(sampleUv, float2(0.0), float2(1.0)) * res);
+    // מחוץ לתמונה: כהה, במקום למרוח את פיקסלי הקצה לפסים
+    float inside = step(0.0, sampleUv.x) * step(sampleUv.x, 1.0) * step(0.0, sampleUv.y) * step(sampleUv.y, 1.0);
+    base.rgb *= half(inside);
 
     // Expanding black event horizon.
     float holeRadius = ease * 0.98;

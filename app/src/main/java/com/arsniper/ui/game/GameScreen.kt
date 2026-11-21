@@ -1464,14 +1464,21 @@ fun GameScreen(
         }
     }
 
+    // מחיר ההחייאה הבאה (0 = אין החייאה). בגלים רגילים: פעם אחת. מול הבוס: בלי הגבלה, והמחיר מוכפל בכל פעם (3, 6, 12...)
+    fun reviveCostNow(): Int = when {
+        realm.active -> REVIVE_COST * (1 shl revives.coerceAtMost(5))
+        revives < 1 -> REVIVE_COST
+        else -> 0
+    }
+
     // החייאה ביהלומים: חוזרים לאותו גל עם 2 לבבות, מחסנית והלם מלאים
     // byGuest (מארח): האורח כבר שילם מהיהלומים שלו. אם ההחייאה לא אפשרית, הוא מקבל החזר
     fun reviveRun(byGuest: Boolean = false) {
-        if (director.phase != ArenaPhase.Lost || revives >= 1) {
+        if (director.phase != ArenaPhase.Lost || reviveCostNow() <= 0) {
             if (byGuest) CoopSync.queueRefund()
             return
         }
-        if (!byGuest && !PlayerProfile.spendDiamonds(REVIVE_COST)) return
+        if (!byGuest && !PlayerProfile.spendDiamonds(reviveCostNow())) return
         revives += 1
         if (isHost) CoopSync.queueRevived()
         enemies = emptyList()
@@ -1721,12 +1728,6 @@ fun GameScreen(
         if (realm.suctionProgress > 0f) BossSuctionOverlay(progress = realm.suctionProgress)
         IceRealmLayer(
             realm = realm,
-            // בזמן השאיבה גם הסדקים נשאבים (באותו עיוות כמו הארנה); הפורטל עצמו לא
-            modifier = Modifier.graphicsLayer {
-                if (realm.stage == com.arsniper.game.engine.IceRealm.Stage.Cracks) {
-                    renderEffect = bossSuctionEffect(suctionShader, realm.suctionProgress, size.width, size.height)
-                }
-            },
             nowNanos = frameNanos,
             paused = paused || director.phase == ArenaPhase.Lost,
             shake = shake,
@@ -2063,7 +2064,7 @@ fun GameScreen(
                 wave = director.waveIndex + 1,
                 diamondsGained = diamondsGained,
                 totalCoins = PlayerProfile.coins,
-                reviveCost = if (revives < 1) REVIVE_COST else 0,
+                reviveCost = reviveCostNow(),
                 diamonds = PlayerProfile.diamonds,
                 onRevive = { if (isGuest) guestRevive() else reviveRun() },
                 onRetry = { if (isGuest) CoopSync.sendCommand("retry") else retry() },
