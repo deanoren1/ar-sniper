@@ -56,9 +56,11 @@ object AiWorldSpots {
         if (cachedAi == null && cacheKey != null) AnalysisCache.save(context.filesDir, cacheKey, ai)
         // מחבואים מהמקור שעולם ה-AI מחק: דמות מאחוריהם הייתה נראית חתוכה באוויר
         val pruned = SceneSession.pruneMissing(ai, indices(BACKGROUND_NAMES - "windowpane"))
-        val merged = merge(original, ai, hideNames) ?: return pruned
-        val guide = buildGuide(aiWorld, merged.width, merged.height)
-        return pruned + SceneSession.addExtraSpots(merged, indices(hideNames), guide)
+        // קצוות המחבואים לפי עולם ה-AI (עמוד שהתרחב/זז קצת): בלי זה נשאר פס דק מהדמות על פני העמוד
+        val guide = buildGuide(aiWorld, original.width, original.height)
+        val refined = SceneSession.refineEdges(guide)
+        val merged = merge(original, ai, hideNames) ?: return pruned + refined
+        return pruned + refined + SceneSession.addExtraSpots(merged, indices(hideNames), guide)
     }
 
     /** ניתוח מקורי + צמחים מניתוח ה-AI (רק מעל אזורי רקע). עומק הצמח לא רחוק יותר מהעומק במקור באותה נקודה */

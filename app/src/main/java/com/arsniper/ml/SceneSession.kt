@@ -178,6 +178,17 @@ object SceneSession {
 
     private const val PRUNE_BACKGROUND_SHARE = 0.7f
 
+    /** מלטש מחדש את קצוות המחבואים (לא חלונות, לא אלה שנוספו מה-AI) לפי תמונת עולם ה-AI. מחזיר כמה לוטשו */
+    fun refineEdges(aiGuide: GuideImage?): Int {
+        if (aiGuide == null) return 0
+        var n = 0
+        spots = spots.map { spot ->
+            if (spot.kind != com.arsniper.game.spots.SpotKind.COVER || extraSpots.any { it.id == spot.id }) spot
+            else { n++; SpotRefiner.refine(spot, aiGuide) }
+        }
+        return n
+    }
+
     fun addExtraSpots(merged: SceneAnalysis, classes: Set<Int>, aiGuide: GuideImage?): Int {
         val current = analysis ?: return 0
         if (merged.width != current.width || merged.height != current.height) return 0

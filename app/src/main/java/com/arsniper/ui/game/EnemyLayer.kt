@@ -240,9 +240,17 @@ fun EnemyLayer(
                 val mask = maskCache.getOrPut(spot.id) { buildMask(spot) }
                 // אדם שעולה מאחורי עצם נמוך (תנועה אנכית): נחתך בקצה התחתון של העצם
                 val rising = isPeeker && enemy.hidePos.y != enemy.peekPos.y
+                // החיתוך לפי התחתית הגבוהה ביותר של העצם לרוחב כל הדמות (לא רק במרכז): עצם נמוך ולא אחיד
+                // (ערמת נעליים) השאיר חלקים מהדמות גלויים מתחתיו בזמן שהיא עולה
                 val clipBottom = if (rising) {
-                    spot.columnBottom(scene.mapper.photoX(enemy.position.x))
-                        ?.let { scene.mapper.worldY(it) * size.height }
+                    var best: Float? = null
+                    for (i in -4..4) {
+                        val px = (drawCenter.x + i / 4f * radius * 0.9f) / size.width
+                        val b = spot.columnBottom(scene.mapper.photoX(px)) ?: continue
+                        val y = scene.mapper.worldY(b) * size.height
+                        if (best == null || y < best!!) best = y
+                    }
+                    best
                 } else {
                     null
                 }
