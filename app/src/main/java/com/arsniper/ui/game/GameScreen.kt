@@ -86,6 +86,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.draw.drawWithContent
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 
 /** ניקוד על עצירת קליע בלחיצה / בירי, ועל קטיעת הכנה לירייה (הריגת המפלצת באמצע ההכנה) */
 /** הניקוד הפנימי מחולק בעשר: כך מטבעות הם מספרים קטנים ונוחים */
@@ -435,6 +436,12 @@ fun GameScreen(
     )
 
     // מוסיף מחבואי צמחים מתמונת העולם (ג'ונגל), ומעדכן את המשחק בלי להפסיק אותו
+    // מפתח ניתוח העולם כולל את זמן יצירת קובץ העולם: עולם שנמחק ונוצר מחדש לא מקבל את הניתוח של הקודם
+    fun worldAnalysisKey(key: String, aiStyle: String): String {
+        val stamp = com.arsniper.ml.AiWorld.cachedWorldFile(context, key, aiStyle)?.lastModified() ?: 0L
+        return "w-$key-$aiStyle-${stamp / 1000}"
+    }
+
     suspend fun addWorldPlantSpots(world: android.graphics.Bitmap, cacheKey: String? = null) {
         // ארנה בלי עולם AI (קלאסי): אין מה לנתח
         if (com.arsniper.ml.AiWorld.serverStyle(style) == null) return
@@ -487,7 +494,7 @@ fun GameScreen(
                         aiHandled = true
                         // ניתוח העולם שמור בדיסק: מהיר, ואפשר לחכות לו לפני הגל הראשון (המחבואים החדשים מוכנים כשהמפלצות נוצרות).
                         // עולם שעדיין לא נותח (נוצר לפני העדכון): מנתחים ברקע, כדי שהמשחק לא יחכה בלי שום הודעה
-                        val worldKey = "w-$key-$aiStyle"
+                        val worldKey = worldAnalysisKey(key, aiStyle)
                         if (com.arsniper.ml.AiWorldSpots.isCached(context, worldKey)) addWorldPlantSpots(cached, worldKey)
                         else launch { addWorldPlantSpots(cached, worldKey) }
                     } else if (isGuest) {
@@ -517,8 +524,12 @@ fun GameScreen(
                                     break
                                 }
                             }
-                            // הניתוח של העולם החדש רץ בזמן שהמסך עדיין עוצר, ורק אחריו המשחק ממשיך
-                            if (made != null) addWorldPlantSpots(made, "w-$key-$aiStyle")
+                            // הניתוח של העולם החדש רץ בזמן שהמסך עדיין עוצר, אבל לא יותר מ-8 שניות:
+                            // על המעבד הוא יכול לקחת הרבה יותר, והמסך היה נתקע על 94% אף שהעולם כבר מוכן. השאר ממשיך ברקע
+                            if (made != null) {
+                                val analyzing = async { addWorldPlantSpots(made, worldAnalysisKey(key, aiStyle)) }
+                                kotlinx.coroutines.withTimeoutOrNull(8_000L) { analyzing.await() }
+                            }
                             if (aiOverlay) { aiOverlay = false; paused = false }
                             if (made != null) {
                                 themedFresh = true
