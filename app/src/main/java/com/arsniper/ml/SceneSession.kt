@@ -39,6 +39,9 @@ object SceneSession {
     private var extraSpots: List<HidingSpot> = emptyList()
     private var guide: GuideImage? = null
 
+    /** מחבואים מהתמונה המקורית שעולם ה-AI מחק (במקומם רצפה/קיר/שמיים): לא מסתתרים מאחוריהם */
+    private var prunedIds: Set<Int> = emptySet()
+
     /** המחבואים שנמצאו לפי סוגי העצמים (לפני כל שינוי): הבסיס לזיהוי האוטומטי של SAM */
     val finderSpots: List<HidingSpot> get() = autoSpots
 
@@ -59,6 +62,7 @@ object SceneSession {
         this.userObjects = emptyList()
         this.samMasks = emptyList()
         this.extraSpots = emptyList()
+        this.prunedIds = emptySet()
         this.spots = autoSpots
         this.luma = if (guide != null) buildLuma(analysis, guide) else null
     }
@@ -115,7 +119,7 @@ object SceneSession {
             nextId++
         }
         val kept = base.filter { b -> raw.none { user -> mostlyInside(b, user) } }
-        spots = kept + extra + extraSpots
+        spots = (kept + extra + extraSpots).filter { it.id !in prunedIds }
     }
 
     /**
@@ -142,6 +146,38 @@ object SceneSession {
      * מוסיף מחבואים (צמחים) מניתוח ממוזג של תמונת ה-AI, בלי לגעת במחבואים הקיימים (כדי שדמויות שכבר במשחק לא יושפעו).
      * מחבוא שרוב שטחו כבר מכוסה במחבוא קיים לא נוסף. מחזיר כמה נוספו.
      */
+    /**
+     * עולם ה-AI לפעמים מוחק עצם שהיה בתמונה המקורית (משטח, ארגז). דמות שמסתתרת מאחורי מחבוא כזה נראית חתוכה באוויר.
+     * מסירים מחבוא (לא חלון) שברוב שטחו עולם ה-AI מראה רקע בלבד. מחזיר כמה הוסרו
+     */
+    fun pruneMissing(ai: SceneAnalysis, background: Set<Int>): Int {
+        val removed = HashSet<Int>()
+        for (spot in spots) {
+            if (spot.kind != com.arsniper.game.spots.SpotKind.COVER) continue
+            if (extraSpots.any { it.id == spot.id }) continue
+            var total = 0
+            var bg = 0
+            for (ly in 0 until spot.maskHeight - spot.skirtCells.coerceAtMost(spot.maskHeight - 1)) {
+                for (lx in 0 until spot.maskWidth) {
+                    if (!spot.mask[ly * spot.maskWidth + lx]) continue
+                    total++
+                    val nx = (spot.cellX + lx + 0.5f) / spot.gridWidth
+                    val ny = (spot.cellY + ly + 0.5f) / spot.gridHeight
+                    val ax = (nx * ai.width).toInt().coerceIn(0, ai.width - 1)
+                    val ay = (ny * ai.height).toInt().coerceIn(0, ai.height - 1)
+                    if (ai.labelIndex(ay * ai.width + ax) in background) bg++
+                }
+            }
+            if (total > 0 && bg >= total * PRUNE_BACKGROUND_SHARE) removed.add(spot.id)
+        }
+        if (removed.isEmpty()) return 0
+        prunedIds = prunedIds + removed
+        spots = spots.filter { it.id !in prunedIds }
+        return removed.size
+    }
+
+    private const val PRUNE_BACKGROUND_SHARE = 0.7f
+
     fun addExtraSpots(merged: SceneAnalysis, classes: Set<Int>, aiGuide: GuideImage?): Int {
         val current = analysis ?: return 0
         if (merged.width != current.width || merged.height != current.height) return 0
