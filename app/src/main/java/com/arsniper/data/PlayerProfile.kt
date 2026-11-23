@@ -281,9 +281,10 @@ object PlayerProfile {
         return total
     }
 
-    /** ארנה פתוחה אם היא הראשונה, או שאחד השכנים שלה במפה נוצח לפחות בכוכב אחד */
+    /** ארנה פתוחה לפי סדר המסע: כוכב אחד בעולם הקודם, ובפרק חדש גם סך הכוכבים של השער */
     fun isUnlocked(style: ArenaStyle): Boolean {
-        if (style == ArenaStyle.Classic) return true
-        return style.neighbors.any { starsOf(it) >= 1 }
+        val index = com.arsniper.game.progress.Journey.indexOf(style)
+        if (index < 0) return style == ArenaStyle.Classic
+        return com.arsniper.game.progress.Journey.isUnlocked(index, { starsOf(it) }, totalStars)
     }
 }

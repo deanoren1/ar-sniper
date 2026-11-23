@@ -220,6 +220,8 @@ fun ArenaModeScreen(
                     aiLeft?.let { "Choose how to play  ·  AI worlds left today: ${it.first}/${it.second}" } ?: "Choose how to play",
                     fontSize = 13.sp, color = GameColors.Ice, outline = null
                 )
+                // רמת הקושי נבחרת כאן, לפני המשחק (הוסרה ממפת המסע)
+                com.arsniper.ui.components.DifficultyPills(modifier = Modifier.padding(top = 4.dp))
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
