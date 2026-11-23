@@ -45,10 +45,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -65,7 +67,6 @@ import com.arsniper.ui.components.GameIcon
 import com.arsniper.ui.components.GameIconButton
 import com.arsniper.ui.components.IconGlyph
 import com.arsniper.ui.components.OutlinedText
-import com.arsniper.ui.components.StarRow
 import com.arsniper.ui.theme.GameButtonStyle
 import com.arsniper.ui.theme.GameColors
 import kotlinx.coroutines.flow.first
@@ -164,11 +165,12 @@ fun ArenaSelectScreen(
                         CurrentMarker(unit = mapH, plazaX = cx, plazaY = cy)
                     }
                     WorldNode(
+                        index = i,
                         world = world,
                         unlocked = unlocked,
                         stars = world.style?.let(stars) ?: 0,
                         unit = mapH,
-                        modifier = Modifier.centerAt(cx, cy + mapH * 0.075f),
+                        modifier = Modifier.centerAt(cx, cy + mapH * 0.11f),
                         onClick = {
                             val style = world.style
                             when {
@@ -251,9 +253,29 @@ private fun Modifier.centerAt(x: Dp, y: Dp): Modifier = layout { measurable, con
     }
 }
 
-/** שלט עולם מתחת לרחבה: שם וכוכבים, מנעול כשנעול, SOON כשעוד לא קיים */
+/** מיקום כל שלט בגיליונות השלטים (x, y, רוחב, גובה), לפי סדר העולמות במסע */
+private val LABEL_RECTS = intArrayOf(
+    0, 0, 357, 165, 357, 0, 357, 165, 714, 0, 357, 165, 1071, 0, 357, 165, 1428, 0, 357, 165, 1785, 0, 357, 165,
+    1, 211, 356, 168, 357, 211, 357, 168, 714, 211, 357, 168, 1071, 211, 357, 168, 1428, 211, 357, 168, 1785, 210, 357, 169,
+    1, 426, 356, 167, 357, 426, 357, 167, 714, 426, 357, 167, 1071, 426, 357, 169, 1428, 426, 357, 169, 1785, 425, 357, 168
+)
+
+/** בשלט: איפה מתחיל פס הכוכבים (חלק מהגובה), ואיפה נגמרים הכוכב הראשון והשני (חלק מהרוחב) */
+private const val STAR_BAR_TOP = 0.55f
+private val STAR_CUTS = floatArrayOf(0f, 0.44f, 0.605f, 1f)
+
+/** אפור לעולמות שעוד לא קיימים במשחק */
+private val GRAY = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+    androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
+)
+
+/**
+ * שלט עולם מתחת לרחבה, מהאמנות המצוירת: השלט עם הכוכבים הריקים, ומעליו הכוכבים המלאים לפי מה שהושג.
+ * נעול: מעומעם עם מנעול. עולם שעוד לא קיים במשחק: אפור עם SOON.
+ */
 @Composable
 private fun WorldNode(
+    index: Int,
     world: JourneyWorld,
     unlocked: Boolean,
     stars: Int,
@@ -262,35 +284,55 @@ private fun WorldNode(
     onClick: () -> Unit
 ) {
     val exists = world.style != null
-    val shape = RoundedCornerShape(unit * 0.03f)
-    val font = (unit.value * 0.034f).sp
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val full = androidx.compose.ui.graphics.ImageBitmap.imageResource(R.drawable.journey_labels_full)
+    val empty = androidx.compose.ui.graphics.ImageBitmap.imageResource(R.drawable.journey_labels_empty)
+    val rx = LABEL_RECTS[index * 4]
+    val ry = LABEL_RECTS[index * 4 + 1]
+    val rw = LABEL_RECTS[index * 4 + 2]
+    val rh = LABEL_RECTS[index * 4 + 3]
+    val w = unit * 0.34f
+    val h = w * (rh.toFloat() / rw)
+    Box(
         modifier = modifier
-            .clip(shape)
+            .size(w, h)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
-            .alpha(if (unlocked) 1f else 0.82f)
-            .background(
-                when {
-                    unlocked -> Color(0xE6102050)
-                    exists -> Color(0xD90A1230)
-                    else -> Color(0xCC1A1F33)
-                }
-            )
-            .border(unit * 0.005f, if (unlocked) GameColors.Yellow else GameColors.Outline, shape)
-            .padding(horizontal = unit * 0.022f, vertical = unit * 0.006f)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!unlocked) {
-                IconGlyph(GameIcon.Lock, size = unit * 0.04f, tint = GameColors.Ice)
-                Spacer(Modifier.width(unit * 0.008f))
+        Canvas(modifier = Modifier.fillMaxSize().alpha(if (unlocked) 1f else 0.8f)) {
+            val dst = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt())
+            val src = androidx.compose.ui.unit.IntOffset(rx, ry)
+            val srcSize = androidx.compose.ui.unit.IntSize(rw, rh)
+            drawImage(empty, srcOffset = src, srcSize = srcSize, dstSize = dst, colorFilter = if (exists) null else GRAY)
+            val k = stars.coerceIn(0, 3)
+            if (k > 0) {
+                clipRect(left = 0f, top = size.height * STAR_BAR_TOP, right = size.width * STAR_CUTS[k], bottom = size.height) {
+                    drawImage(full, srcOffset = src, srcSize = srcSize, dstSize = dst)
+                }
             }
-            OutlinedText(world.title, fontSize = font, outline = null, color = if (unlocked) Color.White else GameColors.Ice)
         }
-        if (exists) {
-            StarRow(stars = stars, size = unit * 0.036f)
-        } else {
-            OutlinedText("SOON", fontSize = font * 0.8f, outline = null, color = GameColors.Slate)
+        if (!unlocked) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = w * 0.06f, bottom = h * 0.04f)
+                    .size(h * 0.42f)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xE6081028))
+                    .border(unit * 0.004f, GameColors.Ice, RoundedCornerShape(50))
+            ) {
+                IconGlyph(GameIcon.Lock, size = h * 0.26f, tint = Color.White)
+            }
+        }
+        if (!exists) {
+            OutlinedText(
+                "SOON", fontSize = (unit.value * 0.026f).sp, color = Color.White, outline = null,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = w * 0.03f, bottom = h * 0.06f)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xE6081028))
+                    .padding(horizontal = unit * 0.012f)
+            )
         }
     }
 }
