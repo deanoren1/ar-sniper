@@ -61,10 +61,10 @@ object Journey {
         6337f to 510f
     ).map { (x, y) -> x / MAP_W to y / MAP_H }
 
-    /** שערי הפרקים, על הגשרים שאחרי עולם 6 ואחרי עולם 12. סך כוכבים מצטבר */
+    /** שערי הפרקים, בים שבין השלטים אחרי עולם 6 ואחרי עולם 12. סך כוכבים מצטבר */
     val gates: List<JourneyGate> = listOf(
-        JourneyGate(6, 10, 2170f, 365f),
-        JourneyGate(12, 20, 3990f, 380f)
+        JourneyGate(6, 10, 2150f, 480f),
+        JourneyGate(12, 20, 4030f, 445f)
     ).map { it.copy(x = it.x / MAP_W, y = it.y / MAP_H) }
 
     /** סך הכוכבים שהשער שלפני העולם הזה דורש (0 = אין שער) */

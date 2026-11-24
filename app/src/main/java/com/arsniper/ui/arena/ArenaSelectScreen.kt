@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -118,15 +119,17 @@ fun ArenaSelectScreen(
 
         Box(modifier = Modifier.fillMaxSize().horizontalScroll(scroll)) {
             Box(modifier = Modifier.width(mapW).fillMaxHeight()) {
-                Row {
-                    for (tile in MAP_TILES) {
-                        Image(
-                            painter = painterResource(tile),
-                            contentDescription = null,
-                            contentScale = ContentScale.FillBounds,
-                            modifier = Modifier.width(mapW / Journey.TILES).fillMaxHeight()
-                        )
-                    }
+                // התמונות חופפות בפיקסל אחד, כדי שלא יופיע קו דק בחיבור ביניהן
+                MAP_TILES.forEachIndexed { i, tile ->
+                    Image(
+                        painter = painterResource(tile),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier
+                            .offset(x = mapW / Journey.TILES * i)
+                            .width(mapW / Journey.TILES + 1.dp)
+                            .fillMaxHeight()
+                    )
                 }
 
                 // לחיצה על העולם: על כל האי או על השלט שלו
@@ -256,7 +259,7 @@ private const val ISLAND_RISE_HIGH = 0.14f
 private const val ISLAND_RISE_LOW = 0.02f
 
 /** כמה מרכז השלט מתחת למרכז העיגול (ביחידות של גובה המפה): חצי גובה שלט פחות חצי גובה העיגול */
-private const val LABEL_DROP = 0.054f
+private const val LABEL_DROP = 0.03f
 
 /** ממקם את הרכיב כך שהמרכז שלו בנקודה (x, y) בתוך המפה */
 private fun Modifier.centerAt(x: Dp, y: Dp): Modifier = layout { measurable, constraints ->
