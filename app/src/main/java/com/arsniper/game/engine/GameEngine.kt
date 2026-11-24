@@ -191,7 +191,7 @@ class GameEngine(
         // תנועה לא מכניסה דמות לשם (כל צעד נבדק), אז זה רק תופס שגיאות מיקום בהיווצרות.
         scene?.let { ctx ->
             val x = enemy.position.x
-            if (x >= EDGE_BAND && x <= 1f - EDGE_BAND && !ctx.isWalkable(x, enemy.position.y + enemy.radius + GROUND_PROBE)) {
+            if (x >= EDGE_BAND && x <= 1f - EDGE_BAND && !groundOrLowCover(ctx, x, enemy.position.y + enemy.radius, enemy.radius)) {
                 offGroundFrames[enemy.id] = (offGroundFrames[enemy.id] ?: 0) + 1
                 if ((offGroundFrames[enemy.id] ?: 0) > OFF_GROUND_FRAMES) {
                     offGroundFrames.remove(enemy.id)
@@ -362,8 +362,8 @@ class GameEngine(
             true
         } else if (ctx != null) {
             // צריך קרקע, ולא להיכנס מאחורי עצם שקרוב אלינו יותר, ולא לדחוף דמות אחרת
-            ctx.isWalkable(newX, newFeetY + GROUND_PROBE) &&
-                !behindNearerObject(ctx, newX, newFeetY, newRadius, ctx.depthAt(newX, newFeetY)) &&
+            groundOrLowCover(ctx, newX, newFeetY, newRadius) &&
+                !hiddenByNearer(ctx, newX, newFeetY, newRadius) &&
                 !blockedByOther(enemy, newX, all, aspect)
         } else {
             newX >= 0.05f && newX <= 0.95f
@@ -546,6 +546,51 @@ class GameEngine(
         return false
     }
 
+    /**
+     * קרקע, או נקודה שמוסתרת ע"י עצם נמוך שעומד על הרצפה קרוב יותר אלינו (שולחן, ספסל, רכב):
+     * הרצפה ממשיכה מאחוריו, ולכן מפלצת יכולה ללכת שם כשרואים רק את החלק העליון שלה (הציור והפגיעה
+     * כבר חותכים אותה לפי העצם). עצם גבוה שהיה מסתיר גם את הראש והחזה (קיר, ארון) לא נחשב.
+     */
+    private fun groundOrLowCover(ctx: SceneContext, x: Float, feetY: Float, r: Float): Boolean {
+        if (ctx.isWalkable(x, feetY + GROUND_PROBE)) return true
+        if (!ctx.inWalkBounds(x, feetY)) return false
+        val mapper = ctx.mapper
+        val probeY = feetY + GROUND_PROBE
+        val px = mapper.photoX(x)
+        for (spot in ctx.spots) {
+            if (spot.kind == SpotKind.WINDOW) continue
+            if (!ctx.spotContains(spot, x, probeY)) continue
+            val bottom = spot.columnBottom(px) ?: continue
+            val top = spot.columnTop(px) ?: continue
+            if (mapper.worldY(bottom) <= feetY + OCCLUDER_MARGIN) continue
+            if (mapper.worldY(top) < feetY - LOW_COVER_RADII * r) continue
+            // העצם עצמו עומד על הרצפה (אחרת זה מדף, תמונה על הקיר...)
+            val bottomWorld = mapper.worldY(bottom)
+            if (bottomWorld < SCREEN_BOTTOM_CUT && !ctx.isWalkable(x, bottomWorld + GROUND_PROBE)) continue
+            return true
+        }
+        return false
+    }
+
+    /** כמו behindNearerObject, אבל חוסם רק כשעצם קרוב יותר מסתיר את הראש והחזה (עצם נמוך מסתיר רק את הרגליים: מותר) */
+    private fun hiddenByNearer(ctx: SceneContext, x: Float, feetY: Float, r: Float): Boolean {
+        val mapper = ctx.mapper
+        val aspect = mapper.screenAspect
+        val ys = floatArrayOf(feetY - 1.8f * r, feetY - 2.3f * r)
+        val dxs = if (strictSpots) floatArrayOf(-0.8f, -0.4f, 0f, 0.4f, 0.8f) else floatArrayOf(-0.4f, 0f, 0.4f)
+        for (spot in ctx.spots) {
+            for (y in ys) {
+                for (dx in dxs) {
+                    val px = x + dx * r / aspect
+                    if (!ctx.spotContains(spot, px, y)) continue
+                    val bottom = spot.columnBottom(mapper.photoX(px)) ?: continue
+                    if (mapper.worldY(bottom) > feetY + OCCLUDER_MARGIN) return true
+                }
+            }
+        }
+        return false
+    }
+
     /** יוצר אויב שמציץ מהצד של עצם, או יוצא מחלון. null אם המקום לא מתאים. */
     private fun spawnAtSpot(spot: HidingSpot): Enemy? {
         val ctx = scene ?: return null
@@ -605,14 +650,18 @@ class GameEngine(
 
             // גודל האדם לפי העומק בנקודה שבה הוא עומד
             val r = radiusForFeet(footY)
-            if (!sizeOk(r)) return rej(2)
 
             return if (heightInHeights >= TALL_OBJECT_RADII * r) {
+                if (!sizeOk(r)) return rej(2)
                 // עצם גבוה כמו אדם: האדם מציץ מהצד שלו
                 spawnSidePeek(spot, ctx, r, footY, edgeX, outward, widthInHeights)
             } else {
-                // עצם נמוך (רכב, פח, שולחן): האדם עולה מאחוריו ורואים רק את החלק העליון שלו
-                spawnRise(spot, ctx, r, widthInHeights)
+                // עצם נמוך (רכב, פח, שולחן): האדם עולה מאחוריו ורואים רק את החלק העליון שלו.
+                // הרגליים שלו מאחורי העצם (רחוק יותר מהבסיס של העצם), אז עצם קרוב לא פוסל: הדמות פשוט קטנה יותר מהגודל בבסיס
+                val maxR = SPOT_MAX_HEIGHT / FIGURE_HEIGHT_RADII
+                val rr = min(r, maxR)
+                if (!sizeOk(rr)) return rej(2)
+                spawnRise(spot, ctx, rr, widthInHeights)
             }
         }
     }
@@ -890,8 +939,7 @@ class GameEngine(
             var clear = true
             for (k in 0..EDGE_PATH_STEPS) {
                 val x = gateX + inward * k * EDGE_PATH_STEP
-                val depth = ctx.depthAt(x, feetY)
-                if (!ctx.isWalkable(x, feetY + GROUND_PROBE) || behindNearerObject(ctx, x, feetY, r, depth)) {
+                if (!groundOrLowCover(ctx, x, feetY, r) || hiddenByNearer(ctx, x, feetY, r)) {
                     clear = false
                     break
                 }
@@ -1016,7 +1064,7 @@ class GameEngine(
     private fun figureHeightWorld(depthMeters: Float): Float {
         val ctx = scene ?: return 0.18f
         val depth = if (depthMeters.isNaN() || depthMeters < 0.8f) 0.8f else depthMeters
-        return ctx.mapper.heightToWorld(scale * PERSON_HEIGHT_METERS / depth)
+        return ctx.mapper.heightToWorld(scale * PERSON_HEIGHT_METERS * MONSTER_SIZE / depth)
     }
 
     /**
@@ -1029,7 +1077,7 @@ class GameEngine(
     /** רדיוס אדם שעומד על הקרקע ורגליו בגובה feetY בעולם: לפי הפרספקטיבה של הרצפה */
     private fun radiusForFeet(feetWorldY: Float): Float {
         val ctx = scene ?: return 0.08f
-        val photoHeight = ground.personHeight(ctx.mapper.photoY(feetWorldY))
+        val photoHeight = ground.personHeight(ctx.mapper.photoY(feetWorldY)) * MONSTER_SIZE
         // רצפה לגודל: דמות רחוקה לא נהיית זעירה עד שאי אפשר לראות או לכוון אליה
         return max(ctx.mapper.heightToWorld(photoHeight) / FIGURE_HEIGHT_RADII, MIN_WALK_RADIUS)
     }
@@ -1085,18 +1133,18 @@ class GameEngine(
         private const val DEPTH_SPEED = 0.8f
         private const val DEPTH_WALK_LATERAL = 0.35f
         private const val MIN_ABOVE_HORIZON = 0.03f
-        private const val MIN_WALK_RADIUS = 0.04f
+        private const val MIN_WALK_RADIUS = 0.05f
 
         /** דמות שמגיעה מרחוק: טווח גובה (חלק מגובה המסך) ומספר צעדי הבדיקה קדימה */
-        private const val FAR_MIN_HEIGHT = 0.02f
-        private const val FAR_MAX_HEIGHT = 0.20f
+        private const val FAR_MIN_HEIGHT = 0.06f
+        private const val FAR_MAX_HEIGHT = 0.26f
 
         /** כמה (בתמונה) מעל הנקודה הרחוקה ביותר עוד נחשב קצה רחוק של הרצפה */
         private const val FAR_BAND = 0.08f
         private const val FAR_PATH_STEPS = 4
 
         /** גובה מקסימלי (חלק מגובה המסך) של דמות הולכת, כשהיא מתקרבת למצלמה */
-        private const val MAX_WALK_HEIGHT = 0.40f
+        private const val MAX_WALK_HEIGHT = 0.48f
 
         /** עצם שהקצה התחתון שלו (בעולם) לפחות כאן נחשב חתוך על ידי המסך */
         private const val SCREEN_BOTTOM_CUT = 0.96f
@@ -1105,6 +1153,12 @@ class GameEngine(
         private const val GROUND_PROBE = 0.012f
         private const val OFF_GROUND_FRAMES = 20
 
+
+        /** המפלצות גדולות מאדם: מכפיל על גובה אדם בכל חישובי הגודל (היו קטנות מדי במשחק) */
+        private const val MONSTER_SIZE = 1.3f
+
+        /** עצם קרוב שהחלק העליון שלו נמוך מזה (ביחידות רדיוס מעל הרגליים) מסתיר רק את הרגליים, ואפשר ללכת מאחוריו */
+        private const val LOW_COVER_RADII = 1.7f
 
         /** גובה אדם אמיתי, וגובה הדמות המצוירת ביחידות רדיוס */
         private const val PERSON_HEIGHT_METERS = 1.7f
@@ -1116,14 +1170,14 @@ class GameEngine(
         private const val MAX_SCALE = 2.6f
 
         /** טווח גובה דמות גלויה (חלק מגובה המסך): מועדף, ואם אין מקום כזה: הרחב */
-        private const val STRICT_MIN_HEIGHT = 0.07f
-        private const val STRICT_MAX_HEIGHT = 0.34f
-        private const val RELAXED_MIN_HEIGHT = 0.04f
-        private const val RELAXED_MAX_HEIGHT = 0.45f
+        private const val STRICT_MIN_HEIGHT = 0.10f
+        private const val STRICT_MAX_HEIGHT = 0.42f
+        private const val RELAXED_MIN_HEIGHT = 0.07f
+        private const val RELAXED_MAX_HEIGHT = 0.52f
 
         /** טווח גובה דמות שקשורה למחבוא או לחלון */
-        private const val SPOT_MIN_HEIGHT = 0.04f
-        private const val SPOT_MAX_HEIGHT = 0.45f
+        private const val SPOT_MIN_HEIGHT = 0.07f
+        private const val SPOT_MAX_HEIGHT = 0.52f
 
         /** עצם שגובהו לפחות כך (ביחידות רדיוס) נחשב גבוה: מציצים מהצד שלו, אחרת עולים מאחוריו */
         private const val TALL_OBJECT_RADII = 2.1f

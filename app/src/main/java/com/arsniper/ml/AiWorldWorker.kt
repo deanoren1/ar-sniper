@@ -81,6 +81,8 @@ class AiWorldWorker(private val ctx: Context, params: WorkerParameters) : Corout
     }
 
     private fun notifyReady() {
+        // השחקן בתוך המשחק (למשל עוד בניתוח הסצנה): לא מקפיצים התראה, העולם מופיע בארנה כשהכול מוכן
+        if (com.arsniper.MainActivity.visible) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return

@@ -34,6 +34,10 @@ class SceneContext(
         return walkable[label and 0xFF]
     }
 
+    /** האם הנקודה בתוך התחום שמותר ללכת בו (בלי לבדוק את סוג הקרקע) */
+    fun inWalkBounds(worldX: Float, worldY: Float): Boolean =
+        worldX >= walkMinX && worldX <= walkMaxX && worldY >= 0.04f && worldY <= 0.98f
+
     /** עומק במטרים בנקודה */
     fun depthAt(worldX: Float, worldY: Float): Float =
         analysis.depthAt(mapper.photoX(worldX), mapper.photoY(worldY))

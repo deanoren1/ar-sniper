@@ -23,6 +23,23 @@ import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : ComponentActivity() {
 
+    override fun onStart() {
+        super.onStart()
+        visible = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        visible = false
+    }
+
+    companion object {
+        /** האם המשחק פתוח מול השחקן: אז לא שולחים התראת "העולם מוכן" (המשחק מציג את העולם בעצמו) */
+        @Volatile
+        var visible: Boolean = false
+            private set
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
