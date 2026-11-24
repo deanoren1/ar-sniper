@@ -160,7 +160,7 @@ fun SceneScreen(
             aiBusy = true
             aiStatus = "AI is creating the world (up to a minute)..."
             val result = withContext(Dispatchers.IO) {
-                com.arsniper.ml.AiWorld.generate(context, "tundra_toon2", view.bitmap, provider, quality, model, sandbox)
+                com.arsniper.ml.AiWorld.generate(context, "tundra_v4", view.bitmap, provider, quality, model, sandbox)
             }
             when (result) {
                 is com.arsniper.ml.AiWorld.Result.Image -> {
