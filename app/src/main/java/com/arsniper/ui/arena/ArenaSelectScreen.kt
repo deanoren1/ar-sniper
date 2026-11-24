@@ -1,10 +1,5 @@
 package com.arsniper.ui.arena
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -41,10 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -81,7 +74,7 @@ private val MAP_TILES = listOf(
 
 /**
  * WORLD JOURNEY: מפה ארוכה שגוללים לרוחב, 18 עולמות בזיגזג עם גשרים ביניהם.
- * על כל רחבה: שם וכוכבים. העולם הנוכחי מסומן בסמן קופץ ובטבעת זוהרת, עולם נעול מעומעם עם מנעול,
+ * על כל רחבה: שלט עם שם וכוכבים. עולם נעול מעומעם עם מנעול,
  * עולם שעוד לא קיים במשחק מסומן SOON. שערי פרקים על הגשרים נפתחים לפי סך הכוכבים.
  * למעלה: חזרה, מונה כוכבים, מטבעות ויהלומים ו-+. רמת הקושי נבחרת במסך הבא.
  * בכניסה המפה נגללת לבד לעולם הנוכחי. (onMyPhotos, onArmory, onMultiplayer נשארו לתאימות ולא מוצגים)
@@ -161,16 +154,13 @@ fun ArenaSelectScreen(
                     val unlocked = Journey.isUnlocked(i, stars, total)
                     val cx = mapW * world.x
                     val cy = mapH * world.y
-                    if (i == current) {
-                        CurrentMarker(unit = mapH, plazaX = cx, plazaY = cy)
-                    }
                     WorldNode(
                         index = i,
                         world = world,
                         unlocked = unlocked,
                         stars = world.style?.let(stars) ?: 0,
                         unit = mapH,
-                        modifier = Modifier.centerAt(cx, cy + mapH * 0.11f),
+                        modifier = Modifier.centerAt(cx, cy),
                         onClick = {
                             val style = world.style
                             when {
@@ -270,7 +260,7 @@ private val GRAY = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
 )
 
 /**
- * שלט עולם מתחת לרחבה, מהאמנות המצוירת: השלט עם הכוכבים הריקים, ומעליו הכוכבים המלאים לפי מה שהושג.
+ * שלט עולם על הרחבה העגולה של העולם, מהאמנות המצוירת: השלט עם הכוכבים הריקים, ומעליו הכוכבים המלאים לפי מה שהושג.
  * נעול: מעומעם עם מנעול. עולם שעוד לא קיים במשחק: אפור עם SOON.
  */
 @Composable
@@ -333,54 +323,6 @@ private fun WorldNode(
                     .background(Color(0xE6081028))
                     .padding(horizontal = unit * 0.012f)
             )
-        }
-    }
-}
-
-/** העולם הנוכחי: טבעת זוהרת פועמת סביב הרחבה וסמן צהוב קופץ מעליה */
-@Composable
-private fun CurrentMarker(unit: Dp, plazaX: Dp, plazaY: Dp) {
-    val pulse = rememberInfiniteTransition(label = "current")
-    val t by pulse.animateFloat(
-        initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
-        label = "pulse"
-    )
-    val ringW = unit * 0.2f
-    val ringH = unit * 0.09f
-    Canvas(modifier = Modifier.centerAt(plazaX, plazaY).size(ringW, ringH)) {
-        val grow = 1f + t * 0.12f
-        val w = size.width * grow
-        val h = size.height * grow
-        val tl = Offset((size.width - w) / 2, (size.height - h) / 2)
-        drawOval(Color(0xFFFFE066).copy(alpha = 0.25f + 0.35f * t), topLeft = tl, size = androidx.compose.ui.geometry.Size(w, h))
-        drawOval(
-            Color(0xFFFFF3A0).copy(alpha = 0.9f), topLeft = tl, size = androidx.compose.ui.geometry.Size(w, h),
-            style = Stroke(width = size.height * 0.08f)
-        )
-    }
-    // סמן: עיגול צהוב עם כוכב, וחץ שמצביע על הרחבה. קופץ למעלה ולמטה
-    val pinSize = unit * 0.075f
-    val bob = unit * 0.02f * t
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.centerAt(plazaX, plazaY - unit * 0.1f - bob)
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(pinSize)
-                .clip(RoundedCornerShape(50))
-                .background(Brush.verticalGradient(listOf(Color(0xFFFFE066), Color(0xFFFFA81C))))
-                .border(unit * 0.005f, Color.White, RoundedCornerShape(50))
-        ) {
-            IconGlyph(GameIcon.Play, size = pinSize * 0.5f, tint = Color(0xFF2A1A00))
-        }
-        Canvas(modifier = Modifier.size(pinSize * 0.45f, pinSize * 0.3f)) {
-            val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2, size.height); close()
-            }
-            drawPath(path, Color(0xFFFFA81C))
         }
     }
 }
