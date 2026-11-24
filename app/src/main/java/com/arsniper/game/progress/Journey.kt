@@ -35,24 +35,24 @@ object Journey {
     const val CHAPTER_SIZE = 6
 
     val worlds: List<JourneyWorld> = listOf(
-        JourneyWorld("CLASSIC", ArenaStyle.Classic, 320f, 612f),
-        JourneyWorld("FROZEN TUNDRA", ArenaStyle.Tundra, 598f, 330f),
-        JourneyWorld("JUNGLE", ArenaStyle.Jungle, 950f, 615f),
-        JourneyWorld("CYBERPUNK", ArenaStyle.Cyber, 1255f, 330f),
-        JourneyWorld("MILITARY BASE", ArenaStyle.Military, 1580f, 615f),
-        JourneyWorld("VOLCANO", null, 1996f, 585f),
-        JourneyWorld("INDUSTRIAL", ArenaStyle.Industrial, 2294f, 330f),
-        JourneyWorld("RUINS", ArenaStyle.Ruins, 2574f, 585f),
-        JourneyWorld("UNDERWATER", null, 2864f, 330f),
-        JourneyWorld("SPACE", null, 3134f, 585f),
-        JourneyWorld("BAZAAR", ArenaStyle.Market, 3646f, 535f),
-        JourneyWorld("ROCKY FOREST", ArenaStyle.Forest, 3863f, 300f),
-        JourneyWorld("CANDY WORLD", null, 4088f, 535f),
-        JourneyWorld("DESERT", null, 4388f, 300f),
-        JourneyWorld("HAUNTED WORLD", null, 4683f, 560f),
-        JourneyWorld("CRYSTAL CAVE", null, 5147f, 490f),
-        JourneyWorld("PIRATE", null, 5452f, 300f),
-        JourneyWorld("CLOUD WORLD", null, 5717f, 520f)
+        JourneyWorld("CLASSIC", ArenaStyle.Classic, 319f, 612f),
+        JourneyWorld("FROZEN TUNDRA", ArenaStyle.Tundra, 596f, 330f),
+        JourneyWorld("JUNGLE", ArenaStyle.Jungle, 946f, 615f),
+        JourneyWorld("CYBERPUNK", ArenaStyle.Cyber, 1250f, 330f),
+        JourneyWorld("MILITARY BASE", ArenaStyle.Military, 1574f, 615f),
+        JourneyWorld("VOLCANO", null, 2023f, 585f),
+        JourneyWorld("INDUSTRIAL", ArenaStyle.Industrial, 2320f, 330f),
+        JourneyWorld("RUINS", ArenaStyle.Ruins, 2599f, 585f),
+        JourneyWorld("UNDERWATER", null, 2888f, 330f),
+        JourneyWorld("SPACE", null, 3157f, 585f),
+        JourneyWorld("BAZAAR", ArenaStyle.Market, 3667f, 535f),
+        JourneyWorld("ROCKY FOREST", ArenaStyle.Forest, 3883f, 300f),
+        JourneyWorld("CANDY WORLD", null, 4107f, 535f),
+        JourneyWorld("DESERT", null, 4406f, 300f),
+        JourneyWorld("HAUNTED WORLD", null, 4700f, 560f),
+        JourneyWorld("CRYSTAL CAVE", null, 5152f, 490f),
+        JourneyWorld("PIRATE", null, 5456f, 300f),
+        JourneyWorld("CLOUD WORLD", null, 5720f, 520f)
     ).map { it.copy(x = it.x / MAP_W, y = it.y / MAP_H) }
 
     /** האיים בערפל בסוף המפה: מקום לעולמות עתידיים */
@@ -63,8 +63,8 @@ object Journey {
 
     /** שערי הפרקים, בים שבין השלטים אחרי עולם 6 ואחרי עולם 12. סך כוכבים מצטבר */
     val gates: List<JourneyGate> = listOf(
-        JourneyGate(6, 10, 2150f, 480f),
-        JourneyGate(12, 20, 4030f, 445f)
+        JourneyGate(6, 10, 2177f, 480f),
+        JourneyGate(12, 20, 4050f, 445f)
     ).map { it.copy(x = it.x / MAP_W, y = it.y / MAP_H) }
 
     /** סך הכוכבים שהשער שלפני העולם הזה דורש (0 = אין שער) */
