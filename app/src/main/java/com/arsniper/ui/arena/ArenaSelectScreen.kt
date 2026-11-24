@@ -129,6 +129,34 @@ fun ArenaSelectScreen(
                     }
                 }
 
+                // לחיצה על העולם: על כל האי או על השלט שלו
+                val openWorld: (Int) -> Unit = { i ->
+                    val world = Journey.worlds[i]
+                    val unlocked = Journey.isUnlocked(i, stars, total)
+                    val style = world.style
+                    when {
+                        style == null -> hint = "${world.title}: coming soon"
+                        unlocked -> onPick(style)
+                        total < Journey.gateStarsFor(i) && i >= Journey.gates.first().firstIndex ->
+                            hint = "Collect ${Journey.gateStarsFor(i)} stars in total to open ${world.title} (you have $total)"
+                        else -> {
+                            val prev = (i - 1 downTo 0).firstOrNull { Journey.worlds[it].style != null }
+                            hint = if (prev != null) "Win ${Journey.worlds[prev].title} with at least 1 star to open ${world.title}"
+                            else "${world.title} is locked"
+                        }
+                    }
+                }
+
+                // אזור לחיצה שקוף על כל אי: האי נמצא סביב הרחבה ומעליה
+                Journey.worlds.forEachIndexed { i, world ->
+                    Box(
+                        modifier = Modifier
+                            .centerAt(mapW * world.x, mapH * world.y - mapH * (if (world.y < 0.5f) ISLAND_RISE_HIGH else ISLAND_RISE_LOW))
+                            .size(mapH * ISLAND_W, mapH * ISLAND_H)
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { openWorld(i) }
+                    )
+                }
+
                 // שערי פרקים: מוצגים רק כל עוד הם סגורים
                 for (gate in Journey.gates) {
                     if (total < gate.stars) {
@@ -152,29 +180,14 @@ fun ArenaSelectScreen(
 
                 Journey.worlds.forEachIndexed { i, world ->
                     val unlocked = Journey.isUnlocked(i, stars, total)
-                    val cx = mapW * world.x
-                    val cy = mapH * world.y
                     WorldNode(
                         index = i,
                         world = world,
                         unlocked = unlocked,
                         stars = world.style?.let(stars) ?: 0,
                         unit = mapH,
-                        modifier = Modifier.centerAt(cx, cy),
-                        onClick = {
-                            val style = world.style
-                            when {
-                                style == null -> hint = "${world.title}: coming soon"
-                                unlocked -> onPick(style)
-                                total < Journey.gateStarsFor(i) && i >= Journey.gates.first().firstIndex ->
-                                    hint = "Collect ${Journey.gateStarsFor(i)} stars in total to open ${world.title} (you have $total)"
-                                else -> {
-                                    val prev = (i - 1 downTo 0).firstOrNull { Journey.worlds[it].style != null }
-                                    hint = if (prev != null) "Win ${Journey.worlds[prev].title} with at least 1 star to open ${world.title}"
-                                    else "${world.title} is locked"
-                                }
-                            }
-                        }
+                        modifier = Modifier.centerAt(mapW * world.x, mapH * world.y),
+                        onClick = { openWorld(i) }
                     )
                 }
             }
@@ -234,6 +247,12 @@ fun ArenaSelectScreen(
         }
     }
 }
+
+/** אזור הלחיצה של אי, ביחידות של גובה המפה: רוחב, גובה, וכמה מרכז האי מעל הרחבה (באיים העליונים הרחבה בתחתית האי) */
+private const val ISLAND_W = 0.5f
+private const val ISLAND_H = 0.5f
+private const val ISLAND_RISE_HIGH = 0.14f
+private const val ISLAND_RISE_LOW = 0.02f
 
 /** ממקם את הרכיב כך שהמרכז שלו בנקודה (x, y) בתוך המפה */
 private fun Modifier.centerAt(x: Dp, y: Dp): Modifier = layout { measurable, constraints ->
