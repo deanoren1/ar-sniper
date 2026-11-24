@@ -186,7 +186,8 @@ fun ArenaSelectScreen(
                         unlocked = unlocked,
                         stars = world.style?.let(stars) ?: 0,
                         unit = mapH,
-                        modifier = Modifier.centerAt(mapW * world.x, mapH * world.y),
+                        // השלט ממורכז על העולם, והקצה העליון שלו בחלק העליון של העיגול
+                        modifier = Modifier.centerAt(mapW * world.x, mapH * (world.y + LABEL_DROP)),
                         onClick = { openWorld(i) }
                     )
                 }
@@ -253,6 +254,9 @@ private const val ISLAND_W = 0.5f
 private const val ISLAND_H = 0.5f
 private const val ISLAND_RISE_HIGH = 0.14f
 private const val ISLAND_RISE_LOW = 0.02f
+
+/** כמה מרכז השלט מתחת למרכז העיגול (ביחידות של גובה המפה): חצי גובה שלט פחות חצי גובה העיגול */
+private const val LABEL_DROP = 0.054f
 
 /** ממקם את הרכיב כך שהמרכז שלו בנקודה (x, y) בתוך המפה */
 private fun Modifier.centerAt(x: Dp, y: Dp): Modifier = layout { measurable, constraints ->
