@@ -146,33 +146,65 @@ object SamAuto {
             }
 
             val masks = segment(point.x, point.y)
-            val candidates = if (point.spot != null) masks.toList() else listOf(masks[0])
 
-            // למחבוא קיים: המסכה שהכי דומה לו. לנקודת רשת: המסכה הראשונה
-            var best: FloatArray? = null
-            var bestGrid: BooleanArray? = null
-            var bestScore = -1f
-            for (logits in candidates) {
-                val grid = toGrid(logits, gw, gh)
-                val score = if (point.spot != null) iouWithSpot(grid, gw, gh, point.spot) else 1f
-                if (score > bestScore) {
-                    bestScore = score
-                    best = logits
-                    bestGrid = grid
+            // למחבוא קיים: המסכה שהכי דומה לו
+            val logits: FloatArray
+            val grid: BooleanArray
+            if (point.spot != null) {
+                var best: FloatArray? = null
+                var bestGrid: BooleanArray? = null
+                var bestScore = -1f
+                for (candidate in masks) {
+                    val g = toGrid(candidate, gw, gh)
+                    val score = iouWithSpot(g, gw, gh, point.spot)
+                    if (score > bestScore) {
+                        bestScore = score
+                        best = candidate
+                        bestGrid = g
+                    }
                 }
-            }
-            val logits = best ?: continue
-            val grid = bestGrid ?: continue
-            val reason = rejectReason(logits, grid, analysis, wallLabels, floorLabels)
-            if (reason != null) {
-                count(reason)
-                paint(grid, reason)
-                continue
-            }
-            if (keptGrid.any { iou(it, grid) > SAME_OBJECT_IOU }) {
-                count(R_DUP)
-                paint(grid, R_DUP)
-                continue
+                logits = best ?: continue
+                grid = bestGrid ?: continue
+                val reason = rejectReason(logits, grid, analysis, wallLabels, floorLabels)
+                if (reason != null) {
+                    count(reason)
+                    paint(grid, reason)
+                    continue
+                }
+                if (keptGrid.any { iou(it, grid) > SAME_OBJECT_IOU }) {
+                    count(R_DUP)
+                    paint(grid, R_DUP)
+                    continue
+                }
+            } else {
+                // נקודת רשת: המסכה הראשונה, ואם היא נדחתה (למשל ארון חשמל שנדבק לקיר שמאחוריו ונראה כמו קיר)
+                // מנסים את שתי המסכות האחרות של SAM לאותה נקודה, שלפעמים תופסות רק את העצם עצמו
+                var chosen: FloatArray? = null
+                var chosenGrid: BooleanArray? = null
+                var firstReason: String? = null
+                var firstGrid: BooleanArray? = null
+                for (candidate in masks) {
+                    val g = toGrid(candidate, gw, gh)
+                    val reason = rejectReason(candidate, g, analysis, wallLabels, floorLabels)
+                        ?: if (keptGrid.any { iou(it, g) > SAME_OBJECT_IOU }) R_DUP else null
+                    if (reason == null) {
+                        chosen = candidate
+                        chosenGrid = g
+                        break
+                    }
+                    if (firstReason == null) {
+                        firstReason = reason
+                        firstGrid = g
+                    }
+                }
+                if (chosen == null || chosenGrid == null) {
+                    val reason = firstReason ?: R_UNSTABLE
+                    count(reason)
+                    firstGrid?.let { paint(it, reason) }
+                    continue
+                }
+                logits = chosen
+                grid = chosenGrid
             }
 
             count("kept")
