@@ -137,7 +137,7 @@ object CoopTransfer {
                 val extras = listOf(
                     "analysis" to AnalysisCache.fileFor(context.filesDir, key),
                     "objects" to UserObjects.file(context.filesDir, key),
-                    "sam" to UserObjects.file(context.filesDir, key, "sam")
+                    "sam" to UserObjects.file(context.filesDir, key, com.arsniper.ml.SamAuto.CACHE_PREFIX)
                 )
                 for ((name, file) in extras) {
                     if (!file.exists() || file.length() == 0L) continue
@@ -294,7 +294,7 @@ object CoopTransfer {
                     val target = when (spec.name) {
                         "analysis" -> AnalysisCache.fileFor(context.filesDir, key)
                         "objects" -> UserObjects.file(context.filesDir, key)
-                        "sam" -> UserObjects.file(context.filesDir, key, "sam")
+                        "sam" -> UserObjects.file(context.filesDir, key, com.arsniper.ml.SamAuto.CACHE_PREFIX)
                         "world" -> inc.wstyle?.let { com.arsniper.ml.AiWorld.worldFile(context, key, it) }
                         else -> null
                     } ?: continue

@@ -346,6 +346,28 @@ class MonsterSprites private constructor(
         private const val RIG2_REF_BODY = 0.926f
 
         /** חלק מגובה התא שהגוף תופס בתא העמידה (פריים 0 בשורה 0) */
+        /** כמה שורות ריקות יש מתחת לרגליים בכל הפריימים של שורות 0-3 (המינימום), כדי להוריד את הדמות לרצפה */
+        private fun footGap(bitmap: Bitmap, cw: Int, ch: Int): Int {
+            val line = IntArray(cw)
+            var gap = ch
+            for (row in 0 until 4) {
+                for (col in 0 until RIG_COLUMNS) {
+                    var empty = 0
+                    var y = ch - 1
+                    while (y >= 0 && empty < gap) {
+                        bitmap.getPixels(line, 0, cw, col * cw, row * ch + y, cw, 1)
+                        if (line.any { Color.alpha(it) > ALPHA_MIN }) break
+                        empty++
+                        y--
+                    }
+                    if (empty < gap) gap = empty
+                    if (gap == 0) return 0
+                }
+            }
+            // משאירים שוליים קטנים (צל, קצוות רכים), ולא יותר משליש התא
+            return (gap - 2).coerceIn(0, ch / 3)
+        }
+
         private fun idleBodyFraction(bitmap: Bitmap, cw: Int, ch: Int): Float {
             val px = IntArray(cw * ch)
             bitmap.getPixels(px, 0, cw, 0, 0, cw, ch)
@@ -475,10 +497,13 @@ class MonsterSprites private constructor(
             val dirBitmap = context.resources.getIdentifier(context.resources.getResourceEntryName(id) + "_dir", "drawable", context.packageName)
                 .takeIf { it != 0 }?.let { BitmapFactory.decodeResource(context.resources, it, options) }
             val cw = bitmap.width / RIG_COLUMNS
-            val ch = bitmap.height / RIG2_ROWS
-            if (cw < 8 || ch < 8) return null
+            val fullCh = bitmap.height / RIG2_ROWS
+            if (cw < 8 || fullCh < 8) return null
+            // רווח ריק מתחת לרגליים בגיליון (בחלק מהגיליונות ~9% מגובה התא): בלי לחתוך אותו המפלצת נראית מרחפת מעל הרצפה.
+            // חותכים מכל התאים את הרווח הקטן ביותר שנמצא בשורות העמידה וההליכה (0-3), כך שאף רגל לא נחתכת
+            val ch = fullCh - footGap(bitmap, cw, fullCh)
             fun cell(row: Int, col: Int): MonsterSprite {
-                val f = Bitmap.createBitmap(bitmap, col * cw, row * ch, cw, ch)
+                val f = Bitmap.createBitmap(bitmap, col * cw, row * fullCh, cw, ch)
                 f.density = Bitmap.DENSITY_NONE
                 return MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
             }
@@ -508,10 +533,10 @@ class MonsterSprites private constructor(
                     deathSide = row(5),
                     fireFront = row(7, 3, 3),
                     releaseFront = cell(8, 5),
-                    releaseSides = dirBitmap?.takeIf { it.height == ch }?.let { db ->
+                    releaseSides = dirBitmap?.takeIf { it.height == fullCh }?.let { db ->
                         val dw = db.width / 4
                         (0 until 4).map { i ->
-                            val f = Bitmap.createBitmap(db, i * dw, 0, dw, db.height)
+                            val f = Bitmap.createBitmap(db, i * dw, 0, dw, ch)
                             f.density = Bitmap.DENSITY_NONE
                             MonsterSprite(f.asImageBitmap(), f.width, f.height, 0)
                         }

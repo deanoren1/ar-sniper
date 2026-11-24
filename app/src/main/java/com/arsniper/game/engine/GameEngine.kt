@@ -350,7 +350,7 @@ class GameEngine(
                 return enemy.copy(dirY = 1f)
             }
             newFeetY = mapper.worldY(newFeetPhoto)
-            newRadius = radiusForFeet(newFeetY)
+            newRadius = radiusForFeet(newFeetY) * enemy.sizeScale
             // דמות שהולכת לעבר המצלמה לא נהיית ענקית: מגיעה לגודל מקסימלי ומסתובבת בחזרה
             if (enemy.dirY > 0f && newRadius * FIGURE_HEIGHT_RADII > MAX_WALK_HEIGHT) {
                 return enemy.copy(dirY = -1f)
@@ -931,7 +931,8 @@ class GameEngine(
             // יותר ניסיונות לרחוק (למעלה במסך) כדי שהחלל הגדול יתמלא בדמויות קטנות
             val farLimit = (ctx.mapper.worldY(ground.horizon) + 0.05f).coerceIn(0.3f, 0.8f)
             val feetY = farLimit + (0.95f - farLimit) * Math.pow(random.nextDouble(), 1.5).toFloat()
-            val r = radiusForFeet(feetY)
+            // מפלצת שנכנסת מצד המסך קטנה מעט מהרגיל
+            val r = radiusForFeet(feetY) * EDGE_SIZE_SCALE
             val figureHeight = r * FIGURE_HEIGHT_RADII
             if (figureHeight < minHeight || figureHeight > maxHeight) return@repeat
 
@@ -957,7 +958,8 @@ class GameEngine(
                 kind = EnemyKind.Open,
                 state = EnemyState.Walking,
                 timer = randomBetween(3f, 5f),
-                direction = inward
+                direction = inward,
+                sizeScale = EDGE_SIZE_SCALE
             )
             if (!canRoam(candidate, existing)) return@repeat
             nextEnemyId++
@@ -1155,7 +1157,10 @@ class GameEngine(
 
 
         /** המפלצות גדולות מאדם: מכפיל על גובה אדם בכל חישובי הגודל (היו קטנות מדי במשחק) */
-        private const val MONSTER_SIZE = 1.3f
+        private const val MONSTER_SIZE = 1.235f
+
+        /** מפלצות שנכנסות מצד המסך: קטנות ב-10% מהשאר */
+        private const val EDGE_SIZE_SCALE = 0.9f
 
         /** עצם קרוב שהחלק העליון שלו נמוך מזה (ביחידות רדיוס מעל הרגליים) מסתיר רק את הרגליים, ואפשר ללכת מאחוריו */
         private const val LOW_COVER_RADII = 1.7f

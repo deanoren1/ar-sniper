@@ -160,7 +160,7 @@ fun SceneScreen(
             aiBusy = true
             aiStatus = "AI is creating the world (up to a minute)..."
             val result = withContext(Dispatchers.IO) {
-                com.arsniper.ml.AiWorld.generate(context, "tundra_v4", view.bitmap, provider, quality, model, sandbox)
+                com.arsniper.ml.AiWorld.generate(context, "tundra_v5", view.bitmap, provider, quality, model, sandbox)
             }
             when (result) {
                 is com.arsniper.ml.AiWorld.Result.Image -> {
@@ -375,7 +375,7 @@ fun SceneScreen(
         scope.launch {
             samBusy = true
             val update = withContext(Dispatchers.Default) {
-                UserObjects.save(context.filesDir, view.cacheKey ?: "none", list, "sam", SamAuto.MAX_MASKS)
+                UserObjects.save(context.filesDir, view.cacheKey ?: "none", list, SamAuto.CACHE_PREFIX, SamAuto.MAX_MASKS)
                 SceneSession.setSamMasks(list)
                 SpotsUpdate(
                     buildSpotsOverlay(view.analysis, SceneSession.spots).asImageBitmap(),
@@ -790,7 +790,7 @@ private fun analyzeScene(
     if (objects.isNotEmpty()) SceneSession.setUserObjects(objects)
 
     // עצמים ש-SAM מצא לבד באותה תמונה (אם הופעל זיהוי אוטומטי בעבר)
-    val samMasks = if (cacheKey != null) UserObjects.load(context.filesDir, cacheKey, "sam") else emptyList()
+    val samMasks = if (cacheKey != null) UserObjects.load(context.filesDir, cacheKey, SamAuto.CACHE_PREFIX) else emptyList()
     if (samMasks.isNotEmpty()) SceneSession.setSamMasks(samMasks)
 
     val spots = SceneSession.spots

@@ -14,6 +14,12 @@ object SamAuto {
     const val GRID_COLS = 12
     const val GRID_ROWS = 7
 
+    /**
+     * שם קובץ העצמים השמורים לתמונה. משנים אותו כשהזיהוי משתפר, כדי שכל תמונה תנותח מחדש פעם אחת
+     * (sam2: נבדקות גם המסכות הנוספות של SAM, למשל ארון חשמל צמוד לקיר)
+     */
+    const val CACHE_PREFIX = "sam2"
+
     /** כמה מסכות לכל היותר שומרים לתמונה */
     const val MAX_MASKS = 40
 

@@ -45,5 +45,7 @@ data class Enemy(
     val maxHp: Int = 0,
     val hp: Int = 0,
     /** מתי נפגעה לאחרונה (שניות, לפי System.nanoTime), להבהוב ולרעידה */
-    val hurtAt: Double = -100.0
+    val hurtAt: Double = -100.0,
+    /** מכפיל גודל קבוע לדמות (למשל מפלצת שנכנסת מצד המסך קטנה ב-10%), נשמר גם כשהיא הולכת לעומק */
+    val sizeScale: Float = 1f
 )

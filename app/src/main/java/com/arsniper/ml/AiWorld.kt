@@ -110,7 +110,7 @@ object AiWorld {
     /** הסגנון בשרת לכל ארנה, או null אם אין עדיין עולם AI לארנה הזאת */
     fun serverStyle(style: com.arsniper.game.progress.ArenaStyle): String? = when (style) {
         // טונדרה: סגנון משחק כהה (כחולים עמוקים, נטיפים, גבישים, מנורות חמות), נבחר בדף הבדיקה
-        com.arsniper.game.progress.ArenaStyle.Tundra -> "tundra_v4"
+        com.arsniper.game.progress.ArenaStyle.Tundra -> "tundra_v5"
         com.arsniper.game.progress.ArenaStyle.Jungle -> "jungle_mid"
         com.arsniper.game.progress.ArenaStyle.Forest -> "rockforest_mid"
         com.arsniper.game.progress.ArenaStyle.Cyber -> "cyber_mid"
