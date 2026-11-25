@@ -242,7 +242,8 @@ fun GameScreen(
     // שלב הבוס הגדול (סרטונים): בטונדרה תמיד, ובעולם אחר אם יש לו סרטוני בוס (boss_<עולם>_breath) וקובץ מעקב
     val bossWorldKey = style.name.lowercase()
     val bossTracksText = remember(bossWorldKey) {
-        if (style == ArenaStyle.Tundra) {
+        if (style == ArenaStyle.Tundra || com.arsniper.game.engine.BossEntrance.portalWorld(bossWorldKey)) {
+            // עולם עם כניסת פורטל: הבוס הוא ספרייטים בתוך הארנה, לא הסרטונים
             null
         } else {
             val id = context.resources.getIdentifier("boss_${bossWorldKey}_tracks", "raw", context.packageName)
@@ -253,6 +254,22 @@ fun GameScreen(
     val bigBoss = style == ArenaStyle.Tundra || bossTracksText != null
     // סוג הירי לכל מפלצת בעולם הזה (רובה/טיל בעולמות עם נשק חם)
     remember(bossWorldKey) { com.arsniper.game.engine.ShotStyle.overrides = com.arsniper.game.engine.ShotStyle.forArena(bossWorldKey); 0 }
+    // הבוס של העולם הזה נכנס דרך פורטל בתוך הארנה (הג'ונגל): ערפל, מערבולת, צללית ופריצה
+    remember(bossWorldKey) {
+        com.arsniper.game.engine.BossEntrance.portal = com.arsniper.game.engine.BossEntrance.portalWorld(bossWorldKey)
+        com.arsniper.game.engine.BossEntrance.reset()
+        0
+    }
+    val portalSound = remember(bossWorldKey) {
+        if (com.arsniper.game.engine.BossEntrance.portal && PlayerProfile.soundOn) {
+            runCatching { android.media.MediaPlayer.create(context, com.arsniper.R.raw.boss_portal_sfx) }.getOrNull()
+        } else {
+            null
+        }
+    }
+    DisposableEffect(portalSound) { onDispose { runCatching { portalSound?.release() } } }
+    // שלב הכניסה שכבר השמענו לו צליל ורעידה (0 = כלום, 1 = מערבולת, 2 = צללית, 3 = פריצה)
+    val entranceCue = remember { intArrayOf(0) }
     val chipSeen = remember { intArrayOf(0) }
     // התגמול בהתאם לקושי; כל מקום שמצטבר בו ניקוד עובר דרך זה, כדי שהמספרים יהיו עקביים
     fun scaled(points: Int): Int = (points * difficulty.rewardScale).roundToInt()
@@ -667,6 +684,32 @@ fun GameScreen(
                         }
                         loot.update(dt)
                         enemies = director.step(dt, enemies, engine, aspect)
+                        // כניסת הבוס דרך הפורטל: צלילים ורעידה ברגעים של ציר הזמן
+                        run {
+                            val be = com.arsniper.game.engine.BossEntrance
+                            if (!be.portal || be.age < 0f) {
+                                if (be.age < 0f) entranceCue[0] = 0
+                            } else {
+                                if (entranceCue[0] < 1) {
+                                    entranceCue[0] = 1
+                                    runCatching { portalSound?.seekTo(0); portalSound?.start() }
+                                    shake = max(shake, 0.15f)
+                                }
+                                if (entranceCue[0] < 2 && be.age >= com.arsniper.game.engine.BossEntrance.OPEN) {
+                                    entranceCue[0] = 2
+                                    soundPlayer.play(Sfx.BossEntrance)
+                                }
+                                if (entranceCue[0] < 3 && be.age >= com.arsniper.game.engine.BossEntrance.REVEAL) {
+                                    entranceCue[0] = 3
+                                    soundPlayer.play(Sfx.BossRoar)
+                                    soundPlayer.play(Sfx.Boom)
+                                    shake = max(shake, 0.9f)
+                                    if (PlayerProfile.vibrationOn) bossHitVibrate(context0)
+                                }
+                                // רעידה קלה ומתמשכת בזמן שהמערבולת פתוחה
+                                if (be.age < com.arsniper.game.engine.BossEntrance.REVEAL) shake = max(shake, 0.08f + 0.12f * (be.age / com.arsniper.game.engine.BossEntrance.REVEAL))
+                            }
+                        }
                         score += scaled(director.takeBonus())
                         for (jump in director.takeTeleports()) {
                             poofs = poofs + Poof(jump.from.x, jump.from.y, now) + Poof(jump.to.x, jump.to.y, now)
@@ -1303,6 +1346,7 @@ fun GameScreen(
             val zone = zoneHit.zone
             if (zone.damage <= 0) usedFreeZones.add("${zoneHit.enemy.id}:${zone.id}")
             val target = enemies.firstOrNull { it.id == zoneHit.enemy.id }
+            if (target != null && target.id == ArenaDirector.BOSS_ID && com.arsniper.game.engine.BossEntrance.entering) return
             // בוס מוגן: הבטן והראש חסינים כל עוד יש מפלצת רגילה חיה. רק הפה (ההכנה לירי) פגיע תמיד
             if (target != null && target.id == ArenaDirector.BOSS_ID && director.bossShielded && !zone.onlyTelegraph) {
                 soundPlayer.play(Sfx.Deflect)
@@ -1353,7 +1397,11 @@ fun GameScreen(
             // פגיעה בגוף: רק מי שהנקודה על הציור שלו (או קרוב אליו); בלי ציור רשום ממשיכים לפי העיגול
             val result = engine.fire(
                 p,
-                Hover.lifted(enemies, nowSeconds()).filter { BodyRegistry.contains(it.id, p, aspect) != false },
+                Hover.lifted(enemies, nowSeconds()).filter {
+                    // בוס שעוד יוצא מהפורטל לא פגיע
+                    !(it.id == ArenaDirector.BOSS_ID && com.arsniper.game.engine.BossEntrance.entering) &&
+                        BodyRegistry.contains(it.id, p, aspect) != false
+                },
                 aspect
             )
             when (result) {

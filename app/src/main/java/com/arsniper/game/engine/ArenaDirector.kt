@@ -211,6 +211,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         shieldBroken = false
         bossDying = false
         bossAge = 0f
+        BossEntrance.reset()
         phase = ArenaPhase.Intro
         phaseTimer = if (isBossWave) BOSS_INTRO_SECONDS else INTRO_SECONDS
         spawnCooldown = 0f
@@ -328,6 +329,14 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     private fun approachBoss(dt: Float, list: List<Enemy>): List<Enemy> {
         if (list.none { it.id == BOSS_ID && it.isAlive }) return list
         bossAge += dt
+        if (BossEntrance.portal) {
+            // נכנס דרך פורטל: עומד מההתחלה במקומו ובגודלו הסופי (החשיפה עצמה בציור)
+            BossEntrance.age = bossAge
+            val end = Vec2(0.5f, BOSS_END_Y)
+            return list.map {
+                if (it.id == BOSS_ID && it.isAlive) it.copy(position = end, radius = BOSS_RADIUS, hidePos = end, peekPos = end) else it
+            }
+        }
         val t = (bossAge / BOSS_APPROACH_SECONDS).coerceIn(0f, 1f)
         val k = t * t * (3f - 2f * t)
         val radius = BOSS_START_RADIUS + (BOSS_RADIUS - BOSS_START_RADIUS) * k

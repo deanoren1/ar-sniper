@@ -786,6 +786,7 @@ class MonsterSprites private constructor(
         }
 
         private const val DRAGON_SIZE_SCALE = 1.3f
+        private const val JUNGLE_BOSS_SCALE = 1.3f
 
         private fun loadBoss(context: Context, variant: String? = null): MonsterSheet? {
             if (variant == null) loadDragon(context)?.let { return it }
@@ -821,7 +822,8 @@ class MonsterSprites private constructor(
                 walk = listOf(idle[1], idle[2], idle[4], idle[5]),
                 peek = prep[3],
                 hit = hit[1],
-                sizeScale = 1.0f,
+                // הקולוסוס של הג'ונגל (נכנס מפורטל) ענק: חצי מגובה המסך
+                sizeScale = if (variant == "jungle") JUNGLE_BOSS_SCALE else 1.0f,
                 bossAnim = BossAnim(idle, prep, fire, hit, death)
             )
         }

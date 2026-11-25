@@ -31,6 +31,7 @@ import com.arsniper.game.engine.Accessories
 import com.arsniper.game.engine.AccessoryKind
 import com.arsniper.game.engine.AccessoryTarget
 import com.arsniper.game.engine.ArenaDirector
+import com.arsniper.game.engine.BossEntrance
 import com.arsniper.game.engine.Hover
 import com.arsniper.game.engine.WeakZones
 import com.arsniper.game.engine.ZoneTarget
@@ -115,6 +116,8 @@ fun EnemyLayer(
         }
     }
     val sprites = spritesState.value
+    // ציורי הפורטל של כניסת הבוס (מערבולת, ערפל, אבנים); רק בעולם שהבוס שלו נכנס מפורטל
+    val portalArt = remember(BossEntrance.portal) { if (BossEntrance.portal) BossPortalArt.load(context) else null }
 
     val maskCache = remember(scene) { HashMap<Int, ImageBitmap>() }
     // אויבים שנפגעו: זמן הפגיעה והמצב שלהם, כדי שאנימציית הפגיעה תסתיים גם אם הם כבר הוסרו מהרשימה
@@ -184,7 +187,7 @@ fun EnemyLayer(
             // מפלצת הבלונים מרחפת באוויר; כשהיא נופלת (מתה) היא צונחת אל הקרקע
             var liftPx = Hover.lift(enemy, nowS) * size.height
             // הדרקון מרחף באוויר, ויורד אל הקרקע כשהוא נוחת (השלב הכועס)
-            if (enemy.id == ArenaDirector.BOSS_ID) {
+            if (enemy.id == ArenaDirector.BOSS_ID && !BossEntrance.portal) {
                 val landT = if (AttackPose.bossEnraged) ((nowS - AttackPose.bossLandedAt) / AttackPose.LAND_SECONDS).toFloat().coerceIn(0f, 1f) else 0f
                 liftPx += enemy.radius * size.height * (0.3f + 0.05f * sin(nowS * 2.4).toFloat()) * (1f - landT * landT * (3f - 2f * landT))
             }
@@ -266,8 +269,16 @@ fun EnemyLayer(
                     val masks = blockers.map { maskCache.getOrPut(it.id) { buildMask(it) } }
                     drawFigureBehindAll(figure(true), blockers, masks, scene)
                 } else {
+                    // בוס שיוצא מפורטל: המערבולת מאחוריו, הערפל, ההבזק והאבנים מלפניו
+                    val portalBox = if (!item.dead && sprites != null && enemy.id == ArenaDirector.BOSS_ID && BossEntrance.drawing) {
+                        monsterBox(sprites.sheetFor(enemy, false), drawCenter, radius)
+                    } else {
+                        null
+                    }
+                    if (portalBox != null) drawBossPortalBack(portalBox, BossEntrance.age, anim, portalArt)
                     val draw = figure(true)
                     draw()
+                    if (portalBox != null) drawBossPortalFront(portalBox, BossEntrance.age, anim, portalArt)
                 }
                 // נקודת תורפה שמוסתרת מאחורי עצם לא מצוירת ולא ניתנת לפגיעה
                 fun covered(px: Float, py: Float): Boolean =
@@ -276,7 +287,8 @@ fun EnemyLayer(
                 // נקודות תורפה: מפלצת הבלונים (הבלונים), ולשאר לפי "חידת הירי" שלהן (WeakZones).
                 // רק כשהמפלצת חופשית ומוצגת מלפנים (עומדת, מתכוננת לירות, או מתקרבת אל המצלמה)
                 val free = (enemy.kind == EnemyKind.Open && enemy.spot == null) || enemy.kind == EnemyKind.Static
-                if (!item.dead && sprites != null && enemy.isAlive && free) {
+                val inPortal = enemy.id == ArenaDirector.BOSS_ID && BossEntrance.entering
+                if (!item.dead && sprites != null && enemy.isAlive && free && !inPortal) {
                     val box = monsterBox(sprites.sheetFor(enemy, item.dead), drawCenter, radius)
                     val telegraphing = AttackPose.ids.contains(enemy.id)
                     if (monsterSet == "tundra") drawBreath(box, enemy.id, anim)
@@ -349,7 +361,8 @@ private fun spriteScale(sheet: MonsterSheet, r: Float): Float {
         sheet.walk.maxOf { it.width }
     )
     val kByHeight = r * FIGURE_HEIGHT_RADII * MONSTER_SCALE * sheet.sizeScale / sheet.idle.height
-    val kByWidth = r * MAX_WIDTH_RADII / widest
+    // בוס ענק שיוצא מפורטל רחב מאוד (זרועות פרושות): לא מוגבל לרוחב של מפלצת רגילה
+    val kByWidth = r * MAX_WIDTH_RADII * (if (sheet.bossAnim != null && BossEntrance.portal) 1.8f else 1f) / widest
     return min(kByHeight, kByWidth)
 }
 
@@ -463,6 +476,10 @@ private fun DrawScope.drawMonster(
         sheet.fewer[balloonsLeft(sheet, enemy)]?.front?.get(0) ?: sheet.idle
     }
 
+    // בוס שיוצא מפורטל: מוסתר בזמן שהמערבולת נפתחת, צללית כהה שמתקרבת, ואז פריצה בצבע מלא
+    val entering = !dead && enemy.id == ArenaDirector.BOSS_ID && BossEntrance.portal && BossEntrance.age < BossEntrance.BURST
+    val entranceAge = BossEntrance.age
+    if (entering && entranceAge < BossEntrance.OPEN) return
     val cx = center.x
     val feetY = center.y + r
     // גובה הדמות בפיקסלים: הפריים עצמו (בלי מסגרת) מוקטן/מוגדל בהתאם לפריים העמידה של המפלצת
@@ -510,6 +527,27 @@ private fun DrawScope.drawMonster(
             shakeX = sin(anim * 55f) * r * 0.04f
         }
     }
+    // הכניסה מהפורטל: גודל, שקיפות וכמה כהה (1 = צללית מלאה)
+    var entranceAlpha = 1f
+    var silhouette = 0f
+    if (entering) {
+        if (entranceAge < BossEntrance.REVEAL) {
+            val s = ((entranceAge - BossEntrance.OPEN) / (BossEntrance.REVEAL - BossEntrance.OPEN)).coerceIn(0f, 1f)
+            val e = s * s * (3f - 2f * s)
+            val grow = 0.72f + 0.24f * e
+            sx *= grow
+            sy *= grow
+            entranceAlpha = (s * 1.6f).coerceIn(0f, 1f)
+            silhouette = 0.93f
+        } else {
+            // הפריצה: קפיצה קטנה בגודל (overshoot) והצבע חוזר במהירות
+            val s = ((entranceAge - BossEntrance.REVEAL) / (BossEntrance.BURST - BossEntrance.REVEAL)).coerceIn(0f, 1f)
+            val pop = 0.96f + 0.12f * sin(s * PI.toFloat())
+            sx *= pop
+            sy *= pop
+            silhouette = 0.93f * (1f - s) * (1f - s)
+        }
+    }
     val alpha = if (dead && sheet.bossAnim != null) {
         if (progress < 0.9f) 1f else (1f - (progress - 0.9f) * 10f).coerceIn(0f, 1f)
     } else if (dead && sheet.rig != null) {
@@ -518,7 +556,7 @@ private fun DrawScope.drawMonster(
     } else if (dead) {
         if (progress < 0.5f) 1f else (1f - (progress - 0.5f) * 2f).coerceIn(0f, 1f)
     } else {
-        1f
+        entranceAlpha
     }
 
     // צל על הקרקע מתחת לרגליים
@@ -534,7 +572,10 @@ private fun DrawScope.drawMonster(
 
     val gray = (0.3f + 0.7f * shade).coerceIn(0.4f, 1f)
     val raging = enemy.id == ArenaDirector.BOSS_ID && AttackPose.bossEnraged && !dead
-    val tint = if (raging && hurt <= 0f) {
+    val tint = if (silhouette > 0f) {
+        // צללית בתוך הפורטל: כמעט שחורה-סגולה, עם מעט פרטים שמבצבצים
+        ColorFilter.tint(Color(0.07f, 0.03f, 0.16f, silhouette), BlendMode.SrcAtop)
+    } else if (raging && hurt <= 0f) {
         // בוס כועס: גוון אדום פועם
         ColorFilter.tint(Color(1f, 0.25f, 0.2f, 0.28f + 0.14f * sin(anim * 9f)), BlendMode.SrcAtop)
     } else if (hurt > 0f) {
@@ -556,7 +597,7 @@ private fun DrawScope.drawMonster(
     val srcCut = (sprite.image.height * cropTop).toInt()
     val dstCut = height * cropTop
     // לפגיעה לפי הגוף: הפריים שמצויר עכשיו ומיקומו על המסך (ראו BodyRegistry)
-    if (!dead && cropTop == 0f && size.width > 0f && size.height > 0f) {
+    if (!dead && !entering && cropTop == 0f && size.width > 0f && size.height > 0f) {
         BodyRegistry.register(enemy.id, sprite.image, left / size.width, top / size.height, width / size.width, height / size.height, flip)
     }
     val drawSprite: DrawScope.() -> Unit = {
@@ -576,7 +617,7 @@ private fun DrawScope.drawMonster(
                 alpha = alpha,
                 colorFilter = tint
             )
-            if (!dead) {
+            if (!dead && silhouette <= 0.5f) {
                 drawRect(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         0f to Color.White.copy(alpha = 0.10f),

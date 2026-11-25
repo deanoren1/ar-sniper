@@ -155,6 +155,8 @@ class EnemyFire(private val random: Random = Random.Default) {
     /** האם האויב נראה עכשיו וכך יכול לירות (מציץ שחשוף לגמרי, או דמות שהולכת בחוץ) */
     private fun canAttack(e: Enemy): Boolean {
         if (!e.isAlive) return false
+        // בוס שעוד יוצא מהפורטל לא יורה
+        if (e.id == ArenaDirector.BOSS_ID && BossEntrance.entering) return false
         // מפלצת בלונים בלי בלונים: מוממת על הקרקע ולא יורה
         if (Hover.isGrounded(e)) return false
         if (e.position.x < Shot.attackMinX || e.position.x > Shot.attackMaxX) return false
