@@ -266,7 +266,8 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     private fun loadWave(index: Int) {
         waveIndex = index
         queue.clear()
-        queue.addAll(waves[index].foes)
+        // בוס פורטל: מתחילים רק עם הבוס (בלי בלגן של מפלצות סביבו). מפלצת עזר אחת מגיעה מדי פעם (bossWindow)
+        if (BossEntrance.portal && waves[index].foes.contains(Foe.Dragon)) queue.add(Foe.Dragon) else queue.addAll(waves[index].foes)
         killedInWave = 0
         totalInWave = waves[index].foes.size
         bossHp = 0
@@ -482,7 +483,7 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                 if (bossWindow <= 0f) {
                     queue.addLast(MINIONS[minionCycle % MINIONS.size])
                     minionCycle++
-                    bossWindow = BOSS_WINDOW_SECONDS
+                    bossWindow = if (BossEntrance.portal) PORTAL_MINION_GAP else BOSS_WINDOW_SECONDS
                 }
             }
         }
@@ -645,11 +646,14 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         const val BOSS_APPROACH_SECONDS = 6f
 
         /** בוס שנכנס מפורטל: עומד קרוב וגדול */
-        const val PORTAL_BOSS_Y = 0.6f
-        const val PORTAL_BOSS_RADIUS = 0.205f
+        const val PORTAL_BOSS_Y = 0.76f
+        const val PORTAL_BOSS_RADIUS = 0.2f
 
         /** בוס הפורטל: יותר חיים (אין לו מגן, ויש לו נקודות תורפה של נזק כפול ומשולש) */
         const val PORTAL_BOSS_HP_SCALE = 1.8f
+
+        /** בוס פורטל: כמה שניות בלי מפלצות עזר לפני שמגיעה הבאה (אחת בכל פעם) */
+        const val PORTAL_MINION_GAP = 9f
         val DEFAULT_WAVES: List<WaveSpec> = listOf(
             // גל 1: תמנונים (קלים לפגיעה), ובסוף הבלון הראשון
             WaveSpec(

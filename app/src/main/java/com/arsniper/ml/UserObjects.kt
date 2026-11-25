@@ -142,7 +142,9 @@ object UserObjects {
         val mid = cols.subList(cols.size * 3 / 10, maxOf(cols.size * 3 / 10 + 1, cols.size * 7 / 10))
         val t0 = mid.maxOf { top[it] }.toFloat()
         val curve = maxOf(0f, t0 - sideTop)
-        val half = maxOf(curve, 0.24f * wd).coerceAtMost(0.32f * wd).coerceAtLeast(1f)
+        // גיגית רחבה ונמוכה: הכיפה לא יותר גבוהה מחצי מגובה העצם עצמו (כיפה ענקית מחקה דמויות שעמדו מאחורי הגיגית)
+        val objectHeight = (0 until w).maxOf { x -> var b = -1; for (y in h - 1 downTo 0) if (mask[y * w + x]) { b = y; break }; if (top[x] >= 0 && b >= 0) b - top[x] + 1 else 0 }
+        val half = maxOf(curve, 0.24f * wd).coerceAtMost(0.32f * wd).coerceAtMost(0.25f * objectHeight).coerceAtLeast(1f)
         val cx = (cols.first() + cols.last()) / 2f
         val newTop = FloatArray(w) { Float.NaN }
         var minTop = 0f

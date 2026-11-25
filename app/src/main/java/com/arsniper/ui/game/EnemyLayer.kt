@@ -265,7 +265,8 @@ fun EnemyLayer(
                 }
             } else {
                 // עצמים שקרובים יותר למצלמה מכסים דמות הולכת שנמצאת מאחוריהם (לפי עומק הרגליים)
-                val blockers = if (scene != null && !item.dead) Occlusion.nearerSpots(scene, enemy) else emptyList()
+                // הבוס עומד מול הכול: עצמים בסצנה לא מסתירים אותו
+                val blockers = if (scene != null && !item.dead && enemy.id != ArenaDirector.BOSS_ID) Occlusion.nearerSpots(scene, enemy) else emptyList()
                 if (scene != null && blockers.isNotEmpty()) {
                     val masks = blockers.map { maskCache.getOrPut(it.id) { buildMask(it) } }
                     drawFigureBehindAll(figure(true), blockers, masks, scene)
@@ -575,7 +576,17 @@ private fun DrawScope.drawMonster(
 
     val gray = (0.3f + 0.7f * shade).coerceIn(0.4f, 1f)
     val raging = enemy.id == ArenaDirector.BOSS_ID && AttackPose.bossEnraged && !dead
+    // בוס פורטל: נפגע המון (ירי מהיר), אז הבהוב קצר וחלש בלבן ולא כתם אדום על כל הגוף
+    val portalBoss = enemy.id == ArenaDirector.BOSS_ID && BossEntrance.portal
     val tint = if (silhouette > 0f) {
+        ColorFilter.tint(Color(0.07f, 0.03f, 0.16f, silhouette), BlendMode.SrcAtop)
+    } else if (portalBoss && hurt > 0.6f) {
+        ColorFilter.tint(Color(1f, 1f, 1f, 0.35f * (hurt - 0.6f) / 0.4f), BlendMode.SrcAtop)
+    } else if (portalBoss && raging) {
+        ColorFilter.tint(Color(1f, 0.3f, 0.15f, 0.08f + 0.06f * sin(anim * 6f)), BlendMode.SrcAtop)
+    } else if (portalBoss) {
+        ColorFilter.tint(Color(gray * ambient.red, gray * ambient.green, gray * ambient.blue, 1f), BlendMode.Modulate)
+    } else if (silhouette > 0f) {
         // צללית בתוך הפורטל: כמעט שחורה-סגולה, עם מעט פרטים שמבצבצים
         ColorFilter.tint(Color(0.07f, 0.03f, 0.16f, silhouette), BlendMode.SrcAtop)
     } else if (raging && hurt <= 0f) {
@@ -731,13 +742,13 @@ private fun DrawScope.drawBossTarget(x: Float, y: Float, radius: Float, damage: 
     val c = Offset(x, y)
     val pulse = 0.5f + 0.5f * sin(anim * 7f)
     val gold = Color(0xFFFFD54F)
-    val r = radius * (1.05f + 0.12f * pulse)
-    drawCircle(gold.copy(alpha = 0.18f + 0.15f * pulse), r * 1.25f, c)
-    drawCircle(gold.copy(alpha = 0.9f), r, c, style = Stroke(width = 3.5f + radius * 0.06f))
+    val r = radius * (0.9f + 0.08f * pulse)
+    drawCircle(gold.copy(alpha = 0.10f + 0.08f * pulse), r * 1.1f, c)
+    drawCircle(gold.copy(alpha = 0.75f), r, c, style = Stroke(width = 2.5f))
     rotate(anim * 60f, c) {
         for (k in 0 until 4) {
             rotate(k * 90f, c) {
-                drawLine(Color.White.copy(alpha = 0.95f), Offset(c.x, c.y - r * 1.45f), Offset(c.x, c.y - r * 1.08f), strokeWidth = 4f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                drawLine(Color.White.copy(alpha = 0.8f), Offset(c.x, c.y - r * 1.3f), Offset(c.x, c.y - r * 1.06f), strokeWidth = 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
             }
         }
     }
@@ -746,11 +757,11 @@ private fun DrawScope.drawBossTarget(x: Float, y: Float, radius: Float, damage: 
             isAntiAlias = true
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            textSize = radius * 0.75f + 16f
+            textSize = radius * 0.4f + 12f
             color = android.graphics.Color.rgb(255, 213, 79)
             setShadowLayer(6f, 0f, 2f, android.graphics.Color.BLACK)
         }
-        canvas.nativeCanvas.drawText("x$damage", c.x + r * 1.6f, c.y + p.textSize * 0.35f, p)
+        canvas.nativeCanvas.drawText("x$damage", c.x + r * 1.45f, c.y + p.textSize * 0.35f, p)
     }
 }
 

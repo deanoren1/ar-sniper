@@ -226,7 +226,7 @@ object HidingSpotFinder {
     private val FLOOR_NAMES = listOf("floor", "earth", "road", "sidewalk", "path", "rug", "grass", "sand", "dirt track", "land", "runway", "field", "stairs", "stairway", "step", "water")
 
     /** האם לפחות 30% מהקצה התחתון של המחסה נוגע ברצפה (או שהוא מגיע לתחתית התמונה) */
-    private fun standsOnFloor(analysis: SceneAnalysis, spot: HidingSpot): Boolean {
+    fun standsOnFloor(analysis: SceneAnalysis, spot: HidingSpot): Boolean {
         val floors = BooleanArray(256)
         for (n in FLOOR_NAMES) { val i = Ade20kClasses.NAMES.indexOf(n); if (i >= 0) floors[i] = true }
         var columns = 0

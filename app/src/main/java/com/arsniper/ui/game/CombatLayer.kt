@@ -107,6 +107,23 @@ private fun DrawScope.drawTelegraph(t: TelegraphView, time: Float) {
     val cy = t.y * size.height
     val r = t.radius * size.height
     val pulse = 0.5f + 0.5f * sin(time * 18f)
+    if (t.enemyId == com.arsniper.game.engine.ArenaDirector.BOSS_ID && com.arsniper.game.engine.BossEntrance.portal) {
+        // בוס ענק: בלי טבעת אדומה ענקית על כל הגוף. האנימציה (הרמת הידיים) היא האזהרה, ועוד סימן קריאה קטן מעל הראש
+        val top = cy + r - r * 2.2f * 1.1f * 1.3f
+        val ts = r * 0.45f
+        drawIntoCanvas { canvas ->
+            val fill = android.graphics.Paint().apply {
+                isAntiAlias = true
+                textAlign = android.graphics.Paint.Align.CENTER
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                textSize = ts * (1f + 0.15f * pulse)
+                color = android.graphics.Color.rgb(255, 61, 0)
+                setShadowLayer(8f, 0f, 2f, android.graphics.Color.BLACK)
+            }
+            canvas.nativeCanvas.drawText("!", cx, top + ts * 0.2f, fill)
+        }
+        return
+    }
     if (t.kind == ShotKind.Burst) drawLaserSight(t, cx, cy, r, time)
     val red = Color(0xFFFF1744)
     // הילה אדומה שמתחזקת, וטבעת שמתכווצת אל המפלצת

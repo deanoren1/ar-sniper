@@ -97,7 +97,10 @@ object SceneSession {
             for (logits in samMasks) {
                 val spot = UserObjects.toSpot(current, logits, nextId) ?: continue
                 // SAM מסמן גם כתמי צל ומשטחים על הרצפה (כביש, מדרכה). מפלצת שיצאה "מאחוריהם" נראתה חתוכה באוויר
+                // ועצם שרובו קיר/תקרה/בניין (SAM חותך קטעי קיר): מפלצת "מאחוריו" עמדה באוויר באמצע הקיר
                 if (groundShare(current, spot) >= SAM_GROUND_SHARE) continue
+                // מחסה חייב לעמוד על הרצפה (אחרת המפלצת שמציצה ממנו מרחפת)
+                if (!HidingSpotFinder.standsOnFloor(current, spot)) continue
                 fromSam.add(if (g != null) SpotRefiner.refine(spot, g) else spot)
                 nextId++
             }
@@ -185,7 +188,9 @@ object SceneSession {
 
     private val GROUND_NAMES = listOf(
         "floor", "earth", "road", "sidewalk", "path", "rug", "grass", "sand", "dirt track", "land",
-        "runway", "field", "water", "ground"
+        "runway", "field", "water", "ground",
+        // רקע: קירות, תקרה, בניינים ושמיים הם לא עצם שמסתתרים מאחוריו
+        "wall", "ceiling", "building", "sky", "house", "skyscraper"
     )
 
     private val groundLabels: BooleanArray by lazy {

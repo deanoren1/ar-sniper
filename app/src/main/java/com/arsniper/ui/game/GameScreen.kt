@@ -1481,15 +1481,17 @@ fun GameScreen(
                     if (balloons) 0.9f + 0.1f * (remaining % 3) else 1f
                 )
                 if (!killed && !balloons && zone.damage > 0) soundPlayer.play(Sfx.EnemyHurt)
-                award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y)
-                showToast(zone.label)
+                // בוס: יורים בו הרבה ברצף. בלי טקסטים ופסי הודעות על כל פגיעה (היה בלגן על המסך), רק הבזק קטן
+                val bossZone = target.id == ArenaDirector.BOSS_ID
+                award(if (balloons && killed) 300 else zone.points, zoneHit.anchor.x, zoneHit.anchor.y, showText = !bossZone)
+                if (!bossZone) showToast(zone.label)
                 if (killed) showToast("Monster Eliminated")
                 blasts = blasts + Blast(
                     x = zoneHit.anchor.x,
                     y = zoneHit.anchor.y,
                     kind = if (balloons) AccessoryKind.Balloon else if (zone.damage >= 2) AccessoryKind.Bomb else AccessoryKind.Gem,
-                    label = zone.label,
-                    radius = zoneHit.hitRadius * 1.6f,
+                    label = if (bossZone) "" else zone.label,
+                    radius = zoneHit.hitRadius * (if (bossZone) 1.1f else 1.6f),
                     bornNanos = frameNanos
                 )
                 if (killed) {
@@ -1528,7 +1530,10 @@ fun GameScreen(
                     if (remaining > dmg) {
                         // נפגעה ולא מתה: מאבדת חיים, מבהבהת ורצה
                         soundPlayer.play(Sfx.EnemyHurt)
-                        award(HURT_POINTS, target?.position?.x ?: result.enemy.position.x, target?.position?.y ?: result.enemy.position.y, register = false)
+                        award(
+                            HURT_POINTS, target?.position?.x ?: result.enemy.position.x, target?.position?.y ?: result.enemy.position.y,
+                            register = false, showText = result.enemy.id != ArenaDirector.BOSS_ID
+                        )
                         val now = nowSeconds()
                         enemies = enemies.map {
                             if (it.id == result.enemy.id) hurt(it, dmg, now) else it
