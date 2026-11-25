@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.arsniper.game.engine.Shot
 import com.arsniper.game.engine.ShotKind
+import com.arsniper.game.engine.ShotPattern
 import com.arsniper.game.engine.TelegraphView
 import kotlin.math.PI
 import kotlin.math.cos
@@ -45,11 +47,60 @@ fun CombatLayer(
     Canvas(modifier = modifier.fillMaxSize()) {
         for (t in telegraphs) drawTelegraph(t, time)
         // בציור בלבד: קליע מתקרב לא גדל מעבר לגודל שמסתיר את כפתורי ה-HUD
+        // סימני הדפוסים מתחת לקליעים: איפה הסלע ינחת, ופצצת פתיל שעוד אפשר לפוצץ ליד המפלצות
+        for (s in shots) if (!s.harmless && s.launched(time)) drawPatternCue(s, time, shotRadius(s))
         for (s in shots) drawShot(s, time, shotRadius(s).coerceAtMost(MAX_SHOT_DRAW_RADIUS), sprites)
     }
 }
 
+private fun DrawScope.drawPatternCue(s: Shot, time: Float, radiusUnits: Float) {
+    val p = s.progressAt(time)
+    when (s.pattern) {
+        ShotPattern.Lob -> {
+            // נקודת הנחיתה: עיגול כתום על המסך שמתכווץ ומתחזק עד שהסלע נוחת
+            val land = s.posAt(s.born + s.flight)
+            val c = Offset(land.x * size.width, land.y * size.height)
+            val r = s.baseRadius * size.height * (1.6f - 0.6f * p)
+            val a = (0.25f + 0.6f * p) * (if (p > 0.75f && (time * 12f).toInt() % 2 == 0) 0.5f else 1f)
+            drawOval(
+                Color(0xFFFF6D00).copy(alpha = a * 0.25f),
+                topLeft = Offset(c.x - r, c.y - r * 0.45f),
+                size = androidx.compose.ui.geometry.Size(r * 2f, r * 0.9f)
+            )
+            drawOval(
+                Color(0xFFFF9100).copy(alpha = a),
+                topLeft = Offset(c.x - r, c.y - r * 0.45f),
+                size = androidx.compose.ui.geometry.Size(r * 2f, r * 0.9f),
+                style = Stroke(width = 3f + r * 0.05f)
+            )
+            drawLine(Color(0xFFFF9100).copy(alpha = a), Offset(c.x - r * 0.3f, c.y), Offset(c.x + r * 0.3f, c.y), strokeWidth = 3f)
+            drawLine(Color(0xFFFF9100).copy(alpha = a), Offset(c.x, c.y - r * 0.14f), Offset(c.x, c.y + r * 0.14f), strokeWidth = 3f)
+        }
+        ShotPattern.Fuse -> {
+            if (p >= Shot.BACKFIRE_UNTIL) return
+            // עוד אפשר לפוצץ אותה ליד המפלצות: טבעת צהובה מהבהבת שמתכווצת עד שנגמר החלון
+            val pos = s.posAt(time)
+            val c = Offset(pos.x * size.width, pos.y * size.height)
+            val r = radiusUnits * size.height
+            val left = 1f - p / Shot.BACKFIRE_UNTIL
+            val pulse = 0.6f + 0.4f * sin(time * 16f)
+            drawCircle(Color(0xFFFFEA00).copy(alpha = 0.85f * pulse), r * (1.4f + 0.8f * left), c, style = Stroke(width = 3f + r * 0.08f))
+            drawArc(
+                Color(0xFFFFEA00),
+                startAngle = -90f,
+                sweepAngle = 360f * left,
+                useCenter = false,
+                topLeft = Offset(c.x - r * 1.15f, c.y - r * 1.15f),
+                size = androidx.compose.ui.geometry.Size(r * 2.3f, r * 2.3f),
+                style = Stroke(width = 4f + r * 0.1f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+        }
+        else -> Unit
+    }
+}
+
 private const val MAX_SHOT_DRAW_RADIUS = 0.17f
+private const val MUZZLE_SECONDS = 0.09f
 
 private fun DrawScope.drawTelegraph(t: TelegraphView, time: Float) {
     val cx = t.x * size.width
@@ -107,8 +158,29 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float, sprites
 
 private fun DrawScope.drawShotBody(s: Shot, time: Float, radiusUnits: Float, sprites: ShotSprites) {
     if (!s.launched(time)) return
-    if (s.kind == ShotKind.Burst) { drawTracer(s, time); return }
-    if (s.kind == ShotKind.Rocket) { drawRocket(s, time, radiusUnits); return }
+    if (s.kind == ShotKind.Burst) {
+        // הבזק לוע אצל היורה, ברגע שכל כדור יוצא
+        val since = time - s.born
+        if (since < MUZZLE_SECONDS && sprites.muzzles.isNotEmpty() && !s.harmless) {
+            val img = sprites.muzzles[((s.id % sprites.muzzles.size) + sprites.muzzles.size) % sprites.muzzles.size]
+            val k = 1f - since / MUZZLE_SECONDS
+            val d = size.height * 0.11f * (0.7f + 0.5f * k)
+            val m = Offset(s.x * size.width, s.y * size.height)
+            drawImage(
+                image = img,
+                srcOffset = androidx.compose.ui.unit.IntOffset.Zero,
+                srcSize = androidx.compose.ui.unit.IntSize(img.width, img.height),
+                dstOffset = androidx.compose.ui.unit.IntOffset((m.x - d / 2f).toInt(), (m.y - d / 2f).toInt()),
+                dstSize = androidx.compose.ui.unit.IntSize(d.toInt(), d.toInt()),
+                alpha = k,
+                blendMode = androidx.compose.ui.graphics.BlendMode.Screen
+            )
+        }
+        drawTracer(s, time)
+        return
+    }
+    if (s.kind == ShotKind.Rocket) { drawRocket(s, time, radiusUnits, sprites.rockets.getOrNull(sprites.rocketIndex) ?: sprites.rockets.firstOrNull()); return }
+    if (s.kind == ShotKind.Boulder) { drawBoulder(s, time, radiusUnits, sprites); return }
     val pos = s.posAt(time)
     val cx = pos.x * size.width
     val cy = pos.y * size.height
@@ -201,7 +273,7 @@ private fun DrawScope.drawShotBody(s: Shot, time: Float, radiusUnits: Float, spr
         }
 
         // נותב וטיל מצוירים למעלה (drawTracer / drawRocket)
-        ShotKind.Burst, ShotKind.Rocket -> {}
+        ShotKind.Burst, ShotKind.Rocket, ShotKind.Boulder -> {}
     }
 
     // ירייה מטעה (המפלצת מבולבלת): מוחשכת באפור, וגם לא פוגעת כשמגיעה
@@ -232,6 +304,7 @@ private fun glowOf(kind: ShotKind): Color = when (kind) {
     ShotKind.Fire -> Color(0xFFFF9800)
     ShotKind.Burst -> Color(0xFFFFF59D)
     ShotKind.Rocket -> Color(0xFFFF7043)
+    ShotKind.Boulder -> Color(0xFF76FF03)
 }
 
 /**
@@ -271,10 +344,64 @@ private fun DrawScope.drawTracer(s: Shot, time: Float) {
 }
 
 /**
+ * סלע המקדש של הקולוסוס: מסתובב (6 פריימים), עם הילה ירוקה, שובל ניצוצות אנרגיה לאורך הקשת, וסדק ירוק אחרי כל פגיעה.
+ * בלי ציור: עיגול אבן עם ספירלה.
+ */
+private fun DrawScope.drawBoulder(s: Shot, time: Float, radiusUnits: Float, sprites: ShotSprites) {
+    val p = s.progressAt(time)
+    val pos = s.posAt(time)
+    val c = Offset(pos.x * size.width, pos.y * size.height)
+    val r = radiusUnits * size.height
+    val green = Color(0xFF76FF03)
+    // שובל: ניצוצות ירוקים לאורך הדרך שכבר עבר
+    for (k in 16 downTo 1) {
+        val back = time - k * 0.035f
+        if (back < s.born) continue
+        val q = s.posAt(back)
+        val o = Offset(q.x * size.width, q.y * size.height)
+        val age = k / 16f
+        val pr = ((back - s.born) / s.flight).coerceIn(0f, 1f)
+        val rr = r * (0.18f + 0.3f * pr) * (1f - 0.5f * age)
+        drawCircle(green.copy(alpha = 0.5f * (1f - age)), rr, o)
+        if (k % 3 == 0) drawCircle(Color.White.copy(alpha = 0.6f * (1f - age)), rr * 0.35f, o)
+    }
+    drawCircle(
+        Brush.radialGradient(0f to green.copy(alpha = 0.55f), 1f to Color.Transparent, center = c, radius = r * 1.9f),
+        r * 1.9f, c
+    )
+    val frames = sprites.boulder
+    if (frames.isNotEmpty()) {
+        val img = frames[((time * 14f + s.id).toInt() % frames.size + frames.size) % frames.size]
+        val d = r * 2.3f
+        drawImage(
+            image = img,
+            srcOffset = androidx.compose.ui.unit.IntOffset.Zero,
+            srcSize = androidx.compose.ui.unit.IntSize(img.width, img.height),
+            dstOffset = androidx.compose.ui.unit.IntOffset((c.x - d / 2f).toInt(), (c.y - d / 2f).toInt()),
+            dstSize = androidx.compose.ui.unit.IntSize(d.toInt(), d.toInt())
+        )
+    } else {
+        drawCircle(Color(0xFF9E9583), r, c)
+        drawCircle(green, r * 0.45f, c, style = Stroke(width = r * 0.12f))
+    }
+    // סדקים זוהרים לפי מספר הפגיעות שספג
+    val cracks = s.maxHp - s.hp
+    for (k in 0 until cracks) {
+        val a0 = (k * 2.1f + s.id).toFloat()
+        drawLine(Color.White, c, Offset(c.x + cos(a0) * r * 0.95f, c.y + sin(a0) * r * 0.95f), strokeWidth = r * 0.09f + 2f)
+        drawLine(green, c, Offset(c.x + cos(a0) * r * 0.95f, c.y + sin(a0) * r * 0.95f), strokeWidth = r * 0.04f + 1f)
+    }
+    if (s.harmless) return
+    val ring = r * 1.3f * (1f + 0.5f * (1f - p))
+    val urgent = p > 0.7f && (time * 10f).toInt() % 2 == 0
+    drawCircle(if (urgent) Color(0xFFFF1744) else Color.White.copy(alpha = 0.9f), ring, c, style = Stroke(width = r * 0.08f + 3f))
+}
+
+/**
  * טיל כתף: גוף מתכת עם חרטום אדום וכנפיים, להבה מאחור ושובל עשן לאורך הספירלה.
  * מסתובב לכיוון התנועה. נסדק אחרי פגיעה אחת (סופג 2). טבעת אזהרה שמתכווצת כמו בשאר הקליעים.
  */
-private fun DrawScope.drawRocket(s: Shot, time: Float, radiusUnits: Float) {
+private fun DrawScope.drawRocket(s: Shot, time: Float, radiusUnits: Float, art: ImageBitmap? = null) {
     val p = ((time - s.born) / s.flight).coerceIn(0f, 1f)
     val pos = s.posAt(time)
     val c = Offset(pos.x * size.width, pos.y * size.height)
@@ -299,6 +426,20 @@ private fun DrawScope.drawRocket(s: Shot, time: Float, radiusUnits: Float) {
         val flick = 0.8f + 0.2f * sin(time * 40f + s.id)
         drawOval(Color(0xFFFF6D00).copy(alpha = 0.85f), topLeft = Offset(c.x - len * 0.95f * flick, c.y - th * 0.55f), size = androidx.compose.ui.geometry.Size(len * 0.6f * flick, th * 1.1f))
         drawOval(Color(0xFFFFEB3B), topLeft = Offset(c.x - len * 0.72f, c.y - th * 0.3f), size = androidx.compose.ui.geometry.Size(len * 0.35f, th * 0.6f))
+        if (art != null) {
+            // הטיל המצויר (פונה ימינה), באורך הגוף
+            val w = len * 1.05f
+            val h = w * art.height / art.width
+            drawImage(
+                image = art,
+                srcOffset = androidx.compose.ui.unit.IntOffset.Zero,
+                srcSize = androidx.compose.ui.unit.IntSize(art.width, art.height),
+                dstOffset = androidx.compose.ui.unit.IntOffset((c.x - len * 0.55f).toInt(), (c.y - h / 2f).toInt()),
+                dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt())
+            )
+            if (s.hp < s.maxHp) drawLine(Color(0xFF212121), Offset(c.x - len * 0.2f, c.y - h * 0.4f), Offset(c.x + len * 0.05f, c.y + h * 0.4f), strokeWidth = th * 0.15f + 2f)
+            return@rotate
+        }
         // כנפיים
         drawRect(Color(0xFFC62828), topLeft = Offset(c.x - len * 0.5f, c.y - th * 0.95f), size = androidx.compose.ui.geometry.Size(len * 0.22f, th * 1.9f))
         // גוף

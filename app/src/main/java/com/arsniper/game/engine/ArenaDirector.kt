@@ -14,7 +14,34 @@ enum class ShotKind {
     Burst,
 
     /** טיל כתף: איטי, מסתחרר בספירלה עם שובל עשן, סופג 2 פגיעות. פוגע = לב שלם */
-    Rocket
+    Rocket,
+
+    /** סלע מקדש זוהר של הקולוסוס: נזרק בקשת גבוהה ומסתובב, שובל אנרגיה ירוק, סופג 3 פגיעות. פוגע = סדק בזכוכית */
+    Boulder
+}
+
+/**
+ * דפוס הירייה: איך הקליע טס, ומה צריך לעשות כדי לעצור אותו. נפתחים בהדרגה (ShotStyle.patternOf):
+ * גל ראשון = ירייה ישרה לכולם, ומשם כל סוג מקבל את הדפוס שלו.
+ */
+enum class ShotPattern {
+    /** ישר אל השחקן (הירייה הקלאסית) */
+    Single,
+
+    /** מניפה: 3 קוצים במקביל, כל אחד שליש לב. צריך שלוש יריות מהירות, או לספוג קצת */
+    Fan,
+
+    /** זריקה בקשת: הסלע עולה גבוה ונוחת על המסך (סדק בזכוכית). איטי, 2 פגיעות */
+    Lob,
+
+    /** פצצה עם פתיל: נופלת מהבלון ואז טסה. מפוצצים אותה מוקדם = היא מתפוצצת ליד המפלצות (BACKFIRE) */
+    Fuse,
+
+    /** כדור מתנודד מצד לצד: קשה יותר לתפוס בכוונת */
+    Wobble,
+
+    /** ענן גז שמתפצל לשניים באמצע הדרך: כל חצי חצי לב */
+    Split
 }
 
 /**
@@ -27,8 +54,36 @@ object ShotStyle {
 
     fun kindOf(foe: Foe): ShotKind = overrides[foe] ?: foe.shot
 
+    /** הרמה הגבוהה ביותר של דפוסי ירי בעולם הנוכחי (העולם הקלאסי, הראשון: רק עד 1) */
+    @Volatile
+    var tierCap: Int = 2
+
+    fun capFor(key: String): Int = if (key == "classic") 1 else 2
+
+    /**
+     * דפוס הירייה לפי סוג המפלצת ורמת הגל (tier): 0 = גל ראשון, הכול ישר.
+     * 1 = הקיפוד מניפה, הענק זורק בקשת, הבלון פצצת פתיל. 2 = גם התמנון מתנודד והחייזר מתפצל.
+     * רובה וטיל (עולמות נשק חם) שומרים על ההתנהגות שלהם.
+     */
+    fun patternOf(foe: Foe, tier: Int): ShotPattern {
+        val kind = kindOf(foe)
+        // הסלע של הקולוסוס תמיד נזרק בקשת
+        if (kind == ShotKind.Boulder) return ShotPattern.Lob
+        if (kind == ShotKind.Burst || kind == ShotKind.Rocket || foe == Foe.Dragon) return ShotPattern.Single
+        val t = minOf(tier, tierCap)
+        return when (foe) {
+            Foe.Hedgehog -> if (t >= 1) ShotPattern.Fan else ShotPattern.Single
+            Foe.Giant -> if (t >= 1) ShotPattern.Lob else ShotPattern.Single
+            Foe.Balloon -> if (t >= 1) ShotPattern.Fuse else ShotPattern.Single
+            Foe.Octopus -> if (t >= 2) ShotPattern.Wobble else ShotPattern.Single
+            Foe.Alien -> if (t >= 2) ShotPattern.Split else ShotPattern.Single
+            Foe.Dragon -> ShotPattern.Single
+        }
+    }
+
     /** הירי לפי עולם (key = שם הארנה באותיות קטנות) */
     fun forArena(key: String): Map<Foe, ShotKind> = when (key) {
+        "jungle" -> mapOf(Foe.Dragon to ShotKind.Boulder)
         "military" -> mapOf(Foe.Giant to ShotKind.Rocket, Foe.Hedgehog to ShotKind.Burst)
         "cyber" -> mapOf(Foe.Hedgehog to ShotKind.Burst, Foe.Alien to ShotKind.Burst)
         "industrial" -> mapOf(Foe.Giant to ShotKind.Rocket)
@@ -109,6 +164,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     var waveIndex: Int = 0
         private set
 
+    /** רמת דפוסי הירי של הגל (ShotStyle.patternOf): גל 1 = 0, גל 2 = 1, מגל 3 ובגל הבוס = 2 */
+    val shotTier: Int get() = if (isBossWave) 2 else waveIndex.coerceAtMost(2)
+
     var hearts: Int = MAX_HEARTS
         private set
 
@@ -152,7 +210,8 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
     private var bossWindow = BOSS_WINDOW_SECONDS
 
     /** הבוס מוגן כל עוד יש מפלצת רגילה חיה: אי אפשר לפגוע בבטן ובראש, רק בפה כשהוא נוצץ */
-    val bossShielded: Boolean get() = isBossWave && bossAlive && minionsAlive > 0 && !shieldBroken
+    // בוס שנכנס מפורטל: בלי מגן (היה לא ברור איפה פוגעים). במקום זה יש לו יותר חיים ונקודות תורפה בולטות
+    val bossShielded: Boolean get() = isBossWave && bossAlive && minionsAlive > 0 && !shieldBroken && !BossEntrance.portal
 
     /** גיבוי נגד תקיעה: אם המגן נשאר זמן רב (מפלצת שאי אפשר להגיע אליה או לראות), הוא נשבר עד שהמפלצות נהרגות */
     private var shieldTime = 0f
@@ -195,6 +254,13 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         invulnerableLeft = 0f
         healedOnClear = false
         loadWave(0)
+    }
+
+    /** ממשיך ריצה שנקטעה: מתחילים בגל wave (מההתחלה שלו) עם הלבבות שנשארו */
+    fun resumeAt(wave: Int, heartsLeft: Int) {
+        restart()
+        hearts = heartsLeft.coerceIn(1, MAX_HEARTS)
+        loadWave(wave.coerceIn(0, waves.size - 1))
     }
 
     private fun loadWave(index: Int) {
@@ -332,9 +398,10 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         if (BossEntrance.portal) {
             // נכנס דרך פורטל: עומד מההתחלה במקומו ובגודלו הסופי (החשיפה עצמה בציור)
             BossEntrance.age = bossAge
-            val end = Vec2(0.5f, BOSS_END_Y)
+            // קרוב לשחקן: הרגליים כמעט בתחתית המסך, הראש ברבע העליון
+            val end = Vec2(0.5f, PORTAL_BOSS_Y)
             return list.map {
-                if (it.id == BOSS_ID && it.isAlive) it.copy(position = end, radius = BOSS_RADIUS, hidePos = end, peekPos = end) else it
+                if (it.id == BOSS_ID && it.isAlive) it.copy(position = end, radius = PORTAL_BOSS_RADIUS, hidePos = end, peekPos = end) else it
             }
         }
         val t = (bossAge / BOSS_APPROACH_SECONDS).coerceIn(0f, 1f)
@@ -516,7 +583,9 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
                         e.copy(
                             id = BOSS_ID, position = center, radius = BOSS_START_RADIUS, kind = EnemyKind.Static,
                             state = EnemyState.Exposed, spot = null, hidePos = center, peekPos = center,
-                            exposure = 1f, maxHp = foe.hp, hp = foe.hp
+                            exposure = 1f,
+                            maxHp = if (BossEntrance.portal) (foe.hp * PORTAL_BOSS_HP_SCALE).toInt() else foe.hp,
+                            hp = if (BossEntrance.portal) (foe.hp * PORTAL_BOSS_HP_SCALE).toInt() else foe.hp
                         )
                     )
                     assigned = true
@@ -574,6 +643,13 @@ class ArenaDirector(private val waves: List<WaveSpec> = DEFAULT_WAVES) {
         const val BOSS_START_Y = 0.36f
         const val BOSS_END_Y = 0.56f
         const val BOSS_APPROACH_SECONDS = 6f
+
+        /** בוס שנכנס מפורטל: עומד קרוב וגדול */
+        const val PORTAL_BOSS_Y = 0.6f
+        const val PORTAL_BOSS_RADIUS = 0.205f
+
+        /** בוס הפורטל: יותר חיים (אין לו מגן, ויש לו נקודות תורפה של נזק כפול ומשולש) */
+        const val PORTAL_BOSS_HP_SCALE = 1.8f
         val DEFAULT_WAVES: List<WaveSpec> = listOf(
             // גל 1: תמנונים (קלים לפגיעה), ובסוף הבלון הראשון
             WaveSpec(

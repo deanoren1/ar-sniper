@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -311,7 +312,8 @@ fun EnemyLayer(
                             val py = box.headY + zone.y * box.height
                             val rr = max(zone.radius * box.height, size.height * 0.035f)
                             if (covered(px, py)) continue
-                            drawZoneHint(px, py, rr, zone.onlyTelegraph, anim)
+                            if (enemy.id == ArenaDirector.BOSS_ID && BossEntrance.portal) drawBossTarget(px, py, rr, zone.damage, anim)
+                            else drawZoneHint(px, py, rr, zone.onlyTelegraph, anim)
                             ZoneRegistry.add(ZoneTarget(enemy, zone, Vec2(px / size.width, py / size.height), rr / size.height))
                         }
                     }
@@ -361,8 +363,8 @@ private fun spriteScale(sheet: MonsterSheet, r: Float): Float {
         sheet.walk.maxOf { it.width }
     )
     val kByHeight = r * FIGURE_HEIGHT_RADII * MONSTER_SCALE * sheet.sizeScale / sheet.idle.height
-    // בוס ענק שיוצא מפורטל רחב מאוד (זרועות פרושות): לא מוגבל לרוחב של מפלצת רגילה
-    val kByWidth = r * MAX_WIDTH_RADII * (if (sheet.bossAnim != null && BossEntrance.portal) 1.8f else 1f) / widest
+    // בוס ענק שיוצא מפורטל רחב מאוד (זרועות פרושות): לא מוגבל לרוחב של מפלצת רגילה. מעופפים: כנפיים פרושות, תא רחב יותר
+    val kByWidth = r * MAX_WIDTH_RADII * (if (sheet.bossAnim != null && BossEntrance.portal) 1.8f else if (sheet.flies) 1.25f else 1f) / widest
     return min(kByHeight, kByWidth)
 }
 
@@ -718,6 +720,37 @@ private fun DrawScope.drawZoneHint(x: Float, y: Float, radius: Float, hot: Boole
         center = Offset(x, y),
         style = Stroke(width = if (hot) 4f else 2.5f)
     )
+}
+
+/**
+ * נקודת תורפה של בוס: כוונת זוהרת שמסתובבת לאט עם 4 סימונים, ומספר הנזק (x3 / x2) לידה.
+ * ברור למרחוק איפה כדאי לירות.
+ */
+private fun DrawScope.drawBossTarget(x: Float, y: Float, radius: Float, damage: Int, anim: Float) {
+    val c = Offset(x, y)
+    val pulse = 0.5f + 0.5f * sin(anim * 7f)
+    val gold = Color(0xFFFFD54F)
+    val r = radius * (1.05f + 0.12f * pulse)
+    drawCircle(gold.copy(alpha = 0.18f + 0.15f * pulse), r * 1.25f, c)
+    drawCircle(gold.copy(alpha = 0.9f), r, c, style = Stroke(width = 3.5f + radius * 0.06f))
+    rotate(anim * 60f, c) {
+        for (k in 0 until 4) {
+            rotate(k * 90f, c) {
+                drawLine(Color.White.copy(alpha = 0.95f), Offset(c.x, c.y - r * 1.45f), Offset(c.x, c.y - r * 1.08f), strokeWidth = 4f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            }
+        }
+    }
+    drawIntoCanvas { canvas ->
+        val p = android.graphics.Paint().apply {
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textSize = radius * 0.75f + 16f
+            color = android.graphics.Color.rgb(255, 213, 79)
+            setShadowLayer(6f, 0f, 2f, android.graphics.Color.BLACK)
+        }
+        canvas.nativeCanvas.drawText("x$damage", c.x + r * 1.6f, c.y + p.textSize * 0.35f, p)
+    }
 }
 
 /** כמה בלונים נשארו למפלצת הבלונים (1..2 = פחות מהמלא), או 0 אם היא מלאה או לא מפלצת בלונים */

@@ -32,8 +32,15 @@ class Shot(
     /** כדור נוסף של אותה ירייה (לא נספר בתקרת הקליעים של הגל) */
     val extra: Boolean = false,
     /** כמה לב הקליע לוקח כשהוא פוגע (כדור נותב של רובה = רבע) */
-    val damage: Float = 1f
+    val damage: Float = 1f,
+    /** איך הקליע טס (ShotPattern) */
+    val pattern: ShotPattern = ShotPattern.Single,
+    /** מאיזה גודל (שבר מהרדיוס הסופי) הקליע מתחיל: חצאי ענן הגז ממשיכים מהגודל של הענן שהתפצל */
+    val growFrom: Float = 0.35f
 ) {
+    /** כמה מהדרך עבר (0..1) */
+    fun progressAt(time: Float): Float = ((time - born) / flight).coerceIn(0f, 1f)
+
     /** האם הקליע כבר יצא (כדורי צרור יוצאים בהפרש קצר זה מזה) */
     fun launched(time: Float): Boolean = time >= born
 
@@ -47,6 +54,31 @@ class Shot(
             // כדור נותב: קו ישר ומהיר, בלי האצה
             val e = p * TRAVEL
             return Vec2(x + (targetX + dx - x) * e, y + (targetY - y) * e)
+        }
+        when (pattern) {
+            ShotPattern.Lob -> {
+                // קשת: עולה גבוה מעל המפלצת ונוחתת על המסך. בלי האצה בהתחלה (נראה כמו זריקה)
+                val e = p * TRAVEL
+                val lift = sin(p * 3.1416f) * LOB_HEIGHT
+                return Vec2(x + (targetX + dx - x) * e, y + (targetY - y) * e - lift)
+            }
+            ShotPattern.Fuse -> {
+                // הפצצה נופלת מהבלון, ורק אחר כך טסה אל השחקן
+                if (p < FUSE_DROP) {
+                    val k = p / FUSE_DROP
+                    return Vec2(x, y + FUSE_FALL * k * k)
+                }
+                val q = (p - FUSE_DROP) / (1f - FUSE_DROP)
+                val e = Math.pow(q.toDouble(), 1.4).toFloat() * TRAVEL
+                val y0 = y + FUSE_FALL
+                return Vec2(x + (targetX + dx - x) * e, y0 + (targetY - y0) * e)
+            }
+            ShotPattern.Wobble -> {
+                val e = Math.pow(p.toDouble(), 1.4).toFloat() * TRAVEL
+                val sway = sin(p * 15.7f + id) * WOBBLE * (1f - 0.4f * p)
+                return Vec2(x + (targetX + dx - x) * e + sway, y + (targetY - y) * e)
+            }
+            else -> Unit
         }
         val e = Math.pow(p.toDouble(), 1.4).toFloat() * TRAVEL
         if (kind == ShotKind.Rocket) {
@@ -70,6 +102,19 @@ class Shot(
         @Volatile var attackMaxX = 1f
         /** כמה מהדרך אל היעד הירייה עוברת עד שהיא מגיעה אל השחקן */
         const val TRAVEL = 0.5f
+
+        /** גובה הקשת של סלע נזרק (חלק מגובה המסך) */
+        const val LOB_HEIGHT = 0.3f
+
+        /** פצצת פתיל: איזה חלק מהזמן היא נופלת מהבלון, וכמה נמוך */
+        const val FUSE_DROP = 0.22f
+        const val FUSE_FALL = 0.1f
+
+        /** עד איזה שלב בדרך פיצוץ של פצצת פתיל פוגע במפלצות שלידה (BACKFIRE) */
+        const val BACKFIRE_UNTIL = 0.5f
+
+        /** תנודה לצדדים של כדור מתנודד */
+        const val WOBBLE = 0.055f
     }
 }
 
@@ -77,7 +122,14 @@ class Shot(
 class TelegraphView(val x: Float, val y: Float, val radius: Float, val progress: Float, val enemyId: Int, val kind: ShotKind? = null)
 
 /** תוצאת פגיעה בקליע: הקליע, והאם הושמד (או רק נסדק) */
-class Intercept(val shot: Shot, val destroyed: Boolean)
+class Intercept(
+    val shot: Shot,
+    val destroyed: Boolean,
+    /** כמה מהדרך הקליע עבר כשנעצר (0..1): קרוב ל-1 = ברגע האחרון */
+    val progress: Float = 0f,
+    /** פצצת פתיל שפוצצה מוקדם: מתפוצצת כאן ופוגעת במפלצות שלידה */
+    val backfire: Vec2? = null
+)
 
 /** מה קרה בפריים: כמה קליעים פגעו בשחקן, ואיפה נקטעה הכנה כי המפלצת נהרגה (לבונוס) */
 class FireOutcome(
@@ -86,7 +138,9 @@ class FireOutcome(
     val hitKinds: List<ShotKind> = emptyList(),
     /** לכל פגיעה: איפה הקליע נגמר (קואורדינטות עולם), ומאיפה יצא. לכיוון ולמיקום של אפקטי פגיעה על המסך */
     val hitSpots: List<Vec2> = emptyList(),
-    val hitFrom: List<Vec2> = emptyList()
+    val hitFrom: List<Vec2> = emptyList(),
+    /** לכל פגיעה: דפוס הקליע (סלע בקשת סודק את הזכוכית, פצצה חורכת) */
+    val hitPatterns: List<ShotPattern> = emptyList()
 )
 
 /**
@@ -121,6 +175,10 @@ class EnemyFire(private val random: Random = Random.Default) {
 
     /** כמה כדורי נותב פגעו בלי להוריד לב (להבזק קטן על המסך) */
     var chipHits: Int = 0
+        private set
+
+    /** כמה עננים התפצלו (לצליל) */
+    var splitCount: Int = 0
         private set
 
     /** כמה קליעים יצאו עד עכשיו (לצליל ירייה של מפלצת) */
@@ -226,8 +284,47 @@ class EnemyFire(private val random: Random = Random.Default) {
             if (telegraphs.any { it.enemyId == e.id }) continue
             val capacity = wave.maxAttacks + if (director.bossEnraged) 1 else 0
             if (telegraphs.size + shots.count { !it.extra } >= capacity) continue
-            val kind = director.foeOf(e.id)?.let { ShotStyle.kindOf(it) }
-            telegraphs.add(Telegraph(e.id, time, if (kind == ShotKind.Burst) BURST_AIM_SECONDS else TELEGRAPH_SECONDS))
+            val foe = director.foeOf(e.id)
+            val kind = foe?.let { ShotStyle.kindOf(it) }
+            // דפוס כבד (מניפה, קשת, פתיל): הבהוב קצת ארוך יותר, כדי שיהיה זמן לקרוא אותו ולעצור את היורה
+            val heavy = foe != null && ShotStyle.patternOf(foe, director.shotTier).let { it == ShotPattern.Fan || it == ShotPattern.Lob || it == ShotPattern.Fuse }
+            telegraphs.add(
+                Telegraph(
+                    e.id, time,
+                    if (kind == ShotKind.Burst) BURST_AIM_SECONDS else if (heavy) TELEGRAPH_SECONDS * 1.2f else TELEGRAPH_SECONDS
+                )
+            )
+        }
+
+        // ענן גז מתפצל: באמצע הדרך הופך לשני חצאים שממשיכים לשני צדדים, כל אחד חצי לב
+        var i = 0
+        while (i < shots.size) {
+            val s = shots[i]
+            if (s.pattern == ShotPattern.Split && s.launched(time) && s.progressAt(time) >= SPLIT_AT) {
+                val pos = s.posAt(time)
+                val grown = currentRadius(s) / (s.baseRadius * 0.75f)
+                shots.removeAt(i)
+                for ((k, side) in floatArrayOf(-SPLIT_SPREAD, SPLIT_SPREAD).withIndex()) shots.add(
+                    Shot(
+                        id = nextShotId++,
+                        x = pos.x,
+                        y = pos.y,
+                        kind = s.kind,
+                        born = time,
+                        flight = s.flight * (1f - SPLIT_AT),
+                        baseRadius = s.baseRadius * 0.75f,
+                        maxHp = 1, hp = 1,
+                        harmless = s.harmless,
+                        dx = s.dx + side,
+                        extra = k > 0 || s.extra,
+                        damage = s.damage * 0.5f,
+                        growFrom = grown.coerceIn(0.35f, 0.95f)
+                    )
+                )
+                splitCount++
+                continue
+            }
+            i++
         }
 
         // קליעים שהגיעו אל השחקן
@@ -235,6 +332,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         val hitKinds = ArrayList<ShotKind>()
         val hitSpots = ArrayList<Vec2>()
         val hitFrom = ArrayList<Vec2>()
+        val hitPatterns = ArrayList<ShotPattern>()
         val sIterator = shots.iterator()
         while (sIterator.hasNext()) {
             val s = sIterator.next()
@@ -253,6 +351,7 @@ class EnemyFire(private val random: Random = Random.Default) {
                     hitKinds.add(s.kind)
                     hitSpots.add(s.posAt(s.born + s.flight))
                     hitFrom.add(Vec2(s.x, s.y))
+                    hitPatterns.add(s.pattern)
                 }
                 sIterator.remove()
             }
@@ -273,7 +372,7 @@ class EnemyFire(private val random: Random = Random.Default) {
                 )
             )
         }
-        return FireOutcome(hits, stopped, hitKinds, hitSpots, hitFrom)
+        return FireOutcome(hits, stopped, hitKinds, hitSpots, hitFrom, hitPatterns)
     }
 
     /** כמה שניות עברו מאז שהמפלצת ירתה לאחרונה (לאנימציית הירייה), או ערך גדול אם לא ירתה */
@@ -316,8 +415,37 @@ class EnemyFire(private val random: Random = Random.Default) {
             )
             return
         }
+        val pattern = ShotStyle.patternOf(foe, director.shotTier)
+        if (pattern == ShotPattern.Fan) {
+            // מניפה: שלושה קוצים, האמצעי ישר והצדדיים מעט מהירים יותר. כל אחד שליש לב
+            for ((index, spread) in floatArrayOf(0f, -FAN_SPREAD, FAN_SPREAD).withIndex()) shots.add(
+                Shot(
+                    id = nextShotId++,
+                    x = enemy.position.x,
+                    y = enemy.position.y,
+                    kind = kind,
+                    born = time + index * 0.05f,
+                    flight = foe.flightSeconds * wave.flightScale * (if (index == 0) 1f else 0.9f) * (1f + 0.2f * (weakened[enemy.id] ?: 0)),
+                    baseRadius = baseRadiusOf(kind) * 0.8f,
+                    maxHp = 1, hp = 1,
+                    harmless = harmless,
+                    dx = spread,
+                    extra = index > 0,
+                    damage = 1f / 3f,
+                    pattern = pattern
+                )
+            )
+            return
+        }
         val triple = enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged
         val offsets = if (triple) floatArrayOf(-0.17f, 0f, 0.17f) else floatArrayOf(0f)
+        // זריקה בקשת איטית יותר (רואים אותה עולה), פצצת פתיל מבלה זמן בנפילה
+        val patternTime = when (pattern) {
+            ShotPattern.Lob -> 1.25f
+            ShotPattern.Fuse -> 1.2f
+            ShotPattern.Split -> 1.1f
+            else -> 1f
+        }
         for ((index, spread) in offsets.withIndex()) shots.add(
             Shot(
                 id = nextShotId++,
@@ -331,14 +459,15 @@ class EnemyFire(private val random: Random = Random.Default) {
                 },
                 kind = kind,
                 born = time,
-                flight = (if (kind == ShotKind.Rocket) ROCKET_FLIGHT else foe.flightSeconds) * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)) *
+                flight = (if (kind == ShotKind.Rocket) ROCKET_FLIGHT else foe.flightSeconds) * patternTime * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)) *
                     (if (enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged) 0.85f else 1f),
                 baseRadius = baseRadiusOf(kind) * (if (triple) 0.75f else 1f),
-                maxHp = if (triple) 1 else if (kind == ShotKind.Rocket) 2 else foe.shotHp,
-                hp = if (triple) 1 else if (kind == ShotKind.Rocket) 2 else foe.shotHp,
+                maxHp = if (triple) 1 else if (kind == ShotKind.Rocket) 2 else if (kind == ShotKind.Boulder) 3 else foe.shotHp,
+                hp = if (triple) 1 else if (kind == ShotKind.Rocket) 2 else if (kind == ShotKind.Boulder) 3 else foe.shotHp,
                 harmless = harmless,
                 dx = spread,
-                extra = index > 0
+                extra = index > 0,
+                pattern = if (triple) ShotPattern.Single else pattern
             )
         )
     }
@@ -387,7 +516,9 @@ class EnemyFire(private val random: Random = Random.Default) {
     /** הרדיוס הנוכחי של קליע (ביחידות גובה מסך): גדל מ-35% ל-100% מהרדיוס הסופי */
     fun currentRadius(shot: Shot): Float {
         val p = ((time - shot.born) / shot.flight).coerceIn(0f, 1f)
-        return shot.baseRadius * (0.35f + 0.65f * p)
+        if (shot.pattern == ShotPattern.Fuse && p < Shot.FUSE_DROP) return shot.baseRadius * shot.growFrom
+        val q = if (shot.pattern == ShotPattern.Fuse) (p - Shot.FUSE_DROP) / (1f - Shot.FUSE_DROP) else p
+        return shot.baseRadius * (shot.growFrom + (1f - shot.growFrom) * q)
     }
 
     /**
@@ -414,7 +545,9 @@ class EnemyFire(private val random: Random = Random.Default) {
         shot.hp -= 1
         val destroyed = shot.hp <= 0
         if (destroyed) shots.remove(shot)
-        return Intercept(shot, destroyed)
+        val progress = shot.progressAt(time)
+        val backfire = if (destroyed && shot.pattern == ShotPattern.Fuse && progress < Shot.BACKFIRE_UNTIL) shot.posAt(time) else null
+        return Intercept(shot, destroyed, progress, backfire)
     }
 
     /** הרדיוס הסופי של קליע לפי סוגו, ביחידות גובה מסך (גדול מספיק ללחיצה עם אצבע) */
@@ -427,6 +560,7 @@ class EnemyFire(private val random: Random = Random.Default) {
         ShotKind.Fire -> 0.13f
         ShotKind.Burst -> 0.03f
         ShotKind.Rocket -> 0.085f
+        ShotKind.Boulder -> 0.14f
     }
 
     private fun randomBetween(min: Float, max: Float): Float = min + random.nextFloat() * (max - min)
@@ -443,6 +577,13 @@ class EnemyFire(private val random: Random = Random.Default) {
 
         /** טיל: איטי, כדי שיהיה זמן לפגוע בו פעמיים */
         const val ROCKET_FLIGHT = 2.6f
+
+        /** מניפת קוצים: הסטה לרוחב של הקוצים הצדדיים */
+        const val FAN_SPREAD = 0.2f
+
+        /** ענן גז מתפצל: באיזה שלב, וכמה החצאים מתרחקים */
+        const val SPLIT_AT = 0.45f
+        const val SPLIT_SPREAD = 0.13f
         private const val LOST_GRACE = 0.4f
 
         /** גודל מינימלי לפגיעה בקליע (גם כשהוא עוד קטן), ביחידות גובה מסך */

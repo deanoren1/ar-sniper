@@ -98,6 +98,36 @@ object PlayerProfile {
 
     val playerName: String get() = "Player"
 
+    /**
+     * נקודת המשך של ריצה: כשיוצאים מהמשחק באמצע (האפליקציה ברקע, המערכת סגרה אותה) חוזרים לאותו גל
+     * ולא לגל 1. נשמר: הארנה, הגל, הלבבות והניקוד, ומתי. תקף 30 דקות ולאותה ארנה בלבד.
+     */
+    fun saveCheckpoint(arena: String, wave: Int, hearts: Int, score: Int) {
+        prefs?.edit()
+            ?.putString("cp_arena", arena)?.putInt("cp_wave", wave)?.putInt("cp_hearts", hearts)
+            ?.putInt("cp_score", score)?.putLong("cp_at", System.currentTimeMillis())
+            ?.apply()
+    }
+
+    class Checkpoint(val wave: Int, val hearts: Int, val score: Int)
+
+    /** נקודת ההמשך לארנה הזו (ומוחקת אותה), או null */
+    fun takeCheckpoint(arena: String): Checkpoint? {
+        val p = prefs ?: return null
+        val at = p.getLong("cp_at", 0L)
+        val same = p.getString("cp_arena", null) == arena
+        val fresh = System.currentTimeMillis() - at < CHECKPOINT_MAX_MS
+        val cp = if (same && fresh && p.getInt("cp_wave", 0) > 0) Checkpoint(p.getInt("cp_wave", 0), p.getInt("cp_hearts", 3), p.getInt("cp_score", 0)) else null
+        clearCheckpoint()
+        return cp
+    }
+
+    fun clearCheckpoint() {
+        prefs?.edit()?.remove("cp_arena")?.remove("cp_wave")?.remove("cp_hearts")?.remove("cp_score")?.remove("cp_at")?.apply()
+    }
+
+    private const val CHECKPOINT_MAX_MS = 30 * 60 * 1000L
+
     /** רמת הקושי הנבחרת */
     var difficulty: com.arsniper.game.progress.Difficulty
         get() = com.arsniper.game.progress.Difficulty.fromName(prefs?.getString("difficulty", null))

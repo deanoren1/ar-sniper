@@ -68,7 +68,9 @@ object CoopSync {
 
     class SnapShot(
         val id: Int, val x: Float, val y: Float, val kind: Int,
-        val born: Float, val flight: Float, val baseRadius: Float, val maxHp: Int, val hp: Int, val harmless: Boolean
+        val born: Float, val flight: Float, val baseRadius: Float, val maxHp: Int, val hp: Int, val harmless: Boolean,
+        /** דפוס הירייה, הסטה לרוחב והגודל ההתחלתי (מגרסה חדשה; גרסה ישנה = ירייה ישרה) */
+        val pattern: Int = 0, val dx: Float = 0f, val growFrom: Float = 0.35f
     )
 
     class SnapView(val x: Float, val y: Float, val radius: Float, val progress: Float, val enemyId: Int)
@@ -199,6 +201,7 @@ object CoopSync {
             a.put(sh.id).put(r4(sh.x)).put(r4(sh.y)).put(sh.kind.ordinal)
             a.put(r4(sh.born)).put(r4(sh.flight)).put(r4(sh.baseRadius)).put(sh.maxHp).put(sh.hp)
             a.put(if (sh.harmless) 1 else 0)
+            a.put(sh.pattern.ordinal).put(r4(sh.dx)).put(r4(sh.growFrom))
             s.put(a)
         }
         o.put("s", s)
@@ -324,7 +327,13 @@ object CoopSync {
         val sa = j.getJSONArray("s")
         for (i in 0 until sa.length()) {
             val a = sa.getJSONArray(i)
-            shots.add(SnapShot(a.getInt(0), f(a, 1), f(a, 2), a.getInt(3), f(a, 4), f(a, 5), f(a, 6), a.getInt(7), a.getInt(8), a.getInt(9) == 1))
+            val more = a.length() >= 13
+            shots.add(
+                SnapShot(
+                    a.getInt(0), f(a, 1), f(a, 2), a.getInt(3), f(a, 4), f(a, 5), f(a, 6), a.getInt(7), a.getInt(8), a.getInt(9) == 1,
+                    if (more) a.getInt(10) else 0, if (more) f(a, 11) else 0f, if (more) f(a, 12) else 0.35f
+                )
+            )
         }
         val views = ArrayList<SnapView>()
         val va = j.getJSONArray("v")

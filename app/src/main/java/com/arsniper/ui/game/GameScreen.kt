@@ -98,6 +98,20 @@ private const val NEW_ARENA_COINS = 60
 private const val NEW_ARENA_MILESTONE_GEMS = 3
 private val NEW_ARENA_MILESTONES = setOf(5, 10, 25, 50)
 private const val BLOCK_POINTS = 50
+
+/** שם הבוס בקו החיים, לפי העולם */
+private fun bossNameOf(world: String): String = when (world) {
+    "jungle" -> "TEMPLE COLOSSUS"
+    "classic" -> "DRAGON"
+    else -> "BOSS"
+}
+/** פצצת פתיל שפוצצה ליד המפלצות: רדיוס (גובה מסך), נזק לכל מפלצת קרובה, וניקוד */
+private const val BACKFIRE_RADIUS = 0.14f
+private const val BACKFIRE_DAMAGE = 2
+private const val BACKFIRE_POINTS = 60
+/** עצירת קליע אחרי שעבר יותר מזה מהדרך = "ברגע האחרון" */
+private const val CLOSE_CALL_PROGRESS = 0.86f
+private const val CLOSE_CALL_POINTS = 40
 private const val CRACK_POINTS = 10
 private const val STOP_POINTS = 100
 
@@ -256,6 +270,7 @@ fun GameScreen(
     remember(bossWorldKey) { com.arsniper.game.engine.ShotStyle.overrides = com.arsniper.game.engine.ShotStyle.forArena(bossWorldKey); 0 }
     // הבוס של העולם הזה נכנס דרך פורטל בתוך הארנה (הג'ונגל): ערפל, מערבולת, צללית ופריצה
     remember(bossWorldKey) {
+        com.arsniper.game.engine.ShotStyle.tierCap = com.arsniper.game.engine.ShotStyle.capFor(bossWorldKey)
         com.arsniper.game.engine.BossEntrance.portal = com.arsniper.game.engine.BossEntrance.portalWorld(bossWorldKey)
         com.arsniper.game.engine.BossEntrance.reset()
         0
@@ -268,6 +283,23 @@ fun GameScreen(
         }
     }
     DisposableEffect(portalSound) { onDispose { runCatching { portalSound?.release() } } }
+    // יציאה מהמשחק באמצע ריצה: שומרים נקודת המשך (גל, לבבות, ניקוד) למקרה שהמערכת תסגור את האפליקציה ברקע
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val checkpointRef = remember { arrayOfNulls<() -> Unit>(1) }
+    // האפליקציה ברקע עכשיו (אז השמדת המסך היא של המערכת, לא יציאה של השחקן)
+    val inBackground = remember { booleanArrayOf(false) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                inBackground[0] = true
+                checkpointRef[0]?.invoke()
+            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                inBackground[0] = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     // שלב הכניסה שכבר השמענו לו צליל ורעידה (0 = כלום, 1 = מערבולת, 2 = צללית, 3 = פריצה)
     val entranceCue = remember { intArrayOf(0) }
     val chipSeen = remember { intArrayOf(0) }
@@ -332,12 +364,21 @@ fun GameScreen(
     // מספר ההחייאות בריצה (מותר אחת)
     var revives by remember { mutableStateOf(0) }
     var started by remember { mutableStateOf(false) }
+    checkpointRef[0] = {
+        if (started && coop == null && director.phase != ArenaPhase.Won && director.phase != ArenaPhase.Lost) {
+            PlayerProfile.saveCheckpoint(style.name, director.waveIndex, director.hearts, score)
+        }
+    }
+    // יציאה רגילה מהמסך (חזרה לתפריט): אין מה להמשיך
+    DisposableEffect(Unit) { onDispose { if (!inBackground[0]) PlayerProfile.clearCheckpoint() } }
     var paused by remember { mutableStateOf(false) }
     var flash by remember { mutableStateOf(0f) }
     // שניות שנותרו לאפקט הפגיעה של כדור האנרגיה במסך (0 = אין)
     var orbImpact by remember { mutableStateOf(0f) }
     // מריחות הסליים של החילזון על המסך (נעלמות לבד)
     var slimeSplats by remember { mutableStateOf(listOf<SlimeSplat>()) }
+    // פגיעות "בעדשה": זכוכית סדוקה (סלע בקשת, טיל) והבזק אש (פצצה, טיל)
+    var lensImpacts by remember { mutableStateOf(listOf<LensImpact>()) }
     // המצלמה האחרונה שחושבה (לחישוב מיקום המריחה בזמן הפגיעה, לפני שהמצלמה של הפריים הנוכחי חושבה)
     val camHolder = remember { arrayOfNulls<com.arsniper.game.model.GameCamera>(1) }
     var lostAge by remember { mutableStateOf(0f) } // זמן מאז ההפסד: מעכב את מסך הסיום עד שאפקט הפגיעה נגמר
@@ -612,6 +653,14 @@ fun GameScreen(
             }
             realm.reset()
             director.restart()
+            // יצאו באמצע ריצה בארנה הזו (והמערכת סגרה את המשחק): חוזרים לאותו גל
+            if (coop == null && !isHost) {
+                PlayerProfile.takeCheckpoint(style.name)?.let { cp ->
+                    director.resumeAt(cp.wave, cp.hearts)
+                    score = cp.score
+                    showToast("RESUMED  WAVE ${cp.wave + 1}")
+                }
+            }
             started = true
         }
     }
@@ -802,6 +851,23 @@ fun GameScreen(
                                     }
                                     slimeSplats = (slimeSplats + fresh).takeLast(4)
                                 }
+                                // סלע שנזרק בקשת או טיל: הזכוכית נסדקת. פצצה או טיל: הבזק אש על העדשה
+                                val hitPattern = out.hitPatterns.getOrNull(i)
+                                val rocketHit = hitKind == com.arsniper.game.engine.ShotKind.Rocket
+                                val glass = hitPattern == com.arsniper.game.engine.ShotPattern.Lob || rocketHit ||
+                                    hitKind == com.arsniper.game.engine.ShotKind.Boulder
+                                val scorch = hitPattern == com.arsniper.game.engine.ShotPattern.Fuse || rocketHit ||
+                                    hitKind == com.arsniper.game.engine.ShotKind.Bomb
+                                if (glass || scorch) {
+                                    val cam = camHolder[0] ?: com.arsniper.game.model.GameCamera()
+                                    val at = out.hitSpots.getOrNull(i)?.let { cam.worldToScreen(it) } ?: Vec2(0.5f, 0.6f)
+                                    val rnd = kotlin.random.Random.Default
+                                    val fresh = ArrayList<LensImpact>()
+                                    if (scorch) fresh.add(LensImpact(false, at.x, at.y, frameNanos, rnd.nextFloat() * 360f, 0.75f))
+                                    if (glass) fresh.add(LensImpact(true, at.x.coerceIn(0.2f, 0.8f), at.y.coerceIn(0.25f, 0.75f), frameNanos, rnd.nextFloat() * 360f, 0.85f))
+                                    lensImpacts = (lensImpacts.filter { (frameNanos - it.bornNanos) / 1e9f < it.seconds } + fresh).takeLast(4)
+                                    if (glass) shake = max(shake, 0.9f)
+                                }
                                 if (PlayerProfile.vibrationOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         }
@@ -818,6 +884,7 @@ fun GameScreen(
                                     if (!sfxMemo.damagedThisWave) gainDiamonds(1, "NO DAMAGE  +1 DIAMOND")
                                 }
                                 ArenaPhase.Won -> {
+                                    PlayerProfile.clearCheckpoint()
                                     soundPlayer.play(Sfx.Win)
                                     val bonus = PlayerProfile.claimWinGems(style, director.isBossWave, director.stars == 3)
                                     gainDiamonds(bonus, "VICTORY  +$bonus DIAMONDS")
@@ -827,6 +894,7 @@ fun GameScreen(
                                     photoBonusOnEnd()
                                 }
                                 ArenaPhase.Lost -> {
+                                    PlayerProfile.clearCheckpoint()
                                     soundPlayer.play(Sfx.Lose)
                                     PlayerProfile.recordRun(false, director.waveIndex + 1, score / COINS_DIVISOR)
                                     bankRun()
@@ -867,10 +935,16 @@ fun GameScreen(
                                 )
                             }
                             val shotKinds = ShotKind.values()
+                            val shotPatterns = com.arsniper.game.engine.ShotPattern.values()
                             fire.applyRemote(
                                 view.fireTime,
                                 snap.shots.map {
-                                    Shot(it.id, it.x, it.y, shotKinds[it.kind.coerceIn(0, shotKinds.size - 1)], it.born, it.flight, it.baseRadius, it.maxHp, it.hp, it.harmless)
+                                    Shot(
+                                        it.id, it.x, it.y, shotKinds[it.kind.coerceIn(0, shotKinds.size - 1)], it.born, it.flight, it.baseRadius, it.maxHp, it.hp, it.harmless,
+                                        dx = it.dx,
+                                        pattern = shotPatterns[it.pattern.coerceIn(0, shotPatterns.size - 1)],
+                                        growFrom = it.growFrom
+                                    )
                                 },
                                 snap.views.map { TelegraphView(it.x, it.y, it.radius, it.progress, it.enemyId) }
                             )
@@ -1302,6 +1376,36 @@ fun GameScreen(
         val shotPos = shot.posAt(fire.time)
         soundPlayer.play(if (result.destroyed) Sfx.Deflect else Sfx.Crack)
         if (result.destroyed) shock.reward()
+        val backfire = result.backfire
+        if (backfire != null) {
+            // פצצת פתיל שפוצצה מוקדם: מתפוצצת ליד המפלצות ופוגעת בכל מי שקרוב (גם בבלון שהפיל אותה)
+            soundPlayer.play(Sfx.Boom)
+            shake = max(shake, 0.45f)
+            val now = nowSeconds()
+            var hurt = 0
+            enemies = enemies.map { e ->
+                val dx = (e.position.x - backfire.x) * aspect
+                val dy = e.position.y - backfire.y
+                if (!e.isAlive || e.id == ArenaDirector.BOSS_ID || kotlin.math.sqrt(dx * dx + dy * dy) > BACKFIRE_RADIUS + e.radius) {
+                    e
+                } else {
+                    hurt++
+                    val max = if (e.maxHp > 0) e.maxHp else hpFor(e.id)
+                    val hp = if (e.maxHp > 0) e.hp else max
+                    if (hp > BACKFIRE_DAMAGE) e.copy(maxHp = max, hp = hp - BACKFIRE_DAMAGE, hurtAt = now) else e.copy(isAlive = false)
+                }
+            }
+            blasts = blasts + Blast(
+                x = backfire.x, y = backfire.y, kind = AccessoryKind.Bomb, label = "",
+                radius = BACKFIRE_RADIUS, bornNanos = frameNanos
+            )
+            award(BACKFIRE_POINTS + hurt * BACKFIRE_POINTS, backfire.x, backfire.y, register = false, showText = false)
+            showToast(if (hurt > 0) "BACKFIRE! x$hurt" else "BACKFIRE!")
+        } else if (result.destroyed && result.progress > CLOSE_CALL_PROGRESS) {
+            // עצרת אותו ברגע האחרון
+            award(CLOSE_CALL_POINTS, shotPos.x, shotPos.y, register = false, showText = false)
+            showToast("CLOSE CALL!")
+        }
         if (result.destroyed) {
             award(BLOCK_POINTS, shotPos.x, shotPos.y, register = false, showText = false)
             blasts = blasts + Blast(
@@ -1810,6 +1914,7 @@ fun GameScreen(
 
         // מריחות הסליים של החילזון: מעל העולם ומתחת לכוונת
         SlimeSplatOverlay(splats = slimeSplats, crosshairX = crosshairOnScreen.x, crosshairY = crosshairOnScreen.y)
+        LensImpactOverlay(impacts = lensImpacts, nowNanos = frameNanos)
 
         // הכוונת מצוירת במיקום המסך שלה
         // בזמן השאיבה גם הכוונת נשאבת (אותו עיוות כמו הארנה)
@@ -1963,16 +2068,25 @@ fun GameScreen(
 
         // בזמן בוס הקרח: הלבבות שקופים למחצה כדי לא להסתיר את הבוס, ובלי מצב הגל
         val bossView = realm.visible
+        // קרב בוס בארנה: בלי שורת הגל, הלבבות קטנים, וקו חיים גדול של הבוס במקומם
+        val bossFight = director.isBossWave && director.bossMax > 0 &&
+            (director.phase == ArenaPhase.Fighting || director.phase == ArenaPhase.Won)
         if (!tundraHud) HeartsRow(
             hearts = director.hearts,
             max = ArenaDirector.MAX_HEARTS,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 8.dp)
-                .graphicsLayer { alpha = if (bossView) 0.45f else 1f }
+                .graphicsLayer {
+                    alpha = if (bossView) 0.45f else 1f
+                    val k = if (bossFight) 0.62f else 1f
+                    scaleX = k
+                    scaleY = k
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+                }
         )
 
-        if (!bossView) WaveStatus(
+        if (!bossView && !bossFight) WaveStatus(
             wave = director.waveIndex + 1,
             waves = director.waveCount,
             left = director.leftInWave,
@@ -2054,9 +2168,11 @@ fun GameScreen(
             BossBar(
                 fraction = director.bossFraction,
                 enraged = director.bossEnraged,
+                name = bossNameOf(bossWorldKey),
+                big = true,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 96.dp)
+                    .padding(top = 40.dp)
             )
         }
 

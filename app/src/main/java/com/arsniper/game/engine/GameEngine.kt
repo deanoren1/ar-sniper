@@ -432,7 +432,8 @@ class GameEngine(
     private fun spawnOne(existing: List<Enemy>, targetCount: Int): Enemy? {
         val ctx = scene ?: return spawnStatic(existing)
         val coverCount = existing.count { it.kind == EnemyKind.Peek || it.kind == EnemyKind.Window }
-        val coverWanted = ceil(targetCount * 0.6f).toInt()
+        // פחות מציצים ויותר דמויות שהולכות ומתקרבות (היו כמעט רק מציצים ומעופפים)
+        val coverWanted = ceil(targetCount * 0.4f).toInt()
         if (ctx.spots.isNotEmpty() && coverCount < coverWanted) {
             spawnCover(existing)?.let { return it }
         }
@@ -798,8 +799,9 @@ class GameEngine(
     }
 
     private fun spawnEntrant(existing: List<Enemy>): Enemy? {
-        val order = when (random.nextInt(3)) {
-            0 -> listOf(0, 1, 2)
+        // עדיפות לדמות שמגיעה מרחוק, קטנה, וגדלה בדרך אל המצלמה
+        val order = when (random.nextInt(4)) {
+            0 -> listOf(0, 2, 1)
             1 -> listOf(1, 2, 0)
             else -> listOf(2, 0, 1)
         }
@@ -1139,7 +1141,7 @@ class GameEngine(
 
         /** דמות שמגיעה מרחוק: טווח גובה (חלק מגובה המסך) ומספר צעדי הבדיקה קדימה */
         private const val FAR_MIN_HEIGHT = 0.06f
-        private const val FAR_MAX_HEIGHT = 0.26f
+        private const val FAR_MAX_HEIGHT = 0.3f
 
         /** כמה (בתמונה) מעל הנקודה הרחוקה ביותר עוד נחשב קצה רחוק של הרצפה */
         private const val FAR_BAND = 0.08f
@@ -1156,8 +1158,8 @@ class GameEngine(
         private const val OFF_GROUND_FRAMES = 20
 
 
-        /** המפלצות גדולות מאדם: מכפיל על גובה אדם בכל חישובי הגודל (היו קטנות מדי במשחק) */
-        private const val MONSTER_SIZE = 1.235f
+        /** מכפיל על גובה אדם בכל חישובי הגודל. היה 1.235 (כל המפלצות יצאו גדולות, בלי קטנות מרחוק) */
+        private const val MONSTER_SIZE = 1.0f
 
         /** מפלצות שנכנסות מצד המסך: קטנות ב-10% מהשאר */
         private const val EDGE_SIZE_SCALE = 0.9f

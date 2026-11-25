@@ -77,6 +77,15 @@ object WeakZones {
         Zone("mouth", "FIRE OUT!", 0f, 0.4f, 0.13f, damage = 3, points = 600, cancel = true, disable = 3f, onlyTelegraph = true)
     )
 
+    /**
+     * הקולוסוס של המקדש (בוס שנכנס מפורטל): שתי נקודות ברורות שזוהרות בציור עצמו.
+     * המשושה הירוק במצח = נזק כפול שלוש, הליבה הזוהרת בפה = נזק כפול. פגיעה בגוף = 1. אין מגן.
+     */
+    private val COLOSSUS = listOf(
+        Zone("gem", "GEM HIT!", 0.11f, 0.21f, 0.075f, damage = 3, points = 400),
+        Zone("core", "CORE HIT!", 0.08f, 0.47f, 0.095f, damage = 2, points = 250)
+    )
+
     /** סוג המפלצת לפי המספר שלה (id % 5 = שורת הספרייט), או null */
     fun foeByRow(enemyId: Int): Foe? {
         if (enemyId == ArenaDirector.BOSS_ID) return Foe.Dragon
@@ -89,7 +98,7 @@ object WeakZones {
         Foe.Alien -> ALIEN
         Foe.Giant -> GIANT
         Foe.Hedgehog -> HEDGEHOG
-        Foe.Dragon -> DRAGON
+        Foe.Dragon -> if (BossEntrance.portal) COLOSSUS else DRAGON
         else -> emptyList()
     }
 

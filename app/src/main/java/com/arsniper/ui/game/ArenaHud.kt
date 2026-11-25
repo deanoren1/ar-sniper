@@ -376,19 +376,24 @@ fun EndOverlay(
 
 /** קו החיים של הבוס: פס רחב עם שם, שנהיה אדום ורועד קלות כשהוא כועס. fraction = החיים שנשארו (0..1) */
 @Composable
-fun BossBar(fraction: Float, enraged: Boolean, modifier: Modifier = Modifier) {
+fun BossBar(fraction: Float, enraged: Boolean, modifier: Modifier = Modifier, name: String = "DRAGON", big: Boolean = false) {
+    val barW = if (big) 520f else 300f
+    val barH = if (big) 24f else 16f
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Text(
-            text = if (enraged) "DRAGON  -  ENRAGED" else "DRAGON",
+            text = if (enraged) "$name  -  ENRAGED" else name,
             color = if (enraged) Color(0xFFFF5252) else Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = if (big) 18.sp else 14.sp,
+            fontWeight = FontWeight.Bold,
+            style = androidx.compose.ui.text.TextStyle(
+                shadow = androidx.compose.ui.graphics.Shadow(Color.Black, androidx.compose.ui.geometry.Offset(2f, 2f), 4f)
+            )
         )
         Box(
             modifier = Modifier
-                .width(300.dp)
-                .height(16.dp)
-                .background(Color(0xAA000000), RoundedCornerShape(8.dp))
+                .width(barW.dp)
+                .height(barH.dp)
+                .background(Color(0xCC000000), RoundedCornerShape((barH / 2f).dp))
                 .padding(2.dp)
         ) {
             Box(
@@ -400,8 +405,8 @@ fun BossBar(fraction: Float, enraged: Boolean, modifier: Modifier = Modifier) {
             if (shown > 0f) {
                 Box(
                     modifier = Modifier
-                        .width((296f * shown).dp)
-                        .height(12.dp)
+                        .width(((barW - 4f) * shown).dp)
+                        .height((barH - 4f).dp)
                         .background(
                             if (enraged) Color(0xFFD50000) else Color(0xFFFF9800),
                             RoundedCornerShape(6.dp)
@@ -411,9 +416,9 @@ fun BossBar(fraction: Float, enraged: Boolean, modifier: Modifier = Modifier) {
             // סימן בשליש: מתי הוא נהיה כועס
             Box(
                 modifier = Modifier
-                    .padding(start = (296f / 3f).dp)
+                    .padding(start = ((barW - 4f) / 3f).dp)
                     .width(2.dp)
-                    .height(12.dp)
+                    .height((barH - 4f).dp)
                     .background(Color(0xCCFFFFFF))
             )
         }

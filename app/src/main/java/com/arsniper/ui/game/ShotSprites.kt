@@ -59,7 +59,17 @@ class ShotPair(
  * ציורי הקליעים: קבצים shot_<סוג>_<a|b>_<small|big> בתיקיית drawable-nodpi.
  * a = צבעים רגילים, b = גרסה שנייה (קרה/עתידנית). חסר קובץ: מחזיר null והקליע מצויר בקוד.
  */
-class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) {
+class ShotSprites private constructor(
+    private val map: Map<ShotKind, ShotPair>,
+    /** סלע המקדש של הקולוסוס: 6 פריימי סיבוב (fx_boulder_0..5) */
+    val boulder: List<ImageBitmap> = emptyList(),
+    /** טילים מצוירים (fx_rocket_0..3: צבאי, סייבר, תעשייה, בזאר), פונים ימינה */
+    val rockets: List<ImageBitmap> = emptyList(),
+    /** הבזקי לוע (fx_muzzle_0..5), על רקע שחור (מיזוג Screen) */
+    val muzzles: List<ImageBitmap> = emptyList(),
+    /** איזה טיל לעולם הזה */
+    val rocketIndex: Int = 0
+) {
     fun get(kind: ShotKind): ShotPair? = map[kind]
 
     companion object {
@@ -114,7 +124,14 @@ class ShotSprites private constructor(private val map: Map<ShotKind, ShotPair>) 
                 val grow = if (name != "gas" && name != "spike") null else decode(context, "shot_${name}_grow")?.let { FlightSprite(it, 6, 128f, 128f, 150f) }
                 if (small != null || big != null) map[kind] = ShotPair(small ?: big, big ?: small, side, flight, grow)
             }
-            return ShotSprites(map)
+            fun seq(prefix: String, n: Int) = (0 until n).mapNotNull { decode(context, "${prefix}_$it") }
+            val rocketIndex = when (arena) {
+                "cyber" -> 1
+                "industrial" -> 2
+                "market" -> 3
+                else -> 0
+            }
+            return ShotSprites(map, seq("fx_boulder", 6), seq("fx_rocket", 4), seq("fx_muzzle", 6), rocketIndex)
         }
     }
 }

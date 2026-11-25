@@ -96,6 +96,8 @@ object SceneSession {
             val fromSam = ArrayList<HidingSpot>()
             for (logits in samMasks) {
                 val spot = UserObjects.toSpot(current, logits, nextId) ?: continue
+                // SAM מסמן גם כתמי צל ומשטחים על הרצפה (כביש, מדרכה). מפלצת שיצאה "מאחוריהם" נראתה חתוכה באוויר
+                if (groundShare(current, spot) >= SAM_GROUND_SHARE) continue
                 fromSam.add(if (g != null) SpotRefiner.refine(spot, g) else spot)
                 nextId++
             }
@@ -177,6 +179,41 @@ object SceneSession {
     }
 
     private const val PRUNE_BACKGROUND_SHARE = 0.7f
+
+    /** עצם SAM שחלק כזה ממנו (לפי הסגמנטציה) הוא רצפה, כביש או מדרכה: לא מחבוא (צל, כתם, משטח) */
+    private const val SAM_GROUND_SHARE = 0.5f
+
+    private val GROUND_NAMES = listOf(
+        "floor", "earth", "road", "sidewalk", "path", "rug", "grass", "sand", "dirt track", "land",
+        "runway", "field", "water", "ground"
+    )
+
+    private val groundLabels: BooleanArray by lazy {
+        val b = BooleanArray(256)
+        for (name in GROUND_NAMES) {
+            val i = com.arsniper.ml.Ade20kClasses.NAMES.indexOf(name)
+            if (i in 0..255) b[i] = true
+        }
+        b
+    }
+
+    /** איזה חלק מתאי המחבוא מסווג כקרקע בסגמנטציה */
+    private fun groundShare(a: SceneAnalysis, spot: HidingSpot): Float {
+        var total = 0
+        var ground = 0
+        for (ly in 0 until spot.maskHeight) {
+            for (lx in 0 until spot.maskWidth) {
+                if (!spot.mask[ly * spot.maskWidth + lx]) continue
+                total++
+                val nx = (spot.cellX + lx + 0.5f) / spot.gridWidth
+                val ny = (spot.cellY + ly + 0.5f) / spot.gridHeight
+                val ax = (nx * a.width).toInt().coerceIn(0, a.width - 1)
+                val ay = (ny * a.height).toInt().coerceIn(0, a.height - 1)
+                if (groundLabels[a.labelIndex(ay * a.width + ax).coerceIn(0, 255)]) ground++
+            }
+        }
+        return if (total == 0) 0f else ground.toFloat() / total
+    }
 
     /** מלטש מחדש את קצוות המחבואים (לא חלונות, לא אלה שנוספו מה-AI) לפי תמונת עולם ה-AI. מחזיר כמה לוטשו */
     fun refineEdges(aiGuide: GuideImage?): Int {
