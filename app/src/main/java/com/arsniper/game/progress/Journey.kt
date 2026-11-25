@@ -20,51 +20,51 @@ data class JourneyGate(
 )
 
 /**
- * מפת המסע: 18 עולמות בזיגזג לאורך 4 תמונות מחוברות (journey_map_1..4), ושני איים נעולים בערפל בסוף.
+ * מפת המסע: 18 עולמות בזיגזג לאורך 5 תמונות מחוברות (journey_map_1..5), מיום דרך שקיעה ולילה ועד קשת,, ושני איים נעולים בערפל בסוף.
  * עולם נפתח כשהעולם הפתוח הקודם במסע קיבל לפחות כוכב אחד, ועולם בפרק 2 ומעלה צריך גם את סך הכוכבים של השער.
  * עולמות בלי ארנה (style = null) מדולגים בפתיחה ומוצגים כ"בקרוב". Kotlin טהור: הכוכבים מגיעים מבחוץ.
  */
 object Journey {
 
-    /** גודל המפה המלאה בפיקסלים (4 תמונות מחוברות) */
-    const val MAP_W = 6536f
+    /** גודל המפה המלאה בפיקסלים (5 תמונות מחוברות) */
+    const val MAP_W = 8375f
     const val MAP_H = 846f
-    const val TILES = 4
+    const val TILES = 5
 
     /** כמה עולמות בכל פרק */
     const val CHAPTER_SIZE = 6
 
     val worlds: List<JourneyWorld> = listOf(
-        JourneyWorld("CLASSIC", ArenaStyle.Classic, 319f, 612f),
-        JourneyWorld("FROZEN TUNDRA", ArenaStyle.Tundra, 596f, 330f),
-        JourneyWorld("JUNGLE", ArenaStyle.Jungle, 946f, 615f),
-        JourneyWorld("CYBERPUNK", ArenaStyle.Cyber, 1250f, 330f),
-        JourneyWorld("MILITARY BASE", ArenaStyle.Military, 1574f, 615f),
-        JourneyWorld("VOLCANO", null, 2023f, 585f),
-        JourneyWorld("INDUSTRIAL", ArenaStyle.Industrial, 2320f, 330f),
-        JourneyWorld("RUINS", ArenaStyle.Ruins, 2599f, 585f),
-        JourneyWorld("UNDERWATER", null, 2888f, 330f),
-        JourneyWorld("SPACE", null, 3157f, 585f),
-        JourneyWorld("BAZAAR", ArenaStyle.Market, 3667f, 535f),
-        JourneyWorld("ROCKY FOREST", ArenaStyle.Forest, 3883f, 300f),
-        JourneyWorld("CANDY WORLD", null, 4107f, 535f),
-        JourneyWorld("DESERT", null, 4406f, 300f),
-        JourneyWorld("HAUNTED WORLD", null, 4700f, 560f),
-        JourneyWorld("CRYSTAL CAVE", null, 5152f, 490f),
-        JourneyWorld("PIRATE", null, 5456f, 300f),
-        JourneyWorld("CLOUD WORLD", null, 5720f, 520f)
+        JourneyWorld("CLASSIC", ArenaStyle.Classic, 327f, 627f),
+        JourneyWorld("FROZEN TUNDRA", ArenaStyle.Tundra, 680f, 327f),
+        JourneyWorld("JUNGLE", ArenaStyle.Jungle, 1167f, 627f),
+        JourneyWorld("CYBERPUNK", ArenaStyle.Cyber, 1533f, 327f),
+        JourneyWorld("MILITARY BASE", ArenaStyle.Military, 2053f, 607f),
+        JourneyWorld("VOLCANO", null, 2353f, 311f),
+        JourneyWorld("INDUSTRIAL", ArenaStyle.Industrial, 2780f, 600f),
+        JourneyWorld("RUINS", ArenaStyle.Ruins, 3180f, 317f),
+        JourneyWorld("UNDERWATER", null, 3673f, 600f),
+        JourneyWorld("SPACE", null, 4000f, 331f),
+        JourneyWorld("BAZAAR", ArenaStyle.Market, 4507f, 600f),
+        JourneyWorld("ROCKY FOREST", ArenaStyle.Forest, 4827f, 327f),
+        JourneyWorld("CANDY WORLD", null, 5253f, 533f),
+        JourneyWorld("DESERT", null, 5680f, 320f),
+        JourneyWorld("HAUNTED WORLD", null, 6027f, 587f),
+        JourneyWorld("CRYSTAL CAVE", null, 6487f, 324f),
+        JourneyWorld("PIRATE", null, 7073f, 573f),
+        JourneyWorld("CLOUD WORLD", null, 7673f, 387f)
     ).map { it.copy(x = it.x / MAP_W, y = it.y / MAP_H) }
 
     /** האיים בערפל בסוף המפה: מקום לעולמות עתידיים */
     val fogIslands: List<Pair<Float, Float>> = listOf(
-        6052f to 305f,
-        6337f to 510f
+        8080f to 213f,
+        8207f to 287f
     ).map { (x, y) -> x / MAP_W to y / MAP_H }
 
     /** שערי הפרקים, בים שבין השלטים אחרי עולם 6 ואחרי עולם 12. סך כוכבים מצטבר */
     val gates: List<JourneyGate> = listOf(
-        JourneyGate(6, 10, 2177f, 480f),
-        JourneyGate(12, 20, 4050f, 445f)
+        JourneyGate(6, 10, 2500f, 470f),
+        JourneyGate(12, 20, 4990f, 420f)
     ).map { it.copy(x = it.x / MAP_W, y = it.y / MAP_H) }
 
     /** סך הכוכבים שהשער שלפני העולם הזה דורש (0 = אין שער) */

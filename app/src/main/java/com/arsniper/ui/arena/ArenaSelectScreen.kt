@@ -65,12 +65,13 @@ import com.arsniper.ui.theme.GameButtonStyle
 import com.arsniper.ui.theme.GameColors
 import kotlinx.coroutines.flow.first
 
-/** תמונות המפה לפי הסדר, משמאל לימין. כל אחת רבע מרוחב המפה */
+/** תמונות המפה לפי הסדר, משמאל לימין. כל אחת חמישית מרוחב המפה */
 private val MAP_TILES = listOf(
     R.drawable.journey_map_1,
     R.drawable.journey_map_2,
     R.drawable.journey_map_3,
-    R.drawable.journey_map_4
+    R.drawable.journey_map_4,
+    R.drawable.journey_map_5
 )
 
 /**
