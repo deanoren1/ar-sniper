@@ -319,7 +319,8 @@ fun EnemyLayer(
                     }
                 }
                 // מד חיים מתחת לרגליים, למפלצת עם יותר מפגיעה אחת (לא כשעצם מכסה אותה)
-                if (!item.dead && sprites != null && enemy.maxHp > 1 && blockers.isEmpty()) {
+                // (לבוס יש קו חיים גדול למעלה, בלי מד נוסף מתחת לרגליים)
+                if (!item.dead && sprites != null && enemy.maxHp > 1 && blockers.isEmpty() && enemy.id != ArenaDirector.BOSS_ID) {
                     drawHealthBar(monsterBox(sprites.sheetFor(enemy, item.dead), drawCenter, radius), enemy, radius, false)
                 }
             }

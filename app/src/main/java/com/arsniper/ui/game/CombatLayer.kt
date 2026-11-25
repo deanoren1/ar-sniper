@@ -161,6 +161,21 @@ private fun DrawScope.drawShotBody(s: Shot, time: Float, radiusUnits: Float, spr
     if (s.kind == ShotKind.Burst) {
         // הבזק לוע אצל היורה, ברגע שכל כדור יוצא
         val since = time - s.born
+        if (since in 0f..MUZZLE_SECONDS && sprites.muzzles.isEmpty() && !s.harmless) {
+            // בלי ציור: כוכב אור צהוב-לבן עם קרניים
+            val k = 1f - since / MUZZLE_SECONDS
+            val m = Offset(s.x * size.width, s.y * size.height)
+            val d = size.height * 0.05f * (0.7f + 0.5f * k)
+            drawCircle(
+                Brush.radialGradient(0f to Color.White.copy(alpha = k), 0.35f to Color(0xFFFFEB3B).copy(alpha = 0.9f * k), 1f to Color.Transparent, center = m, radius = d * 1.6f),
+                d * 1.6f, m
+            )
+            for (ray in 0 until 6) {
+                val a = ray * 1.047f + s.id
+                val len = d * (if (ray % 2 == 0) 2.2f else 1.4f)
+                drawLine(Color(0xFFFFF59D).copy(alpha = k), m, Offset(m.x + cos(a) * len, m.y + sin(a) * len), strokeWidth = d * 0.25f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            }
+        }
         if (since < MUZZLE_SECONDS && sprites.muzzles.isNotEmpty() && !s.harmless) {
             val img = sprites.muzzles[((s.id % sprites.muzzles.size) + sprites.muzzles.size) % sprites.muzzles.size]
             val k = 1f - since / MUZZLE_SECONDS
@@ -381,8 +396,23 @@ private fun DrawScope.drawBoulder(s: Shot, time: Float, radiusUnits: Float, spri
             dstSize = androidx.compose.ui.unit.IntSize(d.toInt(), d.toInt())
         )
     } else {
-        drawCircle(Color(0xFF9E9583), r, c)
-        drawCircle(green, r * 0.45f, c, style = Stroke(width = r * 0.12f))
+        // עד שיגיע ציור הסלע: סלע הג'ונגל המצויר (אבן עם גפנים), מסתובב
+        val rock = sprites.get(ShotKind.Rock)?.big
+        if (rock != null) {
+            val d = r * 2.3f
+            rotate(time * 220f + s.id * 37f, c) {
+                drawImage(
+                    image = rock,
+                    srcOffset = androidx.compose.ui.unit.IntOffset.Zero,
+                    srcSize = androidx.compose.ui.unit.IntSize(rock.width, rock.height),
+                    dstOffset = androidx.compose.ui.unit.IntOffset((c.x - d / 2f).toInt(), (c.y - d / 2f).toInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(d.toInt(), d.toInt())
+                )
+            }
+        } else {
+            drawCircle(Color(0xFF9E9583), r, c)
+            drawCircle(green, r * 0.45f, c, style = Stroke(width = r * 0.12f))
+        }
     }
     // סדקים זוהרים לפי מספר הפגיעות שספג
     val cracks = s.maxHp - s.hp
