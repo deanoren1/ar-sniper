@@ -85,7 +85,8 @@ object ShotStyle {
     fun forArena(key: String): Map<Foe, ShotKind> = when (key) {
         "jungle" -> mapOf(Foe.Dragon to ShotKind.Boulder)
         "military" -> mapOf(Foe.Giant to ShotKind.Rocket, Foe.Hedgehog to ShotKind.Burst)
-        "cyber" -> mapOf(Foe.Hedgehog to ShotKind.Burst, Foe.Alien to ShotKind.Burst)
+        // החייזר (מיכלי חומצה על הגב) יורק חומצה ירוקה כמו תמיד; הרובה עם קו הלייזר רק לקיפוד
+        "cyber" -> mapOf(Foe.Hedgehog to ShotKind.Burst)
         "industrial" -> mapOf(Foe.Giant to ShotKind.Rocket)
         "market" -> mapOf(Foe.Hedgehog to ShotKind.Burst)
         else -> emptyMap()
