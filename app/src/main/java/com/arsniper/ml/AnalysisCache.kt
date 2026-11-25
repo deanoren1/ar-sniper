@@ -20,6 +20,9 @@ object AnalysisCache {
 
     /** מפתח לפי תוכן הקובץ */
     fun keyFor(photoFile: File): String {
+        // עולם שמור שנפתח מחדש מקובץ המקור שלו (src_): המפתח המקורי של התמונה נשמר לידה.
+        // בלי זה כל פתיחה חישבה מפתח חדש, ולכן ניתוח מלא, חיפוש עצמים ועולם AI מחדש
+        pinnedKey(photoFile)?.let { return it }
         val digest = MessageDigest.getInstance("SHA-1")
         photoFile.inputStream().use { input ->
             val buffer = ByteArray(64 * 1024)
@@ -34,6 +37,34 @@ object AnalysisCache {
     }
 
     private fun cacheDir(baseDir: File): File = File(baseDir, "analysis_cache")
+
+    private fun pinFile(photoFile: File) = File(photoFile.parentFile, photoFile.name + ".key")
+
+    /** מצמיד לקובץ התמונה מפתח קיים (כל עוד הקובץ לא השתנה: אותו גודל) */
+    fun pinKey(photoFile: File, key: String) {
+        try {
+            pinFile(photoFile).writeText(key + "|" + photoFile.length())
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun pinnedKey(photoFile: File): String? = try {
+        val pin = pinFile(photoFile)
+        if (!pin.exists()) {
+            null
+        } else {
+            val parts = pin.readText().trim().split('|')
+            if (parts.size == 2 && parts[1].toLongOrNull() == photoFile.length()) {
+                parts[0]
+            } else {
+                // התמונה הוחלפה או נשמרה מחדש: המפתח הישן לא שייך לה יותר
+                pin.delete()
+                null
+            }
+        }
+    } catch (_: Exception) {
+        null
+    }
 
     /** מיקום קובץ הניתוח של מפתח נתון (משמש להעברת ניתוח בין מכשירים במשחק משותף) */
     fun fileFor(baseDir: File, key: String): File = File(cacheDir(baseDir), "$key.bin")

@@ -146,7 +146,7 @@ fun ArenaModeScreen(
     onBack: () -> Unit,
     onShop: () -> Unit,
     onUseLast: (File) -> Unit,
-    onPlayWorld: (File, ArenaStyle) -> Unit,
+    onPlayWorld: (File, ArenaStyle, String?) -> Unit,
     onCamera: () -> Unit,
     onGalleryImported: () -> Unit,
     modifier: Modifier = Modifier
@@ -273,7 +273,7 @@ fun ArenaModeScreen(
                                 val (file, id) = result.value
                                 CommunityState.setOrigin(context, file.nameWithoutExtension, id)
                                 CommunityState.addSeen(context, id)
-                                onPlayWorld(file, style)
+                                onPlayWorld(file, style, null)
                             }
                             is CommunityWorlds.Result.Error ->
                                 message = if (result.message == "none") "No community worlds here yet. Share one!" else "Could not load a world (${result.message})"
@@ -402,7 +402,7 @@ fun ArenaModeScreen(
                                         .clip(RoundedCornerShape(16.dp))
                                         .border(3.dp, Color(0xFF8E4DFF), RoundedCornerShape(16.dp))
                                         .background(Color(0x55000000))
-                                        .clickable { onPlayWorld(w.source, w.style) }
+                                        .clickable { onPlayWorld(w.source, w.style, w.key) }
                                 ) {
                                     if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                     OutlinedText(w.style.title, fontSize = 11.sp, color = Color.White, outline = null,

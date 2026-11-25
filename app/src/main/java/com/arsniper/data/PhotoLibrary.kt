@@ -88,9 +88,13 @@ object PhotoLibrary {
     }
 
     /** הופך תמונה שמורה לתמונה הנוכחית של המשחק */
-    fun select(context: Context, file: File) {
-        file.copyTo(File(context.filesDir, "arena_photo.jpg"), overwrite = true)
+    fun select(context: Context, file: File, worldKey: String? = null) {
+        val target = File(context.filesDir, "arena_photo.jpg")
+        file.copyTo(target, overwrite = true)
         file.setLastModified(System.currentTimeMillis())
+        // עולם שמור: התמונה שומרת את המפתח של העולם (הניתוח, העצמים ועולם ה-AI שכבר נשמרו עליו)
+        if (worldKey != null) com.arsniper.ml.AnalysisCache.pinKey(target, worldKey)
+        else File(target.parentFile, target.name + ".key").delete()
     }
 
     fun thumbnail(file: File, maxSide: Int = 320): Bitmap? {

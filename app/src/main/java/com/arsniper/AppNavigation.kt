@@ -124,7 +124,8 @@ fun AppNavigation() {
                 com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                 quick = false
                 modeArena = true
-                if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
+                // עולם שמור כבר עבר סקירה כשנוצר (גם כשנשאר רק קובץ המקור שלו); סקירה הייתה שומרת את התמונה מחדש ומאבדת את הניתוח
+                if (PhotoLibrary.isReviewed(file) || file.name.startsWith("src_")) { goScene() } else { screen = Screen.Review }
             }
         )
         Screen.Play -> PlayScreen(
@@ -137,7 +138,8 @@ fun AppNavigation() {
                 com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                 quick = false
                 // ניתוח אנשים הוא חובה: תמונה שלא נסקרה עוברת קודם במסך הסקירה
-                if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
+                // עולם שמור כבר עבר סקירה כשנוצר (גם כשנשאר רק קובץ המקור שלו); סקירה הייתה שומרת את התמונה מחדש ומאבדת את הניתוח
+                if (PhotoLibrary.isReviewed(file) || file.name.startsWith("src_")) { goScene() } else { screen = Screen.Review }
             },
             onQuick = {
                 val all = PhotoLibrary.list(context)
@@ -147,7 +149,8 @@ fun AppNavigation() {
                     PhotoLibrary.clearPending(context)
                     com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                     quick = true
-                    if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
+                    // עולם שמור כבר עבר סקירה כשנוצר (גם כשנשאר רק קובץ המקור שלו); סקירה הייתה שומרת את התמונה מחדש ומאבדת את הניתוח
+                if (PhotoLibrary.isReviewed(file) || file.name.startsWith("src_")) { goScene() } else { screen = Screen.Review }
                 }
             }
         )
@@ -219,14 +222,15 @@ fun AppNavigation() {
                 modeArena = true
                 goScene()
             },
-            onPlayWorld = { file, worldStyle ->
+            onPlayWorld = { file, worldStyle, worldKey ->
                 arenaIndex = worldStyle.ordinal
-                PhotoLibrary.select(context, file)
+                PhotoLibrary.select(context, file, worldKey)
                 PhotoLibrary.clearPending(context)
                 com.arsniper.pano.PanoramaStore.clearPendingGame(context)
                 quick = false
                 modeArena = true
-                if (PhotoLibrary.isReviewed(file)) { goScene() } else { screen = Screen.Review }
+                // עולם שמור כבר עבר סקירה כשנוצר (גם כשנשאר רק קובץ המקור שלו); סקירה הייתה שומרת את התמונה מחדש ומאבדת את הניתוח
+                if (PhotoLibrary.isReviewed(file) || file.name.startsWith("src_")) { goScene() } else { screen = Screen.Review }
             },
             onCamera = {
                 PhotoLibrary.clearPending(context)
