@@ -36,7 +36,9 @@ class Shot(
     /** איך הקליע טס (ShotPattern) */
     val pattern: ShotPattern = ShotPattern.Single,
     /** מאיזה גודל (שבר מהרדיוס הסופי) הקליע מתחיל: חצאי ענן הגז ממשיכים מהגודל של הענן שהתפצל */
-    val growFrom: Float = 0.35f
+    val growFrom: Float = 0.35f,
+    /** עד איזה שלב בדרך (0..1) אי אפשר לפגוע בקליע: הסלע של הבוס בזמן שהוא עולה בקשת */
+    val armorUntil: Float = 0f
 ) {
     /** כמה מהדרך עבר (0..1) */
     fun progressAt(time: Float): Float = ((time - born) / flight).coerceIn(0f, 1f)
@@ -437,6 +439,29 @@ class EnemyFire(private val random: Random = Random.Default) {
             )
             return
         }
+        if (kind == ShotKind.Boulder) {
+            // הסלע של הקולוסוס: יוצא מהיד המורמת (פעם ימין פעם שמאל), עולה בקשת בלי שאפשר לפגוע בו, ורק אז נעצר בירי.
+            // כועס: שני סלעים, אחד מכל יד
+            val sides = if (director.bossEnraged) listOf(-1f, 1f) else listOf(if (launchCount % 2 == 0) -1f else 1f)
+            for ((index, side) in sides.withIndex()) shots.add(
+                Shot(
+                    id = nextShotId++,
+                    x = (enemy.position.x + side * enemy.radius * BOULDER_HAND_X).coerceIn(0.08f, 0.92f),
+                    y = enemy.position.y - enemy.radius * BOULDER_HAND_Y,
+                    kind = kind,
+                    born = time + index * 0.35f,
+                    flight = foe.flightSeconds * 1.25f * wave.flightScale,
+                    baseRadius = baseRadiusOf(kind),
+                    maxHp = BOULDER_HP, hp = BOULDER_HP,
+                    harmless = harmless,
+                    dx = -side * 0.08f,
+                    extra = index > 0,
+                    pattern = ShotPattern.Lob,
+                    armorUntil = BOULDER_ARMOR
+                )
+            )
+            return
+        }
         val triple = enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged
         val offsets = if (triple) floatArrayOf(-0.17f, 0f, 0.17f) else floatArrayOf(0f)
         // זריקה בקשת איטית יותר (רואים אותה עולה), פצצת פתיל מבלה זמן בנפילה
@@ -529,6 +554,8 @@ class EnemyFire(private val random: Random = Random.Default) {
         var best: Shot? = null
         var bestDistance = Float.MAX_VALUE
         for (s in shots) {
+            // הסלע של הבוס בזמן שהוא עולה: עוד אי אפשר לעצור אותו (אחרת ירי רצוף על הבוס פוצץ אותו מיד ביציאה)
+            if (s.armorUntil > 0f && s.progressAt(time) < s.armorUntil) continue
             // כדורי נותב מהירים מדי ליירוט; עוצרים את היורה
             if (s.kind == ShotKind.Burst || !s.launched(time)) continue
             val pos = s.posAt(time)
@@ -577,6 +604,12 @@ class EnemyFire(private val random: Random = Random.Default) {
 
         /** טיל: איטי, כדי שיהיה זמן לפגוע בו פעמיים */
         const val ROCKET_FLIGHT = 2.6f
+
+        /** הסלע של הבוס: מאיזה גובה ומרחק מהמרכז הוא יוצא (ברדיוסי בוס), כמה פגיעות, ועד איזה שלב הוא חסין */
+        const val BOULDER_HAND_X = 0.9f
+        const val BOULDER_HAND_Y = 1.7f
+        const val BOULDER_HP = 4
+        const val BOULDER_ARMOR = 0.4f
 
         /** מניפת קוצים: הסטה לרוחב של הקוצים הצדדיים */
         const val FAN_SPREAD = 0.2f

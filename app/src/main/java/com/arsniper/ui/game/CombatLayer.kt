@@ -439,6 +439,8 @@ private fun DrawScope.drawBoulder(s: Shot, time: Float, radiusUnits: Float, spri
         drawLine(green, c, Offset(c.x + cos(a0) * r * 0.95f, c.y + sin(a0) * r * 0.95f), strokeWidth = r * 0.04f + 1f)
     }
     if (s.harmless) return
+    // עוד עולה (חסין): בלי טבעת מטרה, רק זוהר. הטבעת מופיעה ברגע שאפשר לעצור אותו
+    if (s.armorUntil > 0f && p < s.armorUntil) return
     val ring = r * 1.3f * (1f + 0.5f * (1f - p))
     val urgent = p > 0.7f && (time * 10f).toInt() % 2 == 0
     drawCircle(if (urgent) Color(0xFFFF1744) else Color.White.copy(alpha = 0.9f), ring, c, style = Stroke(width = r * 0.08f + 3f))
