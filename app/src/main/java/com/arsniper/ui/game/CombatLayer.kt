@@ -56,6 +56,7 @@ private fun DrawScope.drawTelegraph(t: TelegraphView, time: Float) {
     val cy = t.y * size.height
     val r = t.radius * size.height
     val pulse = 0.5f + 0.5f * sin(time * 18f)
+    if (t.kind == ShotKind.Burst) drawLaserSight(t, cx, cy, r, time)
     val red = Color(0xFFFF1744)
     // הילה אדומה שמתחזקת, וטבעת שמתכווצת אל המפלצת
     drawCircle(red.copy(alpha = 0.12f + 0.25f * t.progress * pulse), r * 1.25f, Offset(cx, cy))
@@ -105,6 +106,9 @@ private fun DrawScope.drawShot(s: Shot, time: Float, radiusUnits: Float, sprites
 }
 
 private fun DrawScope.drawShotBody(s: Shot, time: Float, radiusUnits: Float, sprites: ShotSprites) {
+    if (!s.launched(time)) return
+    if (s.kind == ShotKind.Burst) { drawTracer(s, time); return }
+    if (s.kind == ShotKind.Rocket) { drawRocket(s, time, radiusUnits); return }
     val pos = s.posAt(time)
     val cx = pos.x * size.width
     val cy = pos.y * size.height
@@ -195,6 +199,9 @@ private fun DrawScope.drawShotBody(s: Shot, time: Float, radiusUnits: Float, spr
             drawCircle(Color(0xFFFFEBEE), r * 0.55f, center)
             drawCircle(Color(0xFFD50000), r * 0.3f, center)
         }
+
+        // נותב וטיל מצוירים למעלה (drawTracer / drawRocket)
+        ShotKind.Burst, ShotKind.Rocket -> {}
     }
 
     // ירייה מטעה (המפלצת מבולבלת): מוחשכת באפור, וגם לא פוגעת כשמגיעה
@@ -223,6 +230,91 @@ private fun glowOf(kind: ShotKind): Color = when (kind) {
     ShotKind.Rock -> Color(0xFFFFB74D)
     ShotKind.Spike -> Color(0xFF80D8FF)
     ShotKind.Fire -> Color(0xFFFF9800)
+    ShotKind.Burst -> Color(0xFFFFF59D)
+    ShotKind.Rocket -> Color(0xFFFF7043)
+}
+
+/**
+ * קו הלייזר של הרובה: מהמפלצת אל השחקן (אמצע התחתית). מתחיל דק ושקוף ומתעבה,
+ * ובשליש האחרון מהבהב מהר: האות שהצרור עומד לצאת. זה הזמן לפגוע ביורה.
+ */
+private fun DrawScope.drawLaserSight(t: TelegraphView, cx: Float, cy: Float, r: Float, time: Float) {
+    val end = Offset(Shot.targetX * size.width, Shot.targetY * size.height)
+    val start = Offset(cx, cy - r * 0.1f)
+    val urgent = t.progress > 0.66f
+    val blink = if (urgent && (time * 14f).toInt() % 2 == 0) 0.35f else 1f
+    val a = (0.25f + 0.6f * t.progress) * blink
+    drawLine(Color(0xFFFF1744).copy(alpha = a * 0.35f), start, end, strokeWidth = 10f + 8f * t.progress, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(Color(0xFFFF5252).copy(alpha = a), start, end, strokeWidth = 2.5f + 2f * t.progress, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    // נקודת הכוונה על המסך, ליד השחקן
+    val dot = start + (end - start) * 0.82f
+    drawCircle(Color(0xFFFF1744).copy(alpha = a), 6f + 10f * t.progress, dot)
+    drawCircle(Color.White.copy(alpha = a), 3f + 3f * t.progress, dot)
+}
+
+/** כדור נותב: פס אור צהוב-לבן קצר שנמתח לאורך המסלול, עם הילה. גדל ככל שמתקרב */
+private fun DrawScope.drawTracer(s: Shot, time: Float) {
+    val head = s.posAt(time)
+    val tail = s.posAt(time - 0.05f)
+    val p = ((time - s.born) / s.flight).coerceIn(0f, 1f)
+    val h = Offset(head.x * size.width, head.y * size.height)
+    val t = Offset(tail.x * size.width, tail.y * size.height)
+    val w = size.height * (0.006f + 0.02f * p)
+    if (s.harmless) {
+        drawLine(Color(0x887F8A93), t, h, strokeWidth = w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        return
+    }
+    drawLine(Color(0xFFFF9100).copy(alpha = 0.35f), t, h, strokeWidth = w * 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(Color(0xFFFFF59D), t, h, strokeWidth = w * 1.3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(Color.White, t + (h - t) * 0.5f, h, strokeWidth = w * 0.6f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    drawCircle(Color.White, w * 0.9f, h)
+}
+
+/**
+ * טיל כתף: גוף מתכת עם חרטום אדום וכנפיים, להבה מאחור ושובל עשן לאורך הספירלה.
+ * מסתובב לכיוון התנועה. נסדק אחרי פגיעה אחת (סופג 2). טבעת אזהרה שמתכווצת כמו בשאר הקליעים.
+ */
+private fun DrawScope.drawRocket(s: Shot, time: Float, radiusUnits: Float) {
+    val p = ((time - s.born) / s.flight).coerceIn(0f, 1f)
+    val pos = s.posAt(time)
+    val c = Offset(pos.x * size.width, pos.y * size.height)
+    val r = radiusUnits * size.height
+    // שובל עשן: נקודות לאורך המסלול שכבר עבר, הולכות ומתפזרות
+    for (k in 14 downTo 1) {
+        val back = time - k * 0.045f
+        if (back < s.born) continue
+        val q = s.posAt(back)
+        val o = Offset(q.x * size.width, q.y * size.height)
+        val age = k / 14f
+        val pr = ((back - s.born) / s.flight).coerceIn(0f, 1f)
+        val rr = r * (0.35f + 0.25f * pr) * (0.6f + 0.9f * age)
+        drawCircle(Color(0xFFB0BEC5).copy(alpha = 0.45f * (1f - age)), rr, o)
+    }
+    val prev = s.posAt(time - 0.02f)
+    val ang = Math.toDegrees(kotlin.math.atan2((pos.y - prev.y) * size.height, (pos.x - prev.x) * size.width).toDouble()).toFloat()
+    val len = r * 2.2f
+    val th = r * 0.55f
+    rotate(ang, c) {
+        // להבה מהבהבת מאחור
+        val flick = 0.8f + 0.2f * sin(time * 40f + s.id)
+        drawOval(Color(0xFFFF6D00).copy(alpha = 0.85f), topLeft = Offset(c.x - len * 0.95f * flick, c.y - th * 0.55f), size = androidx.compose.ui.geometry.Size(len * 0.6f * flick, th * 1.1f))
+        drawOval(Color(0xFFFFEB3B), topLeft = Offset(c.x - len * 0.72f, c.y - th * 0.3f), size = androidx.compose.ui.geometry.Size(len * 0.35f, th * 0.6f))
+        // כנפיים
+        drawRect(Color(0xFFC62828), topLeft = Offset(c.x - len * 0.5f, c.y - th * 0.95f), size = androidx.compose.ui.geometry.Size(len * 0.22f, th * 1.9f))
+        // גוף
+        drawRoundRect(Color(0xFF90A4AE), topLeft = Offset(c.x - len * 0.5f, c.y - th * 0.5f), size = androidx.compose.ui.geometry.Size(len * 0.85f, th), cornerRadius = androidx.compose.ui.geometry.CornerRadius(th * 0.5f))
+        drawRect(Color(0xFFECEFF1).copy(alpha = 0.7f), topLeft = Offset(c.x - len * 0.45f, c.y - th * 0.38f), size = androidx.compose.ui.geometry.Size(len * 0.75f, th * 0.18f))
+        // חרטום
+        drawCircle(Color(0xFFE53935), th * 0.5f, Offset(c.x + len * 0.35f, c.y))
+        if (s.hp < s.maxHp) drawLine(Color(0xFF212121), Offset(c.x - len * 0.2f, c.y - th * 0.5f), Offset(c.x + len * 0.05f, c.y + th * 0.5f), strokeWidth = th * 0.15f + 2f)
+    }
+    if (s.harmless) {
+        drawCircle(Color(0x667F8A93), r * 1.2f, c)
+        return
+    }
+    val ring = r * 1.25f * (1f + 0.5f * (1f - p))
+    val urgent = p > 0.7f && (time * 10f).toInt() % 2 == 0
+    drawCircle(if (urgent) Color(0xFFFF1744) else Color.White.copy(alpha = 0.9f), ring, c, style = Stroke(width = r * 0.1f + 3f))
 }
 
 /**

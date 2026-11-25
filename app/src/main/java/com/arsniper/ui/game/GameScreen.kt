@@ -251,6 +251,9 @@ fun GameScreen(
         }
     }
     val bigBoss = style == ArenaStyle.Tundra || bossTracksText != null
+    // סוג הירי לכל מפלצת בעולם הזה (רובה/טיל בעולמות עם נשק חם)
+    remember(bossWorldKey) { com.arsniper.game.engine.ShotStyle.overrides = com.arsniper.game.engine.ShotStyle.forArena(bossWorldKey); 0 }
+    val chipSeen = remember { intArrayOf(0) }
     // התגמול בהתאם לקושי; כל מקום שמצטבר בו ניקוד עובר דרך זה, כדי שהמספרים יהיו עקביים
     fun scaled(points: Int): Int = (points * difficulty.rewardScale).roundToInt()
     val context0 = LocalContext.current
@@ -701,6 +704,12 @@ fun GameScreen(
                                 bornNanos = now
                             )
                         }
+                        // כדור נותב שפגע בלי להוריד לב שלם: הבזק ורעידה קלים
+                        if (fire.chipHits > chipSeen[0]) {
+                            chipSeen[0] = fire.chipHits
+                            shake = max(shake, 0.25f)
+                            flash = max(flash, FLASH_START * 0.25f)
+                        } else if (fire.chipHits < chipSeen[0]) chipSeen[0] = fire.chipHits
                         for (i in 0 until out.playerHits) {
                             if (director.hitPlayer()) {
                                 soundPlayer.play(Sfx.PlayerHit)
@@ -714,7 +723,7 @@ fun GameScreen(
                                 // סליים: מריחה אחת (לפעמים שתיים) חצי שקופה על המסך, והבהוב אדום חלש
                                 val hitKind = out.hitKinds.getOrNull(i)
                                 val spikeHit = hitKind == com.arsniper.game.engine.ShotKind.Spike
-                                val boomHit = hitKind == com.arsniper.game.engine.ShotKind.Bomb
+                                val boomHit = hitKind == com.arsniper.game.engine.ShotKind.Bomb || hitKind == com.arsniper.game.engine.ShotKind.Rocket
                                 val fireHit = hitKind == com.arsniper.game.engine.ShotKind.Fire
                                 if (hitKind == com.arsniper.game.engine.ShotKind.Gas || spikeHit || boomHit || fireHit) {
                                     flash = FLASH_START * 0.5f

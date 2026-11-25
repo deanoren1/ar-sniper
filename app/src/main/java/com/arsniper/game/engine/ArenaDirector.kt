@@ -7,7 +7,35 @@ import com.arsniper.game.model.Vec2
 import kotlin.math.max
 
 /** סוג הקליע שמפלצת יורה על השחקן */
-enum class ShotKind { Orb, Bomb, Gas, Rock, Spike, Fire }
+enum class ShotKind {
+    Orb, Bomb, Gas, Rock, Spike, Fire,
+
+    /** רובה: צרור של כמה כדורי נותב מהירים. כל כדור רבע לב, ואי אפשר ליירט אותם: עוצרים את היורה בזמן קו הלייזר */
+    Burst,
+
+    /** טיל כתף: איטי, מסתחרר בספירלה עם שובל עשן, סופג 2 פגיעות. פוגע = לב שלם */
+    Rocket
+}
+
+/**
+ * איזו ירייה יורה כל סוג מפלצת בעולם הנוכחי. ברירת המחדל היא Foe.shot;
+ * עולמות עם נשק חם (בסיס צבאי, סייברפאנק, תעשייה) מחליפים חלק מהמפלצות לרובה או לטיל.
+ */
+object ShotStyle {
+    @Volatile
+    var overrides: Map<Foe, ShotKind> = emptyMap()
+
+    fun kindOf(foe: Foe): ShotKind = overrides[foe] ?: foe.shot
+
+    /** הירי לפי עולם (key = שם הארנה באותיות קטנות) */
+    fun forArena(key: String): Map<Foe, ShotKind> = when (key) {
+        "military" -> mapOf(Foe.Giant to ShotKind.Rocket, Foe.Hedgehog to ShotKind.Burst)
+        "cyber" -> mapOf(Foe.Hedgehog to ShotKind.Burst, Foe.Alien to ShotKind.Burst)
+        "industrial" -> mapOf(Foe.Giant to ShotKind.Rocket)
+        "market" -> mapOf(Foe.Hedgehog to ShotKind.Burst)
+        else -> emptyMap()
+    }
+}
 
 /**
  * סוג מפלצת בארנה. row = שורת הספרייט בגיליון המפלצות (ורוד 0, סגול 1, ירוק 2, כתום 3, כחול 4).

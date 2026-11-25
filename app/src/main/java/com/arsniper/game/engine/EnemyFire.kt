@@ -4,7 +4,9 @@ import com.arsniper.game.model.Enemy
 import com.arsniper.game.model.EnemyKind
 import com.arsniper.game.model.EnemyState
 import com.arsniper.game.model.Vec2
+import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -28,15 +30,34 @@ class Shot(
     /** הסטת היעד לרוחב (חלק מרוחב המסך): שלושת הכדורים של הדרקון הנחת עפים במקביל לשלושה כיוונים */
     val dx: Float = 0f,
     /** כדור נוסף של אותה ירייה (לא נספר בתקרת הקליעים של הגל) */
-    val extra: Boolean = false
+    val extra: Boolean = false,
+    /** כמה לב הקליע לוקח כשהוא פוגע (כדור נותב של רובה = רבע) */
+    val damage: Float = 1f
 ) {
+    /** האם הקליע כבר יצא (כדורי צרור יוצאים בהפרש קצר זה מזה) */
+    fun launched(time: Float): Boolean = time >= born
+
     /**
      * מיקום הירייה בזמן t (קואורדינטות עולם): יוצאת מהמפלצת וטסה אל השחקן (אמצע התחתית), מאיצה בדרך.
      * הציור ואזור ההקשה משתמשים באותה פונקציה, כדי שיתאימו תמיד.
      */
     fun posAt(time: Float): Vec2 {
         val p = ((time - born) / flight).coerceIn(0f, 1f)
+        if (kind == ShotKind.Burst) {
+            // כדור נותב: קו ישר ומהיר, בלי האצה
+            val e = p * TRAVEL
+            return Vec2(x + (targetX + dx - x) * e, y + (targetY - y) * e)
+        }
         val e = Math.pow(p.toDouble(), 1.4).toFloat() * TRAVEL
+        if (kind == ShotKind.Rocket) {
+            // טיל: מסתחרר בספירלה שהולכת ונפתחת ואז מתהדקת לקראת הפגיעה
+            val swirl = sin(p * 3.1416f) * 0.09f
+            val ang = p * 11f + id
+            return Vec2(
+                x + (targetX + dx - x) * e + cos(ang) * swirl,
+                y + (targetY - y) * e + sin(ang) * swirl * 0.55f
+            )
+        }
         return Vec2(x + (targetX + dx - x) * e, y + (targetY - y) * e)
     }
 
@@ -53,7 +74,7 @@ class Shot(
 }
 
 /** הכנה לירייה: המפלצת מהבהבת באדום זמן קצר לפני שהיא יורה. אפשר להרוג אותה בזמן הזה */
-class TelegraphView(val x: Float, val y: Float, val radius: Float, val progress: Float, val enemyId: Int)
+class TelegraphView(val x: Float, val y: Float, val radius: Float, val progress: Float, val enemyId: Int, val kind: ShotKind? = null)
 
 /** תוצאת פגיעה בקליע: הקליע, והאם הושמד (או רק נסדק) */
 class Intercept(val shot: Shot, val destroyed: Boolean)
@@ -95,6 +116,13 @@ class EnemyFire(private val random: Random = Random.Default) {
     private val groupHits = HashMap<Int, HashSet<String>>()
     private val lastLaunchAt = HashMap<Int, Float>()
 
+    /** נזק חלקי שנצבר מכדורי נותב (כל 1.0 = לב) */
+    private var chip = 0f
+
+    /** כמה כדורי נותב פגעו בלי להוריד לב (להבזק קטן על המסך) */
+    var chipHits: Int = 0
+        private set
+
     /** כמה קליעים יצאו עד עכשיו (לצליל ירייה של מפלצת) */
     var launchCount: Int = 0
         private set
@@ -109,6 +137,8 @@ class EnemyFire(private val random: Random = Random.Default) {
         weakened.clear()
         groupHits.clear()
         lastLaunchAt.clear()
+        chip = 0f
+        chipHits = 0
         launchCount = 0
         time = 0f
     }
@@ -194,7 +224,8 @@ class EnemyFire(private val random: Random = Random.Default) {
             if (telegraphs.any { it.enemyId == e.id }) continue
             val capacity = wave.maxAttacks + if (director.bossEnraged) 1 else 0
             if (telegraphs.size + shots.count { !it.extra } >= capacity) continue
-            telegraphs.add(Telegraph(e.id, time, TELEGRAPH_SECONDS))
+            val kind = director.foeOf(e.id)?.let { ShotStyle.kindOf(it) }
+            telegraphs.add(Telegraph(e.id, time, if (kind == ShotKind.Burst) BURST_AIM_SECONDS else TELEGRAPH_SECONDS))
         }
 
         // קליעים שהגיעו אל השחקן
@@ -208,6 +239,14 @@ class EnemyFire(private val random: Random = Random.Default) {
             // ירייה מבולבלת מתפוגגת באמצע הדרך (ראו drawShot), ולא מגיעה לשחקן
             if (time - s.born >= s.flight || (s.harmless && time - s.born >= s.flight * 0.62f)) {
                 if (!s.harmless) {
+                    chip += s.damage
+                    if (chip < 0.999f) {
+                        // כדור נותב בודד: עוד לא לב שלם (רק הבזק פגיעה)
+                        chipHits++
+                        sIterator.remove()
+                        continue
+                    }
+                    chip -= 1f
                     hits++
                     hitKinds.add(s.kind)
                     hitSpots.add(s.posAt(s.born + s.flight))
@@ -227,7 +266,8 @@ class EnemyFire(private val random: Random = Random.Default) {
                     y = enemy.position.y,
                     radius = enemy.radius,
                     progress = ((time - t.start) / t.duration).coerceIn(0f, 1f),
-                    enemyId = enemy.id
+                    enemyId = enemy.id,
+                    kind = director.foeOf(enemy.id)?.let { ShotStyle.kindOf(it) }
                 )
             )
         }
@@ -251,6 +291,29 @@ class EnemyFire(private val random: Random = Random.Default) {
         lastLaunchAt[enemy.id] = time
         launchCount++
         // הדרקון אחרי הנחיתה (השלב הכועס): שלושה כדורים במקביל, כל אחד קטן יותר וסופג פגיעה אחת
+        val kind = ShotStyle.kindOf(foe)
+        val harmless = time < (confusedUntil[enemy.id] ?: 0f)
+        if (kind == ShotKind.Burst) {
+            // צרור: 4 כדורי נותב בהפרש קצר, כל אחד רבע לב. מפלצת מוחלשת יורה פחות כדורים
+            val count = (BURST_COUNT - (weakened[enemy.id] ?: 0)).coerceAtLeast(2)
+            for (i in 0 until count) shots.add(
+                Shot(
+                    id = nextShotId++,
+                    x = enemy.position.x,
+                    y = enemy.position.y - enemy.radius * 0.1f,
+                    kind = kind,
+                    born = time + i * BURST_GAP,
+                    flight = BURST_FLIGHT * wave.flightScale,
+                    baseRadius = baseRadiusOf(kind),
+                    maxHp = 99, hp = 99,
+                    harmless = harmless,
+                    dx = (random.nextFloat() - 0.5f) * 0.12f,
+                    extra = i > 0,
+                    damage = 1f / BURST_COUNT
+                )
+            )
+            return
+        }
         val triple = enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged
         val offsets = if (triple) floatArrayOf(-0.17f, 0f, 0.17f) else floatArrayOf(0f)
         for ((index, spread) in offsets.withIndex()) shots.add(
@@ -259,19 +322,19 @@ class EnemyFire(private val random: Random = Random.Default) {
                 x = enemy.position.x,
                 // כדור האנרגיה יוצא מהבטן ולא ממרכז הגוף (כמו בהכנה שבציור)
                 // סליים החילזון יוצא מהפה: מעט מעל מרכז הגוף
-                y = enemy.position.y + when (foe.shot) {
+                y = enemy.position.y + when (kind) {
                     ShotKind.Orb -> enemy.radius * 0.45f
                     ShotKind.Gas -> -enemy.radius * 0.06f
                     else -> 0f
                 },
-                kind = foe.shot,
+                kind = kind,
                 born = time,
-                flight = foe.flightSeconds * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)) *
+                flight = (if (kind == ShotKind.Rocket) ROCKET_FLIGHT else foe.flightSeconds) * wave.flightScale * (1f + 0.2f * (weakened[enemy.id] ?: 0)) *
                     (if (enemy.id == ArenaDirector.BOSS_ID && director.bossEnraged) 0.85f else 1f),
-                baseRadius = baseRadiusOf(foe.shot) * (if (triple) 0.75f else 1f),
-                maxHp = if (triple) 1 else foe.shotHp,
-                hp = if (triple) 1 else foe.shotHp,
-                harmless = time < (confusedUntil[enemy.id] ?: 0f),
+                baseRadius = baseRadiusOf(kind) * (if (triple) 0.75f else 1f),
+                maxHp = if (triple) 1 else if (kind == ShotKind.Rocket) 2 else foe.shotHp,
+                hp = if (triple) 1 else if (kind == ShotKind.Rocket) 2 else foe.shotHp,
+                harmless = harmless,
                 dx = spread,
                 extra = index > 0
             )
@@ -333,6 +396,8 @@ class EnemyFire(private val random: Random = Random.Default) {
         var best: Shot? = null
         var bestDistance = Float.MAX_VALUE
         for (s in shots) {
+            // כדורי נותב מהירים מדי ליירוט; עוצרים את היורה
+            if (s.kind == ShotKind.Burst || !s.launched(time)) continue
             val pos = s.posAt(time)
             val dx = (point.x - pos.x) * aspect
             val dy = point.y - pos.y
@@ -358,6 +423,8 @@ class EnemyFire(private val random: Random = Random.Default) {
         ShotKind.Rock -> 0.10f
         ShotKind.Spike -> 0.07f
         ShotKind.Fire -> 0.13f
+        ShotKind.Burst -> 0.03f
+        ShotKind.Rocket -> 0.085f
     }
 
     private fun randomBetween(min: Float, max: Float): Float = min + random.nextFloat() * (max - min)
@@ -365,6 +432,15 @@ class EnemyFire(private val random: Random = Random.Default) {
     companion object {
         /** כמה זמן המפלצת מהבהבת לפני שהיא יורה */
         const val TELEGRAPH_SECONDS = 0.8f
+
+        /** רובה: קו לייזר ארוך יותר לפני הצרור (זה הזמן לעצור את היורה) */
+        const val BURST_AIM_SECONDS = 1.1f
+        const val BURST_COUNT = 4
+        const val BURST_GAP = 0.12f
+        const val BURST_FLIGHT = 0.55f
+
+        /** טיל: איטי, כדי שיהיה זמן לפגוע בו פעמיים */
+        const val ROCKET_FLIGHT = 2.6f
         private const val LOST_GRACE = 0.4f
 
         /** גודל מינימלי לפגיעה בקליע (גם כשהוא עוד קטן), ביחידות גובה מסך */
