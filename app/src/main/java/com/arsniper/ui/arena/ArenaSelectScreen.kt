@@ -74,6 +74,12 @@ private val MAP_TILES = listOf(
     R.drawable.journey_map_5
 )
 
+/** מיקום הגלילה של המפה, נשמר כל עוד המשחק פתוח */
+private object MapScrollMemory {
+    var position: Int? = null
+    var currentIndex: Int = -1
+}
+
 /**
  * WORLD JOURNEY: מפה ארוכה שגוללים לרוחב, 18 עולמות בזיגזג עם גשרים ביניהם.
  * על כל רחבה: שלט עם שם וכוכבים. עולם נעול מעומעם עם מנעול,
@@ -108,14 +114,20 @@ fun ArenaSelectScreen(
         val screenW = maxWidth
         val mapH = maxHeight
         val mapW = mapH * (Journey.MAP_W / Journey.MAP_H)
-        val scroll = rememberScrollState()
+        // חוזרים למפה באותו מקום שעזבנו אותה. רק בכניסה הראשונה, או כשעולם חדש נפתח,
+        // המפה נגללת לבד לעולם הנוכחי
+        val restore = MapScrollMemory.position.takeIf { MapScrollMemory.currentIndex == current }
+        val scroll = rememberScrollState(initial = restore ?: 0)
         val density = LocalDensity.current
 
-        // בכניסה: גוללים כך שהעולם הנוכחי באמצע המסך
         LaunchedEffect(Unit) {
-            val max = snapshotFlow { scroll.maxValue }.first { it > 0 && it < Int.MAX_VALUE }
-            val target = with(density) { (mapW * Journey.worlds[current].x - screenW / 2).toPx() }
-            scroll.scrollTo(target.toInt().coerceIn(0, max))
+            if (restore == null) {
+                val max = snapshotFlow { scroll.maxValue }.first { it > 0 && it < Int.MAX_VALUE }
+                val target = with(density) { (mapW * Journey.worlds[current].x - screenW / 2).toPx() }
+                scroll.scrollTo(target.toInt().coerceIn(0, max))
+            }
+            MapScrollMemory.currentIndex = current
+            snapshotFlow { scroll.value }.collect { MapScrollMemory.position = it }
         }
 
         Box(modifier = Modifier.fillMaxSize().horizontalScroll(scroll)) {
