@@ -1,0 +1,5 @@
+ok out/classic_boss/idle.png model=gpt-image-1.5 fidelity=True
+ok out/classic_boss/prepare.png model=gpt-image-1.5 fidelity=True
+ok out/classic_boss/firehit.png model=gpt-image-1.5 fidelity=True
+ok out/classic_boss/death.png model=gpt-image-1.5 fidelity=True
+sheet done (3072, 2560)
